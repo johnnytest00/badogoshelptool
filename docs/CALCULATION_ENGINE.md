@@ -42,7 +42,7 @@ A registry explicit; duplikált vagy ismeretlen azonosítót elutasít. Producti
 tetőkalkulátor nincs regisztrálva. A tesztben használt téglalap-terület DEMO
 fixture kizárólag a kontraktus integrációját demonstrálja.
 
-Az F4 eredményverziói későbbi számítási revíziók reprodukálhatóságát készítik
+A F4 eredményverziói későbbi számítási revíziók reprodukálhatóságát készítik
 elő, de ebben a fázisban nem írnak adatbázisba, nem kezelnek dependency DAG-ot,
 nem futtatnak hátteret és nem végeznek történeti újraszámítást.
 
@@ -63,5 +63,25 @@ hossz geometriai hossz, nem statikailag igazolt szarufavágási hossz.
 
 Az implementation/input/result verzió `1.0.0`. A szerver mentés előtt ugyanazt a
 tiszta kalkulátort futtatja, amelyet a böngésző élő előnézethez használ; a kliens
-eredménye nem kerül elfogadásra hiteles számításként. Az F6 számára a síkok négy
-koordinátás vertex-listája megmarad, de jelenleg nincs technikai SVG-renderer.
+eredménye nem kerül elfogadásra hiteles számításként. Az F6 a síkok négy
+koordinátás vertex-listáját használja technikai rajzforrásként.
+
+## F6 — rajzmodell és vetületek
+
+A `src/domain/drawings/gable-drawing.ts` tiszta modellje nem számol új tetőgeometriát.
+A `roof.gable` kimenetéből közvetlenül készít négy vetületet: X/Y felülnézetet,
+Y/Z orom- és keresztmetszetet, valamint X/Z hosszanti oldalnézetet. A fizikai
+koordináták és az SVG-koordináták külön maradnak; a függőleges képernyőirány
+inverziója egyetlen központi transzformációban történik.
+
+A rajzmodell külön kezeli a síkokat, kontúrokat, gerinc/eresz éleket,
+méretvonalakat, szögeket és segédvonalakat. A méretfeliratok forrása mindig F5
+eredménymező (`overallRoofLengthMm`, `horizontalRoofWidthMm`, `roofRiseMm`,
+`slopeLengthIncludingEaveMm` stb.), nem képernyőpixel-távolság. A
+`formatDrawingMeasurement` magyar vesszős mértékformátumot ad.
+
+Az SVG-renderer natív React elemeket használ, rétegei kapcsolhatók, és a méret-
+illetve numerikus eredmények a rajzon kívül is szövegesen elérhetők. A nézetváltás
+és a zoom/pan kizárólag megjelenítési állapot; nem hoz létre revíziót és nem ír
+adatbázisba. A Scaling Provider rajzskálája a viewport ideiglenes zoomjától
+független, így nincs kettős geometriai skálázás.

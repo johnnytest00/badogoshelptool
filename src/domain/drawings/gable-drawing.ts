@@ -1,0 +1,123 @@
+import type { GableRoofOutput, RoofVertex } from "@/domain/calculations/gable-roof";
+
+export type DrawingView = "top" | "gable" | "cross-section" | "longitudinal";
+export type DrawingLayerId = "planes" | "outlines" | "ridge-eaves" | "dimensions" | "angles" | "guides";
+export type DrawingPoint = Readonly<{ x: number; y: number }>;
+export type DrawingSegment = Readonly<{ start: DrawingPoint; end: DrawingPoint; label?: string; hidden?: boolean }>;
+export type DrawingPolygon = Readonly<{ points: readonly DrawingPoint[]; label: string; side?: "left" | "right" }>;
+export type DrawingDimension = Readonly<{ kind: "horizontal" | "vertical" | "aligned"; start: DrawingPoint; end: DrawingPoint; offset: number; label: string; sourceMm: number; optional?: boolean }>;
+export type DrawingAngle = Readonly<{ vertex: DrawingPoint; start: DrawingPoint; end: DrawingPoint; label: string }>;
+
+export type GableDrawingModel = Readonly<{
+  view: DrawingView;
+  title: string;
+  bounds: Readonly<{ minX: number; maxX: number; minY: number; maxY: number }>;
+  polygons: readonly DrawingPolygon[];
+  segments: readonly DrawingSegment[];
+  dimensions: readonly DrawingDimension[];
+  angles: readonly DrawingAngle[];
+  guides: readonly DrawingSegment[];
+}>;
+
+export const drawingViews: readonly { id: DrawingView; label: string }[] = [
+  { id: "top", label: "Felülnézet" },
+  { id: "gable", label: "Oromoldal" },
+  { id: "cross-section", label: "Keresztmetszet" },
+  { id: "longitudinal", label: "Oldalnézet" },
+];
+
+export const drawingLayers: readonly { id: DrawingLayerId; label: string; defaultVisible: boolean }[] = [
+  { id: "planes", label: "Tetősíkok", defaultVisible: true },
+  { id: "outlines", label: "Tetőkontúrok", defaultVisible: true },
+  { id: "ridge-eaves", label: "Gerinc és ereszek", defaultVisible: true },
+  { id: "dimensions", label: "Méretvonalak", defaultVisible: true },
+  { id: "angles", label: "Hajlásszögek", defaultVisible: true },
+  { id: "guides", label: "Segédvonalak", defaultVisible: true },
+];
+
+const titles: Record<DrawingView, string> = {
+  top: "Felülnézeti műszaki rajz",
+  gable: "Oromoldali műszaki rajz",
+  "cross-section": "Keresztmetszeti műszaki rajz",
+  longitudinal: "Hosszanti oldalnézeti műszaki rajz",
+};
+
+export function formatDrawingMeasurement(mm: number, decimals = 3): string {
+  const value = Math.abs(mm) >= 1000 ? `${new Intl.NumberFormat("hu-HU", { minimumFractionDigits: 2, maximumFractionDigits: decimals }).format(mm / 1000)} m` : `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 0 }).format(mm)} mm`;
+  return value;
+}
+
+function point(x: number, y: number): DrawingPoint { return { x, y }; }
+function invertY(value: number): number { return -value; }
+function xz(vertex: RoofVertex): DrawingPoint { return point(vertex.xMm, invertY(vertex.zMm)); }
+function yz(vertex: RoofVertex): DrawingPoint { return point(vertex.yMm, invertY(vertex.zMm)); }
+function xy(vertex: RoofVertex): DrawingPoint { return point(vertex.xMm, invertY(vertex.yMm)); }
+function closeSegments(points: readonly DrawingPoint[], label: string): DrawingSegment[] {
+  return points.map((start, index) => ({ start, end: points[(index + 1) % points.length], label }));
+}
+function bounds(points: readonly DrawingPoint[]): GableDrawingModel["bounds"] {
+  const xs = points.map((item) => item.x);
+  const ys = points.map((item) => item.y);
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+}
+function dimension(kind: DrawingDimension["kind"], start: DrawingPoint, end: DrawingPoint, offset: number, sourceMm: number, optional = false): DrawingDimension {
+  return { kind, start, end, offset, sourceMm, label: formatDrawingMeasurement(sourceMm), optional };
+}
+
+export function createGableDrawingModel(output: GableRoofOutput, view: DrawingView): GableDrawingModel {
+  const left = output.planes.find((plane) => plane.side === "left");
+  const right = output.planes.find((plane) => plane.side === "right");
+  if (!left || !right || left.vertices.length !== 4 || right.vertices.length !== 4) throw new Error("A rajzhoz hiányos tetősík-geometria érkezett.");
+  const all = [...left.vertices, ...right.vertices];
+  const startX = all.reduce((min, item) => Math.min(min, item.xMm), Infinity);
+  const endX = all.reduce((max, item) => Math.max(max, item.xMm), -Infinity);
+  const leftEave = left.vertices[0];
+  const rightEave = right.vertices[2];
+  const ridgeStart = left.vertices[3];
+  const ridgeEnd = left.vertices[2];
+  let polygons: DrawingPolygon[];
+  let segments: DrawingSegment[];
+  let dimensions: DrawingDimension[];
+  let angles: DrawingAngle[];
+  let guides: DrawingSegment[];
+  let allPoints: DrawingPoint[];
+
+  if (view === "top") {
+    const leftPoints = left.vertices.map(xy);
+    const rightPoints = right.vertices.map(xy);
+    polygons = [{ points: leftPoints, label: "Bal oldali tetősík", side: "left" }, { points: rightPoints, label: "Jobb oldali tetősík", side: "right" }];
+    segments = [...closeSegments(leftPoints, "Tetőkontúr"), ...closeSegments(rightPoints, "Tetőkontúr")];
+    const ridge = [point(ridgeStart.xMm, 0), point(ridgeEnd.xMm, 0)];
+    const eaveL = [point(leftEave.xMm, leftEave.yMm * -1), point(left.vertices[1].xMm, left.vertices[1].yMm * -1)];
+    const eaveR = [point(right.vertices[3].xMm, right.vertices[3].yMm * -1), point(rightEave.xMm, rightEave.yMm * -1)];
+    segments.push({ start: ridge[0], end: ridge[1], label: "Gerinc" }, { start: eaveL[0], end: eaveL[1], label: "Bal eresz" }, { start: eaveR[0], end: eaveR[1], label: "Jobb eresz" });
+    dimensions = [dimension("horizontal", point(startX, 0), point(endX, 0), 900, output.dimensions.overallRoofLengthMm), dimension("vertical", point(0, -output.dimensions.horizontalSlopeRunMm), point(0, output.dimensions.horizontalSlopeRunMm), 900, output.dimensions.horizontalRoofWidthMm)];
+    angles = [];
+    guides = [];
+    allPoints = [...leftPoints, ...rightPoints, ...ridge, ...eaveL, ...eaveR];
+  } else if (view === "longitudinal") {
+    const points = [xz(leftEave), xz(ridgeStart), xz(ridgeEnd), xz(rightEave)];
+    polygons = [];
+    segments = [{ start: points[0], end: points[1], label: "Bal tetőél" }, { start: points[1], end: points[2], label: "Gerinc" }, { start: points[2], end: points[3], label: "Jobb tetőél" }, { start: point(startX, 0), end: point(endX, 0), label: "Megtémasztási sík", hidden: true }];
+    dimensions = [dimension("horizontal", point(startX, 0), point(endX, 0), 900, output.dimensions.overallRoofLengthMm), dimension("vertical", point(0, 0), point(0, invertY(output.heights.roofRiseMm)), -700, output.heights.roofRiseMm)];
+    angles = [];
+    guides = [{ start: point(0, 0), end: point(endX, 0), label: "Fal megtámasztási síkja", hidden: true }];
+    allPoints = [...points, point(startX, 0), point(endX, 0)];
+  } else {
+    const points = [yz(leftEave), yz(ridgeStart), yz(rightEave)];
+    polygons = [];
+    segments = [{ start: points[0], end: points[1], label: "Bal tetősík" }, { start: points[1], end: points[2], label: "Jobb tetősík" }];
+    guides = [{ start: point(-output.dimensions.buildingWidthMm / 2, 0), end: point(output.dimensions.buildingWidthMm / 2, 0), label: "Fal megtámasztási síkja", hidden: true }, { start: point(0, 0), end: points[1], label: "Felező segédvonal", hidden: true }];
+    dimensions = [dimension("horizontal", point(-output.dimensions.horizontalSlopeRunMm, 0), point(output.dimensions.horizontalSlopeRunMm, 0), 900, output.dimensions.horizontalRoofWidthMm), dimension("vertical", point(0, 0), points[1], 900, output.heights.roofRiseMm), dimension("aligned", points[0], points[1], -650, output.lengths.slopeLengthIncludingEaveMm)];
+    angles = [{ vertex: points[1], start: point(points[1].x - output.dimensions.horizontalSlopeRunMm * 0.35, points[1].y + output.heights.roofRiseMm * 0.35), end: point(points[1].x + output.dimensions.horizontalSlopeRunMm * 0.35, points[1].y + output.heights.roofRiseMm * 0.35), label: `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 2 }).format(output.angles.pitchDegrees)}°` }];
+    allPoints = [...points, ...guides.flatMap((item) => [item.start, item.end])];
+  }
+  const flatPoints = allPoints.filter((item) => Number.isFinite(item.x) && Number.isFinite(item.y));
+  return { view, title: titles[view], bounds: bounds(flatPoints), polygons, segments, dimensions, angles, guides };
+}
+
+export function filterDrawingModel(model: GableDrawingModel, visible: Readonly<Record<DrawingLayerId, boolean>>): GableDrawingModel {
+  const isRidgeOrEave = (label: string | undefined) => Boolean(label && (label.includes("Gerinc") || label.includes("eresz")));
+  return { ...model, polygons: visible.planes ? model.polygons : [], segments: model.segments.filter((segment) => isRidgeOrEave(segment.label) ? visible["ridge-eaves"] : visible.outlines), dimensions: visible.dimensions ? model.dimensions : [], angles: visible.angles ? model.angles : [], guides: visible.guides ? model.guides : [] };
+}
+
