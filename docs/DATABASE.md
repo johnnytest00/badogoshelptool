@@ -158,6 +158,25 @@ közben mentett adatot. A függvényhez anon és public EXECUTE nincs; service-r
 nem szükséges. A `roof.gable` input/output JSON-t az alkalmazás a tiszta domain
 kalkulátorral ellenőrzi és számolja ki a függvény meghívása előtt.
 
+## F7.2 anyagkimutatás
+
+Az `20261012050000_material_takeoffs.sql` a mentett, ellenőrzött kalkulációs
+revízióhoz kötött anyagkimutatás alapja. A `material_takeoffs` a projektet,
+forráskalkulációt, forrásrevíziót és állapotot, a `material_takeoff_items` pedig
+az anyagváltozatot, számítási módot, mérési forrást, eredeti és végső mennyiséget,
+provenance-, anyag- és opcionális ár snapshotot tárolja.
+
+Az approval RPC csak azonos szervezetű admin/tulajdonos számára engedélyezett,
+ellenőrzi, hogy a forrásrevízió továbbra is a kalkuláció current revisionje-e,
+majd atomikusan draftból approved állapotba vált. Approved kimutatás és tételei
+triggerrel immutable-ok. A következő hardening migrációk külön trigger- és RLS-
+policy javítást tartalmaznak; nincs remote adatbázis-hatás.
+
+Az alkalmazási réteg újraszámolja a területet/vonalhosszt a szerver által betöltött
+F5 snapshotból, nem tárol unsaved preview-t, és az ár kiválasztásakor a konkrét
+F7.1 árrekordot snapshotolja. Anyag-layout, ajánlat, készlet, ÁFA és rendeléslogika
+nem része az F7.2-nek.
+
 ## F7.1 anyagkatalógus
 
 Az `20261012040000_material_catalog.sql` migráció négy szervezet-private táblát

@@ -1,5 +1,14 @@
 # F4 — Domain calculation foundation
 
+## F7.2 material takeoff boundary
+
+Az F7.2 nem módosítja a `roof.gable` matematikáját. A takeoff kizárólag a
+mentett, verified `calculation_revisions.output_snapshot` értéket használja,
+és a `GABLE_CALCULATOR_VERSION` / `GABLE_INPUT_SCHEMA_VERSION` egyezését
+ellenőrzi. Területnél nincs implicit ráhagyás: a felhasználó által megadott
+százalék kerül alkalmazásra. Vonalhossznál az F5 mm érték explicit módon m-re
+konvertálódik. Kézi mennyiség nem kap automatikus geometriai igazolást.
+
 ## Határ
 
 Az F4 tiszta, determinisztikus TypeScript domain-alapot ad. Nincs benne React,

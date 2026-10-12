@@ -1,6 +1,6 @@
 begin;
 
-select plan(127);
+select plan(146);
 
 select has_table('public', 'profiles', 'profiles exists');
 select has_table('public', 'organizations', 'organizations exists');
@@ -381,6 +381,31 @@ select throws_ok(
     values ('00000000-0000-4000-8000-000000000010', 'unauthorized client')$$,
   '42501', null, 'non-member cannot write organization clients'
 );
+
+select has_table('public', 'material_takeoffs', 'material_takeoffs exists');
+select has_table('public', 'material_takeoff_items', 'material_takeoff_items exists');
+select is((select relrowsecurity from pg_class where oid = 'public.material_takeoffs'::regclass), true, 'material_takeoffs RLS enabled');
+select is((select relrowsecurity from pg_class where oid = 'public.material_takeoff_items'::regclass), true, 'material_takeoff_items RLS enabled');
+select ok(exists (select 1 from pg_constraint where conname = 'material_takeoffs_calculation_revision_fk'), 'takeoff source revision constraint exists');
+select ok(exists (select 1 from pg_constraint where conname = 'material_takeoff_items_variant_fk'), 'takeoff variant constraint exists');
+select ok(exists (select 1 from pg_proc where proname = 'approve_material_takeoff'), 'approval function exists');
+select ok(exists (select 1 from pg_trigger where tgname = 'material_takeoffs_approved_immutable'), 'approved immutability trigger exists');
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
+select lives_ok($$insert into public.material_takeoffs (id, organization_id, project_id, source_calculation_id, source_calculation_revision_id, name, created_by) values ('00000000-0000-4000-8000-000000000120', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000050', '00000000-0000-4000-8000-000000000051', 'DEMO F7.2 kimutatás', '00000000-0000-4000-8000-000000000001')$$, 'member can create draft takeoff');
+select ok(exists (select 1 from public.material_takeoffs where id = '00000000-0000-4000-8000-000000000120' and status = 'draft'), 'draft takeoff is readable');
+select lives_ok($$insert into public.material_takeoff_items (id, organization_id, takeoff_id, variant_id, estimation_method, measurement_source, selected_measurement_value, allowance_percent, calculated_quantity, final_quantity, quantity_unit, material_snapshot, data_provenance, created_by) values ('00000000-0000-4000-8000-000000000121', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000120', '00000000-0000-4000-8000-000000000082', 'area', 'areas.combinedRoofM2', 140.625, 10, 154.6875, 154.6875, 'square_meter', '{"source":"DEMO"}', 'demo', '00000000-0000-4000-8000-000000000001')$$, 'member can add takeoff item');
+select is((select count(*)::int from public.material_takeoff_items where takeoff_id = '00000000-0000-4000-8000-000000000120'), 1, 'takeoff item is stored');
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
+select is_empty('select 1 from public.material_takeoffs where organization_id = ''00000000-0000-4000-8000-000000000010''', 'non-member cannot read takeoffs');
+select throws_ok($$insert into public.material_takeoffs (organization_id, project_id, source_calculation_id, source_calculation_revision_id, name) values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000050', '00000000-0000-4000-8000-000000000051', 'unauthorized')$$, '42501', null, 'non-member cannot create takeoff');
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
+select lives_ok($$select * from public.approve_material_takeoff('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000120', 1)$$, 'owner can approve current takeoff');
+select is((select status::text from public.material_takeoffs where id = '00000000-0000-4000-8000-000000000120'), 'approved', 'approval changes status');
+select is((select approved_by from public.material_takeoffs where id = '00000000-0000-4000-8000-000000000120'), '00000000-0000-4000-8000-000000000001'::uuid, 'approval records actor');
+set local role postgres;
+select throws_ok($$update public.material_takeoff_items set final_quantity = 1, adjustment_reason = 'tampered' where id = '00000000-0000-4000-8000-000000000121'$$, 'P0001', null, 'approved takeoff item is immutable');
+select throws_ok($$update public.material_takeoffs set name = 'tampered' where id = '00000000-0000-4000-8000-000000000120'$$, 'P0001', null, 'approved takeoff is immutable');
+set local role authenticated;
 
 set local role postgres;
 delete from public.organization_members

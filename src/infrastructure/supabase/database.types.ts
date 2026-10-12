@@ -199,6 +199,76 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"material_takeoff_items": {
+                  Row: {
+                    "adjustment_reason": string | null,"allowance_percent": number | null,"calculated_quantity": number | null,"created_at": string,"created_by": string | null,"data_provenance": Database["public"]['Enums']["material_data_provenance"],"estimation_method": Database["public"]['Enums']["material_takeoff_method"],"final_quantity": number,"id": string,"material_snapshot": NonNullable<Json>,"measurement_source": string,"organization_id": string,"price_snapshot": Json | null,"quantity_unit": Database["public"]['Enums']["material_purchasing_unit"],"selected_measurement_value": number | null,"takeoff_id": string,"updated_at": string,"variant_id": string,"warnings": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "adjustment_reason"?: string | null,"allowance_percent"?: number | null,"calculated_quantity"?: number | null,"created_at"?: string,"created_by"?: string | null,"data_provenance"?: Database["public"]['Enums']["material_data_provenance"],"estimation_method": Database["public"]['Enums']["material_takeoff_method"],"final_quantity": number,"id"?: string,"material_snapshot"?: NonNullable<Json>,"measurement_source": string,"organization_id": string,"price_snapshot"?: Json | null,"quantity_unit": Database["public"]['Enums']["material_purchasing_unit"],"selected_measurement_value"?: number | null,"takeoff_id": string,"updated_at"?: string,"variant_id": string,"warnings"?: NonNullable<Json>
+                  }
+                  Update: {
+                    "adjustment_reason"?: string | null,"allowance_percent"?: number | null,"calculated_quantity"?: number | null,"created_at"?: string,"created_by"?: string | null,"data_provenance"?: Database["public"]['Enums']["material_data_provenance"],"estimation_method"?: Database["public"]['Enums']["material_takeoff_method"],"final_quantity"?: number,"id"?: string,"material_snapshot"?: NonNullable<Json>,"measurement_source"?: string,"organization_id"?: string,"price_snapshot"?: Json | null,"quantity_unit"?: Database["public"]['Enums']["material_purchasing_unit"],"selected_measurement_value"?: number | null,"takeoff_id"?: string,"updated_at"?: string,"variant_id"?: string,"warnings"?: NonNullable<Json>
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "material_takeoff_items_takeoff_fk"
+      columns: ["takeoff_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "material_takeoffs"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "material_takeoff_items_variant_fk"
+      columns: ["variant_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "material_variants"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"material_takeoffs": {
+                  Row: {
+                    "approved_at": string | null,"approved_by": string | null,"created_at": string,"created_by": string | null,"id": string,"name": string,"organization_id": string,"project_id": string,"source_calculation_id": string,"source_calculation_revision_id": string,"source_roof_model_id": string | null,"source_roof_model_revision_id": string | null,"status": Database["public"]['Enums']["material_takeoff_status"],"updated_at": string,"version": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "approved_at"?: string | null,"approved_by"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"name": string,"organization_id": string,"project_id": string,"source_calculation_id": string,"source_calculation_revision_id": string,"source_roof_model_id"?: string | null,"source_roof_model_revision_id"?: string | null,"status"?: Database["public"]['Enums']["material_takeoff_status"],"updated_at"?: string,"version"?: number
+                  }
+                  Update: {
+                    "approved_at"?: string | null,"approved_by"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"project_id"?: string,"source_calculation_id"?: string,"source_calculation_revision_id"?: string,"source_roof_model_id"?: string | null,"source_roof_model_revision_id"?: string | null,"status"?: Database["public"]['Enums']["material_takeoff_status"],"updated_at"?: string,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "material_takeoffs_calculation_fk"
+      columns: ["source_calculation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "calculations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "material_takeoffs_calculation_revision_fk"
+      columns: ["source_calculation_revision_id","source_calculation_id"]
+isOneToOne: false
+      referencedRelation: "calculation_revisions"
+      referencedColumns: ["id","calculation_id"]
+    },{
+      foreignKeyName: "material_takeoffs_project_fk"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "material_takeoffs_roof_model_fk"
+      columns: ["source_roof_model_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "roof_models"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "material_takeoffs_roof_revision_fk"
+      columns: ["source_roof_model_revision_id","source_roof_model_id"]
+isOneToOne: false
+      referencedRelation: "roof_model_revisions"
+      referencedColumns: ["id","roof_model_id"]
+    }
+                  ]
                 },"material_variants": {
                   Row: {
                     "created_at": string,"created_by": string | null,"data_provenance": Database["public"]['Enums']["material_data_provenance"],"effective_width_mm": number | null,"id": string,"length_mm": number | null,"name": string,"nominal_width_mm": number | null,"organization_id": string,"packaging_quantity": number | null,"product_id": string,"purchasing_unit": Database["public"]['Enums']["material_purchasing_unit"],"sku": string | null,"source_date": string | null,"source_name": string | null,"source_notes": string | null,"source_url": string | null,"technical_specs": NonNullable<Json>,"thickness_mm": number | null,"updated_at": string
@@ -363,14 +433,38 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "save_gable_roof_calculation":
+            "approve_material_takeoff":
+{ Args: { "p_expected_version": number,"p_organization_id": string,"p_takeoff_id": string }; Returns: {
+              "approved_at": string | null,
+"approved_by": string | null,
+"created_at": string,
+"created_by": string | null,
+"id": string,
+"name": string,
+"organization_id": string,
+"project_id": string,
+"source_calculation_id": string,
+"source_calculation_revision_id": string,
+"source_roof_model_id": string | null,
+"source_roof_model_revision_id": string | null,
+"status": Database["public"]['Enums']["material_takeoff_status"],
+"updated_at": string,
+"version": number
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "material_takeoffs"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"save_gable_roof_calculation":
 { Args: { "p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_roof_model_id": string,"p_warnings": Json }; Returns: {
               "calculation_id": string,"calculation_revision_id": string,"revision_number": number,"roof_model_id": string,"roof_model_revision_id": string
             }[]
                            }
           }
           Enums: {
-            "material_category": "roof_covering"|"sheet_metal"|"gutter"|"flashing"|"insulation"|"timber"|"accessory"|"other","material_data_provenance": "verified"|"user_provided"|"estimated"|"demo"|"missing","material_price_kind": "net"|"gross","material_product_status": "active"|"archived","material_purchasing_unit": "piece"|"linear_meter"|"square_meter"|"cubic_meter"|"kilogram"|"package","organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other"
+            "material_category": "roof_covering"|"sheet_metal"|"gutter"|"flashing"|"insulation"|"timber"|"accessory"|"other","material_data_provenance": "verified"|"user_provided"|"estimated"|"demo"|"missing","material_price_kind": "net"|"gross","material_product_status": "active"|"archived","material_purchasing_unit": "piece"|"linear_meter"|"square_meter"|"cubic_meter"|"kilogram"|"package","material_takeoff_method": "area"|"linear"|"manual","material_takeoff_status": "draft"|"approved","organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -490,7 +584,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "material_category": ["roof_covering", "sheet_metal", "gutter", "flashing", "insulation", "timber", "accessory", "other"],"material_data_provenance": ["verified", "user_provided", "estimated", "demo", "missing"],"material_price_kind": ["net", "gross"],"material_product_status": ["active", "archived"],"material_purchasing_unit": ["piece", "linear_meter", "square_meter", "cubic_meter", "kilogram", "package"],"organization_role": ["owner", "admin", "member"],"project_status": ["draft", "in_progress", "quoted", "accepted", "completed", "archived"],"project_type": ["roof_renovation", "roof_construction", "gutter_work", "other"]
+            "material_category": ["roof_covering", "sheet_metal", "gutter", "flashing", "insulation", "timber", "accessory", "other"],"material_data_provenance": ["verified", "user_provided", "estimated", "demo", "missing"],"material_price_kind": ["net", "gross"],"material_product_status": ["active", "archived"],"material_purchasing_unit": ["piece", "linear_meter", "square_meter", "cubic_meter", "kilogram", "package"],"material_takeoff_method": ["area", "linear", "manual"],"material_takeoff_status": ["draft", "approved"],"organization_role": ["owner", "admin", "member"],"project_status": ["draft", "in_progress", "quoted", "accepted", "completed", "archived"],"project_type": ["roof_renovation", "roof_construction", "gutter_work", "other"]
           }
         }
 } as const

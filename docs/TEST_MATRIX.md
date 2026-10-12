@@ -1,5 +1,36 @@
 # Tesztmátrix
 
+## F7.2 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| F7.2 lokális migrációk | Sikeres | Takeoff séma, trigger-hardening és approval-policy migrációk helyi `supabase db push --local` után alkalmazva; remote kapcsolat nem történt. |
+| Migrációs állapot | Sikeres | Mind a 9 lokális migráció egyező helyi állapotban van; `supabase migration list --local` local/remote oszlopa azonos. A konfigurációban deprecated `[inbucket]` nincs, `[local_smtp]` van. |
+| F7.2.2 lineáris DEMO variáns | Sikeres | Helyi, egyértelmű DEMO `linear_meter` variáns, gyártó/specifikáció/ár nélkül. 12,5 m gerinchossz → 12,5 `linear_meter`; mentés, reload és DB mennyiség ellenőrizve. |
+| F7.2.2 inkompatibilis egység | Sikeres | A `square_meter` variáns `linear` módszerrel szerveroldali, látható hibával elutasítva. |
+| F7.2.2 approval concurrency | Sikeres | Két külön PostgreSQL-kapcsolat ugyanazon lokális DEMO draftra indított approvalt; egy approved eredmény, egy verzió/státusz elutasítás, nincs duplikált approval vagy részleges item-mentés. |
+| F7.2.2 responsive QA | Sikeres | Dashboard, projektoldal, kalkulátor/SVG és anyagkimutatás 320/375/390/430 px explicit viewporton. A kezdeti dashboard és takeoff overflow javítva; újrateszt mindegyik méreten `scrollWidth === clientWidth`, offscreen vezérlő nélkül. |
+| Lokális táblák | Sikeres | A teljes lokális séma ellenőrzött: `organizations`, `projects`, `calculations`, `material_products`, `material_variants`, `material_takeoffs`, `material_takeoff_items`. |
+| Takeoff táblák | Sikeres | `material_takeoffs` és `material_takeoff_items`, szervezeti összetett FK-kal, draft/approved állapottal és snapshotokkal. |
+| RLS és approval | Sikeres | Szervezeti olvasás/írás, admin-owner approval, draft-only item írás és approved immutabilitás pgTAP-ban ellenőrizve. |
+| Forrásrevízió | Sikeres | Csak mentett, verified `roof.gable` output; implementáció- és input-séma-verzió ellenőrzött. |
+| Domain referenciaesetek | Sikeres | 17 Vitest fájl / 56 teszt; 140,625 m² → 154,6875 m², 12,5 m gerinc, 25 m eresz, manual/piece tiltás. |
+| pgTAP | Sikeres | 146/146 PASS helyi adatbázison. |
+| TypeScript DB-típusok | Sikeres | `npm run db:types` helyi sémából lefutott. |
+| `npm run typecheck` | Sikeres | Hibamentes. |
+| `npm run lint` | Sikeres | Hibamentes. |
+| `npm run build` | Sikeres | Next.js webpack production build; az új project-linked route elkészült. |
+| Migration replay külön eldobható DB-n | Sikeres | A név szerint azonosított `f72_replay_20261012` lokális DB-n mind a 9 migráció lefutott; utána a disposable DB törölve lett, a fő lokális DB érintetlen maradt. |
+| Böngészős F7.2 workflow | Sikeres | F7.2.1 területi/approval/stale/logout flow és F7.2.2 lineáris 12,5 m mentés/reload flow helyi DEMO adatokkal. |
+| F7.2.1 böngészős create/draft | Sikeres | Helyi DEMO fiókkal meglévő projekt, rev. 2 forrás és valós draft létrehozás. |
+| F7.2.1 quantity/persistence | Sikeres | 156,25 m² aktuális local outputból 10% ráhagyással 171,875 m²; manuális 2,5 m²; reload után mindkettő látszik. |
+| F7.2.1 incompatible unit | Sikeres | Meglévő `square_meter` variáns lineáris módszerrel szerveroldalon elutasítva, látható magyar hibaüzenettel. `linear_meter` meglévő variáns nem volt. |
+| F7.2.1 approval/immutability | Sikeres | Owner approval valódi UI-n; approved állapot reload után megmarad, szerkesztőform eltűnik, item/history snapshot read-only DB ellenőrzéssel megmarad. |
+| F7.2.1 stale/new draft | Sikeres | Rev. 3 mentett módosítás után korábbi approved takeoff „Elavult számítási alap”, új rev. 3 draft létrehozható. |
+| F7.2.1 logout protection | Sikeres | Logout után a takeoff URL login oldalra irányít `returnTo` paraméterrel, adat nem látható. |
+| Concurrency DEMO-adat takarítás | Korlátozott | A már approved concurrency DEMO rekordot az immutable trigger szándékosan nem engedte törölni; az azonosított rekord lokális maradt, távoli adat nem érintett. |
+| `npm audit` | Nem verifikálható | `ENOTFOUND registry.npmjs.org`; audit eredmény nem állt rendelkezésre. |
+
 ## F7.1 ellenőrzések
 
 | Ellenőrzés | Állapot | Megjegyzés |
