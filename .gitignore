@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+*.pem
+*.key
+.npmrc
+
+# Supabase local files
+supabase/.temp/
+supabase/.branches/
