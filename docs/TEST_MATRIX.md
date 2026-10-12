@@ -1,5 +1,36 @@
 # Tesztmátrix
 
+## F7.2.3 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Mobil kontraszt, világos/sötét téma | Sikeres | Szemantikus foreground/muted/brand tokenekkel ellenőrizve a projektoldal, kártya, státusz, űrlap és kereső tényleges hátterein. |
+| Back navigation | Sikeres | Új `BackNavigation` komponens, determinisztikus szülőútvonal, ikon, border, fókusz és mobil touch target. |
+| Projektkereső elrendezés | Sikeres | Az ikon és input egy sorban maradt 320, 375, 390, 430, 768 és 1440 px méreten; nincs overflow. |
+| Projektoldal és projektkártyák | Sikeres | Olvasható hierarchia, hosszú szöveghez törés, mobil dokumentum-overflow nélkül. |
+| SVG viewport és toolbar | Sikeres | Négy nézet, zoom in/out, Fit, Reset és zoom százalék böngészőben ellenőrizve; Fit és Reset eltérő művelet. |
+| SVG rétegek | Sikeres | Mind a hat checkbox elérhető; rétegkapcsolás böngészőben ellenőrizve. |
+| SVG gesture matematika | Sikeres | Pan/pinch, zoom clamp, fókuszpont-megtartás, pointer cancel/release és fit bounds Vitestben ellenőrizve. Fizikai multi-touch nem szimulált. |
+| Explicit responsive viewport QA | Sikeres | 320×700, 375×812, 390×844, 430×932, 768×1024, 1440×900; a vizsgált oldalaknál `scrollWidth === clientWidth`. |
+| 200% szöveg / 150% UI skála | Sikeres | Helyi böngészőben elvégzett skálázási ellenőrzés; input és projektlista nem tört vízszintesen. |
+| Vitest | Sikeres | 17 fájl / 58 teszt. |
+| Typecheck, lint, build | Sikeres | Mindhárom parancs hibamentesen lefutott. |
+| Fizikai iPhone multi-touch | Korlátozott | Ebben a környezetben nincs valódi eszközös kétujjas végrehajtás; kézi készülékteszt szükséges. |
+
+## F7.2.4 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Pan indulása | Sikeres | A pan már az első pointer-deltára számolható, nincs külön drag threshold. |
+| Pointer delta / 1:1 követés | Sikeres | Zoom-kompenzált pan és preserveAspectRatio-aware client→viewBox leképezés célzott Vitestben ellenőrizve. |
+| Kezdőpont és ugrásmentesség | Sikeres | Letterboxolt SVG középpontja stabil; a kezdőpont nem tolja el a rajzot. |
+| Pointer cancel/release | Sikeres | A megmaradó pointer újraalapozódik, üres pointerkészletnél a gesztus törlődik. |
+| Pinch → pan átmenet | Sikeres | A pinch utáni egyujjas pan a tényleges aktuális pan/zoom állapotból indul. |
+| Célzott Vitest | Sikeres | `drawing-viewport.test.ts`: 1 fájl / 7 teszt. |
+| Typecheck | Sikeres | `npm run typecheck` hibamentes. |
+| Lint | Sikeres | `npm run lint` hibamentes. |
+| Fizikai iPhone touch pan | Nem ellenőrzött | A javítás automatizáltan és matematikailag ellenőrzött; valódi készülékes próbát a felhasználónak kell elvégeznie. |
+
 ## F7.2 ellenőrzések
 
 | Ellenőrzés | Állapot | Megjegyzés |

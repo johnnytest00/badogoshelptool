@@ -1,11 +1,10 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getProjectsForOrganization } from "@/features/projects/project-data";
 import { projectFilterSchema } from "@/domain/projects/contracts";
 import { ProjectList } from "@/features/projects/project-list";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 export default async function ProjectsPage({ searchParams }: Readonly<{ searchParams: Promise<Record<string, string | string[] | undefined>> }>) {
   const params = await searchParams;
@@ -15,7 +14,7 @@ export default async function ProjectsPage({ searchParams }: Readonly<{ searchPa
   if (!selected.organization) return <OrganizationChoice organizations={selected.auth.organizations} />;
   const filters = projectFilterSchema.parse({ search: typeof params.search === "string" ? params.search : undefined, status: typeof params.status === "string" ? params.status : undefined, projectType: typeof params.projectType === "string" ? params.projectType : undefined, includeArchived: params.archived === "1", sort: params.sort === "oldest" ? "oldest" : "newest" });
   const projects = await getProjectsForOrganization(selected.organization.id, filters);
-  return <main className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/?organization=${selected.organization.id}`}><ArrowLeft className="size-4" /> Vissza a műhelyhez</Link><ProjectList organizationId={selected.organization.id} projects={projects} filters={filters} /></div></main>;
+  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/?organization=${selected.organization.id}`} label="Vissza a műhelyhez" /><ProjectList organizationId={selected.organization.id} projects={projects} filters={filters} /></div></main>;
 }
 
 function OrganizationChoice({ organizations }: Readonly<{ organizations: readonly { id: string; name: string }[] }>) {
