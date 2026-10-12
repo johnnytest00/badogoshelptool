@@ -127,6 +127,104 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"material_manufacturers": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"id": string,"name": string,"notes": string | null,"organization_id": string,"updated_at": string,"website": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"name": string,"notes"?: string | null,"organization_id": string,"updated_at"?: string,"website"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"name"?: string,"notes"?: string | null,"organization_id"?: string,"updated_at"?: string,"website"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "material_manufacturers_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"material_prices": {
+                  Row: {
+                    "amount": number,"created_at": string,"created_by": string | null,"currency": string,"data_provenance": Database["public"]['Enums']["material_data_provenance"],"effective_date": string,"id": string,"organization_id": string,"price_kind": Database["public"]['Enums']["material_price_kind"],"price_source": string | null,"purchasing_unit": Database["public"]['Enums']["material_purchasing_unit"],"recorded_at": string,"source_date": string | null,"source_name": string | null,"source_notes": string | null,"source_url": string | null,"variant_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "amount": number,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"data_provenance"?: Database["public"]['Enums']["material_data_provenance"],"effective_date": string,"id"?: string,"organization_id": string,"price_kind": Database["public"]['Enums']["material_price_kind"],"price_source"?: string | null,"purchasing_unit": Database["public"]['Enums']["material_purchasing_unit"],"recorded_at"?: string,"source_date"?: string | null,"source_name"?: string | null,"source_notes"?: string | null,"source_url"?: string | null,"variant_id": string
+                  }
+                  Update: {
+                    "amount"?: number,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"data_provenance"?: Database["public"]['Enums']["material_data_provenance"],"effective_date"?: string,"id"?: string,"organization_id"?: string,"price_kind"?: Database["public"]['Enums']["material_price_kind"],"price_source"?: string | null,"purchasing_unit"?: Database["public"]['Enums']["material_purchasing_unit"],"recorded_at"?: string,"source_date"?: string | null,"source_name"?: string | null,"source_notes"?: string | null,"source_url"?: string | null,"variant_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "material_prices_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "material_prices_variant_same_organization_fk"
+      columns: ["variant_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "material_variants"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"material_products": {
+                  Row: {
+                    "category": Database["public"]['Enums']["material_category"],"created_at": string,"created_by": string | null,"data_provenance": Database["public"]['Enums']["material_data_provenance"],"description": string | null,"id": string,"manufacturer_id": string | null,"name": string,"organization_id": string,"product_code": string | null,"source_date": string | null,"source_name": string | null,"source_notes": string | null,"source_url": string | null,"status": Database["public"]['Enums']["material_product_status"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category": Database["public"]['Enums']["material_category"],"created_at"?: string,"created_by"?: string | null,"data_provenance"?: Database["public"]['Enums']["material_data_provenance"],"description"?: string | null,"id"?: string,"manufacturer_id"?: string | null,"name": string,"organization_id": string,"product_code"?: string | null,"source_date"?: string | null,"source_name"?: string | null,"source_notes"?: string | null,"source_url"?: string | null,"status"?: Database["public"]['Enums']["material_product_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "category"?: Database["public"]['Enums']["material_category"],"created_at"?: string,"created_by"?: string | null,"data_provenance"?: Database["public"]['Enums']["material_data_provenance"],"description"?: string | null,"id"?: string,"manufacturer_id"?: string | null,"name"?: string,"organization_id"?: string,"product_code"?: string | null,"source_date"?: string | null,"source_name"?: string | null,"source_notes"?: string | null,"source_url"?: string | null,"status"?: Database["public"]['Enums']["material_product_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "material_products_manufacturer_same_organization_fk"
+      columns: ["manufacturer_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "material_manufacturers"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "material_products_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"material_variants": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"data_provenance": Database["public"]['Enums']["material_data_provenance"],"effective_width_mm": number | null,"id": string,"length_mm": number | null,"name": string,"nominal_width_mm": number | null,"organization_id": string,"packaging_quantity": number | null,"product_id": string,"purchasing_unit": Database["public"]['Enums']["material_purchasing_unit"],"sku": string | null,"source_date": string | null,"source_name": string | null,"source_notes": string | null,"source_url": string | null,"technical_specs": NonNullable<Json>,"thickness_mm": number | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"data_provenance"?: Database["public"]['Enums']["material_data_provenance"],"effective_width_mm"?: number | null,"id"?: string,"length_mm"?: number | null,"name": string,"nominal_width_mm"?: number | null,"organization_id": string,"packaging_quantity"?: number | null,"product_id": string,"purchasing_unit": Database["public"]['Enums']["material_purchasing_unit"],"sku"?: string | null,"source_date"?: string | null,"source_name"?: string | null,"source_notes"?: string | null,"source_url"?: string | null,"technical_specs"?: NonNullable<Json>,"thickness_mm"?: number | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"data_provenance"?: Database["public"]['Enums']["material_data_provenance"],"effective_width_mm"?: number | null,"id"?: string,"length_mm"?: number | null,"name"?: string,"nominal_width_mm"?: number | null,"organization_id"?: string,"packaging_quantity"?: number | null,"product_id"?: string,"purchasing_unit"?: Database["public"]['Enums']["material_purchasing_unit"],"sku"?: string | null,"source_date"?: string | null,"source_name"?: string | null,"source_notes"?: string | null,"source_url"?: string | null,"technical_specs"?: NonNullable<Json>,"thickness_mm"?: number | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "material_variants_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "material_variants_product_same_organization_fk"
+      columns: ["product_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "material_products"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"organization_members": {
                   Row: {
                     "created_at": string,"organization_id": string,"role": Database["public"]['Enums']["organization_role"],"user_id": string
@@ -272,7 +370,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other"
+            "material_category": "roof_covering"|"sheet_metal"|"gutter"|"flashing"|"insulation"|"timber"|"accessory"|"other","material_data_provenance": "verified"|"user_provided"|"estimated"|"demo"|"missing","material_price_kind": "net"|"gross","material_product_status": "active"|"archived","material_purchasing_unit": "piece"|"linear_meter"|"square_meter"|"cubic_meter"|"kilogram"|"package","organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -392,7 +490,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "organization_role": ["owner", "admin", "member"],"project_status": ["draft", "in_progress", "quoted", "accepted", "completed", "archived"],"project_type": ["roof_renovation", "roof_construction", "gutter_work", "other"]
+            "material_category": ["roof_covering", "sheet_metal", "gutter", "flashing", "insulation", "timber", "accessory", "other"],"material_data_provenance": ["verified", "user_provided", "estimated", "demo", "missing"],"material_price_kind": ["net", "gross"],"material_product_status": ["active", "archived"],"material_purchasing_unit": ["piece", "linear_meter", "square_meter", "cubic_meter", "kilogram", "package"],"organization_role": ["owner", "admin", "member"],"project_status": ["draft", "in_progress", "quoted", "accepted", "completed", "archived"],"project_type": ["roof_renovation", "roof_construction", "gutter_work", "other"]
           }
         }
 } as const

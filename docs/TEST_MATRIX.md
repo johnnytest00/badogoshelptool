@@ -1,5 +1,25 @@
 # Tesztmátrix
 
+## F7.1 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| F7.1 migráció | Sikeres | `20261012040000_material_catalog.sql` és `20261012040100_material_price_immutability.sql` helyi `supabase db push --local` után alkalmazva, reset nélkül. |
+| Katalógustáblák | Sikeres | Gyártók, termékek, variánsok, árak létrejöttek. |
+| RLS és szervezeti FK | Sikeres | 4/4 új tábla RLS-es; összetett gyártó/termék/variáns/ár FK-k és outsider tesztek PASS. |
+| Árhistorika | Sikeres | 2 árverzió megmarad, latest ordering determinisztikus, update/delete trigger tilt. |
+| Domain validáció | Sikeres | Kategória, egység, URL, provenance, nemnegatív méretek/ár és JSON objektum ellenőrzése. |
+| pgTAP | Sikeres | 127/127 PASS helyi adatbázison. |
+| TypeScript DB-típusok | Sikeres | `npm run db:types` lokális sémából futtatva. |
+| Vitest | Sikeres | 16 fájl / 53 teszt. |
+| `npm run typecheck` | Sikeres | Hibamentes. |
+| `npm run lint` | Sikeres | Hibamentes. |
+| `npm run build` | Sikeres | Next.js 16.4.0 webpack production build. |
+| Helyi admin login | Sikeres | `admin1@testadmin.com` lokális Auth user, DEMO owner tagság, böngészőben belépés igazolva. |
+| Anyagkatalógus browser workflow | Sikeres | Gyártó → termék → variáns → két árverzió → reload/detail → keresés → archive/restore. |
+| Távoli Supabase | Nem használt | Link, login, push és remote adatbázis-módosítás nem történt. |
+| `npm audit` | Nem verifikálható | npm registry DNS-hiba maradt fenn. |
+
 ## F6.1 ellenőrzések
 
 | Ellenőrzés | Állapot | Megjegyzés |

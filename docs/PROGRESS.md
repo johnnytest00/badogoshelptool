@@ -1,4 +1,45 @@
-# F6.1 állapot
+# F7.1 állapot
+
+## Jelenlegi fázis
+
+F7.1 — Szervezetileg izolált anyagkatalógus, termékvariánsok és árhistorika.
+
+## F7.1 elkészült
+
+- Elkészült a `material_manufacturers`, `material_products`, `material_variants` és `material_prices` lokális Supabase sémája.
+- Az új migrációk UUID-ket, szervezeti összetett FK-kat, indexeket, timestamp triggereket, RLS-t és explicit authenticated grantokat használnak.
+- A katalógus támogatja a tetőfedés, lemez, ereszcsatorna, szegély/bádog, szigetelés, faanyag, kiegészítő és egyéb kategóriákat.
+- Elkészült a gyártó létrehozása, listázása és szerkesztése; valódi gyártói adat nem került seedbe.
+- Elkészült a termék létrehozása, listázása, keresése, kategória- és archivált-szűrése, szerkesztése, archiválása és visszaállítása.
+- Elkészültek a termékvariánsok opcionális méretmezőkkel, purchasing unit-tal, SKU-val, JSON technikai adatokkal és provenance mezőkkel.
+- Az árak HUF NUMERIC mezőben, külön immutable árrekordként tárolódnak; az árhistorika nem írható felül vagy törölhető.
+- A latest price szabály determinisztikus: `effective_date DESC`, `recorded_at DESC`, `id DESC`.
+- Elkészült a `/anyagok`, `/anyagok/uj` és `/anyagok/[productId]` authenticated UI.
+- A Dashboard „Anyagok” eleme működő, szervezethez kötött link lett; a Scaling Bubble nem került be az anyagkatalógus oldalakra.
+- A szerver actionök külön hitelesítést és szervezeti tagságot ellenőriznek; a böngészőből érkező organization ID önmagában nem jogosít.
+- A Supabase típusok lokális sémából újragenerálva.
+
+## F7.1 ellenőrzés
+
+- Helyi pgTAP: 127/127 PASS.
+- Vitest: 16 fájl / 53 teszt PASS.
+- Typecheck, lint és production build PASS.
+- Böngészőben lokális admin belépés, gyártó, termék, variáns, két árverzió, árhistorika, keresés/szűrés, archiválás és visszaállítás ellenőrizve.
+- Távoli Supabase, import, scraping, mennyiségszámítás, ÁFA- és ajánlatlogika nem készült.
+
+## F7.1 nyitott korlátok
+
+- Dedikált 320–1440 px viewport-emuláció és fizikai mobil multi-touch továbbra is az F6.1 környezeti korlátja.
+- Több-session concurrency terhelésteszt nincs megvalósítva.
+- `npm audit` csak npm registry DNS-hiba esetén próbálható; sikeres audit nem állítható.
+
+## Következő fázis
+
+F7.2 — csak külön jóváhagyással; anyagmennyiség-számítás és automatikus vásárlási lista F7.1-ben nem készült.
+
+---
+
+# Korábbi F6.1 állapot
 
 ## Jelenlegi fázis
 

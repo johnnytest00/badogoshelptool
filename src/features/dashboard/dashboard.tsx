@@ -124,6 +124,7 @@ function FunctionsView({ onSelect, organizationId }: Readonly<{ onSelect: (label
 function FunctionLauncher({ item, onSelect, organizationId }: Readonly<{ item: DashboardFunction; onSelect: (label: string) => void; organizationId?: string }>) {
   const Icon = item.icon;
   if (item.id === "projects" && organizationId) return <Link className={`function-launcher tone-${item.tone}`} href={`/projektek?organization=${organizationId}`}><span className="function-icon"><Icon aria-hidden="true" className="size-6" /></span><span className="function-copy"><strong>{item.label}</strong><span>{item.description}</span></span><span className="function-arrow"><ArrowRight aria-hidden="true" className="size-5" /></span></Link>;
+  if (item.id === "materials" && organizationId) return <Link className={`function-launcher tone-${item.tone}`} href={`/anyagok?organization=${organizationId}`}><span className="function-icon"><Icon aria-hidden="true" className="size-6" /></span><span className="function-copy"><strong>{item.label}</strong><span>{item.description}</span></span><span className="function-arrow"><ArrowRight aria-hidden="true" className="size-5" /></span></Link>;
   return (
     <button className={`function-launcher tone-${item.tone}`} type="button" onClick={() => onSelect(item.label)} aria-label={`${item.label}, hamarosan elérhető`}>
       <span className="function-icon"><Icon aria-hidden="true" className="size-6" /></span>

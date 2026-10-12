@@ -1,0 +1,44 @@
+import { createClient } from "@/infrastructure/supabase/server";
+import type { Database } from "@/infrastructure/supabase/database.types";
+import { materialFilterSchema, type MaterialCategory, type MaterialPriceKind, type MaterialProvenance, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
+
+type ManufacturerRow = Database["public"]["Tables"]["material_manufacturers"]["Row"];
+type ProductRow = Database["public"]["Tables"]["material_products"]["Row"];
+type VariantRow = Database["public"]["Tables"]["material_variants"]["Row"];
+type PriceRow = Database["public"]["Tables"]["material_prices"]["Row"];
+
+export type MaterialManufacturerRecord = { id: string; name: string; website: string | null; notes: string | null; createdAt: string; updatedAt: string };
+export type MaterialPriceRecord = { id: string; amount: number; currency: string; purchasingUnit: MaterialPurchasingUnit; priceKind: MaterialPriceKind; priceSource: string | null; effectiveDate: string; recordedAt: string; provenance: MaterialProvenance; sourceName: string | null; sourceUrl: string | null; sourceDate: string | null; sourceNotes: string | null };
+export type MaterialVariantRecord = { id: string; productId: string; name: string; sku: string | null; purchasingUnit: MaterialPurchasingUnit; nominalWidthMm: number | null; effectiveWidthMm: number | null; thicknessMm: number | null; lengthMm: number | null; packagingQuantity: number | null; technicalSpecs: Record<string, string>; provenance: MaterialProvenance; sourceName: string | null; sourceUrl: string | null; sourceDate: string | null; sourceNotes: string | null; prices: MaterialPriceRecord[]; latestPrice: MaterialPriceRecord | null };
+export type MaterialProductRecord = { id: string; organizationId: string; manufacturerId: string | null; manufacturerName: string | null; category: MaterialCategory; name: string; description: string | null; productCode: string | null; status: "active" | "archived"; provenance: MaterialProvenance; sourceName: string | null; sourceUrl: string | null; sourceDate: string | null; sourceNotes: string | null; createdAt: string; updatedAt: string; variants: MaterialVariantRecord[] };
+
+function mapManufacturer(row: ManufacturerRow): MaterialManufacturerRecord { return { id: row.id, name: row.name, website: row.website, notes: row.notes, createdAt: row.created_at, updatedAt: row.updated_at }; }
+function mapPrice(row: PriceRow): MaterialPriceRecord { return { id: row.id, amount: Number(row.amount), currency: row.currency, purchasingUnit: row.purchasing_unit, priceKind: row.price_kind, priceSource: row.price_source, effectiveDate: row.effective_date, recordedAt: row.recorded_at, provenance: row.data_provenance, sourceName: row.source_name, sourceUrl: row.source_url, sourceDate: row.source_date, sourceNotes: row.source_notes }; }
+function mapVariant(row: VariantRow, prices: MaterialPriceRecord[]): MaterialVariantRecord { const technicalSpecs = row.technical_specs && typeof row.technical_specs === "object" && !Array.isArray(row.technical_specs) ? row.technical_specs as Record<string, string> : {}; return { id: row.id, productId: row.product_id, name: row.name, sku: row.sku, purchasingUnit: row.purchasing_unit, nominalWidthMm: row.nominal_width_mm === null ? null : Number(row.nominal_width_mm), effectiveWidthMm: row.effective_width_mm === null ? null : Number(row.effective_width_mm), thicknessMm: row.thickness_mm === null ? null : Number(row.thickness_mm), lengthMm: row.length_mm === null ? null : Number(row.length_mm), packagingQuantity: row.packaging_quantity === null ? null : Number(row.packaging_quantity), technicalSpecs, provenance: row.data_provenance, sourceName: row.source_name, sourceUrl: row.source_url, sourceDate: row.source_date, sourceNotes: row.source_notes, prices, latestPrice: prices[0] ?? null }; }
+
+function mapProduct(row: ProductRow, manufacturers: Map<string, MaterialManufacturerRecord>, variants: MaterialVariantRecord[]): MaterialProductRecord { return { id: row.id, organizationId: row.organization_id, manufacturerId: row.manufacturer_id, manufacturerName: row.manufacturer_id ? manufacturers.get(row.manufacturer_id)?.name ?? null : null, category: row.category, name: row.name, description: row.description, productCode: row.product_code, status: row.status, provenance: row.data_provenance, sourceName: row.source_name, sourceUrl: row.source_url, sourceDate: row.source_date, sourceNotes: row.source_notes, createdAt: row.created_at, updatedAt: row.updated_at, variants }; }
+
+async function loadRelated(supabase: Awaited<ReturnType<typeof createClient>>, organizationId: string, products: ProductRow[]) {
+  const productIds = products.map((item) => item.id);
+  const [{ data: manufacturers, error: manufacturerError }, { data: variants, error: variantError }] = await Promise.all([
+    supabase.from("material_manufacturers").select("id, organization_id, name, website, notes, created_by, created_at, updated_at").eq("organization_id", organizationId).order("name"),
+    productIds.length ? supabase.from("material_variants").select("id, organization_id, product_id, name, sku, purchasing_unit, nominal_width_mm, effective_width_mm, thickness_mm, length_mm, packaging_quantity, technical_specs, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at, updated_at").eq("organization_id", organizationId).in("product_id", productIds).order("name") : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (manufacturerError || variantError) throw new Error("Az anyagkapcsolatok betöltése nem sikerült.");
+  const variantIds = (variants ?? []).map((item) => item.id);
+  const { data: prices, error: priceError } = variantIds.length ? await supabase.from("material_prices").select("id, organization_id, variant_id, amount, currency, purchasing_unit, price_kind, price_source, effective_date, recorded_at, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at").eq("organization_id", organizationId).in("variant_id", variantIds).order("effective_date", { ascending: false }).order("recorded_at", { ascending: false }).order("id", { ascending: false }) : { data: [], error: null };
+  if (priceError) throw new Error("Az árverziók betöltése nem sikerült.");
+  const priceMap = new Map<string, MaterialPriceRecord[]>(); for (const row of prices ?? []) { const list = priceMap.get(row.variant_id) ?? []; list.push(mapPrice(row)); priceMap.set(row.variant_id, list); }
+  const variantRecords = new Map<string, MaterialVariantRecord>(); for (const row of variants ?? []) variantRecords.set(row.id, mapVariant(row, priceMap.get(row.id) ?? []));
+  return { manufacturers: new Map((manufacturers ?? []).map((row) => { const item = mapManufacturer(row); return [item.id, item] as const; })), variantRecords };
+}
+
+export async function getMaterialManufacturers(organizationId: string) { const supabase = await createClient(); const { data, error } = await supabase.from("material_manufacturers").select("id, organization_id, name, website, notes, created_by, created_at, updated_at").eq("organization_id", organizationId).order("name"); if (error) throw new Error("A gyártók betöltése nem sikerült."); return (data ?? []).map(mapManufacturer); }
+
+export async function getMaterialProductsForOrganization(organizationId: string, rawFilters: unknown = {}) {
+  const filters = materialFilterSchema.parse(rawFilters); const supabase = await createClient(); let query = supabase.from("material_products").select("id, organization_id, manufacturer_id, category, name, description, product_code, status, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at, updated_at").eq("organization_id", organizationId).order("updated_at", { ascending: false }).limit(200);
+  if (filters.search) query = query.or(`name.ilike.%${filters.search}%,product_code.ilike.%${filters.search}%`); if (filters.category) query = query.eq("category", filters.category); if (filters.manufacturerId) query = query.eq("manufacturer_id", filters.manufacturerId); if (!filters.includeArchived) query = query.eq("status", "active");
+  const { data, error } = await query; if (error) throw new Error("Az anyagkatalógus betöltése nem sikerült."); const products = data ?? []; const related = await loadRelated(supabase, organizationId, products); return products.map((row) => mapProduct(row, related.manufacturers, related.variantRecords ? [...related.variantRecords.values()].filter((item) => item.productId === row.id) : []));
+}
+
+export async function getMaterialProductForOrganization(organizationId: string, productId: string) { const products = await getMaterialProductsForOrganization(organizationId, { includeArchived: true }); return products.find((item) => item.id === productId) ?? null; }

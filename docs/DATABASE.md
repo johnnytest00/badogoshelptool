@@ -157,3 +157,30 @@ A korábbi revíziók immutable-ok maradnak. A várt aktuális revíziószám el
 közben mentett adatot. A függvényhez anon és public EXECUTE nincs; service-role
 nem szükséges. A `roof.gable` input/output JSON-t az alkalmazás a tiszta domain
 kalkulátorral ellenőrzi és számolja ki a függvény meghívása előtt.
+
+## F7.1 anyagkatalógus
+
+Az `20261012040000_material_catalog.sql` migráció négy szervezet-private táblát
+hoz létre: `material_manufacturers`, `material_products`, `material_variants` és
+`material_prices`. A termékek extensible kategória enumot használnak; a variánsok
+beszerzési egysége külön enum, nem keveredik a F4 geometriai mértékegységeivel.
+Az opcionális kategória-specifikus adatok a `technical_specs` JSON objektumban
+maradnak, az ismeretlen mezők nullák vagy hiányzó kulcsok.
+
+Minden új tábla UUID azonosítót, `organization_id`-t, timestamp mezőket, indexet,
+RLS-t és explicit authenticated grantokat kap. A manufacturer → product → variant
+→ price lánc minden kapcsolatán összetett `(id, organization_id)` FK akadályozza
+meg a szervezetközi hivatkozást. Az organization ID immutable triggerrel védett;
+az actionök ettől függetlenül sessiont és aktív szervezeti tagságot ellenőriznek.
+
+A material product nem törölhető a normál authenticated felületről; archiválás és
+visszaállítás használható. Az árrekordok append-only történetet alkotnak. A
+`material_prices` `NUMERIC(14,2)` HUF összeget tárol, nincs automatikus ÁFA- vagy
+árszámítás. A legfrissebb alkalmazható ár meghatározása: `effective_date DESC`,
+majd `recorded_at DESC`, majd `id DESC`. A `20261012040100_material_price_immutability.sql`
+trigger privilegizált SQL útvonalon is tiltja az ár UPDATE/DELETE műveletét.
+
+A provenance értékek `verified`, `user_provided`, `estimated`, `demo`, `missing`;
+a felhasználó által bevitt adat nem lesz automatikusan verified. F7.1 nem tartalmaz
+gyártói importot, scrapinget, mennyiségszámítást, automatikus vásárlási listát,
+ajánlatot vagy shared marketplace-et.

@@ -1,6 +1,6 @@
 begin;
 
-select plan(83);
+select plan(127);
 
 select has_table('public', 'profiles', 'profiles exists');
 select has_table('public', 'organizations', 'organizations exists');
@@ -257,6 +257,121 @@ select throws_ok(
     values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000021', 'cross-org project', '00000000-0000-4000-8000-000000000001')$$,
   '23503', null, 'cross-organization client reference is rejected'
 );
+
+select has_table('public', 'material_manufacturers', 'material manufacturers exists');
+select has_table('public', 'material_products', 'material products exists');
+select has_table('public', 'material_variants', 'material variants exists');
+select has_table('public', 'material_prices', 'material prices exists');
+select is((select relrowsecurity from pg_class where oid = 'public.material_manufacturers'::regclass), true, 'material manufacturers RLS enabled');
+select is((select relrowsecurity from pg_class where oid = 'public.material_products'::regclass), true, 'material products RLS enabled');
+select is((select relrowsecurity from pg_class where oid = 'public.material_variants'::regclass), true, 'material variants RLS enabled');
+select is((select relrowsecurity from pg_class where oid = 'public.material_prices'::regclass), true, 'material prices RLS enabled');
+select has_index('public', 'material_manufacturers', 'material_manufacturers_organization_id_idx', 'manufacturer organization index exists');
+select has_index('public', 'material_products', 'material_products_organization_category_idx', 'product category index exists');
+select has_index('public', 'material_products', 'material_products_organization_status_idx', 'product status index exists');
+select has_index('public', 'material_prices', 'material_prices_variant_effective_idx', 'price history index exists');
+select ok(exists (select 1 from pg_constraint where conname = 'material_products_manufacturer_same_organization_fk'), 'product manufacturer ownership constraint exists');
+select ok(exists (select 1 from pg_constraint where conname = 'material_variants_product_same_organization_fk'), 'variant product ownership constraint exists');
+select ok(exists (select 1 from pg_constraint where conname = 'material_prices_variant_same_organization_fk'), 'price variant ownership constraint exists');
+select ok(exists (select 1 from pg_constraint where conname = 'material_variants_specs_object'), 'technical specs must be an object');
+
+select lives_ok(
+  $$insert into public.material_manufacturers (id, organization_id, name, notes, created_by)
+    values ('00000000-0000-4000-8000-000000000080', '00000000-0000-4000-8000-000000000010', 'F7.1 DEMO gyártó', 'DEMO adat', '00000000-0000-4000-8000-000000000001')$$,
+  'member can create a material manufacturer'
+);
+select is((select name from public.material_manufacturers where id = '00000000-0000-4000-8000-000000000080'), 'F7.1 DEMO gyártó', 'manufacturer creation persists');
+select lives_ok(
+  $$insert into public.material_products (id, organization_id, manufacturer_id, category, name, product_code, data_provenance, created_by)
+    values ('00000000-0000-4000-8000-000000000081', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000080', 'sheet_metal', 'F7.1 DEMO lemez', 'DEMO-F71', 'demo', '00000000-0000-4000-8000-000000000001')$$,
+  'member can create a material product'
+);
+select lives_ok(
+  $$insert into public.material_variants (id, organization_id, product_id, name, purchasing_unit, thickness_mm, technical_specs, data_provenance, created_by)
+    values ('00000000-0000-4000-8000-000000000082', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000081', 'DEMO 0,5 mm', 'square_meter', 0.5, '{"profile":"DEMO"}'::jsonb, 'demo', '00000000-0000-4000-8000-000000000001')$$,
+  'member can create a material variant'
+);
+select lives_ok(
+  $$insert into public.material_prices (id, organization_id, variant_id, amount, purchasing_unit, price_kind, price_source, effective_date, data_provenance, created_by)
+    values ('00000000-0000-4000-8000-000000000083', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000082', 12345.67, 'square_meter', 'net', 'DEMO adat', '2026-01-01', 'demo', '00000000-0000-4000-8000-000000000001')$$,
+  'member can record a material price'
+);
+select is((select amount from public.material_prices where id = '00000000-0000-4000-8000-000000000083'), 12345.67::numeric, 'price decimal precision persists');
+select is((select amount from public.material_prices where variant_id = '00000000-0000-4000-8000-000000000082' order by effective_date desc, recorded_at desc, id desc limit 1), 12345.67::numeric, 'latest price uses deterministic ordering');
+select lives_ok(
+  $$insert into public.material_prices (id, organization_id, variant_id, amount, purchasing_unit, price_kind, effective_date, data_provenance, created_by)
+    values ('00000000-0000-4000-8000-000000000084', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000082', 15000, 'square_meter', 'net', '2026-02-01', 'user_provided', '00000000-0000-4000-8000-000000000001')$$,
+  'price history accepts a new immutable record'
+);
+select is((select count(*)::int from public.material_prices where variant_id = '00000000-0000-4000-8000-000000000082'), 2, 'price history preserves old records');
+select lives_ok(
+  $$update public.material_prices set amount = 1 where id = '00000000-0000-4000-8000-000000000083'$$,
+  'authenticated update cannot see immutable price history rows'
+);
+select is((select amount from public.material_prices where id = '00000000-0000-4000-8000-000000000083'), 12345.67::numeric, 'authenticated update does not change price history');
+set local role postgres;
+select throws_ok(
+  $$update public.material_prices set amount = 1 where id = '00000000-0000-4000-8000-000000000083'$$,
+  'P0001', null, 'price history is immutable for privileged SQL paths'
+);
+set local role authenticated;
+select throws_ok(
+  $$insert into public.material_prices (organization_id, variant_id, amount, purchasing_unit, price_kind, effective_date)
+    values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000082', -1, 'square_meter', 'net', '2026-01-01')$$,
+  '23514', null, 'negative prices are rejected'
+);
+select throws_ok(
+  $$insert into public.material_variants (organization_id, product_id, name, purchasing_unit, technical_specs)
+    values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000081', 'invalid DEMO variant', 'piece', '[]'::jsonb)$$,
+  '23514', null, 'technical specs array is rejected'
+);
+select throws_ok(
+  $$insert into public.material_manufacturers (organization_id, name)
+    values ('00000000-0000-4000-8000-000000000010', 'F7.1 DEMO gyártó')$$,
+  '23505', null, 'duplicate manufacturer names are rejected'
+);
+select lives_ok(
+  $$update public.material_manufacturers set notes = 'F7.1 DEMO módosítva' where id = '00000000-0000-4000-8000-000000000080'$$,
+  'member can edit a manufacturer'
+);
+select is((select notes from public.material_manufacturers where id = '00000000-0000-4000-8000-000000000080'), 'F7.1 DEMO módosítva', 'manufacturer edit persists');
+select lives_ok(
+  $$update public.material_products set name = 'F7.1 DEMO lemez módosítva' where id = '00000000-0000-4000-8000-000000000081'$$,
+  'member can edit a material product'
+);
+select is((select name from public.material_products where id = '00000000-0000-4000-8000-000000000081'), 'F7.1 DEMO lemez módosítva', 'product edit persists');
+select lives_ok(
+  $$update public.material_products set status = 'archived' where id = '00000000-0000-4000-8000-000000000081'$$,
+  'member can archive a material product'
+);
+select is((select status::text from public.material_products where id = '00000000-0000-4000-8000-000000000081'), 'archived', 'material product archive persists');
+select lives_ok(
+  $$update public.material_products set status = 'active' where id = '00000000-0000-4000-8000-000000000081'$$,
+  'member can restore a material product'
+);
+select is((select status::text from public.material_products where id = '00000000-0000-4000-8000-000000000081'), 'active', 'material product restore persists');
+select lives_ok(
+  $$insert into public.material_variants (id, organization_id, product_id, name, purchasing_unit, data_provenance, created_by)
+    values ('00000000-0000-4000-8000-000000000085', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000081', 'DEMO ár nélküli', 'piece', 'missing', '00000000-0000-4000-8000-000000000001')$$,
+  'variant without a price is allowed'
+);
+select is_empty('select 1 from public.material_prices where variant_id = ''00000000-0000-4000-8000-000000000085''', 'missing price remains missing and is not zero');
+set local role postgres;
+insert into public.material_manufacturers (id, organization_id, name) values ('00000000-0000-4000-8000-000000000090', '00000000-0000-4000-8000-000000000011', 'DEMO másik gyártó');
+set local role authenticated;
+select throws_ok(
+  $$insert into public.material_products (organization_id, manufacturer_id, category, name)
+    values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000090', 'other', 'cross-org material')$$,
+  '23503', null, 'cross-organization manufacturer reference is rejected'
+);
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
+select is_empty('select 1 from public.material_products where organization_id = ''00000000-0000-4000-8000-000000000010''', 'non-member cannot read material products');
+select throws_ok(
+  $$insert into public.material_products (organization_id, category, name)
+    values ('00000000-0000-4000-8000-000000000010', 'other', 'unauthorized material')$$,
+  '42501', null, 'non-member cannot create material products'
+);
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
 
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
 select is_empty('select 1 from public.organizations where id = ''00000000-0000-4000-8000-000000000010''', 'non-member cannot read organization');
