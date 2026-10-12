@@ -203,3 +203,30 @@ A provenance értékek `verified`, `user_provided`, `estimated`, `demo`, `missin
 a felhasználó által bevitt adat nem lesz automatikusan verified. F7.1 nem tartalmaz
 gyártói importot, scrapinget, mennyiségszámítást, automatikus vásárlási listát,
 ajánlatot vagy shared marketplace-et.
+
+## F7.3.2 verziózott lemezkiosztás
+
+Az `20261013010000_sheet_layout_revisions.sql` nem vezet be párhuzamos layout-
+táblát. A `covering.metal-sheets.layout` rekord a meglévő `calculations` táblában,
+immutable verziói a `calculation_revisions` táblában élnek. Az új nullable
+`material_variant_id` összetett `(id, organization_id)` FK-val köti a revíziót a
+katalógusvariánshoz. Két dependency él őrzi a konkrét tetőrevíziót és a konkrét
+`roof.gable` calculation revisiont.
+
+A `save_metal_sheet_layout` SECURITY INVOKER függvény tagságot, projektet,
+aktuális tető- és geometriarevíziót, aktív azonos szervezetű variánst, snapshot-
+hivatkozásokat és várt layout-revíziószámot ellenőriz. Egy tranzakcióban készíti
+el a revíziót, dependency éleket és current pointert; azonos inputnál idempotens.
+A `20261013010100_sheet_layout_first_revision_fix.sql` a már alkalmazott helyi
+sémán is kijavítja az első revízió explicit nulla bázisát.
+
+Tetőrevízió-váltáskor trigger jelöli stale-nek a layout current állapotát. A
+releváns anyagspecifikáció-változás az immutable katalógussnapshot és az aktuális
+variáns normalizált műszaki mezőinek összevetéséből származik; az árhistorika
+nem része ennek az összehasonlításnak.
+
+A `create_sheet_layout_takeoff_draft` kizárólag aktuális, verified, mentett és
+`square_meter` egységű layoutból készít atomikusan draftot és tételt. A mennyiséget
+az upstream verified `roof.gable` területből és explicit ráhagyásból számolja,
+nem fogad el kliens által küldött végeredményt. Más egységhez nincs implicit
+konverzió, approved kimutatást pedig egyik F7.3.2 művelet sem módosít.

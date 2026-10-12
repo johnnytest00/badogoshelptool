@@ -1,6 +1,6 @@
 begin;
 
-select plan(146);
+select plan(172);
 
 select has_table('public', 'profiles', 'profiles exists');
 select has_table('public', 'organizations', 'organizations exists');
@@ -381,6 +381,77 @@ select throws_ok(
     values ('00000000-0000-4000-8000-000000000010', 'unauthorized client')$$,
   '42501', null, 'non-member cannot write organization clients'
 );
+
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
+select has_column('public', 'calculation_revisions', 'material_variant_id', 'layout revisions can reference a material variant');
+select ok(exists (select 1 from pg_constraint where conname = 'calculation_revisions_material_variant_same_organization_fk'), 'layout variant ownership constraint exists');
+select has_index('public', 'calculations', 'calculations_one_sheet_layout_per_roof', 'one layout revision stream exists per roof');
+select ok(exists (select 1 from pg_proc where proname = 'save_metal_sheet_layout'), 'atomic layout save function exists');
+select ok(exists (select 1 from pg_proc where proname = 'create_sheet_layout_takeoff_draft'), 'controlled layout takeoff function exists');
+
+set local role postgres;
+insert into public.roof_models (id, organization_id, project_id, name, roof_type)
+values ('00000000-0000-4000-8000-000000000130', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', 'F7.3.2 DEMO tető', 'gable');
+insert into public.roof_model_revisions (id, organization_id, roof_model_id, revision_number, schema_version, input_data, validation_status, created_by)
+values ('00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000130', 1, '1.0.0', '{"data_origin":"demo"}', 'verified', '00000000-0000-4000-8000-000000000001');
+update public.roof_models set current_revision_id = '00000000-0000-4000-8000-000000000131' where id = '00000000-0000-4000-8000-000000000130';
+insert into public.calculations (id, organization_id, project_id, roof_model_id, calculator_type, display_name, status)
+values ('00000000-0000-4000-8000-000000000132', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130', 'roof.gable', 'F7.3.2 DEMO geometria', 'current');
+insert into public.calculation_revisions (id, organization_id, calculation_id, revision_number, input_schema_version, calculator_implementation_version, input_snapshot, output_snapshot, validation_status, created_by)
+values ('00000000-0000-4000-8000-000000000133', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000132', 1, '1.0.0', '1.0.0', '{}', '{"areas":{"combinedRoofM2":100}}', 'verified', '00000000-0000-4000-8000-000000000001');
+update public.calculations set current_revision_id = '00000000-0000-4000-8000-000000000133' where id = '00000000-0000-4000-8000-000000000132';
+insert into public.material_products (id, organization_id, category, name, data_provenance)
+values ('00000000-0000-4000-8000-000000000134', '00000000-0000-4000-8000-000000000011', 'sheet_metal', 'F7.3.2 másik szervezet DEMO', 'demo');
+insert into public.material_variants (id, organization_id, product_id, name, purchasing_unit, data_provenance)
+values ('00000000-0000-4000-8000-000000000135', '00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-000000000134', 'F7.3.2 cross-org DEMO', 'square_meter', 'demo');
+set local role authenticated;
+
+select lives_ok($$select * from public.save_metal_sheet_layout(
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130',
+  '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', null, '00000000-0000-4000-8000-000000000082', 'F7.3.2 DEMO kiosztás',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082","provenance":"demo"}},"calculatorInput":{"effectiveCoveringWidthMm":1000}}',
+  '{"totalStripCount":26}', '{"calculation":"server_verified"}', '[]', 0)$$, 'member can atomically save layout revision V1');
+select is((select count(*)::int from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout'), 1, 'layout V1 is stored once');
+select is((select cr.material_variant_id from public.calculation_revisions cr join public.calculations c on c.current_revision_id = cr.id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000082'::uuid, 'layout revision preserves material variant reference');
+select is((select count(*)::int from public.calculation_dependencies cd join public.calculations c on c.current_revision_id = cd.downstream_calculation_revision_id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout'), 2, 'layout stores roof and geometry dependencies');
+select lives_ok($$select * from public.save_metal_sheet_layout(
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130',
+  '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000082', 'F7.3.2 DEMO kiosztás',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082","provenance":"demo"}},"calculatorInput":{"effectiveCoveringWidthMm":1000}}',
+  '{"totalStripCount":26}', '{}', '[]', 1)$$, 'identical layout save is accepted idempotently');
+select is((select count(*)::int from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout'), 1, 'identical input does not create a duplicate revision');
+select lives_ok($$select * from public.save_metal_sheet_layout(
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130',
+  '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000082', 'F7.3.2 DEMO kiosztás',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082","provenance":"demo"}},"calculatorInput":{"effectiveCoveringWidthMm":1250}}',
+  '{"totalStripCount":20}', '{}', '[]', 1)$$, 'changed layout creates immutable revision V2');
+select is((select count(*)::int from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout'), 2, 'layout revision history contains V1 and V2');
+select is((select output_snapshot ->> 'totalStripCount' from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout' and cr.revision_number = 1), '26', 'historical layout output remains unchanged');
+select throws_ok($$select * from public.save_metal_sheet_layout(
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130',
+  '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000082', 'stale',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082"}},"calculatorInput":{"effectiveCoveringWidthMm":900}}', '{}', '{}', '[]', 1)$$, '40001', null, 'stale concurrent layout write is rejected');
+set local role postgres;
+select throws_ok($$update public.calculation_revisions set output_snapshot = '{}' where calculation_id = (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout')$$, 'P0001', null, 'saved layout revisions are immutable');
+set local role authenticated;
+select throws_ok($$select * from public.save_metal_sheet_layout(
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000060', '00000000-0000-4000-8000-000000000130', '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', null, '00000000-0000-4000-8000-000000000082', 'cross-project',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082"}}}', '{}', '{}', '[]', 0)$$, '40001', null, 'cross-project layout source is rejected');
+select throws_ok($$select * from public.save_metal_sheet_layout(
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130', '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000135', 'cross-org',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000135"}}}', '{}', '{}', '[]', 2)$$, '23503', null, 'cross-organization material variant is rejected');
+select lives_ok($$select public.create_sheet_layout_takeoff_draft('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), (select current_revision_id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), 'F7.3.2 DEMO tervezet', 10)$$, 'square-meter layout creates an editable takeoff draft');
+select is((select status::text from public.material_takeoffs where name = 'F7.3.2 DEMO tervezet'), 'draft', 'layout handoff never auto-approves');
+select is((select final_quantity from public.material_takeoff_items where takeoff_id = (select id from public.material_takeoffs where name = 'F7.3.2 DEMO tervezet')), 110::numeric, 'layout handoff reuses verified area with explicit allowance');
+select lives_ok($$select * from public.save_metal_sheet_layout(
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130', '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000085', 'F7.3.2 DEMO kiosztás',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000085","provenance":"missing"}},"calculatorInput":{"effectiveCoveringWidthMm":1000}}', '{"totalStripCount":26}', '{}', '[]', 2)$$, 'piece-based layout can be saved without inventing a purchasing conversion');
+select throws_ok($$select public.create_sheet_layout_takeoff_draft('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), (select current_revision_id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), 'invalid conversion', 0)$$, '22023', null, 'unsupported piece conversion is rejected');
+select lives_ok($$insert into public.roof_model_revisions (id, organization_id, roof_model_id, revision_number, schema_version, input_data, validation_status) values ('00000000-0000-4000-8000-000000000136', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000130', 2, '1.0.0', '{}', 'verified'); update public.roof_models set current_revision_id = '00000000-0000-4000-8000-000000000136' where id = '00000000-0000-4000-8000-000000000130'$$, 'roof geometry can advance to a new immutable revision');
+select is((select status from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), 'stale', 'roof revision change marks current layout stale');
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
+select throws_ok($$select * from public.save_metal_sheet_layout('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130', '00000000-0000-4000-8000-000000000136', '00000000-0000-4000-8000-000000000133', null, '00000000-0000-4000-8000-000000000082', 'unauthorized', '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000136","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082"}}}', '{}', '{}', '[]', 0)$$, '42501', null, 'non-member cannot save a sheet layout');
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
 
 select has_table('public', 'material_takeoffs', 'material_takeoffs exists');
 select has_table('public', 'material_takeoff_items', 'material_takeoff_items exists');

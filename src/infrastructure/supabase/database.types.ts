@@ -57,14 +57,14 @@ isOneToOne: false
                   ]
                 },"calculation_revisions": {
                   Row: {
-                    "calculation_id": string,"calculator_implementation_version": string,"created_at": string,"created_by": string | null,"data_provenance": NonNullable<Json>,"id": string,"input_schema_version": string,"input_snapshot": NonNullable<Json>,"organization_id": string,"output_snapshot": NonNullable<Json>,"revision_number": number,"validation_status": string,"warnings": NonNullable<Json>
+                    "calculation_id": string,"calculator_implementation_version": string,"created_at": string,"created_by": string | null,"data_provenance": NonNullable<Json>,"id": string,"input_schema_version": string,"input_snapshot": NonNullable<Json>,"material_variant_id": string | null,"organization_id": string,"output_snapshot": NonNullable<Json>,"revision_number": number,"validation_status": string,"warnings": NonNullable<Json>
                   }
                   ComputedFields: never
                   Insert: {
-                    "calculation_id": string,"calculator_implementation_version": string,"created_at"?: string,"created_by"?: string | null,"data_provenance"?: NonNullable<Json>,"id"?: string,"input_schema_version": string,"input_snapshot"?: NonNullable<Json>,"organization_id": string,"output_snapshot"?: NonNullable<Json>,"revision_number": number,"validation_status"?: string,"warnings"?: NonNullable<Json>
+                    "calculation_id": string,"calculator_implementation_version": string,"created_at"?: string,"created_by"?: string | null,"data_provenance"?: NonNullable<Json>,"id"?: string,"input_schema_version": string,"input_snapshot"?: NonNullable<Json>,"material_variant_id"?: string | null,"organization_id": string,"output_snapshot"?: NonNullable<Json>,"revision_number": number,"validation_status"?: string,"warnings"?: NonNullable<Json>
                   }
                   Update: {
-                    "calculation_id"?: string,"calculator_implementation_version"?: string,"created_at"?: string,"created_by"?: string | null,"data_provenance"?: NonNullable<Json>,"id"?: string,"input_schema_version"?: string,"input_snapshot"?: NonNullable<Json>,"organization_id"?: string,"output_snapshot"?: NonNullable<Json>,"revision_number"?: number,"validation_status"?: string,"warnings"?: NonNullable<Json>
+                    "calculation_id"?: string,"calculator_implementation_version"?: string,"created_at"?: string,"created_by"?: string | null,"data_provenance"?: NonNullable<Json>,"id"?: string,"input_schema_version"?: string,"input_snapshot"?: NonNullable<Json>,"material_variant_id"?: string | null,"organization_id"?: string,"output_snapshot"?: NonNullable<Json>,"revision_number"?: number,"validation_status"?: string,"warnings"?: NonNullable<Json>
                   }
                   Relationships: [
                     {
@@ -72,6 +72,12 @@ isOneToOne: false
       columns: ["calculation_id","organization_id"]
 isOneToOne: false
       referencedRelation: "calculations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "calculation_revisions_material_variant_same_organization_fk"
+      columns: ["material_variant_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "material_variants"
       referencedColumns: ["id","organization_id"]
     }
                   ]
@@ -457,9 +463,17 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"create_sheet_layout_takeoff_draft":
+{ Args: { "p_allowance_percent": number,"p_layout_calculation_id": string,"p_layout_revision_id": string,"p_name": string,"p_organization_id": string,"p_project_id": string }; Returns: string
+                           },
 "save_gable_roof_calculation":
 { Args: { "p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_roof_model_id": string,"p_warnings": Json }; Returns: {
               "calculation_id": string,"calculation_revision_id": string,"revision_number": number,"roof_model_id": string,"roof_model_revision_id": string
+            }[]
+                           },
+"save_metal_sheet_layout":
+{ Args: { "p_data_provenance": Json,"p_display_name": string,"p_expected_revision_number": number,"p_input_data": Json,"p_layout_calculation_id": string,"p_material_variant_id": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_roof_model_id": string,"p_source_geometry_calculation_revision_id": string,"p_source_roof_revision_id": string,"p_warnings": Json }; Returns: {
+              "calculation_id": string,"calculation_revision_id": string,"revision_created": boolean,"revision_number": number
             }[]
                            }
           }

@@ -17,6 +17,8 @@ export type RoofModelRecord = {
   currentRevisionNumber: number;
   currentInput: GableRoofInput | null;
   currentOutput: GableRoofOutput | null;
+  currentCalculationId: string | null;
+  currentCalculationRevisionId: string | null;
   revisions: RoofModelRevisionRecord[];
 };
 
@@ -52,9 +54,10 @@ export async function getRoofModelsForProject(organizationId: string, projectId:
   const calculationIds = models.map((model) => model.id);
   const { data: calculations, error: calculationError } = await supabase
     .from("calculations")
-    .select("id, roof_model_id, current_revision_id")
+    .select("id, roof_model_id, current_revision_id, calculator_type")
     .eq("organization_id", organizationId)
-    .in("roof_model_id", calculationIds);
+    .in("roof_model_id", calculationIds)
+    .eq("calculator_type", "roof.gable");
   if (calculationError) throw new Error("A tető-kalkulációk betöltése nem sikerült.");
   const currentCalculationRevisionIds = (calculations ?? []).flatMap((calculation) => calculation.current_revision_id ? [calculation.current_revision_id] : []);
   const { data: calculationRevisions, error: resultError } = currentCalculationRevisionIds.length
@@ -76,6 +79,8 @@ export async function getRoofModelsForProject(organizationId: string, projectId:
       currentRevisionNumber: currentRevision?.revision_number ?? 0,
       currentInput: currentRevision ? parseInput(currentRevision.input_data) : null,
       currentOutput: parseOutput(calculationRevision?.output_snapshot),
+      currentCalculationId: calculation?.id ?? null,
+      currentCalculationRevisionId: calculation?.current_revision_id ?? null,
       revisions: modelRevisions.map((revision) => ({ id: revision.id, revisionNumber: revision.revision_number, input: parseInput(revision.input_data), createdAt: revision.created_at })),
     } satisfies RoofModelRecord;
   });

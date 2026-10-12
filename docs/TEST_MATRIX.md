@@ -1,5 +1,24 @@
 # Tesztmátrix
 
+## F7.3.2 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Katalógusmapping és provenance | Sikeres | Explicit mezők, kézi prioritás, hiányzó hasznos szélesség és releváns specs-változás Vitestben; névlegesből nincs implicit hasznos szélesség. |
+| Verziózott layout mentés | Sikeres | SECURITY INVOKER RPC; immutable V1/V2/V3 history, current pointer, két dependency és material variant FK. |
+| Idempotens és konkurens mentés | Sikeres | Azonos input nem készít új revíziót; stale expected revision `40001` hibával elutasítva. |
+| Szervezeti/projekt izoláció | Sikeres | Cross-org variáns, cross-project forrás és nem-tag mentés pgTAP-ban elutasítva; RLS aktív. |
+| Stale és történeti snapshot | Sikeres | Tetőrevízió-váltás stale státuszt ad; V1 output V2 után változatlan, történeti anyag és geometria visszanyitható. Ár nincs a geometriai stale összevetésben. |
+| Anyagkimutatás-átadás | Sikeres | `square_meter`: hiteles `combinedRoofM2` + explicit ráhagyás, atomikus draft+item; nincs auto-approval. `piece` automatikus konverzió elutasítva. |
+| Approved immutabilitás | Sikeres | Korábbi approved kimutatás változatlan; meglévő trigger-regresszió PASS. |
+| Migráció és replay | Sikeres | Nem linkelt local DB-re reset nélkül alkalmazva; teljes lánc disposable shadow DB-n, `No schema changes found`. |
+| pgTAP | Sikeres | **172/172 PASS**, a korábbi 146 ellenőrzés megőrzésével. |
+| Vitest | Sikeres | **19 fájl / 73 teszt PASS**. |
+| Typecheck, lint, build | Sikeres | TypeScript, ESLint és Next.js webpack production build hibamentes. |
+| Fókuszált browser-flow | Sikeres | Valós local projekt/tető → DEMO variáns → V1/V2/history → roof stale → V3 → square-meter draft, jóváhagyás nélkül. |
+| SVG/touch regresszió | Változatlan | Pointer/pan/pinch/fit/reset kód és a fizikailag iPhone-on ellenőrzött instrukció változatlan. |
+| Távoli Supabase | Nem használt | Nincs link, login, remote migration vagy hosted adatváltozás. |
+
 ## F7.3.1 ellenőrzések
 
 | Ellenőrzés | Állapot | Megjegyzés |

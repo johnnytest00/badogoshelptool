@@ -122,3 +122,25 @@ sáv felett a kalkulátor renderbiztonsági `UNSUPPORTED_OPERATION` hibát ad,
 csonkolás nélkül. Az F7.3.1 eredmény élő, ideiglenes előnézet. Verziózott mentés,
 katalógusvariáns-kapcsolat és jóváhagyott anyagmennyiség csak F7.3.2-ben
 készülhet.
+
+## F7.3.2 — katalógusmapping és reprodukálható layout-revíziók
+
+A katalógusadapter kizárólag az explicit `effective_width_mm`,
+`nominal_width_mm`, valamint a dokumentált `minimum_sheet_length_mm`,
+`maximum_sheet_length_mm` és `end_allowance_mm` JSON-kulcsokat térképezi. A
+névleges szélességből nincs hasznos szélesség-, átfedés- vagy gyártási
+határkövetkeztetés. A kézi felülírás elsőbbséget kap, de minden paraméter forrása
+`catalog` vagy `user_provided` jelöléssel megmarad.
+
+A mentett inputsnapshot három külön része a tiszta `calculatorInput`, a konkrét
+tető-/geometriarevízió-azonosítók és az anyag katalógussnapshotja + tényleges
+értékei + mezőnkénti provenance. A server action a jelenlegi verified
+`roof.gable` outputból újra összeállítja és futtatja az 1.0.0 layout-kalkulátort;
+kliens által küldött outputot nem ment.
+
+A történeti SVG a mentett layout outputot a hozzá tartozó upstream gable outputtal
+rendereli. Új tető- vagy releváns anyagspecifikáció nem számolja újra a régi
+revíziót, csak külön stale jelzést ad. Az ár nem kalkulációs input, ezért önmagában
+nem invalidálja a kiosztást. Anyagkimutatási automatikus javaslat csak ellenőrzött
+négyzetméteres területből készülhet; a geometriai sávszám nem tekinthető
+automatikusan megvásárolható darab-, folyóméter- vagy csomagmennyiségnek.
