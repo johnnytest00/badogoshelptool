@@ -142,3 +142,18 @@ teszt későbbi stabilizálási feladat.
 Az ügyfél oldalon csak a név kötelező. Az e-mail Zod- és adatbázis-validációt kap,
 a telefonszám szándékosan enyhe szöveges mező, így magyar és nemzetközi formátumok
 is elfogadhatók. A DEMO ügyfél és F2.3 seedadat továbbra is egyértelmű DEMO jelölésű.
+
+## F5 gable kalkulációs mentés
+
+Az `20261012030000_gable_calculation_persistence.sql` migration hozzáadja a
+`public.save_gable_roof_calculation` SECURITY INVOKER függvényt. A függvény az
+authenticated session `auth.uid()` értékével és a meglévő RLS-policy-kkal együtt
+ellenőrzi a tagságot, projektet és szervezetet. Egy tranzakcióban hoz létre új
+`roof_model_revisions` és `calculation_revisions` snapshotot, frissíti a current
+pointereket, valamint létrehozza a `roof_model_input` dependency élt.
+
+A korábbi revíziók immutable-ok maradnak. A várt aktuális revíziószám eltérése
+`40001` hibával leállítja a mentést, így a szerver nem írja felül csendben a
+közben mentett adatot. A függvényhez anon és public EXECUTE nincs; service-role
+nem szükséges. A `roof.gable` input/output JSON-t az alkalmazás a tiszta domain
+kalkulátorral ellenőrzi és számolja ki a függvény meghívása előtt.

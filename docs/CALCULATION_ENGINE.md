@@ -45,3 +45,23 @@ fixture kizárólag a kontraktus integrációját demonstrálja.
 Az F4 eredményverziói későbbi számítási revíziók reprodukálhatóságát készítik
 elő, de ebben a fázisban nem írnak adatbázisba, nem kezelnek dependency DAG-ot,
 nem futtatnak hátteret és nem végeznek történeti újraszámítást.
+
+## F5 — `roof.gable`
+
+A `src/domain/calculations/gable-roof.ts` az első valódi calculator-registry
+modul. A modell téglalap alaprajzot, középre helyezett vízszintes gerincet és két
+szimmetrikus síkot feltételez. Az X a hosszanti, Y a keresztirányú, Z a
+függőleges tengely; a fal megtámasztási síkja Z=0, a gerinc középen van. Az
+eresz túlnyúlása vízszintes, az oromfal-túlnyúlás hosszanti irányú.
+
+Fő képletek: `halfSpan = width / 2`, magasság módban
+`pitch = atan2(rise, halfSpan)`, szög módban `rise = halfSpan * tan(pitch)`,
+`slope = (halfSpan + eaveOverhang) / cos(pitch)`,
+`planeArea = overallRoofLength * slope`, ahol
+`overallRoofLength = buildingLength + frontOverhang + rearOverhang`. A ferde
+hossz geometriai hossz, nem statikailag igazolt szarufavágási hossz.
+
+Az implementation/input/result verzió `1.0.0`. A szerver mentés előtt ugyanazt a
+tiszta kalkulátort futtatja, amelyet a böngésző élő előnézethez használ; a kliens
+eredménye nem kerül elfogadásra hiteles számításként. Az F6 számára a síkok négy
+koordinátás vertex-listája megmarad, de jelenleg nincs technikai SVG-renderer.

@@ -265,7 +265,11 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            [_ in never]: never
+            "save_gable_roof_calculation":
+{ Args: { "p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_roof_model_id": string,"p_warnings": Json }; Returns: {
+              "calculation_id": string,"calculation_revision_id": string,"revision_number": number,"roof_model_id": string,"roof_model_revision_id": string
+            }[]
+                           }
           }
           Enums: {
             "organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other"

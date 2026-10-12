@@ -14,9 +14,10 @@ export type CalculationMetadata = {
   resultSchemaVersion: string;
 };
 
-export type CalculationSuccess<TOutput> = {
+export type CalculationSuccess<TInput, TOutput> = {
   ok: true;
   status: "success";
+  input: TInput;
   output: TOutput;
   warnings: CalculationWarning[];
   metadata: CalculationMetadata;
@@ -30,7 +31,7 @@ export type CalculationFailure = {
   metadata: CalculationMetadata;
 };
 
-export type CalculationResult<TOutput> = CalculationSuccess<TOutput> | CalculationFailure;
+export type CalculationResult<TInput, TOutput> = CalculationSuccess<TInput, TOutput> | CalculationFailure;
 
 export type CalculatorDefinition<TInput, TOutput> = {
   id: string;
@@ -62,7 +63,7 @@ function zodErrors(error: z.ZodError): CalculationError[] {
 export function executeCalculator<TInput, TOutput>(
   calculator: CalculatorDefinition<TInput, TOutput>,
   rawInput: unknown,
-): CalculationResult<TOutput> {
+): CalculationResult<TInput, TOutput> {
   const metadata = metadataFor(calculator);
   const input = calculator.inputSchema.safeParse(rawInput);
   if (!input.success) {
@@ -75,7 +76,7 @@ export function executeCalculator<TInput, TOutput>(
     if (!verifiedOutput.success) {
       return { ok: false, status: "failure", errors: zodErrors(verifiedOutput.error), warnings: [], metadata };
     }
-    return { ok: true, status: "success", output: verifiedOutput.data, warnings: [], metadata };
+    return { ok: true, status: "success", input: input.data, output: verifiedOutput.data, warnings: [], metadata } as CalculationSuccess<TInput, TOutput>;
   } catch (error) {
     const issue = error instanceof DomainCalculationError
       ? error.issue
@@ -117,7 +118,7 @@ export class CalculatorRegistry {
     return definition;
   }
 
-  execute(id: string, rawInput: unknown): CalculationResult<unknown> {
+  execute(id: string, rawInput: unknown): CalculationResult<unknown, unknown> {
     return executeCalculator(this.resolve(id), rawInput);
   }
 

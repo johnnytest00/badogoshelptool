@@ -1,8 +1,8 @@
-# F4 állapot
+# F5 állapot
 
 ## Jelenlegi fázis
 
-F4 — Core calculation engine és matematikai domain-alap.
+F5 — Production-grade nyeregtető geometriai kalkulátor.
 
 ## Elkészült
 
@@ -56,21 +56,27 @@ F4 — Core calculation engine és matematikai domain-alap.
 - Az archiválás előtti státuszt a `projects.previous_status` migráció tárolja; visszaállításkor a szerver ezt az adatbázisból olvassa.
 - Optimistic concurrency védelem készült a `projects.version` mezőre építve; stale mentés konfliktusüzenetet ad, néma felülírás nincs.
 - A végleges projekt- és ügyféltörlés authenticated grantja visszavonva; F3 csak nem destruktív archiválást enged.
-- A projekt részletező jövőbeli moduljai szándékosan „Hamarosan” állapotúak; nincs kalkulációs vagy ajánlati funkcionalitás.
+- A projekt részletező anyag-, ajánlat- és dokumentum-moduljai szándékosan „Hamarosan” állapotúak; F5 csak a nyeregtető geometriát tartalmazza.
 - Elkészült a tiszta, infrastruktúrafüggetlen F4 domain-réteg: mm-alapú mértékegységek, explicit konverziók, safe-integer határok és szögek.
 - Elkészültek a Point2D/3D, Vector2D/3D, szakasz- és sokszög-primitívek; a geometriai műveletek és a degenerált/önmetsző bemenetek validációja determinisztikus.
 - Elkészültek a közös matematikai műveletek: 3–4–5 derékszögű háromszög, téglalap-/háromszögterület, explicit tolerancia, kerekítés és overflow-védelem.
 - Elkészült a verziózott `CalculatorDefinition`, strukturált siker/hiba eredmény, Zod bemeneti- és kimeneti validáció, valamint az explicit, duplikációt tiltó `CalculatorRegistry`.
-- Az F4 registry nem állít működőnek tető- vagy anyagkalkulátort; csak tesztben létezik a matematikai DEMO téglalap-terület fixture.
-- Az F4 technikai szerződései és pontossági szabályai a `docs/CALCULATION_ENGINE.md` fájlban dokumentáltak; nincs adatbázis-módosítás.
+- Az F4 lezárásakor a registry még nem állított működőnek tető- vagy anyagkalkulátort; a matematikai DEMO téglalap-terület fixture teszt-only maradt.
+- Az F4 technikai szerződései és pontossági szabályai a `docs/CALCULATION_ENGINE.md` fájlban dokumentáltak; F5 ezeket változtatás nélkül használja.
+- Elkészült a `roof.gable` production domain kalkulátor F4 engine-re és registry-re építve, verziózott Zod input/output szerződéssel.
+- A kalkulátor kezeli a magasság- és szög-alapú bemenetet, a mm-alapú méreteket, eresz- és oromfal-túlnyúlást, sík-/összterületet, vetületet, gerinc- és élhosszakat, valamint a koordinátás tetősík-vertexeket.
+- A független referenciaeset igazolt: 8000 × 12000 mm, 3000 mm emelkedés, 500/250/250 mm túlnyúlás → 36,86989765°, 5625 mm ferde hossz, 140,625 m² összterület, 112,5 m² vetület.
+- Az F5 lokális, atomic `save_gable_roof_calculation` SECURITY INVOKER RPC-ja egy tranzakcióban ment tetőmodell- és kalkulációs immutable revíziót, valamint a roof-model dependency élt; stale revíziót elutasít.
+- Elkészült a project-linked `/projektek/[projectId]/tetomodellek/uj` és `/[roofModelId]` UI magyar, mobil-first formmal, élő számítással, magasság/szög váltással, mentéssel, reload utáni revízióbetöltéssel és meglévő Scaling Bubble integrációval.
+- A projekt részletező oldal valós tetőmodelleket és aktuális revízióeredményt mutat; F6 rajzréteg továbbra sincs megvalósítva.
 
 ## Szándékosan nincs benne
 
-Projektkezelés, nyilvános regisztráció, szervezetkezelés, meghívók, valódi kalkulátor, geometria, ár- vagy gyártói adat. A rajz csak DEMO SVG, nem számítási motor. Távoli Supabase-projekt továbbra sincs használva.
+Hip- és shed-kalkulátor, anyag- és árkalkuláció, statikai tervezés, ajánlat, 3D és teljes rétegezett SVG-rajz. A gable eredmények geometriai értékek, nem szerkezeti vágáslisták. Távoli Supabase-projekt továbbra sincs használva.
 
 ## Következő fázis
 
-F5 — első konkrét tetőgeometriai kalkulátor, csak külön jóváhagyással.
+F6 — SVG-alapú tetőrajz és következő jóváhagyott geometriai kiterjesztések, csak külön jóváhagyással.
 
 ## Ismert hiányok
 
@@ -82,8 +88,8 @@ F5 — első konkrét tetőgeometriai kalkulátor, csak külön jóváhagyással
 - Külön 320/375/390/430 px viewport-emulációt a rendelkezésre álló böngészővezérlő nem támogatott; a mobil reflow CSS- és accessibility-felmérése, valamint desktop böngészős smoke megtörtént.
 - Az F4 nem oldotta meg a valódi több-session adatbázis-revízió concurrency teszt technikai adósságát; az F4 domain önmagában nem perzisztál.
 
-## F3 ellenőrzés állapota
+## F5 ellenőrzés állapota
 
-F4 implementációja és domain-tesztjei kész. Nincs F5 tetőgeometria, anyagkalkuláció, árképzés vagy ajánlatkezelés.
+F5 Checkpoint A/B/C teljesült a dokumentált lokális és böngészős ellenőrzésekkel. Nincs F6 rajzrenderelő, anyagkalkuláció, árképzés vagy statikai modul.
 
-Javasolt, nem végrehajtott commit: `feat(F4): add typed calculation and geometry foundation`.
+Javasolt, nem végrehajtott commit: `feat(F5): add project-linked gable roof calculator`.

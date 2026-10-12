@@ -1,6 +1,6 @@
 begin;
 
-select plan(74);
+select plan(83);
 
 select has_table('public', 'profiles', 'profiles exists');
 select has_table('public', 'organizations', 'organizations exists');
@@ -176,6 +176,54 @@ select throws_ok(
   $$delete from public.projects where id = '00000000-0000-4000-8000-000000000071'$$,
   '42501', null, 'project permanent deletion is not granted'
 );
+
+select lives_ok(
+  $$select * from public.save_gable_roof_calculation(
+    '00000000-0000-4000-8000-000000000010',
+    '00000000-0000-4000-8000-000000000030',
+    null,
+    'F5 DEMO nyeregtető',
+    '{"inputMode":"height","buildingLengthMm":12000,"buildingWidthMm":8000,"roofRiseMm":3000,"eaveOverhangMm":500,"frontGableOverhangMm":250,"rearGableOverhangMm":250}'::jsonb,
+    '{"areas":{"combinedRoofM2":140.625}}'::jsonb,
+    '{"input":"user_provided","output":"verified"}'::jsonb,
+    '[]'::jsonb,
+    0
+  )$$,
+  'authenticated member can atomically save a gable calculation'
+);
+select is((select count(*)::int from public.roof_models where organization_id = '00000000-0000-4000-8000-000000000010' and roof_type = 'gable' and name = 'F5 DEMO nyeregtető'), 1, 'gable roof model is created once');
+select is((select count(*)::int from public.roof_model_revisions where roof_model_id = (select id from public.roof_models where name = 'F5 DEMO nyeregtető')), 1, 'verified roof revision is created');
+select is((select count(*)::int from public.calculation_revisions where calculation_id = (select id from public.calculations where display_name = 'F5 DEMO nyeregtető')), 1, 'verified calculation revision is created');
+select is((select count(*)::int from public.calculation_dependencies where downstream_calculation_revision_id = (select current_revision_id from public.calculations where display_name = 'F5 DEMO nyeregtető')), 1, 'roof revision dependency is created');
+select throws_ok(
+  $$select * from public.save_gable_roof_calculation(
+    '00000000-0000-4000-8000-000000000010',
+    '00000000-0000-4000-8000-000000000030',
+    (select id from public.roof_models where name = 'F5 DEMO nyeregtető'),
+    'F5 DEMO nyeregtető', '{}'::jsonb, '{}'::jsonb, '{}'::jsonb, '[]'::jsonb, 0
+  )$$,
+  '40001', null, 'stale gable revision is rejected'
+);
+select lives_ok(
+  $$select * from public.save_gable_roof_calculation(
+    '00000000-0000-4000-8000-000000000010',
+    '00000000-0000-4000-8000-000000000030',
+    (select id from public.roof_models where name = 'F5 DEMO nyeregtető'),
+    'F5 DEMO nyeregtető', '{}'::jsonb, '{}'::jsonb, '{}'::jsonb, '[]'::jsonb, 1
+  )$$,
+  'current gable revision can be extended immutably'
+);
+select is((select max(revision_number) from public.roof_model_revisions where roof_model_id = (select id from public.roof_models where name = 'F5 DEMO nyeregtető')), 2, 'gable revision history increments');
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
+select throws_ok(
+  $$select * from public.save_gable_roof_calculation(
+    '00000000-0000-4000-8000-000000000010',
+    '00000000-0000-4000-8000-000000000030',
+    null, 'unauthorized gable', '{}'::jsonb, '{}'::jsonb, '{}'::jsonb, '[]'::jsonb, 0
+  )$$,
+  '42501', null, 'non-member cannot save a gable calculation'
+);
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
 
 select throws_ok(
   $$insert into public.organization_members (organization_id, user_id, role)
