@@ -1,8 +1,8 @@
-# F2.1 állapot
+# F2.3 állapot
 
 ## Jelenlegi fázis
 
-F2.1 — Supabase alapozás, PostgreSQL séma és RLS.
+F2.3 — Verziózott tetőmodellek és kalkulációs adatarchitektúra.
 
 ## Elkészült
 
@@ -35,19 +35,41 @@ F2.1 — Supabase alapozás, PostgreSQL séma és RLS.
 - A 29 pgTAP adatbázisteszt sikeres; mind az öt tábla és mind az öt RLS-beállítás lokálisan ellenőrizve.
 - A Supabase CLI által generált `src/infrastructure/supabase/database.types.ts` elkészült.
 - A deprecated `[inbucket]` konfiguráció `[local_smtp]` szekcióra lett frissítve.
+- Helyi, típusos `@supabase/supabase-js` és `@supabase/ssr` browser/server adapterek készültek.
+- Next.js 16 `src/proxy.ts` session-refresh proxy készült, `getClaims()` ellenőrzéssel és cookie-szinkronizációval.
+- Elkészült a magyar, meghívásos `/bejelentkezes` login: validáció, loading/error állapot, akadálymentes jelszómegjelenítés és kijelentkezés.
+- A `/` és `/demo/meretezes` útvonalak hitelesítést és szervezeti tagságot ellenőriznek; több szervezet esetén nincs csendes automatikus választás.
+- Elkészült a biztonságos, csak helyi bootstrap: `npm run db:local-env` és `npm run db:local-auth`; a jelszó nincs forráskódban vagy tracked fájlban.
+- A böngészős helyi integráció sikeres: hibás login-hiba, sikeres login, reload utáni session, védett DEMO-oldal és logout ellenőrizve.
+- Elkészült az öt új, szervezetileg izolált F2.3 tábla: `roof_models`, `roof_model_revisions`, `calculations`, `calculation_revisions`, `calculation_dependencies`.
+- A tetőmodellek több modellenként kapcsolódhatnak egy projekthez; a kalkuláció opcionális tetőmodell-hivatkozással önálló projektmunkát is támogat.
+- A geometriai és kalkulációs revíziók JSONB snapshotokat, séma-/implementációs verziót és explicit provenance/validation állapotot tárolnak.
+- A revíziók adatbázis-triggerek miatt immutable-ok; revíziószámuk szülőnként egyedi, a current revision pointerek összetett FK-val integritásvédettek.
+- A revision-level dependency gráf ugyanazon projektre és szervezetre korlátozott; önhivatkozás, ciklus és keresztprojekt-hivatkozás adatbázis-triggerrel tiltott.
+- A lokális DEMO seed most reprezentatív projekt → tetőmodell → geometriai revízió → kalkuláció → kalkulációs revízió → dependency láncot tartalmaz.
+- Az F2.3 pgTAP csomag 60 assertionre bővült, beleértve RLS-t, constraint-eket, immutable revíziókat, cross-org/cross-project tiltást és DAG-ciklusvédelmet.
+- A generált Supabase TypeScript típusok frissültek; külön Zod domain-kontraktusok készültek kalkulációs input/output és provenance számára, matematika nélkül.
+- A revízió-konkurencia védelme PostgreSQL egyedi constrainttel igazolt; valódi több-session terheléses teszt még technikai adósság.
 
 ## Szándékosan nincs benne
 
-Projektkezelés, valódi Auth UI, valódi kalkulátor, geometria, ár- vagy gyártói adat. A rajz csak DEMO SVG, nem számítási motor. Az alkalmazás még nem kapcsolódik Supabase-hez.
+Projektkezelés, nyilvános regisztráció, szervezetkezelés, meghívók, valódi kalkulátor, geometria, ár- vagy gyártói adat. A rajz csak DEMO SVG, nem számítási motor. Távoli Supabase-projekt továbbra sincs használva.
 
 ## Következő fázis
 
-F2.2 — Supabase Auth és szerveroldali SSR-kliens, külön feladatban.
+F3 — projekt- és ügyfélkezelés, csak külön jóváhagyással. F2.4 nincs a blueprintben és nem kezdődött el.
 
 ## Ismert hiányok
 
 - A Next 16 alapértelmezett Turbopack buildje ebben a környezetben portkötési hibával elhasalt; a dokumentált `npm run build` webpack módban sikeres.
 - A `vite` közvetlenül a fejlesztési függőségek között maradt; production üzleti runtime-függőség nem került be.
-- A dashboard funkciók és projektek továbbra is bemutató állapotúak; nincs adatbázis, hitelesítés vagy üzleti művelet.
-- Az `npm audit` ebben a futtatásban hálózati DNS-hiba miatt nem tudott az npm registryhez kapcsolódni; ez nem módosította a függőségeket.
+- A dashboard funkciók és projektek továbbra is bemutató állapotúak; nincs projektkezelési CRUD vagy számítási matematikai motor.
+- Az `npm audit --audit-level=moderate` ebben a futtatásban hálózati DNS-hiba miatt nem tudott az npm registryhez kapcsolódni; ez nem módosította a függőségeket.
+- A dependency cycle trigger tranzakciónként véd; nagy konkurens dependency-írási terhelés külön integrációs tesztje még nincs.
 - Külön 320/375/390/430 px viewport-emulációt a rendelkezésre álló böngészővezérlő nem támogatott; a mobil reflow CSS- és accessibility-felmérése, valamint desktop böngészős smoke megtörtént.
+
+## F2.3 ellenőrzés állapota
+
+F2.3 implementációja és helyi adatbázis-ellenőrzése kész. A matematikai kalkulátorok, projekt-CRUD és F3 nem kezdődött el.
+
+Javasolt, nem végrehajtott commit: `feat(F2.3): add versioned roof and calculation data architecture`.

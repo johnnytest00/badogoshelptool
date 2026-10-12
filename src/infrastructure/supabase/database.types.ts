@@ -23,7 +23,91 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "clients": {
+            "calculation_dependencies": {
+                  Row: {
+                    "created_at": string,"dependency_type": string,"downstream_calculation_revision_id": string,"id": string,"organization_id": string,"upstream_calculation_revision_id": string | null,"upstream_roof_model_revision_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"dependency_type": string,"downstream_calculation_revision_id": string,"id"?: string,"organization_id": string,"upstream_calculation_revision_id"?: string | null,"upstream_roof_model_revision_id"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"dependency_type"?: string,"downstream_calculation_revision_id"?: string,"id"?: string,"organization_id"?: string,"upstream_calculation_revision_id"?: string | null,"upstream_roof_model_revision_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "calculation_dependencies_calculation_upstream_same_organization"
+      columns: ["upstream_calculation_revision_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "calculation_revisions"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "calculation_dependencies_downstream_same_organization_fk"
+      columns: ["downstream_calculation_revision_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "calculation_revisions"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "calculation_dependencies_roof_upstream_same_organization_fk"
+      columns: ["upstream_roof_model_revision_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "roof_model_revisions"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"calculation_revisions": {
+                  Row: {
+                    "calculation_id": string,"calculator_implementation_version": string,"created_at": string,"created_by": string | null,"data_provenance": NonNullable<Json>,"id": string,"input_schema_version": string,"input_snapshot": NonNullable<Json>,"organization_id": string,"output_snapshot": NonNullable<Json>,"revision_number": number,"validation_status": string,"warnings": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "calculation_id": string,"calculator_implementation_version": string,"created_at"?: string,"created_by"?: string | null,"data_provenance"?: NonNullable<Json>,"id"?: string,"input_schema_version": string,"input_snapshot"?: NonNullable<Json>,"organization_id": string,"output_snapshot"?: NonNullable<Json>,"revision_number": number,"validation_status"?: string,"warnings"?: NonNullable<Json>
+                  }
+                  Update: {
+                    "calculation_id"?: string,"calculator_implementation_version"?: string,"created_at"?: string,"created_by"?: string | null,"data_provenance"?: NonNullable<Json>,"id"?: string,"input_schema_version"?: string,"input_snapshot"?: NonNullable<Json>,"organization_id"?: string,"output_snapshot"?: NonNullable<Json>,"revision_number"?: number,"validation_status"?: string,"warnings"?: NonNullable<Json>
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "calculation_revisions_calculation_same_organization_fk"
+      columns: ["calculation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "calculations"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"calculations": {
+                  Row: {
+                    "calculator_type": string,"created_at": string,"current_revision_id": string | null,"display_name": string,"id": string,"organization_id": string,"project_id": string,"roof_model_id": string | null,"status": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "calculator_type": string,"created_at"?: string,"current_revision_id"?: string | null,"display_name": string,"id"?: string,"organization_id": string,"project_id": string,"roof_model_id"?: string | null,"status"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "calculator_type"?: string,"created_at"?: string,"current_revision_id"?: string | null,"display_name"?: string,"id"?: string,"organization_id"?: string,"project_id"?: string,"roof_model_id"?: string | null,"status"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "calculations_current_revision_fk"
+      columns: ["current_revision_id","id"]
+isOneToOne: false
+      referencedRelation: "calculation_revisions"
+      referencedColumns: ["id","calculation_id"]
+    },{
+      foreignKeyName: "calculations_project_same_organization_fk"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "calculations_roof_model_same_organization_fk"
+      columns: ["roof_model_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "roof_models"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"clients": {
                   Row: {
                     "billing_address": string | null,"created_at": string,"email": string | null,"id": string,"name": string,"notes": string | null,"organization_id": string,"phone": string | null,"updated_at": string
                   }
@@ -121,6 +205,58 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "organizations"
       referencedColumns: ["id"]
+    }
+                  ]
+                },"roof_model_revisions": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"id": string,"input_data": NonNullable<Json>,"organization_id": string,"revision_number": number,"roof_model_id": string,"schema_version": string,"validation_status": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"input_data"?: NonNullable<Json>,"organization_id": string,"revision_number": number,"roof_model_id": string,"schema_version": string,"validation_status"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"id"?: string,"input_data"?: NonNullable<Json>,"organization_id"?: string,"revision_number"?: number,"roof_model_id"?: string,"schema_version"?: string,"validation_status"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "roof_model_revisions_model_same_organization_fk"
+      columns: ["roof_model_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "roof_models"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"roof_models": {
+                  Row: {
+                    "created_at": string,"current_revision_id": string | null,"id": string,"name": string,"organization_id": string,"project_id": string,"roof_type": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"current_revision_id"?: string | null,"id"?: string,"name": string,"organization_id": string,"project_id": string,"roof_type": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"current_revision_id"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"project_id"?: string,"roof_type"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "roof_models_current_revision_fk"
+      columns: ["current_revision_id","id"]
+isOneToOne: false
+      referencedRelation: "roof_model_revisions"
+      referencedColumns: ["id","roof_model_id"]
+    },{
+      foreignKeyName: "roof_models_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "roof_models_project_same_organization_fk"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
     }
                   ]
                 }

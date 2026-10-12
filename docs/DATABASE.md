@@ -48,8 +48,66 @@ tesztekkel ellenőrzi a táblákat, kulcsokat, indexeket, RLS-t, saját és ideg
 profil-hozzáférést, tagság-hamisítást, jogosulatlan írást, tagság-visszavonást
 és a kereszt-szervezeti projekt–ügyfél hivatkozás elutasítását.
 
-Az alkalmazás még nem hoz létre Supabase-klienseket és nincs Auth UI. A séma
-alapján generált típusok már a `src/infrastructure/supabase/database.types.ts`
-fájlban vannak; az F2.2-ben a hivatalos cookie-alapú `@supabase/ssr`
-szerver/böngésző adapterek kapcsolódnak be. Service-role kulcs böngészőbe nem
-kerülhet.
+Az F2.2-ben az alkalmazás a lokális Supabase Auth-hoz csatlakozik a
+`src/infrastructure/supabase/browser.ts`, `server.ts` és `src/proxy.ts`
+adaptereken keresztül. A szerveroldali identity-ellenőrzés `getClaims()`-t
+használ, a meglévő `profiles`, `organizations` és `organization_members`
+adatokra támaszkodik, és több tagság esetén nem választ szervezetet csendben.
+Service-role kulcs böngészőbe nem kerülhet; a bootstrap csak memóriában használja
+az admin kulcsot, és a jelszó nincs tracked fájlban.
+
+Helyi Auth felhasználó létrehozása:
+
+```bash
+npm run db:local-env
+LOCAL_AUTH_PASSWORD='helyi-jelszó' npm run db:local-auth
+```
+
+`db:reset --local` után a lokális Auth bootstrap szükség esetén újrafuttatandó.
+Távoli login, `supabase link`, `db push` és hosted adatbázis-módosítás továbbra
+sem része a workflow-nak.
+
+## F2.3 verziózott tető- és kalkulációs adatok
+
+Az F2.3 külön migrációban (`20261012010000_versioned_calculation_architecture.sql`)
+vezeti be az alábbi entitásokat:
+
+- `roof_models`: több tetőmodell egy projekten belül, `gable`, `shed`, `hip`,
+  `other` típusokkal; a projekt és a szervezet összetett FK-val együtt védett.
+- `roof_model_revisions`: immutable geometriai JSONB snapshot, szülőnként egyedi
+  revíziószám, séma-verzió, szerző és explicit provenance állapot.
+- `calculations`: projekten belüli kalkulátor-példány; a tetőmodell opcionális,
+  ezért önálló csatorna- vagy más munka is modellezhető.
+- `calculation_revisions`: immutable input/output snapshot, input schema és
+  calculator implementation version, provenance, warning és validation metadata.
+- `calculation_dependencies`: konkrét kalkulációs revíziók közötti vagy tetőmodell
+  revízióból induló, revision-level irányított gráfél.
+
+Mind az öt új tábla RLS-es és az authenticated szerepkör számára explicit grantot
+kap. A policy-k a meglévő `private.is_org_member()` helperen alapulnak. Az
+összetett FK-k kizárják a szervezetkeverést; a dependency validátor ezen felül
+azonos projektre kényszerít, tiltja az önhivatkozást és tranzakciónként ellenőrzi
+a ciklust. A gráfellenőrzés alkalmazási event queue vagy háttérfolyamat nélkül,
+adatbázis-triggerben történik.
+
+### Revízió- és frissességi szabály
+
+Egy új geometriai vagy kalkulációs input mindig új revíziót jelent. A korábbi
+snapshotok update/delete műveletét adatbázis-trigger tiltja, nem csak az RLS.
+Az egyedi `(parent_id, revision_number)` constraint ütközés esetén megvédi a
+párhuzamos revízió-létrehozást; alkalmazási szinten a hívó újraolvassa a legutolsó
+számot és újrapróbálhatja a tranzakciót. A `current_revision_id` csak a saját
+szülőjéhez tartozó revízióra mutathat.
+
+A `current`, `stale`, `invalid` kalkulációs állapotok a későbbi újraszámítás
+alapjai. F2.3 nem hajt végre újraszámítást; a dependency élekből később
+meghatározható, mely revíziók váltak elavulttá. A DEMO és becsült adatok nem
+minősülnek szakmailag igazoltnak.
+
+### TypeScript szerződések
+
+A Supabase által generált adatbázistípusok külön maradnak a
+`src/domain/calculations/contracts.ts` Zod-szerződéseitől. A domain szerződések
+elválasztják a nyers inputot, származtatott eredményt, kézi felülírást,
+adatforrást és validációs üzeneteket. Matematikai kalkulátor vagy anyagérték
+ebben a mérföldkőben nincs implementálva.

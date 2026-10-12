@@ -6,6 +6,7 @@
 - DEMO-adat csak egyértelmű `DEMO` jelöléssel használható; szakmai, gyártói vagy áradatot ne találj ki.
 - Nincs önkényes commit, push, deploy, éles Supabase-migráció vagy destruktív művelet.
 - Tartsd be az aktuális fázishatárt: ne készíts későbbi üzleti funkciót, hitelesítést, Supabase-réteget vagy kalkulációs motort előre.
+- Minden mérföldkő végén javasolj rövid Conventional Commit üzenetet, amely tartalmazza a mérföldkő verzióját és fő funkcionalitását; commitot csak külön kérésre készíts.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

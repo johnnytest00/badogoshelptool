@@ -13,13 +13,18 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset --local",
     "db:test": "supabase test db",
-    "db:types": "supabase gen types typescript --local > src/infrastructure/supabase/database.types.ts"
+    "db:types": "supabase gen types typescript --local > src/infrastructure/supabase/database.types.ts",
+    "db:local-auth": "node scripts/setup-local-auth.mjs",
+    "db:local-env": "node scripts/setup-local-auth.mjs --env-only"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.3",
     "lucide-react": "^0.468.0",
     "next": "^16.4.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

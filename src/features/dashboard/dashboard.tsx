@@ -6,11 +6,12 @@ import { ArrowRight, Check, ChevronRight, CircleHelp, FolderKanban, Settings2 } 
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useTheme } from "@/components/theme/theme-provider";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
+import { LogoutButton } from "@/features/auth/auth-controls";
 import { dashboardFunctions, demoProjects, projectStatusIcons, type DemoProject, type DashboardFunction } from "@/features/dashboard/dashboard.data";
 import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 import type { DashboardTab } from "@/features/dashboard/dashboard.types";
 
-export function Dashboard() {
+export function Dashboard({ displayName, email, organizationName }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string }>) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("functions");
   const [notice, setNotice] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -25,7 +26,7 @@ export function Dashboard() {
   return (
     <main className="dashboard-shell">
       <div className="dashboard-container">
-        <DashboardHeader settingsOpen={settingsOpen} onToggleSettings={() => setSettingsOpen((current) => !current)} />
+        <DashboardHeader displayName={displayName} email={email} organizationName={organizationName} settingsOpen={settingsOpen} onToggleSettings={() => setSettingsOpen((current) => !current)} />
         {settingsOpen && <DashboardSettings onResetTheme={resetTheme} />}
 
         <section className="greeting-section" aria-labelledby="dashboard-title">
@@ -50,13 +51,15 @@ export function Dashboard() {
   );
 }
 
-function DashboardHeader({ settingsOpen, onToggleSettings }: Readonly<{ settingsOpen: boolean; onToggleSettings: () => void }>) {
+function DashboardHeader({ displayName, email, organizationName, settingsOpen, onToggleSettings }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; settingsOpen: boolean; onToggleSettings: () => void }>) {
+  const userLabel = displayName || email || "Felhasználó";
   return (
     <header className="dashboard-header">
       <div className="brand-label">
         <span className="brand-mark"><span className="brand-mark-line" aria-hidden="true" /></span>
         <span>TETŐPRO</span>
       </div>
+      <div className="dashboard-account"><span className="dashboard-account-copy"><strong>{userLabel}</strong><span>{organizationName ?? "Helyi műhely"}</span></span><LogoutButton /></div>
       <div className="dashboard-header-actions">
         <ThemeToggle />
         <button className={`icon-button ${settingsOpen ? "is-active" : ""}`} type="button" onClick={onToggleSettings} aria-expanded={settingsOpen} aria-controls="dashboard-settings" aria-label="Beállítások" title="Beállítások">

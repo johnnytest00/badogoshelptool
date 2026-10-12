@@ -3,8 +3,15 @@ import { ArrowLeft, Ruler, Sparkles } from "lucide-react";
 import { DemoRoofDrawing } from "@/drawings/demo-roof";
 import { ScalingBubble } from "@/components/accessibility/scaling-bubble";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
+import { getAuthContext } from "@/features/auth/auth.server";
+import { NoOrganizationAccess } from "@/features/auth/access-state";
+import { redirect } from "next/navigation";
 
-export default function ScalingDemoPage() {
+export default async function ScalingDemoPage() {
+  const auth = await getAuthContext();
+  if (!auth) redirect("/bejelentkezes?returnTo=/demo/meretezes");
+  if (auth.organizations.length === 0) return <NoOrganizationAccess />;
+
   return (
     <main className="demo-page-shell">
       <div className="demo-page-container">
