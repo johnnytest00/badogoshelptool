@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, Check, ChevronRight, CircleHelp, FolderKanban, Settings2 } from "lucide-react";
+import { ArrowRight, ChevronRight, CircleHelp, FolderKanban, Settings2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useTheme } from "@/components/theme/theme-provider";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { LogoutButton } from "@/features/auth/auth-controls";
-import { dashboardFunctions, demoProjects, projectStatusIcons, type DemoProject, type DashboardFunction } from "@/features/dashboard/dashboard.data";
+import { dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
 import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 import type { DashboardTab } from "@/features/dashboard/dashboard.types";
+import type { ProjectRecord } from "@/features/projects/project-data";
+import { projectTypeLabels } from "@/domain/projects/contracts";
 
-export function Dashboard({ displayName, email, organizationName }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string }>) {
+export function Dashboard({ displayName, email, organizationName, organizationId, projects = [] }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; organizationId?: string; projects?: readonly ProjectRecord[] }>) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("functions");
   const [notice, setNotice] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -39,9 +41,9 @@ export function Dashboard({ displayName, email, organizationName }: Readonly<{ d
 
         <div className="dashboard-content" role="tabpanel" aria-live="polite" aria-labelledby={`dashboard-tab-${activeTab}`}>
           {activeTab === "functions" ? (
-            <FunctionsView onSelect={showComingSoon} />
+            <FunctionsView onSelect={showComingSoon} organizationId={organizationId} />
           ) : (
-            <ProjectsView onContinue={showComingSoon} />
+            <ProjectsView projects={projects} organizationId={organizationId} />
           )}
         </div>
 
@@ -104,12 +106,12 @@ function DashboardTabs({ activeTab, onChange }: Readonly<{ activeTab: DashboardT
   );
 }
 
-function FunctionsView({ onSelect }: Readonly<{ onSelect: (label: string) => void }>) {
+function FunctionsView({ onSelect, organizationId }: Readonly<{ onSelect: (label: string) => void; organizationId?: string }>) {
   return (
     <section aria-labelledby="functions-title">
       <SectionHeading eyebrow="Gyorsindító" title="Munkafolyamatok egy helyen" description="Válassz egy területet a következő lépéshez." />
       <div className="function-grid">
-        {dashboardFunctions.map((item) => <FunctionLauncher item={item} key={item.id} onSelect={onSelect} />)}
+        {dashboardFunctions.map((item) => <FunctionLauncher item={item} key={item.id} onSelect={onSelect} organizationId={organizationId} />)}
       </div>
       <div className="dashboard-tip">
         <CircleHelp aria-hidden="true" className="size-5" />
@@ -119,8 +121,9 @@ function FunctionsView({ onSelect }: Readonly<{ onSelect: (label: string) => voi
   );
 }
 
-function FunctionLauncher({ item, onSelect }: Readonly<{ item: DashboardFunction; onSelect: (label: string) => void }>) {
+function FunctionLauncher({ item, onSelect, organizationId }: Readonly<{ item: DashboardFunction; onSelect: (label: string) => void; organizationId?: string }>) {
   const Icon = item.icon;
+  if (item.id === "projects" && organizationId) return <Link className={`function-launcher tone-${item.tone}`} href={`/projektek?organization=${organizationId}`}><span className="function-icon"><Icon aria-hidden="true" className="size-6" /></span><span className="function-copy"><strong>{item.label}</strong><span>{item.description}</span></span><span className="function-arrow"><ArrowRight aria-hidden="true" className="size-5" /></span></Link>;
   return (
     <button className={`function-launcher tone-${item.tone}`} type="button" onClick={() => onSelect(item.label)} aria-label={`${item.label}, hamarosan elérhető`}>
       <span className="function-icon"><Icon aria-hidden="true" className="size-6" /></span>
@@ -131,32 +134,18 @@ function FunctionLauncher({ item, onSelect }: Readonly<{ item: DashboardFunction
   );
 }
 
-function ProjectsView({ onContinue }: Readonly<{ onContinue: (label: string) => void }>) {
+function ProjectsView({ projects, organizationId }: Readonly<{ projects: readonly ProjectRecord[]; organizationId?: string }>) {
   return (
     <section aria-labelledby="projects-title">
-      <SectionHeading eyebrow="Csak DEMO adat" title="Aktuális munkák" description="Példamunkák a későbbi projektkezelő felület bemutatásához." />
-      <div className="demo-banner"><span className="demo-dot" aria-hidden="true" />A tartalom helyi DEMO adat, nem kapcsolódik adatbázishoz.</div>
-      <div className="project-grid">
-        {demoProjects.map((project) => <ProjectPreview project={project} key={project.id} onContinue={onContinue} />)}
-      </div>
-      <div className="empty-state">
-        <span className="empty-state-icon"><FolderKanban aria-hidden="true" className="size-5" /></span>
-        <div><h3>Saját munkák hamarosan</h3><p>A valódi projektek létrehozása és szerkesztése egy későbbi fázis része lesz.</p></div>
-      </div>
+      <SectionHeading eyebrow="Saját munkák" title="Aktuális munkák" description="A kiválasztott műhely aktív projektjei." />
+      {projects.length === 0 ? <div className="empty-state"><span className="empty-state-icon"><FolderKanban aria-hidden="true" className="size-5" /></span><div><h3>Még nincs aktív projekt</h3><p>Hozd létre az első munkát, és innen bármikor folytathatod.</p>{organizationId && <Link className="text-action" href={`/projektek/uj?organization=${organizationId}`}>Új projekt <ArrowRight aria-hidden="true" className="size-3.5" /></Link>}</div></div> : <div className="project-grid real-dashboard-project-grid">{projects.slice(0, 6).map((project) => <RealProjectPreview project={project} organizationId={organizationId} key={project.id} />)}</div>}
+      {organizationId && <Link className="dashboard-projects-link" href={`/projektek?organization=${organizationId}`}>Összes projekt megnyitása <ArrowRight aria-hidden="true" className="size-4" /></Link>}
     </section>
   );
 }
 
-function ProjectPreview({ project, onContinue }: Readonly<{ project: DemoProject; onContinue: (label: string) => void }>) {
-  const StatusIcon = projectStatusIcons[project.status];
-  return (
-    <article className="project-preview">
-      <div className="project-preview-top"><span className="demo-label">DEMO</span><span className={`status-pill status-${project.status === "Folyamatban" ? "active" : project.status === "Vázlat" ? "draft" : "done"}`}><StatusIcon aria-hidden="true" className="size-3.5" />{project.status}</span></div>
-      <h3>{project.name}</h3>
-      <p className="project-type">{project.type}</p>
-      <div className="project-preview-bottom"><span className="project-updated">Módosítva: {project.updatedAt}</span>{project.canContinue ? <button className="text-action" type="button" onClick={() => onContinue(project.name)}>Folytatás <ArrowRight aria-hidden="true" className="size-3.5" /></button> : <span className="project-check"><Check aria-hidden="true" className="size-3.5" /> Kész</span>}</div>
-    </article>
-  );
+function RealProjectPreview({ project, organizationId }: Readonly<{ project: ProjectRecord; organizationId?: string }>) {
+  return <article className="project-preview"><div className="project-preview-top"><span className={`status-pill status-${project.status}`}>{project.status}</span></div><h3>{project.name}</h3><p className="project-type">{projectTypeLabels[project.projectType]}{project.clientName ? ` · ${project.clientName}` : ""}</p><div className="project-preview-bottom"><span className="project-updated">v{project.version}</span>{organizationId && <Link className="text-action" href={`/projektek/${project.id}?organization=${organizationId}`}>Folytatás <ArrowRight aria-hidden="true" className="size-3.5" /></Link>}</div></article>;
 }
 
 function SectionHeading({ eyebrow, title, description }: Readonly<{ eyebrow: string; title: string; description: string }>) {

@@ -177,14 +177,14 @@ isOneToOne: false
                   ]
                 },"projects": {
                   Row: {
-                    "client_id": string | null,"created_at": string,"created_by": string | null,"description": string | null,"id": string,"location": string | null,"name": string,"organization_id": string,"project_type": Database["public"]['Enums']["project_type"],"status": Database["public"]['Enums']["project_status"],"updated_at": string,"version": number
+                    "client_id": string | null,"created_at": string,"created_by": string | null,"description": string | null,"id": string,"location": string | null,"name": string,"organization_id": string,"previous_status": Database["public"]['Enums']["project_status"] | null,"project_type": Database["public"]['Enums']["project_type"],"status": Database["public"]['Enums']["project_status"],"updated_at": string,"version": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"id"?: string,"location"?: string | null,"name": string,"organization_id": string,"project_type"?: Database["public"]['Enums']["project_type"],"status"?: Database["public"]['Enums']["project_status"],"updated_at"?: string,"version"?: number
+                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"id"?: string,"location"?: string | null,"name": string,"organization_id": string,"previous_status"?: Database["public"]['Enums']["project_status"] | null,"project_type"?: Database["public"]['Enums']["project_type"],"status"?: Database["public"]['Enums']["project_status"],"updated_at"?: string,"version"?: number
                   }
                   Update: {
-                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"id"?: string,"location"?: string | null,"name"?: string,"organization_id"?: string,"project_type"?: Database["public"]['Enums']["project_type"],"status"?: Database["public"]['Enums']["project_status"],"updated_at"?: string,"version"?: number
+                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string | null,"description"?: string | null,"id"?: string,"location"?: string | null,"name"?: string,"organization_id"?: string,"previous_status"?: Database["public"]['Enums']["project_status"] | null,"project_type"?: Database["public"]['Enums']["project_type"],"status"?: Database["public"]['Enums']["project_status"],"updated_at"?: string,"version"?: number
                   }
                   Relationships: [
                     {

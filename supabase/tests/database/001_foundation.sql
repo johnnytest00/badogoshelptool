@@ -1,6 +1,6 @@
 begin;
 
-select plan(60);
+select plan(74);
 
 select has_table('public', 'profiles', 'profiles exists');
 select has_table('public', 'organizations', 'organizations exists');
@@ -130,6 +130,52 @@ select throws_ok(
   'P0001', null, 'dependency cycle is rejected'
 );
 select is((select input_data ->> 'data_origin' from public.roof_model_revisions where id = '00000000-0000-4000-8000-000000000041'), 'demo', 'historical roof revision remains unchanged');
+
+select lives_ok(
+  $$insert into public.clients (id, organization_id, name, phone)
+    values ('00000000-0000-4000-8000-000000000070', '00000000-0000-4000-8000-000000000010', 'F3 DEMO ügyfél', '+36 30 111 2233')$$,
+  'member can create a client'
+);
+select lives_ok(
+  $$update public.clients set name = 'F3 DEMO ügyfél módosítva' where id = '00000000-0000-4000-8000-000000000070'$$,
+  'member can edit a client'
+);
+select is((select name from public.clients where id = '00000000-0000-4000-8000-000000000070'), 'F3 DEMO ügyfél módosítva', 'client edit persists');
+select lives_ok(
+  $$insert into public.projects (id, organization_id, client_id, name, project_type, status, created_by)
+    values ('00000000-0000-4000-8000-000000000071', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000070', 'F3 DEMO projekt', 'gutter_work', 'in_progress', '00000000-0000-4000-8000-000000000001')$$,
+  'member can create a project'
+);
+select lives_ok(
+  $$update public.projects set name = 'F3 DEMO projekt módosítva', version = version + 1 where id = '00000000-0000-4000-8000-000000000071' and version = 1$$,
+  'member can edit a project with expected version'
+);
+select is((select version from public.projects where id = '00000000-0000-4000-8000-000000000071'), 2, 'project version increments atomically');
+select is((select count(*)::int from public.projects where id = '00000000-0000-4000-8000-000000000071' and version = 1), 0, 'stale project version no longer matches');
+select lives_ok(
+  $$update public.projects set previous_status = status, status = 'archived', version = version + 1 where id = '00000000-0000-4000-8000-000000000071' and version = 2$$,
+  'project archive persists previous status'
+);
+select is((select status::text from public.projects where id = '00000000-0000-4000-8000-000000000071'), 'archived', 'archived project has archived status');
+select lives_ok(
+  $$update public.projects set status = previous_status, previous_status = null, version = version + 1 where id = '00000000-0000-4000-8000-000000000071' and version = 3$$,
+  'project restore persists saved status'
+);
+select is((select status::text from public.projects where id = '00000000-0000-4000-8000-000000000071'), 'in_progress', 'restored project returns to prior status');
+select lives_ok(
+  $$insert into public.projects (organization_id, client_id, name, project_type, status, created_by)
+    select organization_id, client_id, name || ' — másolat', project_type, 'draft', '00000000-0000-4000-8000-000000000001'
+    from public.projects where id = '00000000-0000-4000-8000-000000000071'$$,
+  'member can duplicate basic project data'
+);
+select throws_ok(
+  $$delete from public.clients where id = '00000000-0000-4000-8000-000000000070'$$,
+  '42501', null, 'client permanent deletion is not granted'
+);
+select throws_ok(
+  $$delete from public.projects where id = '00000000-0000-4000-8000-000000000071'$$,
+  '42501', null, 'project permanent deletion is not granted'
+);
 
 select throws_ok(
   $$insert into public.organization_members (organization_id, user_id, role)

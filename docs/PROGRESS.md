@@ -1,8 +1,8 @@
-# F2.3 állapot
+# F3 állapot
 
 ## Jelenlegi fázis
 
-F2.3 — Verziózott tetőmodellek és kalkulációs adatarchitektúra.
+F3 — Production-ready projekt- és ügyfélkezelés.
 
 ## Elkészült
 
@@ -50,6 +50,13 @@ F2.3 — Verziózott tetőmodellek és kalkulációs adatarchitektúra.
 - Az F2.3 pgTAP csomag 60 assertionre bővült, beleértve RLS-t, constraint-eket, immutable revíziókat, cross-org/cross-project tiltást és DAG-ciklusvédelmet.
 - A generált Supabase TypeScript típusok frissültek; külön Zod domain-kontraktusok készültek kalkulációs input/output és provenance számára, matematika nélkül.
 - A revízió-konkurencia védelme PostgreSQL egyedi constrainttel igazolt; valódi több-session terheléses teszt még technikai adósság.
+- Elkészült a valós, szerveroldali projeklista és ügyféllista; a dashboard Aktuális munkák nézete már nem DEMO-kártyákat jelenít meg.
+- Projektfunkciók: létrehozás, részletek, szerkesztés, keresés, állapot/munkatípus szűrés, módosítás szerinti rendezés, duplikálás, archiválás és visszaállítás.
+- Ügyfélfunkciók: létrehozás, keresés, részletek és szerkesztés; ügyfél projektből is gyorsan létrehozható és hozzárendelhető.
+- Az archiválás előtti státuszt a `projects.previous_status` migráció tárolja; visszaállításkor a szerver ezt az adatbázisból olvassa.
+- Optimistic concurrency védelem készült a `projects.version` mezőre építve; stale mentés konfliktusüzenetet ad, néma felülírás nincs.
+- A végleges projekt- és ügyféltörlés authenticated grantja visszavonva; F3 csak nem destruktív archiválást enged.
+- A projekt részletező jövőbeli moduljai szándékosan „Hamarosan” állapotúak; nincs kalkulációs vagy ajánlati funkcionalitás.
 
 ## Szándékosan nincs benne
 
@@ -57,19 +64,19 @@ Projektkezelés, nyilvános regisztráció, szervezetkezelés, meghívók, való
 
 ## Következő fázis
 
-F3 — projekt- és ügyfélkezelés, csak külön jóváhagyással. F2.4 nincs a blueprintben és nem kezdődött el.
+F4 — domain alapmotor, mértékegységek és kalkulátor-regiszter, csak külön jóváhagyással.
 
 ## Ismert hiányok
 
 - A Next 16 alapértelmezett Turbopack buildje ebben a környezetben portkötési hibával elhasalt; a dokumentált `npm run build` webpack módban sikeres.
 - A `vite` közvetlenül a fejlesztési függőségek között maradt; production üzleti runtime-függőség nem került be.
-- A dashboard funkciók és projektek továbbra is bemutató állapotúak; nincs projektkezelési CRUD vagy számítási matematikai motor.
+- A kalkulációs matematika, anyagkatalógus, ajánlat és dokumentum-export továbbra sincs implementálva.
 - Az `npm audit --audit-level=moderate` ebben a futtatásban hálózati DNS-hiba miatt nem tudott az npm registryhez kapcsolódni; ez nem módosította a függőségeket.
-- A dependency cycle trigger tranzakciónként véd; nagy konkurens dependency-írási terhelés külön integrációs tesztje még nincs.
+- A projektlista lekérdezése 100 rekordra korlátozott; lapozás nagyobb adatállományhoz későbbi optimalizálási feladat.
 - Külön 320/375/390/430 px viewport-emulációt a rendelkezésre álló böngészővezérlő nem támogatott; a mobil reflow CSS- és accessibility-felmérése, valamint desktop böngészős smoke megtörtént.
 
-## F2.3 ellenőrzés állapota
+## F3 ellenőrzés állapota
 
-F2.3 implementációja és helyi adatbázis-ellenőrzése kész. A matematikai kalkulátorok, projekt-CRUD és F3 nem kezdődött el.
+F3 implementációja és helyi adatbázis-ellenőrzése kész. F4, számítási matematika és anyag/ajánlat modul nem kezdődött el.
 
-Javasolt, nem végrehajtott commit: `feat(F2.3): add versioned roof and calculation data architecture`.
+Javasolt, nem végrehajtott commit: `feat(F3): add production-ready project and client management`.

@@ -111,3 +111,34 @@ A Supabase által generált adatbázistípusok külön maradnak a
 elválasztják a nyers inputot, származtatott eredményt, kézi felülírást,
 adatforrást és validációs üzeneteket. Matematikai kalkulátor vagy anyagérték
 ebben a mérföldkőben nincs implementálva.
+
+## F3 projekt- és ügyfélkezelés
+
+Az F3 a meglévő `projects` és `clients` táblákat használja új üzleti táblák
+bevezetése nélkül. A projektek szerveroldali, bounded lekérdezéssel listázhatók
+név, státusz, munkatípus és módosítási idő szerint. Az archived projektek az
+alaplistában rejtve maradnak, külön szűrővel láthatók.
+
+Az `20261012020000_project_management.sql` migráció hozzáadja a
+`projects.previous_status` mezőt. Archiváláskor a szerver az adatbázisban lévő
+aktuális státuszt menti ebbe a mezőbe; visszaállításkor ugyanebből állítja vissza
+a projektet. Így a kliens által küldött tetszőleges státusz nem írhatja felül a
+workflow-előzményt.
+
+F3-ban nincs végleges projekt- vagy ügyféltörlés: az authenticated szerepkör
+`DELETE` grantje mindkét tábláról vissza lett vonva. A projektek duplikálása csak
+az alap projektadatokat másolja új azonosítóval és `draft` státusszal; tetőmodell-,
+kalkulációs- és immutable revíziók nem kerülnek át az új projektbe.
+
+Az alkalmazási server actionök minden alkalommal hitelesítést és aktív
+szervezeti tagságot ellenőriznek, az organization ID-t nem fogadják el önmagában
+megbízhatóként. A DB RLS ettől független második védelmi határ.
+
+Projektmódosításnál a `projects.version` feltételes update része. Ha a várt
+verzió nem egyezik, a mentés nem történik meg és a felhasználó konfliktusüzenetet
+kap. Ez megakadályozza a néma stale felülírást; valódi több-session terheléses
+teszt későbbi stabilizálási feladat.
+
+Az ügyfél oldalon csak a név kötelező. Az e-mail Zod- és adatbázis-validációt kap,
+a telefonszám szándékosan enyhe szöveges mező, így magyar és nemzetközi formátumok
+is elfogadhatók. A DEMO ügyfél és F2.3 seedadat továbbra is egyértelmű DEMO jelölésű.
