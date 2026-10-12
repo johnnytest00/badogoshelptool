@@ -129,3 +129,21 @@ Megjegyzés: a Next 16 alapértelmezett Turbopack buildje portkötési hibával 
 | `npm run test` | Sikeres | 6 fájl / 15 teszt sikeres. |
 | `npm run build` | Sikeres | Next.js 16.4.0 webpack production build sikeres; UI-regresszió nélkül. |
 | `npm audit` | Nem verifikálható | Korábbiakhoz hasonlóan npm registry DNS-hiba miatt nem adott auditválaszt. |
+
+## F4 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Mértékegység- és konverziós tesztek | Sikeres | 2026-10-12; mm/cm/m, mm²/m², mm³/m³, fok/radián, nem véges és unsafe integer bemenetek. |
+| Matematikai referenciaesetek | Sikeres | 2026-10-12; 3–4–5 háromszög, 2000 × 3000 mm téglalap = 6 000 000 mm², 90° = π/2. |
+| Geometriai primitívek | Sikeres | Távolság, vektor, normalizálás, szakasz, vetítés, felezőpont, sokszög-terület/kerület. |
+| Hibás geometria elutasítása | Sikeres | Nulla szakasz/vektor, kevés pont, degenerált és önmetsző sokszög, invalid koordináta. |
+| Calculator Registry | Sikeres | Explicit registry; duplicate és unknown calculator ID elutasítva. |
+| Calculation engine integráció | Sikeres | Teszt-only matematikai DEMO fixture: Zod input → számítás → output-validáció → verziózott eredmény. |
+| Strukturált hibák | Sikeres | `VALIDATION_ERROR`, `MISSING_REQUIRED_INPUT`, `INVALID_GEOMETRY`, `NUMERIC_OVERFLOW`, `UNSUPPORTED_OPERATION` szerződésben kezelve. |
+| Domain tesztek | Sikeres | 2026-10-12; 12 fájl / 38 teszt sikeres. |
+| `npm run typecheck` | Sikeres | 2026-10-12; hibamentes. |
+| `npm run lint` | Sikeres | 2026-10-12; ESLint hibamentes. |
+| `npm run build` | Sikeres | 2026-10-12; Next.js 16.4.0 webpack production build hibamentesen elkészült. |
+| Adatbázis-regresszió | Sikeres | F4 nem módosított sémát; a meglévő helyi 74/74 pgTAP baseline újrafuttatása 2026-10-12-én PASS. |
+| `npm audit` | Nem verifikálható | A korábbi npm registry DNS-hiba fenntartva; sikeres audit nem állítható. |

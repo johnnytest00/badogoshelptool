@@ -1,8 +1,8 @@
-# F3 állapot
+# F4 állapot
 
 ## Jelenlegi fázis
 
-F3 — Production-ready projekt- és ügyfélkezelés.
+F4 — Core calculation engine és matematikai domain-alap.
 
 ## Elkészült
 
@@ -57,6 +57,12 @@ F3 — Production-ready projekt- és ügyfélkezelés.
 - Optimistic concurrency védelem készült a `projects.version` mezőre építve; stale mentés konfliktusüzenetet ad, néma felülírás nincs.
 - A végleges projekt- és ügyféltörlés authenticated grantja visszavonva; F3 csak nem destruktív archiválást enged.
 - A projekt részletező jövőbeli moduljai szándékosan „Hamarosan” állapotúak; nincs kalkulációs vagy ajánlati funkcionalitás.
+- Elkészült a tiszta, infrastruktúrafüggetlen F4 domain-réteg: mm-alapú mértékegységek, explicit konverziók, safe-integer határok és szögek.
+- Elkészültek a Point2D/3D, Vector2D/3D, szakasz- és sokszög-primitívek; a geometriai műveletek és a degenerált/önmetsző bemenetek validációja determinisztikus.
+- Elkészültek a közös matematikai műveletek: 3–4–5 derékszögű háromszög, téglalap-/háromszögterület, explicit tolerancia, kerekítés és overflow-védelem.
+- Elkészült a verziózott `CalculatorDefinition`, strukturált siker/hiba eredmény, Zod bemeneti- és kimeneti validáció, valamint az explicit, duplikációt tiltó `CalculatorRegistry`.
+- Az F4 registry nem állít működőnek tető- vagy anyagkalkulátort; csak tesztben létezik a matematikai DEMO téglalap-terület fixture.
+- Az F4 technikai szerződései és pontossági szabályai a `docs/CALCULATION_ENGINE.md` fájlban dokumentáltak; nincs adatbázis-módosítás.
 
 ## Szándékosan nincs benne
 
@@ -64,7 +70,7 @@ Projektkezelés, nyilvános regisztráció, szervezetkezelés, meghívók, való
 
 ## Következő fázis
 
-F4 — domain alapmotor, mértékegységek és kalkulátor-regiszter, csak külön jóváhagyással.
+F5 — első konkrét tetőgeometriai kalkulátor, csak külön jóváhagyással.
 
 ## Ismert hiányok
 
@@ -74,9 +80,10 @@ F4 — domain alapmotor, mértékegységek és kalkulátor-regiszter, csak kül�
 - Az `npm audit --audit-level=moderate` ebben a futtatásban hálózati DNS-hiba miatt nem tudott az npm registryhez kapcsolódni; ez nem módosította a függőségeket.
 - A projektlista lekérdezése 100 rekordra korlátozott; lapozás nagyobb adatállományhoz későbbi optimalizálási feladat.
 - Külön 320/375/390/430 px viewport-emulációt a rendelkezésre álló böngészővezérlő nem támogatott; a mobil reflow CSS- és accessibility-felmérése, valamint desktop böngészős smoke megtörtént.
+- Az F4 nem oldotta meg a valódi több-session adatbázis-revízió concurrency teszt technikai adósságát; az F4 domain önmagában nem perzisztál.
 
 ## F3 ellenőrzés állapota
 
-F3 implementációja és helyi adatbázis-ellenőrzése kész. F4, számítási matematika és anyag/ajánlat modul nem kezdődött el.
+F4 implementációja és domain-tesztjei kész. Nincs F5 tetőgeometria, anyagkalkuláció, árképzés vagy ajánlatkezelés.
 
-Javasolt, nem végrehajtott commit: `feat(F3): add production-ready project and client management`.
+Javasolt, nem végrehajtott commit: `feat(F4): add typed calculation and geometry foundation`.
