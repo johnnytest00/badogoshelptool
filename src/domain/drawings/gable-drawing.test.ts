@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateGableRoof } from "@/domain/calculations/gable-roof";
+import { calculateMetalSheetLayout } from "@/domain/calculations/metal-sheet-layout";
 import { createGableDrawingModel, filterDrawingModel, formatDrawingMeasurement, type DrawingLayerId } from "./gable-drawing";
 
 const output = calculateGableRoof({ inputMode: "height", buildingWidthMm: 8000, buildingLengthMm: 12000, roofRiseMm: 3000, eaveOverhangMm: 500, frontGableOverhangMm: 250, rearGableOverhangMm: 250 });
@@ -34,10 +35,21 @@ describe("gable drawing model", () => {
 
   it("filters only presentation layers", () => {
     const model = createGableDrawingModel(output, "top");
-    const visible = Object.fromEntries((['planes', 'outlines', 'ridge-eaves', 'dimensions', 'angles', 'guides'] as DrawingLayerId[]).map((id) => [id, id !== "dimensions"])) as Record<DrawingLayerId, boolean>;
+    const visible = Object.fromEntries((['planes', 'outlines', 'ridge-eaves', 'dimensions', 'angles', 'guides', 'sheet-layout'] as DrawingLayerId[]).map((id) => [id, id !== "dimensions"])) as Record<DrawingLayerId, boolean>;
     expect(filterDrawingModel(model, visible).dimensions).toHaveLength(0);
     expect(filterDrawingModel(model, visible).polygons).toHaveLength(2);
     expect(filterDrawingModel(model, { ...visible, outlines: false, "ridge-eaves": true }).segments.every((item) => item.label?.includes("Gerinc") || item.label?.includes("eresz"))).toBe(true);
+  });
+
+  it("maps calculated sheet coordinates to both top-view roof planes", () => {
+    const layout = calculateMetalSheetLayout({ roof: { startXmm: -250, endXmm: 12250, slopeLengthMm: 5625 }, effectiveCoveringWidthMm: 1000, nominalSheetWidthMm: null, alignment: "left", minimumSheetLengthMm: null, maximumSheetLengthMm: null, endAllowanceMm: null });
+    const model = createGableDrawingModel(output, "top", layout);
+    expect(model.sheetStrips).toHaveLength(26);
+    expect(model.sheetStrips.filter((strip) => strip.planeSide === "left")).toHaveLength(13);
+    const partials = model.sheetStrips.filter((strip) => strip.isPartial);
+    expect(partials).toHaveLength(2);
+    expect(partials[0].points.map((point) => point.x)).toEqual([11750, 12250, 12250, 11750]);
+    expect(createGableDrawingModel(output, "cross-section", layout).sheetStrips).toHaveLength(0);
   });
 
   it("rejects incomplete geometry instead of inventing drawing points", () => {

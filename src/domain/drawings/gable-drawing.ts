@@ -1,12 +1,14 @@
 import type { GableRoofOutput, RoofVertex } from "@/domain/calculations/gable-roof";
+import type { MetalSheetLayoutOutput } from "@/domain/calculations/metal-sheet-layout";
 
 export type DrawingView = "top" | "gable" | "cross-section" | "longitudinal";
-export type DrawingLayerId = "planes" | "outlines" | "ridge-eaves" | "dimensions" | "angles" | "guides";
+export type DrawingLayerId = "planes" | "outlines" | "ridge-eaves" | "dimensions" | "angles" | "guides" | "sheet-layout";
 export type DrawingPoint = Readonly<{ x: number; y: number }>;
 export type DrawingSegment = Readonly<{ start: DrawingPoint; end: DrawingPoint; label?: string; hidden?: boolean }>;
 export type DrawingPolygon = Readonly<{ points: readonly DrawingPoint[]; label: string; side?: "left" | "right" }>;
 export type DrawingDimension = Readonly<{ kind: "horizontal" | "vertical" | "aligned"; start: DrawingPoint; end: DrawingPoint; offset: number; label: string; sourceMm: number; optional?: boolean }>;
 export type DrawingAngle = Readonly<{ vertex: DrawingPoint; start: DrawingPoint; end: DrawingPoint; label: string }>;
+export type DrawingSheetStrip = Readonly<{ id: string; points: readonly DrawingPoint[]; planeSide: "left" | "right"; indexFromStart: number; isPartial: boolean }>;
 
 export type GableDrawingModel = Readonly<{
   view: DrawingView;
@@ -17,6 +19,7 @@ export type GableDrawingModel = Readonly<{
   dimensions: readonly DrawingDimension[];
   angles: readonly DrawingAngle[];
   guides: readonly DrawingSegment[];
+  sheetStrips: readonly DrawingSheetStrip[];
 }>;
 
 export const drawingViews: readonly { id: DrawingView; label: string }[] = [
@@ -33,6 +36,7 @@ export const drawingLayers: readonly { id: DrawingLayerId; label: string; defaul
   { id: "dimensions", label: "Méretvonalak", defaultVisible: true },
   { id: "angles", label: "Hajlásszögek", defaultVisible: true },
   { id: "guides", label: "Segédvonalak", defaultVisible: true },
+  { id: "sheet-layout", label: "Lemezkiosztás", defaultVisible: false },
 ];
 
 const titles: Record<DrawingView, string> = {
@@ -64,7 +68,7 @@ function dimension(kind: DrawingDimension["kind"], start: DrawingPoint, end: Dra
   return { kind, start, end, offset, sourceMm, label: formatDrawingMeasurement(sourceMm), optional };
 }
 
-export function createGableDrawingModel(output: GableRoofOutput, view: DrawingView): GableDrawingModel {
+export function createGableDrawingModel(output: GableRoofOutput, view: DrawingView, sheetLayout?: MetalSheetLayoutOutput | null): GableDrawingModel {
   const left = output.planes.find((plane) => plane.side === "left");
   const right = output.planes.find((plane) => plane.side === "right");
   if (!left || !right || left.vertices.length !== 4 || right.vertices.length !== 4) throw new Error("A rajzhoz hiányos tetősík-geometria érkezett.");
@@ -81,6 +85,7 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
   let angles: DrawingAngle[];
   let guides: DrawingSegment[];
   let allPoints: DrawingPoint[];
+  let sheetStrips: DrawingSheetStrip[] = [];
 
   if (view === "top") {
     const leftPoints = left.vertices.map(xy);
@@ -95,6 +100,17 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
     angles = [];
     guides = [];
     allPoints = [...leftPoints, ...rightPoints, ...ridge, ...eaveL, ...eaveR];
+    if (sheetLayout) {
+      const eaveY = { left: invertY(left.vertices[0].yMm), right: invertY(right.vertices[2].yMm) } as const;
+      sheetStrips = sheetLayout.strips.map((strip) => ({
+        id: strip.id,
+        planeSide: strip.planeSide,
+        indexFromStart: strip.indexFromStart,
+        isPartial: strip.isPartial,
+        points: [point(strip.startXmm, 0), point(strip.endXmm, 0), point(strip.endXmm, eaveY[strip.planeSide]), point(strip.startXmm, eaveY[strip.planeSide])],
+      }));
+      allPoints.push(...sheetStrips.flatMap((strip) => strip.points));
+    }
   } else if (view === "longitudinal") {
     const points = [xz(leftEave), xz(ridgeStart), xz(ridgeEnd), xz(rightEave)];
     polygons = [];
@@ -113,11 +129,11 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
     allPoints = [...points, ...guides.flatMap((item) => [item.start, item.end])];
   }
   const flatPoints = allPoints.filter((item) => Number.isFinite(item.x) && Number.isFinite(item.y));
-  return { view, title: titles[view], bounds: bounds(flatPoints), polygons, segments, dimensions, angles, guides };
+  return { view, title: titles[view], bounds: bounds(flatPoints), polygons, segments, dimensions, angles, guides, sheetStrips };
 }
 
 export function filterDrawingModel(model: GableDrawingModel, visible: Readonly<Record<DrawingLayerId, boolean>>): GableDrawingModel {
   const isRidgeOrEave = (label: string | undefined) => Boolean(label && (label.includes("Gerinc") || label.includes("eresz")));
-  return { ...model, polygons: visible.planes ? model.polygons : [], segments: model.segments.filter((segment) => isRidgeOrEave(segment.label) ? visible["ridge-eaves"] : visible.outlines), dimensions: visible.dimensions ? model.dimensions : [], angles: visible.angles ? model.angles : [], guides: visible.guides ? model.guides : [] };
+  return { ...model, polygons: visible.planes ? model.polygons : [], segments: model.segments.filter((segment) => isRidgeOrEave(segment.label) ? visible["ridge-eaves"] : visible.outlines), dimensions: visible.dimensions ? model.dimensions : [], angles: visible.angles ? model.angles : [], guides: visible.guides ? model.guides : [], sheetStrips: visible["sheet-layout"] ? model.sheetStrips : [] };
 }
 

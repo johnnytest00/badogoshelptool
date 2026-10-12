@@ -1,5 +1,27 @@
 # Tesztmátrix
 
+## F7.3.1 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Calculator Registry | Sikeres | `covering.metal-sheets.layout` 1.0.0 regisztrálva és registry-n keresztül futtatva. |
+| Referencia A | Sikeres | 12 500 / 1000 mm: 13 sáv/tetősík, 26 összesen, 12 teljes + 500 mm részleges intervallum. |
+| Referencia B | Sikeres | 12 500 / 1250 mm: 10 sáv/tetősík, 20 összesen, nincs részleges intervallum. |
+| Referencia C | Sikeres | 12 500 / 800 mm: 16 sáv/tetősík, 32 összesen, 500 mm részleges intervallum. |
+| Bal/jobb indulás | Sikeres | A részleges sáv fizikai X-helye oldalt vált, a fedett hossz és darabszám változatlan. |
+| Lemezhossz és ráhagyás | Sikeres | A 5625 mm geometriai hossz külön marad; a kézi ráhagyás csak az ideiglenes hosszt növeli. |
+| Gyártási hosszkorlát | Sikeres | 5625 mm geometriai / 5725 mm ideiglenes hossz és 5000 mm maximum esetén `ABOVE_MAXIMUM_LENGTH`; nincs automatikus darabolás. |
+| Tizedes milliméter | Sikeres | Szögből származó 6562,5 mm hossz és kézi tizedes paraméter elfogadott. |
+| Renderbiztonsági határ | Sikeres | 400 sáv/tetősík felett strukturált hiba, csonkolás nélkül. |
+| SVG geometriai leképezés | Sikeres | Mindkét tetősík, 26 sáv, 2 részleges sáv és kalkulált X-koordináták a felülnézeti rajzmodellben. |
+| `Lemezkiosztás` réteg | Sikeres | Alapból kikapcsolt, külön checkboxszal kapcsolható; más nézetekben nem állít elő félrevezető sávgeometriát. |
+| Touch viselkedés | Változatlan | F7.2.4 pointer/pan/pinch kód nem módosult; az új magyar instrukció böngészőben megjelent. |
+| Fókuszált browser-flow | Sikeres | Mentett helyi nyeregtető → 1000 mm → 13/26 → réteg bekapcsolás → 26 SVG-sáv/2 részleges → jobb indulásra áthelyezés. |
+| 320 px mobil smoke | Sikeres | Lemezkiosztási panel látható, 26 sáv renderelt, `scrollWidth === clientWidth`; fizikai mobilteszt nem történt. |
+| Vitest | Sikeres | 18 fájl / 69 teszt. |
+| Typecheck, lint, build | Sikeres | TypeScript, ESLint és Next.js 16.4.0 webpack production build hibamentes. |
+| Adatbázis | Nem érintett | Nincs migráció, perzisztencia, Supabase- vagy RLS-változás; DB-teszt nem futott. |
+
 ## F7.2.3 ellenőrzések
 
 | Ellenőrzés | Állapot | Megjegyzés |
@@ -29,7 +51,7 @@
 | Célzott Vitest | Sikeres | `drawing-viewport.test.ts`: 1 fájl / 7 teszt. |
 | Typecheck | Sikeres | `npm run typecheck` hibamentes. |
 | Lint | Sikeres | `npm run lint` hibamentes. |
-| Fizikai iPhone touch pan | Nem ellenőrzött | A javítás automatizáltan és matematikailag ellenőrzött; valódi készülékes próbát a felhasználónak kell elvégeznie. |
+| Fizikai iPhone touch pan | Felhasználó által ellenőrzött | A felhasználó F7.3.1 előtt fizikai iPhone-on sikeresen visszaigazolta az F7.2.4 pan működését. |
 
 ## F7.2 ellenőrzések
 

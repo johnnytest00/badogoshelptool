@@ -94,3 +94,31 @@ illetve numerikus eredmények a rajzon kívül is szövegesen elérhetők. A né
 és a zoom/pan kizárólag megjelenítési állapot; nem hoz létre revíziót és nem ír
 adatbázisba. A Scaling Provider rajzskálája a viewport ideiglenes zoomjától
 független, így nincs kettős geometriai skálázás.
+
+## F7.3.1 — `covering.metal-sheets.layout`
+
+A tiszta lemezkiosztás-kalkulátor az F5 `roof.gable` eredményéből kapja a tető
+hosszanti X-kezdő-/végpontját és az eresztől gerincig mért ferde hosszt. A
+tetőgeometriát nem számolja újra. Az első hatókör két téglalap alakú,
+szimmetrikus nyeregtető-sík, egy darabból futó sávokkal és keresztirányú toldás
+nélkül.
+
+`stripsPerPlane = ceil(roofLongitudinalLength / effectiveCoveringWidth)`. A
+maradék nulla esetén minden fedési intervallum teljes; különben az utolsó,
+indulási irány szerinti szélső intervallum részleges. Balról indulva a részleges
+sáv a jobb X-szélen, jobbról indulva a bal X-szélen van. Az irány nem változtatja
+meg a fedett hosszt vagy a darabszámot.
+
+A hasznos fedési szélesség és az opcionális névleges lemezszélesség külön,
+felhasználó által megadott adat. A kalkulátor nem következtet fizikai vágási
+szélességre, átfedésre, vastagságra vagy gyártói előírásra. A geometriai
+lemezhossz az F5 ferde hossza; az opcionális végoldali ráhagyás külön mezőként
+növeli az ideiglenes hosszt. A kézi minimum/maximum csak megfelelőségi jelzést
+ad, automatikus darabolást vagy keresztirányú átfedést nem készít.
+
+A domain kimenet mindkét tetősík determinisztikus X-intervallumait és sáv-ID-it
+adja az SVG-rétegnek; Reactben nincs második kiosztási képlet. Tetősíkonként 400
+sáv felett a kalkulátor renderbiztonsági `UNSUPPORTED_OPERATION` hibát ad,
+csonkolás nélkül. Az F7.3.1 eredmény élő, ideiglenes előnézet. Verziózott mentés,
+katalógusvariáns-kapcsolat és jóváhagyott anyagmennyiség csak F7.3.2-ben
+készülhet.

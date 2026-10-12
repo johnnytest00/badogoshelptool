@@ -245,6 +245,20 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .drawing-toolbar-hint { color: var(--foreground) !important; }
 .drawing-layers label { min-height: 2.75rem; padding-block: .45rem; color: var(--foreground); }
 .drawing-layers input { width: 1.15rem; height: 1.15rem; }
+
+/* F7.3.1 provisional metal-sheet layout preview. */
+.roof-field select { width: 100%; min-width: 0; min-height: calc(3rem * var(--tp-ui-scale)); border: 1px solid var(--border); border-radius: .8rem; background: var(--surface-strong); color: var(--foreground); padding: .7rem .8rem; font: inherit; font-size: calc(1rem * var(--tp-text-scale)); }
+.sheet-layout-panel { min-width: 0; }
+.sheet-layout-fields { align-items: start; }
+.sheet-layout-note, .sheet-layout-warning { display: flex; align-items: flex-start; gap: .5rem; margin: 1rem 0 0; color: var(--foreground); font-size: calc(.78rem * var(--tp-text-scale)); line-height: 1.55; }
+.sheet-layout-note svg, .sheet-layout-warning svg { flex: 0 0 auto; margin-top: .15rem; color: var(--brand-ink); }
+.sheet-layout-warning { border: 1px solid color-mix(in srgb, #dc2626 40%, var(--border)); border-radius: .8rem; background: color-mix(in srgb, #dc2626 8%, var(--surface-strong)); padding: .75rem; }
+.sheet-layout-results { min-width: 0; margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+.technical-sheet-strip polygon { fill: color-mix(in srgb, var(--brand) 10%, transparent); stroke: color-mix(in srgb, var(--brand-ink) 72%, var(--foreground)); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.technical-sheet-strip.is-even polygon { fill: color-mix(in srgb, var(--brand) 18%, transparent); }
+.technical-sheet-strip.is-partial polygon { fill: color-mix(in srgb, #f59e0b 28%, transparent); stroke-width: 2.5; stroke-dasharray: 6 3; }
+.technical-sheet-strip text { fill: var(--foreground); font-size: 15px; font-weight: 900; paint-order: stroke; stroke: var(--surface-strong); stroke-width: 4px; stroke-linejoin: round; pointer-events: none; }
+@media (max-width: 560px) { .sheet-layout-panel .roof-result-grid { grid-template-columns: 1fr; }.sheet-layout-panel .roof-section-heading { align-items: flex-start; }.drawing-toolbar-hint { line-height: 1.45; text-align: left !important; } }
 @media (max-width: 900px) { .project-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }.project-filters .filter-check, .project-filters .secondary-button { grid-column: 1 / -1; } }
 .stack-form label { display: grid; min-width: 0; gap: .35rem; color: var(--foreground); font-size: .8rem; font-weight: 800; }
 .stack-form input, .stack-form select { width: 100%; max-width: 100%; min-width: 0; min-height: 2.8rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface-strong); color: var(--foreground); padding: .65rem .75rem; font: inherit; }
