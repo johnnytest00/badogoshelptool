@@ -10,7 +10,7 @@ import { areaSources, linearSources, methodForUnit, methodOptionsForUnit } from 
 const initial: Result = { ok: false };
 
 export function TakeoffItemForm({ organizationId, projectId, takeoffId, variants }: Readonly<{ organizationId: string; projectId: string; takeoffId: string; variants: MaterialVariantRecord[] }>) {
-  const [state, action] = useActionState(addMaterialTakeoffStateAction, initial);
+  const [state, action, pending] = useActionState(addMaterialTakeoffStateAction, initial);
   const [variantId, setVariantId] = useState("");
   const [method, setMethod] = useState<TakeoffMethod>("manual");
   const selectedVariant = variants.find((variant) => variant.id === variantId);
@@ -35,11 +35,15 @@ export function TakeoffItemForm({ organizationId, projectId, takeoffId, variants
     <label>Korrekció indoka, ha módosítod a mennyiséget<input name="adjustmentReason" /></label>
     <label>Felhasznált árverzió<select name="priceId" disabled={!selectedVariant}><option value="">Nincs kiválasztott ár</option>{selectedVariant?.prices.map((price) => <option key={price.id} value={price.id}>{price.amount.toLocaleString("hu-HU")} {price.currency} · {price.effectiveDate}</option>)}</select></label>
     {state.error && <p className="form-error" role="alert">{state.error}</p>}
-    <button className="primary-button" type="submit">Tétel hozzáadása</button>
+    <PendingSubmitButton pending={pending} pendingLabel="Tétel mentése…">Tétel hozzáadása</PendingSubmitButton>
   </form>;
 }
 
 export function ApproveTakeoffForm({ organizationId, projectId, takeoffId }: Readonly<{ organizationId: string; projectId: string; takeoffId: string }>) {
-  const [state, action] = useActionState(approveMaterialTakeoffStateAction, initial);
-  return <form action={action} className="takeoff-approval-form"><input type="hidden" name="organizationId" value={organizationId} /><input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="takeoffId" value={takeoffId} />{state.error && <p className="form-error" role="alert">{state.error}</p>}<button className="primary-button" type="submit">Kimutatás jóváhagyása</button></form>;
+  const [state, action, pending] = useActionState(approveMaterialTakeoffStateAction, initial);
+  return <form action={action} className="takeoff-approval-form"><input type="hidden" name="organizationId" value={organizationId} /><input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="takeoffId" value={takeoffId} /><p className="detail-description">A jóváhagyás után ez a kimutatás és tételei nem módosíthatók.</p>{state.error && <p className="form-error" role="alert">{state.error}</p>}<PendingSubmitButton pending={pending} pendingLabel="Jóváhagyás folyamatban…">Kimutatás jóváhagyása</PendingSubmitButton></form>;
+}
+
+export function PendingSubmitButton({ pending, pendingLabel, children }: Readonly<{ pending: boolean; pendingLabel: string; children: React.ReactNode }>) {
+  return <button className="primary-button" type="submit" disabled={pending}>{pending ? pendingLabel : children}</button>;
 }

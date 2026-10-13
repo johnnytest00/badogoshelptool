@@ -12,11 +12,14 @@ function output(value: unknown): GutterMaterialOutput | null { return value && t
 export async function getGutterGeometrySuggestions(organizationId: string, projectId: string): Promise<GutterGeometrySuggestion[]> {
   const supabase = await createClient();
   const { data: models, error } = await supabase.from("roof_models").select("id, name, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).eq("roof_type", "gable");
-  if (error || !models?.length) return [];
-  const { data: calculations } = await supabase.from("calculations").select("roof_model_id, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).eq("calculator_type", "roof.gable").in("roof_model_id", models.map((model) => model.id));
+  if (error) throw new Error("A tetőadatok betöltése nem sikerült.");
+  if (!models?.length) return [];
+  const { data: calculations, error: calculationsError } = await supabase.from("calculations").select("roof_model_id, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).eq("calculator_type", "roof.gable").in("roof_model_id", models.map((model) => model.id));
+  if (calculationsError) throw new Error("A mentett tetőszámítások betöltése nem sikerült.");
   const revisionsByModel = new Map((calculations ?? []).flatMap((calculation) => calculation.current_revision_id ? [[calculation.roof_model_id, calculation.current_revision_id] as const] : []));
   const revisionIds = [...revisionsByModel.values()];
-  const { data: revisions } = revisionIds.length ? await supabase.from("calculation_revisions").select("id, output_snapshot").in("id", revisionIds).eq("organization_id", organizationId) : { data: [] };
+  const { data: revisions, error: revisionsError } = revisionIds.length ? await supabase.from("calculation_revisions").select("id, output_snapshot").in("id", revisionIds).eq("organization_id", organizationId) : { data: [], error: null };
+  if (revisionsError) throw new Error("A tetőrevíziók betöltése nem sikerült.");
   return models.flatMap((model) => {
     const revision = (revisions ?? []).find((item) => item.id === revisionsByModel.get(model.id));
     const data = revision?.output_snapshot as { lengths?: { eachEaveEdgeMm?: number } } | null;
@@ -33,10 +36,12 @@ export async function getGutterGeometrySuggestions(organizationId: string, proje
 
 export async function getGutterCalculation(organizationId: string, projectId: string): Promise<GutterCalculationRecord | null> {
   const supabase = await createClient();
-  const { data: calculation } = await supabase.from("calculations").select("id, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).is("roof_model_id", null).eq("calculator_type", "gutters.material-estimate").maybeSingle();
+  const { data: calculation, error: calculationError } = await supabase.from("calculations").select("id, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).is("roof_model_id", null).eq("calculator_type", "gutters.material-estimate").maybeSingle();
+  if (calculationError) throw new Error("A mentett ereszkalkuláció betöltése nem sikerült.");
   if (!calculation?.current_revision_id) return null;
   const { data: rows, error } = await supabase.from("calculation_revisions").select("id, revision_number, input_snapshot, output_snapshot, created_at").eq("calculation_id", calculation.id).eq("organization_id", organizationId).order("revision_number", { ascending: false });
-  if (error || !rows?.length) return null;
+  if (error) throw new Error("Az ereszkalkuláció revíziói nem tölthetők be.");
+  if (!rows?.length) throw new Error("A mentett ereszkalkuláció revíziója nem található.");
   const revisions = rows.flatMap((row) => {
     const input = parse(row.input_snapshot); const result = output(row.output_snapshot);
     return input && result ? [{ revisionId: row.id, revisionNumber: row.revision_number, input, output: result, createdAt: row.created_at }] : [];

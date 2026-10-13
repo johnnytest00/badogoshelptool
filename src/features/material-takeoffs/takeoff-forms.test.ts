@@ -8,7 +8,7 @@ vi.mock("./takeoff-actions", () => ({
   approveMaterialTakeoffStateAction: async () => ({ ok: false }),
 }));
 
-import { ApproveTakeoffForm, TakeoffItemForm } from "./takeoff-forms";
+import { ApproveTakeoffForm, PendingSubmitButton, TakeoffItemForm } from "./takeoff-forms";
 
 const variant = (purchasingUnit: MaterialVariantRecord["purchasingUnit"]): MaterialVariantRecord => ({
   id: purchasingUnit, productId: "product", name: `DEMO ${purchasingUnit}`, sku: null, purchasingUnit,
@@ -35,5 +35,13 @@ describe("anyagkimutatás-tétel felülete", () => {
     const html = renderToStaticMarkup(createElement(ApproveTakeoffForm, { organizationId: "org", projectId: "project", takeoffId: "takeoff" }));
     expect(html).toContain('class="takeoff-approval-form"');
     expect(html).toContain("Kimutatás jóváhagyása");
+    expect(html).toContain("nem módosíthatók");
+  });
+
+  it("pending állapotban letiltja az ismételt mentést és egyértelmű állapotot mutat", () => {
+    const html = renderToStaticMarkup(createElement(PendingSubmitButton, { pending: true, pendingLabel: "Jóváhagyás folyamatban…", children: "Kimutatás jóváhagyása" }));
+    expect(html).toContain("disabled");
+    expect(html).toContain("Jóváhagyás folyamatban");
+    expect(html).not.toContain("Kimutatás jóváhagyása");
   });
 });

@@ -721,3 +721,26 @@ ellenőrzött.
 | Böngésző / fizikai eszköz | Nem futott | Hitelesített tab nem volt elérhető; az előző F9.7.4.1 helyi bind `EPERM` hibája miatt nem próbáltam újra. Fizikai iPad/iPhone nincs igazolva. |
 | Belső navigáció / loading / üres / destructive | Részben ellenőrzött | Dirty warning csak böngészőoldal-elhagyásra hat; SPA-navigációs prompt nincs. Projektlista üres állapota meglévő külön EMPTY UI; adatlekérés hibára dob, így nem címkézi üresként. Más modulok teljes állapot- és destructive auditja nem futott. |
 | Adatbázis / jogosultság / idempotencia | Nem változott | Nincs schema/action payload/snapshot/approval permission/idempotency-változás. A korábbi adatkonzisztencia- és RLS bizonyítékokat ez a UI-kör nem futtatta újra. |
+
+## F9.7.5.1 — maradék UX-megbízhatósági javítások
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Célzott Vitest | PASS | `npx vitest run src/lib/user-facing-action-error.test.ts src/lib/unsaved-changes.test.ts src/app/loading-error-ui.test.ts src/features/material-takeoffs/takeoff-forms.test.ts src/features/calculators/data-loading.test.ts`: 5 megadott fájl / 13 teszt; dirty/cancel/confirm/unload, üres kontra lekérési hiba, loading/error UI, pending submit és safe error mapping. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. A build által módosított `next-env.d.ts` visszaállítva. |
+| Loading / error | PASS, célzott markup + forrás | Nincs korábbi app loading/error fallback; új root `loading.tsx` jelzi busy/loading állapotot, root `error.tsx` safe Hungarian hibát és retry-t ad. |
+| Failed request ≠ empty | PASS, célzott teszt + forrás | Eresz/szegély/profil source getterek különválasztják a sikeres üres listát a sikertelen querytől. Takeoff és quotation kapcsolódó query-hibákat is továbbadja a route error fallbacknek; projektek, tetőmodellek és kivitelezési fő workspace eddig is explicit hibát dobott. |
+| Ajánlat navigáció | Részleges | Saját projekt-vissza link cancel/confirm guardot használ; editoron belüli egyéb ajánlatnavigáció rejtett, mentési success nem kér megerősítést, pending alatt vezérlők tiltottak. Browser Back és editoron kívüli útvonalak nincsenek elfogva; globális router/link interceptiont nem építettem. |
+| Kritikus művelet | PASS, forrás + markup teszt | Takeoff tételhozzáadás és jóváhagyás pending gombot használ; approval immutabilitási következménye látható. Projektarchiválás meglévő visszaállítható megerősítése megmaradt; projektmásolat és kalkulátor mentés pending tiltást használ. |
+| Böngésző / fizikai eszköz | Nem futott | Nincs hitelesített tab; korábbi dev bind `EPERM`, azonos környezet újrapróbálása elmaradt. Fizikai iPad/iPhone külön elfogadás. |
+| DB / RLS / idempotencia / teljes regresszió | Nem futott / nem változott | Nincs migration, adatbázis-séma, RPC, approval rule, kulcs vagy számítási szerződés változás. |
+
+## F9.7.5.2 — ajánlatpiszkozat navigáció utáni helyreállítása
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Célzott Vitest | PASS | `quotation-draft-recovery.test.ts` + `unsaved-changes.test.ts`: 2 fájl / 6 teszt; helyi draft olvasás/írás, user/org/project izoláció, revízió mismatch, userváltás törlése, sérült JSON törlése, meglévő guard. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Mentés / történeti revízió | Kód szerint, adatbázissal nem ellenőrzött | Sikeres action eltávolítja recovery kulcsot; meglévő mentés változatlan `quote.version`-t küld, recovery csak kliensállapotot állít vissza. Nincs DB/RPC módosítás; immutabilitási tesztet vagy DB ellenőrzést nem futtattam. |
+| Browser Back / visszatérés / explicit UI választás | UNVERIFIED böngészőben | Nem volt elérhető hitelesített browser tab, korábbi dev bind `EPERM`; automata teszt a tárolólogikát fedi, nem a valós history navigációt vagy kattintásos UI-t. Next 16.4 helyi docs alapján a `Link.onNavigate` kizárólag SPA Link navigációra vonatkozik. |
+| Korlátok | Rögzített | Tab session végén/bezáráskor, tiltott vagy megtelt `sessionStorage` esetén draft elveszhet. Külső és browser-history navigáció nincs univerzálisan blokkolva; tárolható draft visszatéréskor explicit restore/discard döntést kap. |

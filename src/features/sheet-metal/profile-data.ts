@@ -74,12 +74,14 @@ export async function getSheetMetalProfiles(organizationId: string, projectId: s
   const { data: calculations, error } = await supabase.from("calculations").select("id, display_name, current_revision_id")
     .eq("organization_id", organizationId).eq("project_id", projectId).is("roof_model_id", null)
     .eq("calculator_type", sheetMetalProfileCalculator.id).order("created_at", { ascending: false });
-  if (error || !calculations?.length) return [];
+  if (error) throw new Error("A mentett profilok betöltése nem sikerült.");
+  if (!calculations?.length) return [];
   const ids = calculations.map((calculation) => calculation.id);
   const { data: rows, error: revisionError } = await supabase.from("calculation_revisions")
     .select("id, calculation_id, revision_number, input_snapshot, output_snapshot, created_at, input_schema_version, calculator_implementation_version")
     .eq("organization_id", organizationId).in("calculation_id", ids).order("revision_number", { ascending: false });
-  if (revisionError || !rows) return [];
+  if (revisionError) throw new Error("A profilrevíziók betöltése nem sikerült.");
+  if (!rows) throw new Error("A profilrevíziók adatai nem érhetők el.");
   return calculations.flatMap((calculation) => {
     const revisions = rows.flatMap((row) => {
       if (row.calculation_id !== calculation.id || row.input_schema_version !== sheetMetalProfileCalculator.inputSchemaVersion
