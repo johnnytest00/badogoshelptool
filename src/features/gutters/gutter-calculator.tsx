@@ -20,6 +20,7 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
   const [name, setName] = useState("Ereszcsatorna-becslés");
   const [message, setMessage] = useState("");
   const [takeoffName, setTakeoffName] = useState("Ereszcsatorna anyagkimutatás");
+  const [transferRequestKey, setTransferRequestKey] = useState(() => crypto.randomUUID());
   const [mappings, setMappings] = useState<GutterTakeoffMapping[]>([]);
   const [takeoffMessage, setTakeoffMessage] = useState("");
   const [viewedRevisionNumber, setViewedRevisionNumber] = useState<number | null>(null);
@@ -43,8 +44,8 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
     if (!saved || !result || inputChanged || viewedRevisionNumber !== null) return;
     const compatible = mappingChecks.filter((check) => check.status === "compatible");
     if (!compatible.length) { setTakeoffMessage("Válassz legalább egy kompatibilis katalógusváltozatot."); return; }
-    const data = new FormData(); data.set("organizationId", organizationId); data.set("projectId", projectId); data.set("calculationId", saved.calculationId); data.set("sourceRevisionId", saved.revisionId); data.set("name", takeoffName); data.set("mappings", JSON.stringify(compatible.map((check) => ({ candidateId: check.candidate.id, variantId: check.variant?.id }))));
-    startTransition(async () => { const response = await createGutterTakeoffDraftAction(data); if (response.ok && response.takeoffId) router.push(`/projektek/${projectId}/anyagkimutatas?organization=${organizationId}&takeoff=${response.takeoffId}`); else setTakeoffMessage(response.error ?? "Az átadás nem sikerült."); });
+    const data = new FormData(); data.set("organizationId", organizationId); data.set("projectId", projectId); data.set("calculationId", saved.calculationId); data.set("sourceRevisionId", saved.revisionId); data.set("requestKey", transferRequestKey); data.set("name", takeoffName); data.set("mappings", JSON.stringify(compatible.map((check) => ({ candidateId: check.candidate.id, variantId: check.variant?.id }))));
+    startTransition(async () => { const response = await createGutterTakeoffDraftAction(data); if (response.ok && response.takeoffId) { setTransferRequestKey(crypto.randomUUID()); router.push(`/projektek/${projectId}/anyagkimutatas?organization=${organizationId}&takeoff=${response.takeoffId}`); } else setTakeoffMessage(response.error ?? "Az átadás nem sikerült."); });
   };
   const categoryLabels: Record<string, string> = { end_cap: "Végzáró", connector: "Összekötő", bracket: "Konzol", outlet: "Kifolyó", downpipe: "Lefolyó", elbow: "Könyök", accessory: "Egyéb tartozék" };
   return <section className="detail-surface gutter-calculator" aria-labelledby="gutter-title">

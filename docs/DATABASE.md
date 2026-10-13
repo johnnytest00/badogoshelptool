@@ -350,17 +350,38 @@ Hosted adatbázis, backup/restore és hosted izoláció nem változott és nem l
 
 ## F9.6.1.2 integrációs adatfolyam
 
-Új adatbázistábla vagy alkalmazott migráció nem kellett. A meglévő `material_takeoffs`
-összetett szervezeti/projekt/kalkulációs FK-jai egyaránt elfogadják a
-`gutters.material-estimate` kalkulációt; a szerver action csak az aktuális,
-ellenőrzött revision pointert, a projektet és a tagságot fogadja el. A variáns és
-termék lekérdezése szervezet szerint szűrt, aktív termék- és támogatott
-kategória-ellenőrzéssel; ár esetén az aktuális rekord snapshotja, egyébként `null`
-kerül a takeoff tételbe.
+Az F9.6.1.2.1 hardening a `20261013080200_gutter_takeoff_hardening.sql`
+incremental migrációval két nullable, együtt kötelező mezőt ad a meglévő
+`material_takeoffs` táblához: `transfer_request_key uuid` és `transfer_payload
+jsonb`. A `(organization_id, project_id, transfer_request_key)` unique constraint
+az adatbázisban teszi atomi műveletté az idempotenciát; a korábbi rekordok null
+értékei kompatibilisek maradnak.
 
-Az átadás egy új draftot és annak tételsnapshotjait hozza létre, soha nem módosít
-approved rekordot. A tétel `material_snapshot` mezője a forrásrevíziót, termék- és
-variánsazonosítót, egységet, rendelkezésre álló hossz/szélesség paramétereket és
-provenance-t őrzi. Az azonos név + forrásrevíziójú meglévő draft visszaadása
-ismételt beküldésnél védi a felhasználót a véletlen duplikációtól; külön
-adatbázis-idempotencia kulcs nincs.
+A SECURITY INVOKER `create_gutter_takeoff_draft` RPC egyetlen tranzakcióban
+ellenőrzi a tagságot, a szervezet/projekt/current verified gutter-revíziót, az
+aktív és szervezetazonos katalógust, a támogatott kategóriát és a `piece`
+beszerzési egységet. A mennyiséget közvetlenül a mentett input/output snapshotból
+vezeti le, majd ugyanabban a tranzakcióban írja a draftot és a tételeket. A
+`material_snapshot` őrzi a pontos forrásrevíziót, termék- és variánsazonosítót,
+egységet, rendelkezésre álló műszaki paramétereket és provenance-t; a legutóbbi
+egységazonos ár teljes forrás-snapshotként, hiányában `null` értékként rögzül.
+
+Ugyanazon kéréskulcs és azonos payload az eredeti draftot adja vissza; ugyanazon
+kulcs eltérő payloadhoz `22023` hibával elutasított. Új kéréskulcs külön szándékos
+művelet, ezért azonos név és forrásrevízió mellett is új draftot hozhat létre. A
+`public` és `anon` EXECUTE jog visszavont, az RPC csak `authenticated` szerepkörnek
+engedélyezett. A 010 pgTAP 29 ellenőrzése és a két független authenticated
+kapcsolatos konkurenciateszt igazolja az izolációt, snapshotokat, pontosan-egyszer
+logikai létrehozást és approved immutabilitást.
+
+A `20261013080300_material_takeoff_delete_trigger_fix.sql` a korábbi BEFORE
+UPDATE OR DELETE triggerek DELETE ágát javítja: draft törléskor `OLD`, frissítéskor
+`NEW` tér vissza, approved rekordnál továbbra is kivétel keletkezik. Így a
+jóváhagyott kimutatás és tételei változatlanul immutable-ek, a draft lifecycle és
+a célzott teszt-cleanup pedig nem némán megszakított művelet.
+
+A `20261013080400_material_takeoff_source_immutability.sql` BEFORE UPDATE trigger
+alatt változtathatatlanná teszi a szervezet-, projekt-, kalkuláció-, revízió- és
+opcionális tetőmodell-forrást, valamint a transfer kéréskulcsot és payloadot. A
+név, státusz, jóváhagyási adatok és verzió szabályos lifecycle-változásait ez nem
+akadályozza; a jóváhagyott állapot külön, szigorúbb trigger-védelme megmarad.

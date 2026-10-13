@@ -133,6 +133,172 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"execution_journal_entries": {
+                  Row: {
+                    "category": Database["public"]['Enums']["execution_journal_category"],"content": string,"correction_of_entry_id": string | null,"created_at": string,"created_by": string,"id": string,"next_steps": string | null,"organization_id": string,"plan_id": string,"problems": string | null,"request_key": string,"task_id": string | null,"work_date": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category"?: Database["public"]['Enums']["execution_journal_category"],"content": string,"correction_of_entry_id"?: string | null,"created_at"?: string,"created_by": string,"id"?: string,"next_steps"?: string | null,"organization_id": string,"plan_id": string,"problems"?: string | null,"request_key"?: string,"task_id"?: string | null,"work_date": string
+                  }
+                  Update: {
+                    "category"?: Database["public"]['Enums']["execution_journal_category"],"content"?: string,"correction_of_entry_id"?: string | null,"created_at"?: string,"created_by"?: string,"id"?: string,"next_steps"?: string | null,"organization_id"?: string,"plan_id"?: string,"problems"?: string | null,"request_key"?: string,"task_id"?: string | null,"work_date"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "execution_journal_correction_org_fk"
+      columns: ["correction_of_entry_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "execution_journal_entries"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "execution_journal_entries_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "execution_journal_plan_org_fk"
+      columns: ["plan_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "execution_plans"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "execution_journal_task_org_fk"
+      columns: ["task_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "execution_tasks"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"execution_photos": {
+                  Row: {
+                    "caption": string | null,"category": string,"display_filename": string,"file_size": number,"id": string,"journal_entry_id": string | null,"mime_type": string,"object_key": string,"organization_id": string,"plan_id": string,"project_id": string,"request_key": string,"task_id": string | null,"uploaded_at": string,"uploaded_by": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "caption"?: string | null,"category"?: string,"display_filename": string,"file_size": number,"id"?: string,"journal_entry_id"?: string | null,"mime_type": string,"object_key": string,"organization_id": string,"plan_id": string,"project_id": string,"request_key"?: string,"task_id"?: string | null,"uploaded_at"?: string,"uploaded_by": string
+                  }
+                  Update: {
+                    "caption"?: string | null,"category"?: string,"display_filename"?: string,"file_size"?: number,"id"?: string,"journal_entry_id"?: string | null,"mime_type"?: string,"object_key"?: string,"organization_id"?: string,"plan_id"?: string,"project_id"?: string,"request_key"?: string,"task_id"?: string | null,"uploaded_at"?: string,"uploaded_by"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "execution_photos_journal_org_fk"
+      columns: ["journal_entry_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "execution_journal_entries"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "execution_photos_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "execution_photos_plan_org_fk"
+      columns: ["plan_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "execution_plans"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "execution_photos_project_org_fk"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "execution_photos_task_org_fk"
+      columns: ["task_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "execution_tasks"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"execution_plans": {
+                  Row: {
+                    "created_at": string,"created_by": string,"description": string | null,"id": string,"organization_id": string,"project_id": string,"request_key": string,"source_quotation_id": string | null,"source_revision_id": string | null,"title": string,"updated_at": string,"version": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by": string,"description"?: string | null,"id"?: string,"organization_id": string,"project_id": string,"request_key"?: string,"source_quotation_id"?: string | null,"source_revision_id"?: string | null,"title": string,"updated_at"?: string,"version"?: number
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string,"description"?: string | null,"id"?: string,"organization_id"?: string,"project_id"?: string,"request_key"?: string,"source_quotation_id"?: string | null,"source_revision_id"?: string | null,"title"?: string,"updated_at"?: string,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "execution_plans_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "execution_plans_project_org_fk"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"execution_task_events": {
+                  Row: {
+                    "changed_at": string,"changed_by": string | null,"from_status": Database["public"]['Enums']["execution_task_status"],"id": string,"organization_id": string,"plan_id": string,"task_id": string,"to_status": Database["public"]['Enums']["execution_task_status"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "changed_at"?: string,"changed_by"?: string | null,"from_status": Database["public"]['Enums']["execution_task_status"],"id"?: string,"organization_id": string,"plan_id": string,"task_id": string,"to_status": Database["public"]['Enums']["execution_task_status"]
+                  }
+                  Update: {
+                    "changed_at"?: string,"changed_by"?: string | null,"from_status"?: Database["public"]['Enums']["execution_task_status"],"id"?: string,"organization_id"?: string,"plan_id"?: string,"task_id"?: string,"to_status"?: Database["public"]['Enums']["execution_task_status"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "execution_task_events_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "execution_task_events_plan_org_fk"
+      columns: ["plan_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "execution_plans"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "execution_task_events_task_org_fk"
+      columns: ["task_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "execution_tasks"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"execution_tasks": {
+                  Row: {
+                    "created_at": string,"created_by": string,"description": string | null,"due_date": string | null,"id": string,"organization_id": string,"plan_id": string,"priority": Database["public"]['Enums']["execution_task_priority"],"request_key": string,"sort_order": number,"status": Database["public"]['Enums']["execution_task_status"],"title": string,"updated_at": string,"version": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by": string,"description"?: string | null,"due_date"?: string | null,"id"?: string,"organization_id": string,"plan_id": string,"priority"?: Database["public"]['Enums']["execution_task_priority"],"request_key"?: string,"sort_order"?: number,"status"?: Database["public"]['Enums']["execution_task_status"],"title": string,"updated_at"?: string,"version"?: number
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string,"description"?: string | null,"due_date"?: string | null,"id"?: string,"organization_id"?: string,"plan_id"?: string,"priority"?: Database["public"]['Enums']["execution_task_priority"],"request_key"?: string,"sort_order"?: number,"status"?: Database["public"]['Enums']["execution_task_status"],"title"?: string,"updated_at"?: string,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "execution_tasks_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "execution_tasks_plan_org_fk"
+      columns: ["plan_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "execution_plans"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"material_manufacturers": {
                   Row: {
                     "created_at": string,"created_by": string | null,"id": string,"name": string,"notes": string | null,"organization_id": string,"updated_at": string,"website": string | null
@@ -233,14 +399,14 @@ isOneToOne: false
                   ]
                 },"material_takeoffs": {
                   Row: {
-                    "approved_at": string | null,"approved_by": string | null,"created_at": string,"created_by": string | null,"id": string,"name": string,"organization_id": string,"project_id": string,"source_calculation_id": string,"source_calculation_revision_id": string,"source_roof_model_id": string | null,"source_roof_model_revision_id": string | null,"status": Database["public"]['Enums']["material_takeoff_status"],"updated_at": string,"version": number
+                    "approved_at": string | null,"approved_by": string | null,"created_at": string,"created_by": string | null,"id": string,"name": string,"organization_id": string,"project_id": string,"source_calculation_id": string,"source_calculation_revision_id": string,"source_roof_model_id": string | null,"source_roof_model_revision_id": string | null,"status": Database["public"]['Enums']["material_takeoff_status"],"transfer_payload": Json | null,"transfer_request_key": string | null,"updated_at": string,"version": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "approved_at"?: string | null,"approved_by"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"name": string,"organization_id": string,"project_id": string,"source_calculation_id": string,"source_calculation_revision_id": string,"source_roof_model_id"?: string | null,"source_roof_model_revision_id"?: string | null,"status"?: Database["public"]['Enums']["material_takeoff_status"],"updated_at"?: string,"version"?: number
+                    "approved_at"?: string | null,"approved_by"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"name": string,"organization_id": string,"project_id": string,"source_calculation_id": string,"source_calculation_revision_id": string,"source_roof_model_id"?: string | null,"source_roof_model_revision_id"?: string | null,"status"?: Database["public"]['Enums']["material_takeoff_status"],"transfer_payload"?: Json | null,"transfer_request_key"?: string | null,"updated_at"?: string,"version"?: number
                   }
                   Update: {
-                    "approved_at"?: string | null,"approved_by"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"project_id"?: string,"source_calculation_id"?: string,"source_calculation_revision_id"?: string,"source_roof_model_id"?: string | null,"source_roof_model_revision_id"?: string | null,"status"?: Database["public"]['Enums']["material_takeoff_status"],"updated_at"?: string,"version"?: number
+                    "approved_at"?: string | null,"approved_by"?: string | null,"created_at"?: string,"created_by"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"project_id"?: string,"source_calculation_id"?: string,"source_calculation_revision_id"?: string,"source_roof_model_id"?: string | null,"source_roof_model_revision_id"?: string | null,"status"?: Database["public"]['Enums']["material_takeoff_status"],"transfer_payload"?: Json | null,"transfer_request_key"?: string | null,"updated_at"?: string,"version"?: number
                   }
                   Relationships: [
                     {
@@ -401,6 +567,32 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
+                },"quotation_status_events": {
+                  Row: {
+                    "acted_by": string | null,"event_at": string,"finalized_revision_id": string | null,"from_status": Database["public"]['Enums']["quotation_status"],"id": string,"note": string | null,"organization_id": string,"quotation_id": string,"to_status": Database["public"]['Enums']["quotation_status"]
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "acted_by"?: string | null,"event_at"?: string,"finalized_revision_id"?: string | null,"from_status": Database["public"]['Enums']["quotation_status"],"id"?: string,"note"?: string | null,"organization_id": string,"quotation_id": string,"to_status": Database["public"]['Enums']["quotation_status"]
+                  }
+                  Update: {
+                    "acted_by"?: string | null,"event_at"?: string,"finalized_revision_id"?: string | null,"from_status"?: Database["public"]['Enums']["quotation_status"],"id"?: string,"note"?: string | null,"organization_id"?: string,"quotation_id"?: string,"to_status"?: Database["public"]['Enums']["quotation_status"]
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quotation_status_events_finalized_revision_id_organization_fkey"
+      columns: ["finalized_revision_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "quotation_revisions"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "quotation_status_events_quotation_id_organization_id_fkey"
+      columns: ["quotation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "quotations"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"quotations": {
                   Row: {
                     "client_id": string | null,"created_at": string,"created_by": string,"currency": string,"current_revision_id": string | null,"finalized_at": string | null,"finalized_by": string | null,"finalized_revision_id": string | null,"id": string,"name": string,"organization_id": string,"project_id": string,"status": Database["public"]['Enums']["quotation_status"],"updated_at": string,"version": number
@@ -518,6 +710,8 @@ isOneToOne: false
 "source_roof_model_id": string | null,
 "source_roof_model_revision_id": string | null,
 "status": Database["public"]['Enums']["material_takeoff_status"],
+"transfer_payload": Json | null,
+"transfer_request_key": string | null,
 "updated_at": string,
 "version": number
             }
@@ -527,8 +721,38 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"create_execution_journal_entry":
+{ Args: { "p_category": Database["public"]['Enums']["execution_journal_category"],"p_content": string,"p_correction_of_entry_id"?: string,"p_next_steps"?: string,"p_organization_id": string,"p_plan_id": string,"p_problems"?: string,"p_request_key"?: string,"p_task_id": string,"p_work_date": string }; Returns: {
+              "entry_id": string
+            }[]
+                           },
+"create_execution_photo":
+{ Args: { "p_caption": string,"p_display_filename": string,"p_file_size": number,"p_journal_entry_id": string,"p_mime_type": string,"p_object_key": string,"p_organization_id": string,"p_plan_id": string,"p_project_id": string,"p_request_key": string,"p_task_id": string }; Returns: {
+              "photo_id": string
+            }[]
+                           },
+"create_execution_plan":
+{ Args: { "p_description": string,"p_organization_id": string,"p_project_id": string,"p_request_key"?: string,"p_source_quotation_id"?: string,"p_source_revision_id"?: string,"p_title": string }; Returns: {
+              "plan_id": string
+            }[]
+                           },
+"create_gutter_takeoff_draft":
+{ Args: { "p_calculation_id": string,"p_mappings": Json,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_request_key": string,"p_revision_id": string }; Returns: {
+              "draft_created": boolean,"takeoff_id": string
+            }[]
+                           },
 "create_sheet_layout_takeoff_draft":
 { Args: { "p_allowance_percent": number,"p_layout_calculation_id": string,"p_layout_revision_id": string,"p_name": string,"p_organization_id": string,"p_project_id": string }; Returns: string
+                           },
+"finalize_quotation":
+{ Args: { "p_expected_version": number,"p_organization_id": string,"p_project_id": string,"p_quotation_id": string,"p_revision_id": string }; Returns: {
+              "finalized_at": string,"quotation_id": string,"revision_id": string
+            }[]
+                           },
+"save_execution_task":
+{ Args: { "p_description": string,"p_due_date": string,"p_expected_version"?: number,"p_organization_id": string,"p_plan_id": string,"p_priority": Database["public"]['Enums']["execution_task_priority"],"p_request_key"?: string,"p_sort_order": number,"p_status": Database["public"]['Enums']["execution_task_status"],"p_task_id": string,"p_title": string }; Returns: {
+              "task_id": string,"task_version": number
+            }[]
                            },
 "save_gable_roof_calculation":
 { Args: { "p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_roof_model_id": string,"p_warnings": Json }; Returns: {
@@ -545,24 +769,22 @@ isOneToOne: false
               "calculation_id": string,"calculation_revision_id": string,"revision_created": boolean,"revision_number": number
             }[]
                            },
-"finalize_quotation":
-{ Args: { "p_expected_version": number,"p_organization_id": string,"p_project_id": string,"p_quotation_id": string,"p_revision_id": string }; Returns: {
-              "finalized_at": string,"quotation_id": string,"revision_id": string
-            }[]
-                           },
-"transition_quotation_status":
-{ Args: { "p_expected_version": number,"p_note": string,"p_organization_id": string,"p_project_id": string,"p_quotation_id": string,"p_target_status": Database["public"]['Enums']["quotation_status"] }; Returns: {
-              "event_id": string,"quotation_id": string,"status": Database["public"]['Enums']["quotation_status"]
-            }[]
-                           },
 "save_quotation_draft":
 { Args: { "p_client_id": string,"p_currency": string,"p_expected_version": number,"p_input_snapshot": Json,"p_line_items_snapshot": Json,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_quotation_id": string,"p_subtotal": number,"p_totals_snapshot": Json }; Returns: {
               "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number
             }[]
+                           },
+"set_execution_photo_category":
+{ Args: { "p_category": string,"p_organization_id": string,"p_photo_id": string }; Returns: boolean
+                           },
+"transition_quotation_status":
+{ Args: { "p_expected_version": number,"p_note"?: string,"p_organization_id": string,"p_project_id": string,"p_quotation_id": string,"p_target_status": Database["public"]['Enums']["quotation_status"] }; Returns: {
+              "event_id": string,"quotation_id": string,"status": Database["public"]['Enums']["quotation_status"]
+            }[]
                            }
           }
           Enums: {
-            "material_category": "roof_covering"|"sheet_metal"|"gutter"|"flashing"|"insulation"|"timber"|"accessory"|"other","material_data_provenance": "verified"|"user_provided"|"estimated"|"demo"|"missing","material_price_kind": "net"|"gross","material_product_status": "active"|"archived","material_purchasing_unit": "piece"|"linear_meter"|"square_meter"|"cubic_meter"|"kilogram"|"package","material_takeoff_method": "area"|"linear"|"manual","material_takeoff_status": "draft"|"approved","organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other","quotation_line_type": "MATERIAL"|"LABOR"|"OTHER","quotation_price_class": "net"|"gross","quotation_status": "draft"|"finalized"|"sent"|"accepted"|"rejected"
+            "execution_journal_category": "general"|"work_done"|"problem"|"next_step","execution_task_priority": "low"|"normal"|"high","execution_task_status": "todo"|"in_progress"|"done","material_category": "roof_covering"|"sheet_metal"|"gutter"|"flashing"|"insulation"|"timber"|"accessory"|"other","material_data_provenance": "verified"|"user_provided"|"estimated"|"demo"|"missing","material_price_kind": "net"|"gross","material_product_status": "active"|"archived","material_purchasing_unit": "piece"|"linear_meter"|"square_meter"|"cubic_meter"|"kilogram"|"package","material_takeoff_method": "area"|"linear"|"manual","material_takeoff_status": "draft"|"approved","organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other","quotation_line_type": "MATERIAL"|"LABOR"|"OTHER","quotation_price_class": "net"|"gross","quotation_status": "draft"|"finalized"|"sent"|"accepted"|"rejected"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -682,7 +904,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "material_category": ["roof_covering", "sheet_metal", "gutter", "flashing", "insulation", "timber", "accessory", "other"],"material_data_provenance": ["verified", "user_provided", "estimated", "demo", "missing"],"material_price_kind": ["net", "gross"],"material_product_status": ["active", "archived"],"material_purchasing_unit": ["piece", "linear_meter", "square_meter", "cubic_meter", "kilogram", "package"],"material_takeoff_method": ["area", "linear", "manual"],"material_takeoff_status": ["draft", "approved"],"organization_role": ["owner", "admin", "member"],"project_status": ["draft", "in_progress", "quoted", "accepted", "completed", "archived"],"project_type": ["roof_renovation", "roof_construction", "gutter_work", "other"],"quotation_line_type": ["MATERIAL", "LABOR", "OTHER"],"quotation_price_class": ["net", "gross"],"quotation_status": ["draft", "finalized", "sent", "accepted", "rejected"]
+            "execution_journal_category": ["general", "work_done", "problem", "next_step"],"execution_task_priority": ["low", "normal", "high"],"execution_task_status": ["todo", "in_progress", "done"],"material_category": ["roof_covering", "sheet_metal", "gutter", "flashing", "insulation", "timber", "accessory", "other"],"material_data_provenance": ["verified", "user_provided", "estimated", "demo", "missing"],"material_price_kind": ["net", "gross"],"material_product_status": ["active", "archived"],"material_purchasing_unit": ["piece", "linear_meter", "square_meter", "cubic_meter", "kilogram", "package"],"material_takeoff_method": ["area", "linear", "manual"],"material_takeoff_status": ["draft", "approved"],"organization_role": ["owner", "admin", "member"],"project_status": ["draft", "in_progress", "quoted", "accepted", "completed", "archived"],"project_type": ["roof_renovation", "roof_construction", "gutter_work", "other"],"quotation_line_type": ["MATERIAL", "LABOR", "OTHER"],"quotation_price_class": ["net", "gross"],"quotation_status": ["draft", "finalized", "sent", "accepted", "rejected"]
           }
         }
 } as const

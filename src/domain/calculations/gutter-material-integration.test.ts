@@ -28,10 +28,14 @@ describe("gutter integration boundary", () => {
   it("draws independent runs, deterministic section boundaries, and no fabricated relationship", () => {
     const output = calculateGutterMaterial({ ...input, runs: [...input.runs, { ...input.runs[0], id: "b", name: "Jobb eresz", lengthMm: 4000 }] });
     const model = buildGutterDrawingModel({ ...input, runs: [...input.runs, { ...input.runs[0], id: "b", name: "Jobb eresz", lengthMm: 4000 }] }, output, "00000000-0000-4000-8000-000000000099");
-    expect(model.sourceRevisionId).toContain("0099");
+    expect(model.sourceRevisionId).toBe("00000000-0000-4000-8000-000000000099");
     expect(model.runs).toHaveLength(2);
+    expect(model.runs.map((run) => run.lengthMm)).toEqual([8500, 4000]);
     expect(model.runs[0].sectionBoundaries).toHaveLength(2);
     expect(model.downpipes).toHaveLength(1);
+    expect(model.downpipes[0]).toMatchObject({ lengthMm: 5500, commercialLengthMm: 3000, stockSections: 2, selectedBends: 1 });
+    expect(model.downpipes[0].sectionBoundaries).toHaveLength(1);
     expect(model.downpipes[0].y).toBeGreaterThan(model.runs[1].y);
+    expect(model).not.toHaveProperty("connections");
   });
 });

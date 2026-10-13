@@ -504,3 +504,17 @@ ellenőrzött.
 | SVG modell | Sikeres | Két független ereszszakasz, determinisztikus szálhatárok, lefolyókapcsolat nélküli séma és forrásrevízió a célzott Vitestben. |
 | Célzott automatizált kapuk | Sikeres | `npx vitest run src/domain/calculations/gutter-material.test.ts src/domain/calculations/gutter-material-integration.test.ts`: 2 fájl / 8 teszt PASS; `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check` PASS. |
 | Böngészős végső workflow | Sikeres | Egy hitelesített helyi DEMO folyamat: kompatibilis `piece` variáns kiválasztása, előnézet, új draft, átirányítás és draft újranyitása; a 3 és 4 darabos tételek, forrásrevízió és provenance megjelent, korábbi approved rekord érintetlen maradt. Narrow viewport ebben a vezérlőben nem volt elérhető. |
+
+## F9.6.1.2.1 — végső integrációs hardening
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Server Action A–H | Sikeres | `RUN_LOCAL_SUPABASE_ACTION_TESTS=1 npx vitest run src/features/gutters/gutter-actions.local.integration.test.ts`: 8/8 PASS. Két külön, valóban bejelentkezett helyi identitás; valid owner, idegen szervezeti kalkuláció/variáns, idegen projekt, hibás revízió, inkompatibilis egység, jogosulatlan create/add és approved módosítás elutasítása. Service role kizárólag fixture-életciklushoz. |
+| Atomi idempotencia | Sikeres | Explicit UUID kéréskulcs, payload-egyezés és `(organization_id, project_id, transfer_request_key)` unique constraint. Azonos kulcs azonos eredményt ad, eltérő payloadot elutasít; új kulcs ugyanazon név/revízió mellett külön draftot enged. |
+| Valódi konkurencia | Sikeres | `scripts/verify-gutter-takeoff-concurrency.mjs`: két független authenticated kapcsolat, egyszerre indított azonos logikai kérés; 1 create + 1 reuse, 1 draft, 1 tétel, azonos takeoff-id és 3 darabos mennyiség. Cleanup PASS. |
+| Adatbázis/RLS/snapshot | Sikeres | `010_gutter_takeoff_hardening.sql`: 29/29 pgTAP PASS; szervezet/projekt/revízió/variáns izoláció, egységvédelem, pontos mennyiség, technikai- és árforrás-snapshot, draft forrás/payload immutabilitás és approved immutabilitás. |
+| SVG és forrásintegritás | Sikeres | Célzott domain/SVG Vitest 8/8: tárolt hossz, kereskedelmi szálhossz, szálhatárok, könyökszám, pontos revision ID, független lefolyó és nem létező topológia hiánya. |
+| Teljes alkalmazáskapuk | Sikeres | `npm test`: 27 fájl PASS / 95 teszt PASS, a 8 helyi integrációs eset alapfutásban szabályosan skip; `npm run typecheck`, `npm run lint`, `npm run build` PASS. |
+| Migráció és cleanup | Sikeres | `20261013080200`, `20261013080300` és `20261013080400` incremental, reset nélkül; local/remote history oszlopok lokálisan egyeznek. Temporary table/function, concurrency projekt és action szervezet: 0. Hosted környezet nem érintett. |
+| Fókuszált browser follow-up | Sikeres | Meglévő hitelesített helyi munkamenet: kompatibilis DEMO `piece` variáns, atomi draft, átirányítás, 3 `piece`, forrásrevízió és warning látható; a smoke-draft eltávolítva. |
+| 390 px mobil QA | Nem ellenőrzött | A rendelkezésre álló native Brave vezérlő nem adott megbízható explicit viewport-emulációt; MOBILE QA UNVERIFIED. |
