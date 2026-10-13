@@ -4,22 +4,30 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { executeCalculator } from "@/domain/calculations/engine";
 import { gutterMaterialCalculator, type GutterMaterialInput } from "@/domain/calculations/gutter-material";
-import { saveGutterCalculationAction } from "./gutter-actions";
+import { buildGutterTakeoffCandidates, checkGutterMappings, type GutterCatalogVariant, type GutterTakeoffMapping } from "@/domain/calculations/gutter-material-integration";
+import { createGutterTakeoffDraftAction, saveGutterCalculationAction } from "./gutter-actions";
 import type { GutterCalculationRecord, GutterGeometrySuggestion } from "./gutter-data";
+import { GutterTechnicalDrawing } from "./gutter-technical-drawing";
 
-type Props = { organizationId: string; projectId: string; suggestions: GutterGeometrySuggestion[]; saved: GutterCalculationRecord | null };
+type Props = { organizationId: string; projectId: string; suggestions: GutterGeometrySuggestion[]; saved: GutterCalculationRecord | null; catalogVariants: GutterCatalogVariant[] };
 const emptyRun = (id: string) => ({ id, name: "Új ereszszakasz", lengthMm: 0, description: "", measurementSource: "site_measurement" as const, roofEdge: null, bracketSpacingMm: null });
 const initial = (saved: GutterCalculationRecord | null): GutterMaterialInput => saved?.input ?? { gutterStockLengthMm: 4000, runs: [emptyRun("run-1")], downpipes: [], manualComponents: [] };
 const numberValue = (value: string) => Number(value.replace(",", ".")) || 0;
 
-export function GutterCalculator({ organizationId, projectId, suggestions, saved }: Props) {
+export function GutterCalculator({ organizationId, projectId, suggestions, saved, catalogVariants }: Props) {
   const router = useRouter();
   const [input, setInput] = useState<GutterMaterialInput>(() => initial(saved));
   const [name, setName] = useState("Ereszcsatorna-becslés");
   const [message, setMessage] = useState("");
+  const [takeoffName, setTakeoffName] = useState("Ereszcsatorna anyagkimutatás");
+  const [mappings, setMappings] = useState<GutterTakeoffMapping[]>([]);
+  const [takeoffMessage, setTakeoffMessage] = useState("");
   const [viewedRevisionNumber, setViewedRevisionNumber] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const result = useMemo(() => { const calculation = executeCalculator(gutterMaterialCalculator, input); return calculation.ok ? calculation.output : null; }, [input]);
+  const candidates = useMemo(() => result ? buildGutterTakeoffCandidates(input, result) : [], [input, result]);
+  const mappingChecks = useMemo(() => checkGutterMappings(candidates, mappings, catalogVariants), [candidates, mappings, catalogVariants]);
+  const inputChanged = saved ? JSON.stringify(input) !== JSON.stringify(saved.input) : true;
   const updateRun = (id: string, patch: Partial<GutterMaterialInput["runs"][number]>) => setInput((current) => ({ ...current, runs: current.runs.map((run) => run.id === id ? { ...run, ...patch } : run) }));
   const updateDownpipe = (id: string, patch: Partial<GutterMaterialInput["downpipes"][number]>) => setInput((current) => ({ ...current, downpipes: current.downpipes.map((run) => run.id === id ? { ...run, ...patch } : run) }));
   const save = () => {
@@ -30,6 +38,14 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
     startTransition(async () => { const response = await saveGutterCalculationAction(data); setMessage(response.ok ? `Mentve: revízió ${response.revisionNumber}` : response.error ?? "A mentés nem sikerült."); if (response.ok) { setViewedRevisionNumber(null); router.refresh(); } });
   };
   const addComponent = () => setInput((current) => ({ ...current, manualComponents: [...current.manualComponents, { id: `component-${Date.now()}`, category: "end_cap", quantity: 0, note: "" }] }));
+  const updateMapping = (candidateId: string, variantId: string) => setMappings((current) => variantId ? [...current.filter((item) => item.candidateId !== candidateId), { candidateId, variantId }] : current.filter((item) => item.candidateId !== candidateId));
+  const transfer = () => {
+    if (!saved || !result || inputChanged || viewedRevisionNumber !== null) return;
+    const compatible = mappingChecks.filter((check) => check.status === "compatible");
+    if (!compatible.length) { setTakeoffMessage("Válassz legalább egy kompatibilis katalógusváltozatot."); return; }
+    const data = new FormData(); data.set("organizationId", organizationId); data.set("projectId", projectId); data.set("calculationId", saved.calculationId); data.set("sourceRevisionId", saved.revisionId); data.set("name", takeoffName); data.set("mappings", JSON.stringify(compatible.map((check) => ({ candidateId: check.candidate.id, variantId: check.variant?.id }))));
+    startTransition(async () => { const response = await createGutterTakeoffDraftAction(data); if (response.ok && response.takeoffId) router.push(`/projektek/${projectId}/anyagkimutatas?organization=${organizationId}&takeoff=${response.takeoffId}`); else setTakeoffMessage(response.error ?? "Az átadás nem sikerült."); });
+  };
   const categoryLabels: Record<string, string> = { end_cap: "Végzáró", connector: "Összekötő", bracket: "Konzol", outlet: "Kifolyó", downpipe: "Lefolyó", elbow: "Könyök", accessory: "Egyéb tartozék" };
   return <section className="detail-surface gutter-calculator" aria-labelledby="gutter-title">
     <div className="section-heading"><div><p className="section-eyebrow">F9.6.1.1.1 · Anyagbecslés</p><h2 id="gutter-title">Ereszcsatorna-kalkulátor</h2></div><span className="status-pill">{saved ? viewedRevisionNumber ? `Megtekintés: revízió ${viewedRevisionNumber}` : `Aktuális revízió ${saved.revisionNumber}` : "Új kalkuláció"}</span></div>
@@ -61,6 +77,7 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
       <button type="button" className="text-button" onClick={() => setInput({ ...input, manualComponents: input.manualComponents.filter((item) => item.id !== component.id) })}>Eltávolítás</button>
     </div>)}</div>
     <div className="gutter-results"><h3>Előzetes mennyiségek</h3>{result ? <><p><strong>{result.totals.gutterStockSections}</strong> ereszszál · <strong>{result.totals.downpipeStockSections}</strong> lefolyószál</p>{result.gutterRuns.map((run) => <div key={run.id}><span>{run.name}</span><strong>{run.stockSections} szál{run.remainderMm ? ` · maradék ${run.remainderMm} mm` : ""}</strong></div>)}{result.downpipeRuns.map((run) => <div key={run.id}><span>{run.name}</span><strong>{run.stockSections} lefolyószál{run.remainderMm ? ` · maradék ${run.remainderMm} mm` : ""}</strong></div>)}{result.componentQuantities.filter((item) => item.source === "manual").map((item, index) => <div key={`${item.category}-${index}`}><span>{categoryLabels[item.category] ?? item.category}</span><strong>{item.quantity} db · kézi</strong></div>)}{result.assumptions.map((assumption) => <p className="detail-description" key={assumption}>{assumption}</p>)}{result.warnings.map((warning) => <p className="form-message" key={warning}>{warning}</p>)}</> : <p className="form-message is-error">Adj meg érvényes hosszakat.</p>}</div>
+    {result && <><section className="gutter-integration-panel"><div className="section-heading"><div><p className="section-eyebrow">Katalóguskapcsolat</p><h3>Anyagok hozzárendelése</h3></div><span className="status-pill">{mappingChecks.filter((item) => item.status === "compatible").length}/{candidates.length} kompatibilis</span></div><p className="detail-description">A számítási szálmennyiség darabegységű előzetes kereskedelmi mennyiség. Folyóméterre vagy csomagra nincs automatikus átváltás.</p>{mappingChecks.map((check) => <div className="gutter-mapping-row" key={check.candidate.id}><div><strong>{check.candidate.label}</strong><small>{check.candidate.quantity} {check.candidate.unit} · {check.candidate.classification === "preliminary" ? "előzetes" : "kézi"} · {check.candidate.measurementSource}</small></div><label><span className="sr-only">Katalógusváltozat</span><select value={check.variant?.id ?? ""} onChange={(event) => updateMapping(check.candidate.id, event.target.value)}><option value="">Nincs hozzárendelve</option>{catalogVariants.map((variant) => <option value={variant.id} key={variant.id}>{variant.productName} · {variant.variantName} · {variant.purchasingUnit}{variant.lengthMm ? ` · ${variant.lengthMm} mm` : ""}</option>)}</select></label><small className={check.status === "incompatible" ? "form-message is-error" : check.status === "compatible" ? "form-message is-success" : "form-message"}>{check.message}{check.variant ? ` Paraméterforrás: ${check.variant.provenance}; hossz ${check.variant.lengthMm ?? "nincs megadva"} mm.` : ""}</small></div>)}</section><section className="gutter-integration-panel"><div className="section-heading"><div><p className="section-eyebrow">Átadási előnézet</p><h3>Új anyagkimutatás-piszkozat</h3></div></div><label className="material-field"><span>Piszkozat megnevezése</span><input value={takeoffName} onChange={(event) => setTakeoffName(event.target.value)} /></label>{mappingChecks.filter((item) => item.status === "compatible").map((check) => <div className="gutter-transfer-row" key={check.candidate.id}><span>{check.candidate.label}</span><strong>{check.candidate.quantity} {check.candidate.unit}</strong><small>{check.variant?.productName} · {check.variant?.variantName}</small></div>)}<p className="detail-description">A művelet kizárólag a mentett aktuális revízióból készít új draftot. Jóváhagyott kimutatást nem módosít.</p><button className="primary-button" type="button" onClick={transfer} disabled={pending || !saved || inputChanged || viewedRevisionNumber !== null || mappingChecks.every((item) => item.status !== "compatible")}>{pending ? "Átadás…" : "Új draft létrehozása"}</button>{!saved && <p className="form-message">Mentés után válik elérhetővé.</p>}{inputChanged && saved && <p className="form-message is-error">A nem mentett módosításokat előbb mentsd új revízióként.</p>}{takeoffMessage && <p className="form-message is-error" role="alert">{takeoffMessage}</p>}</section><GutterTechnicalDrawing input={input} output={result} sourceRevisionId={saved && !inputChanged && viewedRevisionNumber === null ? saved.revisionId : null} /></>}
     <div className="form-actions"><button className="primary-button" type="button" onClick={save} disabled={pending || !result}>{pending ? "Mentés…" : "Revízió mentése"}</button></div>{message && <p className={`form-message ${message.startsWith("Mentve") ? "is-success" : "is-error"}`} role="status">{message}</p>}
   </section>;
 }

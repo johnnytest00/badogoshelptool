@@ -157,3 +157,17 @@ revíziót, csak külön stale jelzést ad. Az ár nem kalkulációs input, ezé
 nem invalidálja a kiosztást. Anyagkimutatási automatikus javaslat csak ellenőrzött
 négyzetméteres területből készülhet; a geometriai sávszám nem tekinthető
 automatikusan megvásárolható darab-, folyóméter- vagy csomagmennyiségnek.
+
+## F9.6.1.2 — gutter integrációs határ
+
+A gutter adapter a tiszta kalkulátor `gutterRuns`, `downpipeRuns` és kézi
+komponens-kimenetéből előzetes `piece` jelölt tételeket képez. A kereskedelmi
+szál darabszám nem folyóméter, és egyik mennyiségből sincs automatikus csomag- vagy
+gyártói konverzió. A katalógusvariáns csak explicit kiválasztással és aktív,
+szervezethez tartozó rekordként kapcsolható; az egységütközés vagy hiányzó
+kapcsolat `incompatible`/`unmapped` marad.
+
+Az SVG ugyanebből a bemenetből épít determinisztikus, független szakaszokat és
+kereskedelmi szálhatárokat. Lefolyó és eresz között csak tárolt kapcsolat
+jeleníthető meg; hiányzó kapcsolatnál a lefolyó önálló sematikus elem. A rajz nem
+hitelesített szerelési dokumentáció.

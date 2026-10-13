@@ -490,5 +490,17 @@ ellenőrzött.
 | Typecheck / lint / build / diff | Sikeres | `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check` mind PASS; route szerepel a buildben. |
 | Migration és revision/RLS | Célzott lokális PASS | `20261013080100` alkalmazva incremental módon; pgTAP 21/21 PASS, rollbackos teszttranzakcióval. Tulajdonos létrehozás/mentés, külön szervezeti tag elutasítása, keresztprojekt geometria, stale revision `40001`, UPDATE/DELETE immutabilitás igazolt. |
 | Böngészős persistence | Hitelesített DEMO PASS | Mentés, teljes reload, két eresz/revízióforrás, kereskedelmi eresz- és lefolyószál, lefolyó/könyök, kézi tartozék és eredmény hidratálása; V2 mentés után V1 4000 mm-en, V2 5000 mm-en olvasható vissza. |
-| Konkurenciavédelem | RÉSZLEGES | Advisory tranzakciós lock és stale revision hibát a migráció és a soros pgTAP konfliktusteszt bizonyít; két tényleges párhuzamos RPC-hívást nem futtattunk. |
-| Környezet / kiegészítő | Részleges | CLI 2.120.0 helyi állapotot emelt, szűk engedéllyel vizsgáltuk; reset/hosted változás nem történt. Szűk képernyős böngészős smoke nincs. |
+| Konkurenciavédelem | Sikeres | `scripts/verify-gutter-concurrency.mjs`: 2 független authenticated kapcsolat, adatbázis readiness barrier, valódi párhuzamos RPC; 1 sikeres V2, 1 SQLSTATE `40001`, 2 revízió, nincs duplikáció vagy elveszett módosítás. |
+| Adatintegritás | Sikeres | V1 `8000` mm változatlan, V2 `9100` mm egyszer szerepel, a current revision és revíziószámozás konzisztens; a saját fixture cleanup sikeres. |
+| Környezet / kiegészítő | Részleges | CLI 2.120.0 helyi állapotot emelt, szűk engedéllyel vizsgáltuk; reset/hosted változás nem történt. Szűk képernyős viewport smoke a vezérlő korlátja miatt nem ellenőrzött. |
+
+## F9.6.1.2 — anyagkatalógus, takeoff és technikai SVG
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Katalógus-hozzárendelés | Sikeres | `gutter-material-integration.test.ts`: kompatibilis `piece`, inkompatibilis `linear_meter` és fel nem oldott variáns külön státusz; csak aktív, szervezetazonos katalógus engedett. |
+| Mennyiségi egységek | Sikeres | A számított kereskedelmi szál és kézi tartozék `piece`; nincs automatikus folyóméter/csomag átváltás, a szerver ugyanazt ellenőrzi. |
+| Takeoff forrás és snapshot | Implementálva | Az action aktuális, verified gutter-revíziót és projekt/szervezetet ellenőriz, új draft+tételekbe forrásrevízió-, katalógus-, technikai- és provenance-snapshotot ír; approved rekordhoz nem nyúl. Adatbázis-szintű új pgTAP erre a változásra nem készült. |
+| SVG modell | Sikeres | Két független ereszszakasz, determinisztikus szálhatárok, lefolyókapcsolat nélküli séma és forrásrevízió a célzott Vitestben. |
+| Célzott automatizált kapuk | Sikeres | `npx vitest run src/domain/calculations/gutter-material.test.ts src/domain/calculations/gutter-material-integration.test.ts`: 2 fájl / 8 teszt PASS; `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check` PASS. |
+| Böngészős végső workflow | Sikeres | Egy hitelesített helyi DEMO folyamat: kompatibilis `piece` variáns kiválasztása, előnézet, új draft, átirányítás és draft újranyitása; a 3 és 4 darabos tételek, forrásrevízió és provenance megjelent, korábbi approved rekord érintetlen maradt. Narrow viewport ebben a vezérlőben nem volt elérhető. |

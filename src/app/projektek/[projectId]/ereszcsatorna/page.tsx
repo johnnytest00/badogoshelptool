@@ -6,6 +6,7 @@ import { getProjectForOrganization } from "@/features/projects/project-data";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 import { GutterCalculator } from "@/features/gutters/gutter-calculator";
 import { getGutterCalculation, getGutterGeometrySuggestions } from "@/features/gutters/gutter-data";
+import { getMaterialProductsForOrganization } from "@/features/materials/material-data";
 
 export default async function GutterCalculatorPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string }>; searchParams: Promise<{ organization?: string }> }>) {
   const { projectId } = await params;
@@ -16,6 +17,7 @@ export default async function GutterCalculatorPage({ params, searchParams }: Rea
   const organizationId = selected.organization.id;
   const project = await getProjectForOrganization(organizationId, projectId);
   if (!project) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1><Link className="login-secondary-link" href={`/projektek?organization=${organizationId}`}>Vissza a projektekhez</Link></section></main>;
-  const [suggestions, saved] = await Promise.all([getGutterGeometrySuggestions(organizationId, projectId), getGutterCalculation(organizationId, projectId)]);
-  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${organizationId}`} label="Vissza a projekthez" /><GutterCalculator organizationId={organizationId} projectId={projectId} suggestions={suggestions} saved={saved} /></div></main>;
+  const [suggestions, saved, products] = await Promise.all([getGutterGeometrySuggestions(organizationId, projectId), getGutterCalculation(organizationId, projectId), getMaterialProductsForOrganization(organizationId, { includeArchived: false })]);
+  const catalogVariants = products.flatMap((product) => product.variants.map((variant) => ({ id: variant.id, productId: product.id, productName: product.name, category: product.category, variantName: variant.name, sku: variant.sku, purchasingUnit: variant.purchasingUnit, lengthMm: variant.lengthMm, nominalWidthMm: variant.nominalWidthMm, effectiveWidthMm: variant.effectiveWidthMm, technicalSpecs: variant.technicalSpecs, provenance: variant.provenance })));
+  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${organizationId}`} label="Vissza a projekthez" /><GutterCalculator organizationId={organizationId} projectId={projectId} suggestions={suggestions} saved={saved} catalogVariants={catalogVariants} /></div></main>;
 }

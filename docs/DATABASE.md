@@ -342,8 +342,25 @@ külső képfeldolgozás nincs.
 
 A `20261013080100_gutter_calculation_persistence.sql` lokális, incremental migráció új egyedi projektszintű kalkulációs indexet és `save_gutter_material_calculation` RPC-t ad. A függvény a meglévő `calculations`, `calculation_revisions` és `calculation_dependencies` architektúrát használja; input/output/provenance/warning snapshotot ment, az aktuális revision pointert frissíti, és minden tetőmodell-forrásrevíziót rögzít. SECURITY INVOKER, szervezeti tagságot és projekttulajdont ellenőriz, a keresztprojekt forrást elutasítja, az `authenticated` szerepkörre korlátozott, `public` és `anon` számára visszavont EXECUTE joggal.
 
-A revision mentést tranzakciós advisory lock sorosítja szervezet/projekt/kalkulátortípus szerint; az elvárt revíziószám eltérése `40001` konfliktust ad. A 009 pgTAP teszt ellenőrzi a létrehozást, külön szervezeti tag elutasítását, forráshivatkozást, immutable snapshotot és a soros stale revision konfliktust. Egyidejű két RPC-hívás race-tesztje nincs lefuttatva.
+A revision mentést tranzakciós advisory lock sorosítja szervezet/projekt/kalkulátortípus szerint; az elvárt revíziószám eltérése `40001` konfliktust ad. A 009 pgTAP teszt ellenőrzi a létrehozást, külön szervezeti tag elutasítását, forráshivatkozást, immutable snapshotot és a soros stale revision konfliktust. A `scripts/verify-gutter-concurrency.mjs` két független authenticated kapcsolattal, readiness barrierrel és valódi párhuzamos RPC-hívással igazolta: egy sikeres V2, egy `40001` konfliktus, két összes revízió és változatlan V1 snapshot.
 
 A meglévő material_variants katalógusban van gutter kategória és opcionális length_mm, de ez nem bizonyít gyártói termékadatot. Katalóguskapcsolat csak szervezethez kötött, forrás- és provenance-mezőkkel készíthető; hiányzó paraméter nem tölthető ki. Material takeoff átadás jelenleg a meglévő, nyeregtető-revízióhoz kötött workflow-ra korlátozott, ezért ereszcsatorna-revíziót nem szabad csendben átadni vagy jóváhagyni.
 
 Hosted adatbázis, backup/restore és hosted izoláció nem változott és nem lett ellenőrizve. A lokális acceptance bizonyíték nem helyettesíti ezeket.
+
+## F9.6.1.2 integrációs adatfolyam
+
+Új adatbázistábla vagy alkalmazott migráció nem kellett. A meglévő `material_takeoffs`
+összetett szervezeti/projekt/kalkulációs FK-jai egyaránt elfogadják a
+`gutters.material-estimate` kalkulációt; a szerver action csak az aktuális,
+ellenőrzött revision pointert, a projektet és a tagságot fogadja el. A variáns és
+termék lekérdezése szervezet szerint szűrt, aktív termék- és támogatott
+kategória-ellenőrzéssel; ár esetén az aktuális rekord snapshotja, egyébként `null`
+kerül a takeoff tételbe.
+
+Az átadás egy új draftot és annak tételsnapshotjait hozza létre, soha nem módosít
+approved rekordot. A tétel `material_snapshot` mezője a forrásrevíziót, termék- és
+variánsazonosítót, egységet, rendelkezésre álló hossz/szélesség paramétereket és
+provenance-t őrzi. Az azonos név + forrásrevíziójú meglévő draft visszaadása
+ismételt beküldésnél védi a felhasználót a véletlen duplikációtól; külön
+adatbázis-idempotencia kulcs nincs.
