@@ -409,3 +409,14 @@ ellenőrzött.
 | Kompenzáló cleanup | Implementálva | Metadata-hibánál `remove()` fut; két szolgáltatás között nincs hamis atomi ígéret. |
 | Automatizált kapuk | Sikeres | 250/250 pgTAP, 22 Vitest-fájl / 82 teszt, typecheck, lint, diff-check, build PASS. |
 | Browser workflow | Sikeres | Hitelesített Brave + lokális Supabase: DEMO PNG feltöltés, galéria, tényleges signed URL-es képbetöltés a nagy nézetben, bezárás, reload utáni megmaradás, meglévő feladathoz és naplóbejegyzéshez kapcsolás. Az eredeti naplótartalom változatlan maradt. |
+
+## F9.3.2 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Képkategóriák | Sikeres | Kézi before/during/after/uncategorized választás, kategória-RPC és 10/10 pgTAP; upload-időpontból nincs automatikus besorolás. |
+| Galériaszü̋rés és sorrend | Sikeres | Kategória-, feladat- és feltöltési dátumszűrés, newest/oldest sorrend, a meglévő tervhez kötött 100-as limit megtartva. |
+| Feladatonkénti csoportosítás | Sikeres | Valós fotószámok és kategóriánkénti bontás; feladat nélküli fotók nem rejtődnek el. |
+| Előtte/utána nézet | Sikeres | Felhasználói kiválasztás, oldalsó összehasonlítás, képcsere és responsive stacking; mindkét kép ténylegesen betöltődött signed URL-ről. |
+| Metadata és napló | Sikeres | Feltöltési idő, feltöltő-elérhetőség, feladat- és naplóhivatkozás megjelenik; eredeti journal content nem módosul. |
+| Böngészős smoke | Sikeres | Egyetlen hitelesített Brave workflow: két DEMO fotó kategorizálása, szűrés, összehasonlítás, választáscsere és reload utáni perzisztencia. |

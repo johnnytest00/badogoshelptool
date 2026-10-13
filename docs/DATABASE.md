@@ -323,3 +323,18 @@ hamis atomi tranzakciót nem állítja.
 Az oldal szerveroldalon legfeljebb 100 projektképet kér le, és 5 perces signed
 URL-eket készít. A napló immutable marad: a fotókapcsolat külön rekord, a
 `work_date` és `created_at` változatlan. Távoli Supabase migration nem történt.
+
+# F9.3.2 — Fotókategorizálás
+
+Az `execution_photos.category` a felhasználó által kiválasztott `before`,
+`during`, `after` vagy `uncategorized` érték. Alapértéke `uncategorized`; az
+upload-időpontból nincs automatikus besorolás. A kategória külön, célzott
+`set_execution_photo_category` RPC-n keresztül módosítható, amely tagságot és
+fotóazonosítót ellenőriz; a jogosultság csak erre az oszlopra szól, az
+upload-identity, időbélyeg, object key és hivatkozások nem írhatók át.
+
+A galéria a meglévő terv-, szervezet- és 100 rekordos lekérdezésre épül,
+kliensoldali kategória/feladat/dátumszűréssel és determinisztikus feltöltési idő
+szerinti rendezéssel. Az előtte/utána összehasonlítás nem mentett pár, csak a
+már engedélyezetten betöltött két fotó ideiglenes kiválasztása; public URL vagy
+külső képfeldolgozás nincs.

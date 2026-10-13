@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
-import { executionJournalCategorySchema, executionPlanSchema, executionTaskSchema } from "@/domain/execution/contracts";
+import { executionJournalCategorySchema, executionPhotoCategorySchema, executionPlanSchema, executionTaskSchema } from "@/domain/execution/contracts";
 
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const PHOTO_BUCKET = "execution-photos";
@@ -87,4 +87,16 @@ export async function createExecutionPhotoAction(data: FormData) {
   }
   revalidatePath(`/projektek/${projectId}`);
   return { ok: true, uploaded };
+}
+
+export async function setExecutionPhotoCategoryAction(data: FormData) {
+  const organizationId = text(data, "organizationId"), projectId = text(data, "projectId"), photoId = text(data, "photoId");
+  if (!await access(organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
+  const category = executionPhotoCategorySchema.safeParse(text(data, "category"));
+  if (!category.success || !photoId) return { ok: false, error: "Érvénytelen fényképkategória." };
+  const db = await createClient() as unknown as Rpc;
+  const { data: result, error } = await db.rpc("set_execution_photo_category", { p_organization_id: organizationId, p_photo_id: photoId, p_category: category.data });
+  if (error || result !== true) return { ok: false, error: errorMessage(error, "A fényképkategória mentése nem sikerült.") };
+  revalidatePath(`/projektek/${projectId}`);
+  return { ok: true };
 }
