@@ -90,7 +90,7 @@ export async function createProfileTakeoffDraftAction(data: FormData): Promise<P
   const calculated = executeCalculator(sheetMetalProfileCalculator, input.data);
   if (!calculated.ok || calculated.output.flatPattern.widthMm === null
     || calculated.output.materialRequirement.totalNetBlankAreaSqM === null)
-    return { ok: false, error: "A profil geometriája, BA/K paramétere vagy nettó blankterülete nem számítható." };
+    return { ok: false, error: "A profil geometriája, BA/K paramétere vagy nettó terítékfelülete nem számítható." };
   const stored = revision.output_snapshot as { flatPattern?: { widthMm?: unknown }; materialRequirement?: { totalNetBlankAreaSqM?: unknown } } | null;
   const width = stored?.flatPattern?.widthMm, area = stored?.materialRequirement?.totalNetBlankAreaSqM;
   if (typeof width !== "number" || typeof area !== "number"

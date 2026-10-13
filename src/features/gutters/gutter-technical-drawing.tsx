@@ -26,6 +26,6 @@ export function GutterTechnicalDrawing({ input, output, sourceRevisionId }: Read
         <line x1="300" y1="0" x2="342" y2="0" className="gutter-svg-downpipe" /><text x="350" y="5" className="gutter-svg-legend">Független lefolyó</text>
       </g>
     </svg>
-    <p className="detail-description">Séma, nem hitelesített szerelési rajz. Forrásrevízió: {sourceRevisionId ?? "nincs mentett revízió"}.</p>
+    <p className="detail-description">Séma, nem hitelesített szerelési rajz. Forrás: {sourceRevisionId ? "mentett számítási változat" : "nem mentett előnézet"}.</p>
   </div>;
 }

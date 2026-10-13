@@ -16,7 +16,7 @@ export default async function LoginPage({ searchParams }: Readonly<{ searchParam
         <h1 id="login-title">Üdv újra a műhelyben.</h1>
         <p className="login-lead">Jelentkezz be a helyi munkafelület folytatásához.</p>
         <LoginForm returnTo={returnTo} />
-        <p className="login-note">A regisztráció és a szervezetkezelés jelenleg meghívásos, későbbi fázis.</p>
+        <p className="login-note">Új hozzáférést a műhely adminisztrátora adhat.</p>
       </section>
     </main>
   );

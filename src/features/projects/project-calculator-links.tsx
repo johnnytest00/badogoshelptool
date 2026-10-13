@@ -15,7 +15,7 @@ export function ProjectCalculatorLinks({ projectId, organizationId }: Props) {
       </div>
       <div className="project-calculator-grid">
         <CalculatorLink href={`/projektek/${projectId}/ereszcsatorna${query}`} icon={<Waves aria-hidden="true" />} title="Ereszcsatorna-kalkulátor" description="Szakaszok, lefolyók és kézi tartozékok becslése." />
-        <CalculatorLink href={`/projektek/${projectId}/szegelyek${query}`} icon={<Calculator aria-hidden="true" />} title="Bádogos szegélyek kalkulátora" description="Szegélyszakaszok, revíziók és anyagkimutatás-draft." />
+        <CalculatorLink href={`/projektek/${projectId}/szegelyek${query}`} icon={<Calculator aria-hidden="true" />} title="Bádogos szegélyek kalkulátora" description="Szegélyszakaszok, revíziók és anyagkimutatás-piszkozat." />
         <CalculatorLink href={`/projektek/${projectId}/lemezprofilok${query}`} icon={<Ruler aria-hidden="true" />} title="Lemezprofilok és hajtások" description="Profil szerkesztése és előzetes nettó blankterület." />
       </div>
     </section>

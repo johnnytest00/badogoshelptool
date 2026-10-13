@@ -6,13 +6,15 @@ const mm = (value: number) => `${value.toLocaleString("hu-HU")} mm`;
 
 export function FlashingTechnicalDrawing({ input, output, sourceRevisionId }: Readonly<{ input: FlashingMaterialInput; output: FlashingMaterialOutput; sourceRevisionId: string }>) {
   const model = buildFlashingDrawingModel(input, output, sourceRevisionId);
+  const sourceLabel = sourceRevisionId === "Nem mentett előnézet" ? "nem mentett előnézet" : "mentett számítási változat";
+  const connectionLabels: Record<string, string> = { unknown: "nincs megadva", explicit_overlap: "megadott átfedés", effective_length_supplied: "megadott hasznos fedés", no_overlap_confirmed: "átfedés nélküliként megadva" };
   return <div className="flashing-drawing" aria-label="Szegélyanyag műszaki áttekintés">
     <div className="flashing-drawing-scroll">
       <svg viewBox={`0 0 ${model.width} ${model.height}`} role="img" aria-labelledby="flashing-drawing-title flashing-drawing-desc">
         <title id="flashing-drawing-title">Szegélyszakaszok méretezett sémája</title>
-        <desc id="flashing-drawing-desc">A {model.sourceRevisionId} mentett revízióból készült, méretarányos lineáris becslési séma. Nem mutat tetőtopológiát, profilmetszetet vagy szerelési kapcsolatot. Kapcsolati adatok: {model.connectionMode}.</desc>
+        <desc id="flashing-drawing-desc">A {sourceLabel} alapján készült, méretarányos lineáris becslési séma. Nem mutat tetőtopológiát, profilmetszetet vagy szerelési kapcsolatot. Kapcsolati adatok: {connectionLabels[model.connectionMode] ?? "nincs megadva"}.</desc>
         <text x="24" y="32" className="flashing-svg-title">Műszaki áttekintés · séma</text>
-        <text x="24" y="56" className="flashing-svg-note">Forrás szegélyrevízió: {model.sourceRevisionId} · névleges szál: {mm(model.nominalLengthMm)} · kapcsolat: {model.connectionMode}</text>
+        <text x="24" y="56" className="flashing-svg-note">Forrás: {sourceLabel} · névleges szál: {mm(model.nominalLengthMm)} · kapcsolat: {connectionLabels[model.connectionMode] ?? "nincs megadva"}</text>
         {model.rows.map((row) => {
           const requiredEnd = model.xOrigin + row.requiredMm * model.scale;
           const targetEnd = model.xOrigin + row.targetMm * model.scale;
@@ -28,8 +30,8 @@ export function FlashingTechnicalDrawing({ input, output, sourceRevisionId }: Re
             <line x1={targetEnd} y1={row.y + 23} x2={targetEnd} y2={row.y + 33} className="flashing-svg-tick" />
             <text x={model.xOrigin} y={row.y + 49} className="flashing-svg-measure">Mért {mm(row.lengthMm)} · kezdő +{mm(row.startExtensionMm)} · záró +{mm(row.endExtensionMm)}</text>
             <text x={model.xOrigin} y={row.y + 68} className="flashing-svg-measure">Szükséges fedés {mm(row.requiredMm)} · tartalék +{mm(row.reserveMm)} · cél {mm(row.targetMm)}</text>
-            {row.sectionCount !== null ? <text x={model.xOrigin} y={row.y + 87} className="flashing-svg-note">Névleges összhossz: {row.sectionCount} × {mm(row.nominalLengthMm)} = {mm(row.sectionCount * row.nominalLengthMm)}{row.overlapMm !== null ? ` · explicit átfedés: ${mm(row.overlapMm)}` : row.effectiveAdvanceMm !== null ? ` · fedési többlet/szál: ${mm(row.effectiveAdvanceMm)} (nem fizikai toldásrajz)` : " · átfedés nélküli modell"}</text> : <text x={model.xOrigin} y={row.y + 87} className="flashing-svg-note">A kapcsolati szabály ismeretlen; szálhatár nem lett becsülve.</text>}
-            {row.source && <text x={model.xOrigin} y={row.y + 106} className="flashing-svg-provenance">Forrásél: {row.source.edgeId} · tetőmodell-rev. {row.source.roofModelRevisionId} · geometriakalkuláció-rev. {row.source.calculationRevisionId}</text>}
+            {row.sectionCount !== null ? <text x={model.xOrigin} y={row.y + 87} className="flashing-svg-note">Névleges összhossz: {row.sectionCount} × {mm(row.nominalLengthMm)} = {mm(row.sectionCount * row.nominalLengthMm)}{row.overlapMm !== null ? ` · megadott átfedés: ${mm(row.overlapMm)}` : row.effectiveAdvanceMm !== null ? ` · további szál hasznos fedése: ${mm(row.effectiveAdvanceMm)} (nem fizikai toldásrajz)` : " · átfedés nélküli modell"}</text> : <text x={model.xOrigin} y={row.y + 87} className="flashing-svg-note">A kapcsolati szabály ismeretlen; szálhatár nem lett becsülve.</text>}
+            {row.source && <text x={model.xOrigin} y={row.y + 106} className="flashing-svg-provenance">Tetőgeometriából átvett szakasz · mentett forrásváltozat</text>}
           </g>;
         })}
         {model.manualComponents.map((component, index) => <text key={component.id} x="24" y={100 + model.rows.length * 142 + index * 24} className="flashing-svg-note">Kézi tétel · {component.name} · {labels[component.category]} · {component.quantity} db · {component.source.label}</text>)}

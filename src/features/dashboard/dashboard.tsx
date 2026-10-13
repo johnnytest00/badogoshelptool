@@ -83,7 +83,7 @@ function DashboardTabs({ activeTab, onChange }: Readonly<{ activeTab: DashboardT
   ];
 
   return (
-    <div className="dashboard-tabs" role="tablist" aria-label="Dashboard nézetek">
+    <div className="dashboard-tabs" role="tablist" aria-label="Műhely áttekintő nézetei">
       {tabs.map((tab) => (
         <button
           className={`dashboard-tab ${activeTab === tab.id ? "is-active" : ""}`}

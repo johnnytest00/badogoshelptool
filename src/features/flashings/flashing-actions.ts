@@ -112,7 +112,7 @@ export async function createFlashingTakeoffDraftAction(data: FormData): Promise<
   if (revisionError || !revision || revision.validation_status !== "verified" || revision.calculator_implementation_version !== FLASHING_MATERIAL_CALCULATOR_VERSION || revision.input_schema_version !== FLASHING_MATERIAL_INPUT_SCHEMA_VERSION) return { ok: false, error: "A mentett szegélyrevízió nem ellenőrzött, nem támogatott verziójú vagy nem ehhez a kalkulációhoz tartozik." };
   const input = flashingMaterialInputSchema.safeParse(revision.input_snapshot);
   const output = flashingMaterialCalculator.outputSchema.safeParse(revision.output_snapshot);
-  if (!input.success || !output.success) return { ok: false, error: "A mentett kalkuláció snapshotja nem értelmezhető." };
+  if (!input.success || !output.success) return { ok: false, error: "A mentett számítási adatok nem értelmezhetők." };
   const recalc = executeCalculator(flashingMaterialCalculator, input.data);
   if (!recalc.ok || stableJson(recalc.output) !== stableJson(output.data)) return { ok: false, error: "A mentett eredmény nem egyezik az aktuális kalkulációval; frissítsd a revíziót." };
   const candidates = buildFlashingTakeoffCandidates(input.data, output.data);

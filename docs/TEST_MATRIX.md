@@ -636,3 +636,17 @@ ellenőrzött.
 | Responsive / keyboard browser QA | Nem futott | `npm run dev` port bind `EPERM` mind `0.0.0.0:3000` és `127.0.0.1:3000`; böngészőtab nem volt. A 850/560 px CSS breakpointok forrásból ellenőrizhetők, tényleges 390 px/tablet render nincs bizonyítva. |
 | Adatbázis / jogosultság / üzleti action | Nem futott / nem változott | Csak kliens UI-állapot változott; nincs DB, RLS, dokumentumtárolás, journal/action vagy Supabase módosítás. |
 | `git diff --check` | PASS | A végső tracked diff ellenőrzése sikeres; az új fájlokat is külön ellenőriztem whitespace-hibára. |
+
+## F9.7.1.1 — magyar szakmai UX és valósághűség
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Útvonal- és felületi leltár | Forráskód alapján teljes | 19 `page.tsx` útvonal; a projektbe ágyazott napló, fotó, riport, beállítások és közös komponensek is szerepelnek a [részletes auditban](HUNGARIAN_PROFESSIONAL_UX_AUDIT.md). |
+| Új UI/opció tesztek | PASS | `gutter-calculator-ux.test.ts`, `calculator-ux.test.ts`, `takeoff-forms.test.ts`, `takeoff-form-options.test.ts`: üres termékhossz, szegély/profil feliratok, magyar mezők/egységek és domainkulcsokkal egyező opciók. A React SSR nem bizonyít kliens-interakciót. |
+| Kapcsolódó fókuszált regresszió | PASS | Egy `npx vitest run` parancsban összesen 10 fájl / 39 teszt: fenti 4, `estimation.test.ts`, `gutter-material.test.ts`, `flashing-material.test.ts`, `profile-editor.test.ts`, `project-navigation.test.ts`, `execution-overview.test.ts`. |
+| Katalógus és dashboard célzott ellenőrzés | PASS | Külön `npx vitest run src/domain/materials/contracts.test.ts src/features/dashboard/dashboard.test.ts`: 2 fájl / 6 teszt. |
+| Typecheck / lint / build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next 16.4 webpack). |
+| Adatkonzisztencia és jogosultság | Forráskód alapján, nem DB-teszt | Takeoff action: szervezet/projekt, mentett forrás, aktív variáns, ár/egység egyezés; jóváhagyásnál szerepkör és verziót továbbító RPC. Ezek nem változtak; pgTAP és konkurenciateszt nem futott. |
+| Böngésző, mobil, PDF vizuális | Nem futott | A korábbi helyi szerverindítás mindkét loopback/bind címen `EPERM` hibával zárult; ebben a körben nem ismételtem a sikertelen indítást. Vizuális és hitelesített workflow továbbra is külön ellenőrzést igényel. |
+| Teljes regresszió / adatbázis | Nem futott | A változtatás UI-szöveg és kliensoldali mezőválaszték; képlet, séma, RLS és perzisztencia-szerződés változatlan. |
+| `git diff --check` | PASS | A végső tracked diff és az új fájlok külön whitespace-ellenőrzése sikeres. |

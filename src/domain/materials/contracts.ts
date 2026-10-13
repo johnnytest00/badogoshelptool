@@ -16,7 +16,7 @@ export const materialCategoryLabels: Record<MaterialCategory, string> = {
 export const materialPurchasingUnitLabels: Record<MaterialPurchasingUnit, string> = {
   piece: "db", linear_meter: "folyóméter", square_meter: "négyzetméter", cubic_meter: "köbméter", kilogram: "kg", package: "csomag",
 };
-export const materialProvenanceLabels: Record<MaterialProvenance, string> = { verified: "Ellenőrzött", user_provided: "Felhasználó által megadott", estimated: "Becsült", demo: "DEMO", missing: "Hiányzó adat" };
+export const materialProvenanceLabels: Record<MaterialProvenance, string> = { verified: "Ellenőrzöttnek jelölt", user_provided: "Felhasználó által megadott", estimated: "Becsült", demo: "DEMO", missing: "Hiányzó adat" };
 export const materialPriceKindLabels: Record<MaterialPriceKind, string> = { net: "Nettó", gross: "Bruttó" };
 
 const uuid = z.string().uuid();
