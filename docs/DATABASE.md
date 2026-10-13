@@ -348,6 +348,14 @@ A meglévő material_variants katalógusban van gutter kategória és opcionáli
 
 Hosted adatbázis, backup/restore és hosted izoláció nem változott és nem lett ellenőrizve. A lokális acceptance bizonyíték nem helyettesíti ezeket.
 
+## F9.6.2.2 — szegélykalkulációs perzisztencia
+
+A `20261013080500_flashing_calculation_persistence.sql` új, szervezet/projekt/kalkulátortípus szerinti egyedi indexet és `save_flashing_material_calculation` SECURITY INVOKER RPC-t ad a meglévő `calculations`, `calculation_revisions` és `calculation_dependencies` architektúrához. A művelet tranzakciósan ment új immutable revíziót, advisory lockkal sorosítja az írást, és eltérő expected revisionre `40001` hibát ad. Az RPC ellenőrzi az aktív szervezeti tagságot, projektet, aktuális nyeregtető-modellt és `roof.gable` kalkulációt, az ellenőrzött upstream revíziópárt, valamint az engedélyezett él → output mező → kategória megfelelést. Az eredeti geometriai hossz a snapshot része; nem felülírt hossznál az input egész mm értékének a forrásérték felfelé kerekítésével kell egyeznie.
+
+A mentés külön dependency sort rögzít a tetőmodell-revízióra és a geometriai kalkulációs revízióra. Az UI szerveroldalon újraszámol, nem küldött kliens-outputot használ; az RPC az exact upstream ownershipet és mező-hozzárendelést újra validálja. A célzott `011_flashing_calculation.sql` pgTAP lefedi a V1/V2 létrehozást, snapshot-megőrzést, mindkét dependencyt, expected-revision konfliktust, nem támogatott/keresztprojekt forrást, nem tag olvasását/írását és közvetlen revision módosítás/törlés tiltását.
+
+Ellenőrzési korlát: a feladatkörnyezetben a Supabase CLI szerinti `migration list --local` nem tudott kapcsolódni a `127.0.0.1:54322` PostgreSQL-hez (ECONNREFUSED); a helyi migráció nem lett alkalmazva, pgTAP nem futott. A CLI telemetria-írását környezeti kapcsolóval tiltva a tényleges adatbázis-elérhetetlenség így is megállapítható volt. Hosted adatbázishoz nem csatlakoztam.
+
 ## F9.6.1.2 integrációs adatfolyam
 
 Az F9.6.1.2.1 hardening a `20261013080200_gutter_takeoff_hardening.sql`

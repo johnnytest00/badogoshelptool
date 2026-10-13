@@ -529,3 +529,14 @@ ellenőrzött.
 | Domain + meglévő gutter regresszió | Sikeres | `npx vitest run src/domain/calculations/flashing-material.test.ts src/domain/calculations/gutter-material.test.ts`: 2 fájl / 15 teszt PASS. |
 | Registry, typecheck, lint és build | Sikeres | A kalkulátor explicit production registrytag; `npm run typecheck`, `npm run lint`, `npm run build` PASS. |
 | Gyártói, UI és adatbázis viselkedés | Nem része / nem ellenőrzött | Nincs termékspecifikus korlátozás-ellenőrzés, geometry-import, perzisztencia, RLS, takeoff vagy böngészős workflow ebben a fázisban. |
+
+## F9.6.2.2 — projektintegráció és mentés
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Roof-edge mapping és forráshossz | Sikeres | Célzott Vitest 12/12 (11 domain + 1 mapping); ellenőrzött mapping 2 eresz, 1 gerinc, 4 oromél; tört mm eredeti hossza, egész mm-re felfelé kerekítés és explicit felülírás snapshotja ellenőrizve. |
+| Typecheck | Sikeres | `npm run typecheck`. |
+| Lint, production build | Sikeres | `npm run lint`, `npm run build`. |
+| Migráció + pgTAP | Blokkolt | A CLI migrációlistázása a helyi PostgreSQL `127.0.0.1:54322` ECONNREFUSED hibáját adta; Docker/Supabase indítás és reset nem történt. 18 célzott pgTAP állítás megírva, nem futott. |
+| Authenticated action és concurrency | Nem ellenőrzött | Élő helyi DB nélkül nem igazolható. |
+| Browser V1/V2/reload/history workflow | Blokkolt | Az egyetlen localhost smoke alatt a dev szerver `listen EPERM` hibával nem indult; a megnyitott lap üres maradt. DB/Auth szintén nem elérhető. |

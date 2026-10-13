@@ -90,6 +90,25 @@ describe("sheet_metal.flashings.material-estimate", () => {
     expect(overflow).toMatchObject({ ok: false, errors: [{ code: "NUMERIC_OVERFLOW" }] });
   });
 
+  it("preserves exact geometry source length separately from an explicit manual override", () => {
+    const input = {
+      ...base,
+      runs: [{ ...base.runs[0], lengthMm: 1525, lengthSource: "geometry" as const, roofEdgeReference: {
+        roofModelId: "00000000-0000-4000-8000-000000000001",
+        roofModelRevisionId: "00000000-0000-4000-8000-000000000002",
+        calculationId: "00000000-0000-4000-8000-000000000003",
+        calculationRevisionId: "00000000-0000-4000-8000-000000000004",
+        edgeId: "left-front-gable",
+        outputField: "lengths.eachSlopingGableEdgeMm",
+        suggestedLengthMm: 1500.2,
+        lengthOverridden: true,
+      } }],
+    };
+    const result = executeCalculator(flashingMaterialCalculator, input);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output.runs[0].roofEdgeReference).toMatchObject({ suggestedLengthMm: 1500.2, lengthOverridden: true, calculationId: "00000000-0000-4000-8000-000000000003" });
+  });
+
   it("retains explicit manual quantities and deterministic output", () => {
     const input: FlashingMaterialInput = {
       ...base,

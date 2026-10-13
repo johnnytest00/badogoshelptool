@@ -34,9 +34,12 @@ const sectionConnectionSchema = z.discriminatedUnion("mode", [
 const roofEdgeReferenceSchema = z.object({
   roofModelId: z.string().uuid(),
   roofModelRevisionId: z.string().uuid(),
+  calculationId: z.string().uuid(),
   calculationRevisionId: z.string().uuid(),
   edgeId: z.string().trim().min(1).max(120),
   outputField: z.string().trim().min(1).max(120),
+  suggestedLengthMm: z.number().finite().positive().max(Number.MAX_SAFE_INTEGER),
+  lengthOverridden: z.boolean().default(false),
 });
 
 const runSchema = z.object({
