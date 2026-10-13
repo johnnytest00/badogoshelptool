@@ -8,6 +8,14 @@
 - Tartsd be az aktuális fázishatárt: ne készíts későbbi üzleti funkciót, hitelesítést, Supabase-réteget vagy kalkulációs motort előre.
 - Minden mérföldkő végén javasolj rövid Conventional Commit üzenetet, amely tartalmazza a mérföldkő verzióját és fő funkcionalitását; commitot csak külön kérésre készíts.
 
+## Token-Efficient Development & Verification
+
+- Célzottan vizsgáld a releváns fájlokat, minimális kontextust tölts be.
+- Fókuszáltan fejlessz; ne telepíts indokolatlan függőséget és ne futtasd ismételten a teljes tesztkészletet.
+- Böngészős ellenőrzést csak a végén végezz, legfeljebb egy fókuszált smoke workflow-val.
+- Ne készíts ismételt screenshot-loopokat és ne próbáld újra indokolatlanul a nem támogatott böngészős képességeket.
+- A nem elérhető ellenőrzéseket őszintén jelentsd, a szükséges biztonsági és matematikai ellenőrzéseket ne hagyd el.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

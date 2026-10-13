@@ -1,0 +1,18 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { NoOrganizationAccess } from "@/features/auth/access-state";
+import { getProjectOrganization } from "@/features/projects/organization";
+import { getProjectForOrganization } from "@/features/projects/project-data";
+import { getQuotationWorkspace } from "@/features/quotations/quotation-data";
+import { QuotationEditor } from "@/features/quotations/quotation-editor";
+
+export default async function QuotationsPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string }>; searchParams: Promise<{ organization?: string; edit?: string; new?: string }> }>) {
+  const { projectId } = await params; const query = await searchParams; const selected = await getProjectOrganization(query.organization);
+  if (!selected) redirect(`/bejelentkezes?returnTo=/projektek/${projectId}/ajanlatok`);
+  if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
+  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt az ajánlatokhoz.</h1></section></main>;
+  const organizationId = selected.organization.id; const project = await getProjectForOrganization(organizationId, projectId);
+  if (!project) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1></section></main>;
+  const workspace = await getQuotationWorkspace(organizationId, projectId); const selectedQuote = query.edit ? workspace.quotations.find((quote) => quote.id === query.edit) : undefined;
+  return <main className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/projektek/${projectId}?organization=${organizationId}`}>← Vissza a projekthez</Link><section className="project-detail-header"><div><p className="section-eyebrow">F8.1 · Ajánlatok</p><h1>{project.name}</h1><p>Belső, verziózott ajánlati piszkozatok. Nem jogi ügyféldokumentum.</p></div>{!selectedQuote && <Link className="primary-button" href={`/projektek/${projectId}/ajanlatok?organization=${organizationId}&new=1`}>+ Új piszkozat</Link>}</section>{(selectedQuote || query.new === "1" || workspace.quotations.length === 0) && <QuotationEditor organizationId={organizationId} projectId={projectId} clients={workspace.clients} variants={workspace.variants} takeoffItems={workspace.takeoffItems} quote={selectedQuote} />}{workspace.quotations.length > 0 && <section className="detail-surface quotation-history"><div className="section-heading"><div><p className="section-eyebrow">Mentett verziók</p><h2>Ajánlati piszkozatok</h2></div></div><div className="quotation-cards">{workspace.quotations.map((quote) => <article className="quotation-card" key={quote.id}><div><strong>{quote.name}</strong><small>{quote.priceClass === "gross" ? "Bruttó" : quote.priceClass === "net" ? "Nettó" : "Hiányos árbesorolás"} · {quote.currency} · aktuális v{quote.version}</small></div><strong>{quote.subtotal ? `${Number(quote.subtotal).toLocaleString("hu-HU", { minimumFractionDigits: 2 })} HUF` : "Nincs összesítés"}</strong><Link className="secondary-button" href={`/projektek/${projectId}/ajanlatok?organization=${organizationId}&edit=${quote.id}`}>Megnyitás és szerkesztés</Link><details><summary>Korábbi revíziók ({quote.revisions.length})</summary><ul>{quote.revisions.map((revision) => <li key={revision.id}>v{revision.number} · {revision.subtotal ? `${Number(revision.subtotal).toLocaleString("hu-HU", { minimumFractionDigits: 2 })} HUF` : "nincs összeg"} · {new Date(revision.createdAt).toLocaleString("hu-HU")}</li>)}</ul></details></article>)}</div></section>}</div></main>;
+}

@@ -1,5 +1,21 @@
 # F2.1 adatbázis-alap
 
+## F8.1 — belső ajánlati piszkozatok
+
+A `quotations` projekt- és szervezetkapcsolt fejlécet, az aktuális revízió
+azonosítóját és optimista `version` mezőt tartalmaz. A `quotation_revisions`
+immutable input-, tétel- és összesítési snapshotot őriz; új mentés új revízió,
+azonos bemenetnél idempotens. A `save_quotation_draft` SECURITY INVOKER RPC
+tagságot, projekt/ügyfél-tulajdonlást, katalógus- és jóváhagyott takeoff-forrást
+ellenőriz, majd várt verzióval zárolva ment.
+
+A pénz HUF, az egységár legfeljebb 2, a mennyiség legfeljebb 6 tizedesjegyű;
+az összegzés PostgreSQL `NUMERIC(20,2)` és TypeScript `bigint` fixpontos
+aritmetika alapján, fél-felfelé kerekítéssel készül. Nettó és bruttó sor nem
+keverhető, VAT-kulcs és automatikus átszámítás nincs. A katalógus- és árrekord,
+valamint az approved anyagkimutatás forrása a revízió JSON snapshotjába kerül,
+így későbbi módosítás nem írja át a történelmet.
+
 ## Lokális workflow
 
 A repo a Supabase CLI imperatív migration workflow-ját használja:

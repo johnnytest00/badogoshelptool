@@ -1,5 +1,21 @@
 # F7.3.2 állapot
 
+## F8.1 — ajánlati piszkozatok (implementálás alatt)
+
+- Elkészült a projekt alatti `/projektek/[projectId]/ajanlatok` magyar,
+  mobilbarát szerkesztő: anyag, munkadíj és egyéb sor, ügyfél, kézi vagy
+  katalógusár, approved takeoff-forrás, mentés és újranyitás.
+- A `quotations` / `quotation_revisions` migration és az atomikus,
+  optimistic-concurrency `save_quotation_draft` RPC megőrzi az immutable
+  bemeneti, anyag- és ársnapshotokat; nettó/bruttó keverés tiltott.
+- A fixpontos HUF domain-referenciaesetek 4/4 PASS. A helyi Supabase/Docker
+  kapcsolat hiánya miatt a migráció, pgTAP és browser-flow még nem igazolt.
+
+### F8.1 korlátok
+
+Nincs PDF vagy jogilag végleges dokumentum, VAT-motor, küldés, elfogadás,
+számlázás vagy automatikus árképzés.
+
 ## Katalógushoz kötött, verziózott lemezkiosztás
 
 - Az aktuális szervezet aktív lemez-/tetőfedés terméke és variánsa választható; a server action, RLS és összetett FK tiltja a keresztszervezeti hivatkozást.
