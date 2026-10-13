@@ -5,6 +5,7 @@ import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { quotationDraftSchema, type QuotationLine } from "@/domain/quotations/contracts";
 import { lineTotal, scaledToDecimal, sumMoney } from "@/domain/quotations/money";
+import { userFacingActionError } from "@/lib/user-facing-action-error";
 
 export type QuotationActionResult = { ok: boolean; error?: string; quotationId?: string };
 export type QuotationFinalizeResult = { ok: boolean; error?: string; quotationId?: string; revisionId?: string };
@@ -51,7 +52,7 @@ export async function saveQuotationDraftAction(data: FormData): Promise<Quotatio
   const totalsSnapshot = { priceClass: [...priceClasses][0] ?? null, subtotal: scaledToDecimal(subtotal.minor, 2), materialSubtotal: categorySubtotal("MATERIAL"), laborSubtotal: categorySubtotal("LABOR"), otherSubtotal: categorySubtotal("OTHER"), currency: "HUF", complete: draft.lines.every((line) => line.unitPrice !== "") };
   const snapshot = { name: draft.name, clientId: draft.clientId || null, currency: "HUF", priceClass: [...priceClasses][0] ?? null, lines: lineSnapshots, documentSnapshot, precision: { quantityScale: 6, moneyScale: 2, rounding: "half_up" } };
   const { data: result, error } = await db.rpc("save_quotation_draft", { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: quotationId, p_name: draft.name, p_client_id: draft.clientId || null, p_currency: "HUF", p_input_snapshot: snapshot, p_line_items_snapshot: lineSnapshots, p_totals_snapshot: totalsSnapshot, p_subtotal: scaledToDecimal(subtotal.minor, 2), p_expected_version: currentVersion });
-  if (error || !result?.[0]) return { ok: false, error: error?.code === "40001" ? "Az ajánlat időközben megváltozott; töltsd újra az oldalt." : error?.message ?? "Az ajánlat mentése nem sikerült." };
+  if (error || !result?.[0]) return { ok: false, error: userFacingActionError(error, "Az ajánlat mentése nem sikerült.") };
   revalidatePath(`/projektek/${projectId}/ajanlatok`);
   return { ok: true, quotationId: result[0].quotation_id };
 }
@@ -69,7 +70,7 @@ export async function finalizeQuotationAction(data: FormData): Promise<Quotation
   const db = supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{ quotation_id: string; revision_id: string }> | null; error: { code?: string; message?: string } | null }> };
   const { data: result, error } = await db.rpc("finalize_quotation", { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: quotationId, p_revision_id: revisionId, p_expected_version: expectedVersion });
   if (error || !result?.[0]) {
-    const message = error?.code === "40001" ? "Az ajánlat időközben megváltozott; töltsd újra az oldalt." : error?.code === "55000" ? "Ez az ajánlat már véglegesítve van, vagy már nem módosítható." : error?.message ?? "A véglegesítés nem sikerült.";
+    const message = userFacingActionError(error, "A véglegesítés nem sikerült.");
     return { ok: false, error: message };
   }
   revalidatePath(`/projektek/${projectId}/ajanlatok`);
@@ -90,7 +91,7 @@ export async function duplicateFinalizedQuotationAction(data: FormData): Promise
   if (!revision) return { ok: false, error: "A véglegesített revízió nem található." };
   const snapshot = revision.input_snapshot;
   const { data: result, error } = await db.rpc("save_quotation_draft", { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: null, p_name: `${String(quote.name)} · új piszkozat`, p_client_id: typeof quote.client_id === "string" ? quote.client_id : null, p_currency: String(revision.currency), p_input_snapshot: snapshot, p_line_items_snapshot: revision.line_items_snapshot, p_totals_snapshot: revision.totals_snapshot, p_subtotal: revision.subtotal, p_expected_version: 0 });
-  if (error || !result?.[0]) return { ok: false, error: error?.message ?? "A piszkozat létrehozása nem sikerült." };
+  if (error || !result?.[0]) return { ok: false, error: userFacingActionError(error, "A piszkozat létrehozása nem sikerült.") };
   revalidatePath(`/projektek/${projectId}/ajanlatok`);
   return { ok: true, quotationId: result[0].quotation_id };
 }
@@ -109,7 +110,7 @@ export async function transitionQuotationStatusAction(data: FormData): Promise<Q
   const db = supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{ quotation_id: string; event_id: string }> | null; error: { code?: string; message?: string } | null }> };
   const { data: result, error } = await db.rpc("transition_quotation_status", { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: quotationId, p_target_status: targetStatus, p_expected_version: expectedVersion, p_note: note });
   if (error || !result?.[0]) {
-    const message = error?.code === "40001" ? "Az ajánlat időközben megváltozott; töltsd újra az oldalt." : error?.code === "55000" ? "Az ajánlat jelenlegi állapotából ez a művelet nem végezhető el." : error?.message ?? "A státusz mentése nem sikerült.";
+    const message = userFacingActionError(error, "A státusz mentése nem sikerült.");
     return { ok: false, error: message };
   }
   revalidatePath(`/projektek/${projectId}/ajanlatok`);

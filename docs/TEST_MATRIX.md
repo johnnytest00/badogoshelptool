@@ -709,3 +709,15 @@ ellenőrzött.
 | Approval / keyboard / global settings | PASS, célzott markup és tiszta logika | Approval akció külön, tördelhető és térközzel elválasztott; VisualViewport resize esetén csak a kilógó fókuszmező kerül középre; csúszkák text/UI/spacing/drawing tengelye független, localStorage persist/reset útvonal tesztelve; a lebegő ikon fontos vezérlővel való geometriai ütközéskor elrejtőzik. Fizikai billentyűzet- és overflow QA nem futott. |
 | Hitelesített böngészősmoke / iPad | Nem futott | Nincs böngészőtab; `npm run dev -- --hostname 0.0.0.0` bind `EPERM` miatt sikertelen. Fizikai iPad/iPhone nincs elérhető tesztkörnyezetben. Ne tekintsd mobil PASS-nak. |
 | DB/RPC/pgTAP / képletek | Nem futott / nem változott | Nincs migráció, RPC, adatjogosultság, takeoff szerződés vagy számítási képlet változás; nincs DB reset vagy hosted Supabase érintés. |
+
+## F9.7.5 — végső UX-finomságok és interakciós megbízhatóság
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Célzott Vitest | PASS | `npx vitest run src/lib/user-facing-action-error.test.ts src/lib/unsaved-changes.test.ts`: 2 fájl / 4 teszt; konfliktus, jogosultság, hiányzó forrás, validáció, SQLSTATE/RPC szöveg kiszűrése és dirty/clean unload figyelmeztetés. |
+| Typecheck | PASS, második futás | Első futás builddel párhuzamosan hiányzó generált `.next/types` fájlokat jelzett; `npm run build` után önálló `npm run typecheck` PASS. |
+| Lint / production build / diff | PASS | `npm run lint`; `npm run build` (Next.js 16.4.0 webpack); `git diff --check`. |
+| Érintett UI | Forrás alapján | Ajánlati dirty státusz `role=status`, hibák `role=alert`, pending mentés letiltva; successful save után navigál. Interaktív működés böngészőben nem ellenőrzött. |
+| Böngésző / fizikai eszköz | Nem futott | Hitelesített tab nem volt elérhető; az előző F9.7.4.1 helyi bind `EPERM` hibája miatt nem próbáltam újra. Fizikai iPad/iPhone nincs igazolva. |
+| Belső navigáció / loading / üres / destructive | Részben ellenőrzött | Dirty warning csak böngészőoldal-elhagyásra hat; SPA-navigációs prompt nincs. Projektlista üres állapota meglévő külön EMPTY UI; adatlekérés hibára dob, így nem címkézi üresként. Más modulok teljes állapot- és destructive auditja nem futott. |
+| Adatbázis / jogosultság / idempotencia | Nem változott | Nincs schema/action payload/snapshot/approval permission/idempotency-változás. A korábbi adatkonzisztencia- és RLS bizonyítékokat ez a UI-kör nem futtatta újra. |

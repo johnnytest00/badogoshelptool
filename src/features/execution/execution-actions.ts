@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { executionJournalCategorySchema, executionPhotoCategorySchema, executionPlanSchema, executionTaskSchema } from "@/domain/execution/contracts";
+import { userFacingActionError } from "@/lib/user-facing-action-error";
 
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const PHOTO_BUCKET = "execution-photos";
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
 const supportedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 type Rpc = { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: any; error: { code?: string; message?: string } | null }> };
-function errorMessage(error: { code?: string; message?: string } | null, fallback: string) { return error?.code === "40001" || error?.message?.includes("stale") ? "Az adat időközben megváltozott; töltsd újra az oldalt." : error?.message ?? fallback; }
+function errorMessage(error: { code?: string; message?: string } | null, fallback: string) { return userFacingActionError(error, fallback); }
 async function access(organizationId: string) { const auth = await getAuthContext(); return auth?.organizations.some((org) => org.id === organizationId) ? auth : null; }
 
 export async function createExecutionPlanAction(data: FormData) {
