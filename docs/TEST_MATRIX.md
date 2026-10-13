@@ -451,3 +451,11 @@ ellenőrzött.
 | Státuszjel és revízió | Sikeres | Noto Sans `→` karakter; elérhető revíziószám `vN` formában, a belső revízióazonosító külön megőrizve. |
 | Célzott render és kapuk | Sikeres | PDF-render teszt 1/1, `npm run typecheck`, `npm run lint`, `npm run build` webpack módban. |
 | Oldalkép, fotók, footer | Sikeres | Egy reprezentatív, két DEMO-képes lokális PDF renderelt oldalképe: 1 A4 oldal, mindkét kép, magyar ékezetek, státuszjel, revízió és `1 / 1 oldal` footer látható. |
+
+## F9.5.1 — pilot readiness és üzembiztonság
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Readiness és adatfolyam-leltár | Dokumentálva | A G01–G04 állapot, EXIF/GPS, szervezeti izoláció, backup/restore és pilot checklist a PILOT_READINESS.md-ben található. |
+| Terminológiai UI/PDF korrekció | Sikeres | A geometriai eredmény és a kivitelezési PDF belső/geometriai határai pontosítva; célzott Vitest 6/6, typecheck, lint és webpack production build PASS. |
+| Hosted, restore, cross-org, terepi smoke | Nem ellenőrzött | Nincs bizonyíték ebben a lokális mérföldkőben. |
