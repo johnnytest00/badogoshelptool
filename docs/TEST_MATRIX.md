@@ -395,3 +395,17 @@ ellenőrzött.
 | Dátum- és időszemantika | Implementálva | PostgreSQL `date` munkadátum + külön `created_at`/`changed_at` |
 | Unified timeline | Implementálva | Munkanapló + feladatesemény, date → timestamp → id rendezés, max. 100+100 rekord |
 | Teljes ellenőrzés | Sikeres | Typecheck, lint, 22 Vitest-fájl / 82 teszt, build, pgTAP 223/223 és egy browser smoke PASS |
+
+## F9.3.1 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Privát Storage bucket | Sikeres | `execution-photos`, `public=false`, 10 MB limit, JPEG/PNG/WebP allow-list. |
+| Metadata schema/RLS | Sikeres | `execution_photos`, szervezeti RLS, composite FK-k, immutable authenticated jogosultságok. |
+| Cross-reference védelem | Sikeres | Terv–projekt, task–terv és journal–terv trigger; invalid task, MIME és méret pgTAP-ban elutasítva. |
+| Journal immutability | Sikeres | A fotó külön rekord; authenticated update tiltott, eredeti journal content pgTAP-ban változatlan. |
+| Storage policy | Sikeres | Tagság + bucket/path feltöltés, metadata-sorhoz kötött olvasás, authenticated overwrite/delete nélkül; a jogosult projekt képe signed URL-ről ténylegesen betöltődött a böngészős nagy nézetben. Cross-organization jogosulatlan hozzáférés böngészőben nem lett tesztelve. |
+| Upload validation | Sikeres | Server action MIME, 10 MB limit és JPEG/PNG/WebP magic byte ellenőrzést végez; HEIC/HEIF UI-korlát dokumentált. |
+| Kompenzáló cleanup | Implementálva | Metadata-hibánál `remove()` fut; két szolgáltatás között nincs hamis atomi ígéret. |
+| Automatizált kapuk | Sikeres | 250/250 pgTAP, 22 Vitest-fájl / 82 teszt, typecheck, lint, diff-check, build PASS. |
+| Browser workflow | Sikeres | Hitelesített Brave + lokális Supabase: DEMO PNG feltöltés, galéria, tényleges signed URL-es képbetöltés a nagy nézetben, bezárás, reload utáni megmaradás, meglévő feladathoz és naplóbejegyzéshez kapcsolás. Az eredeti naplótartalom változatlan maradt. |

@@ -1,0 +1,40 @@
+begin;
+select plan(27);
+select ok(exists(select 1 from storage.buckets where id = 'execution-photos' and public = false), 'photo bucket is private');
+select is((select file_size_limit from storage.buckets where id = 'execution-photos'), 10485760::bigint, 'photo bucket has 10 MB limit');
+select ok(to_regclass('public.execution_photos') is not null, 'photo metadata table exists');
+select ok((select relrowsecurity from pg_class where oid='public.execution_photos'::regclass), 'photo metadata has RLS');
+select ok(exists(select 1 from pg_constraint where conname='execution_photos_project_org_fk'), 'photo project reference is organization scoped');
+select ok(exists(select 1 from pg_constraint where conname='execution_photos_plan_org_fk'), 'photo plan reference is organization scoped');
+select ok(exists(select 1 from pg_constraint where conname='execution_photos_task_org_fk'), 'photo task reference is organization scoped');
+select ok(exists(select 1 from pg_constraint where conname='execution_photos_journal_org_fk'), 'photo journal reference is organization scoped');
+select ok(exists(select 1 from pg_constraint where conname='execution_photos_request_key_uq'), 'photo creation is idempotent');
+select ok(exists(select 1 from pg_trigger where tgrelid='public.execution_photos'::regclass and tgname='execution_photos_validate_links'), 'photo links are validated by trigger');
+select ok((select has_table_privilege('authenticated', 'public.execution_photos', 'SELECT')), 'members can read photo metadata');
+select ok((select has_table_privilege('authenticated', 'public.execution_photos', 'INSERT')), 'members can create photo metadata');
+select ok(not (select has_table_privilege('authenticated', 'public.execution_photos', 'UPDATE')), 'photo metadata cannot be updated by users');
+select ok(not (select has_table_privilege('authenticated', 'public.execution_photos', 'DELETE')), 'photo metadata cannot be deleted by users');
+select ok(exists(select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname='execution_photos_storage_insert'), 'storage upload policy exists');
+select ok(exists(select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname='execution_photos_storage_select'), 'storage read policy exists');
+select ok(not exists(select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname='execution_photos_storage_delete'), 'storage deletion is not exposed');
+select ok(not exists(select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname='execution_photos_storage_update'), 'storage overwrite is not exposed');
+select ok(exists(select 1 from information_schema.routines where routine_schema='public' and routine_name='create_execution_photo'), 'photo RPC exists');
+select ok((select has_function_privilege('authenticated', 'public.create_execution_photo(uuid,uuid,uuid,uuid,uuid,text,text,text,bigint,text,uuid)', 'EXECUTE')), 'authenticated can call photo RPC');
+set local role postgres;
+insert into public.execution_plans (id, organization_id, project_id, title, created_by)
+values ('00000000-0000-4000-8000-000000000700', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', 'DEMO fényképes terv', '00000000-0000-4000-8000-000000000001');
+insert into public.execution_tasks (id, organization_id, plan_id, title, created_by)
+values ('00000000-0000-4000-8000-000000000701', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000700', 'DEMO fényképes feladat', '00000000-0000-4000-8000-000000000001');
+insert into public.execution_journal_entries (id, organization_id, plan_id, task_id, work_date, content, created_by)
+values ('00000000-0000-4000-8000-000000000702', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000700', '00000000-0000-4000-8000-000000000701', '2026-10-12', 'DEMO fényképes naplóbejegyzés', '00000000-0000-4000-8000-000000000001');
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
+select lives_ok($$insert into public.execution_photos (organization_id, project_id, plan_id, task_id, journal_entry_id, object_key, display_filename, mime_type, file_size, uploaded_by, request_key) values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000700', '00000000-0000-4000-8000-000000000701', '00000000-0000-4000-8000-000000000702', '00000000-0000-4000-8000-000000000010/00000000-0000-4000-8000-000000000030/00000000-0000-4000-8000-000000000700/00000000-0000-4000-8000-000000000703.jpg', 'DEMO fénykép.jpg', 'image/jpeg', 1024, '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000704')$$, 'valid photo metadata is accepted with same-plan links');
+select throws_ok($$insert into public.execution_photos (organization_id, project_id, plan_id, task_id, object_key, display_filename, mime_type, file_size, uploaded_by, request_key) values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000700', '00000000-0000-4000-8000-000000000799', '00000000-0000-4000-8000-000000000010/00000000-0000-4000-8000-000000000030/00000000-0000-4000-8000-000000000700/00000000-0000-4000-8000-000000000705.jpg', 'DEMO hibás feladat.jpg', 'image/jpeg', 1024, '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000706')$$, 'P0001', null, 'unrelated task reference is rejected');
+select throws_ok($$insert into public.execution_photos (organization_id, project_id, plan_id, object_key, display_filename, mime_type, file_size, uploaded_by, request_key) values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000700', '00000000-0000-4000-8000-000000000010/00000000-0000-4000-8000-000000000030/00000000-0000-4000-8000-000000000700/00000000-0000-4000-8000-000000000707.jpg', 'DEMO hibás MIME.jpg', 'image/gif', 1024, '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000708')$$, '23514', null, 'unsupported MIME type is rejected');
+select throws_ok($$insert into public.execution_photos (organization_id, project_id, plan_id, object_key, display_filename, mime_type, file_size, uploaded_by, request_key) values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000700', '00000000-0000-4000-8000-000000000010/00000000-0000-4000-8000-000000000030/00000000-0000-4000-8000-000000000700/00000000-0000-4000-8000-000000000709.jpg', 'DEMO túl nagy.jpg', 'image/jpeg', 10485761, '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000710')$$, '23514', null, 'oversized metadata is rejected');
+select throws_ok($$update public.execution_journal_entries set content = 'DEMO módosítás' where id = '00000000-0000-4000-8000-000000000702'$$, '42501', null, 'journal remains immutable while photo is associated');
+select throws_ok($$update public.execution_photos set caption = 'DEMO módosítás' where request_key = '00000000-0000-4000-8000-000000000704'$$, '42501', null, 'photo metadata is immutable to users');
+select is((select content from public.execution_journal_entries where id = '00000000-0000-4000-8000-000000000702'), 'DEMO fényképes naplóbejegyzés', 'photo association preserves journal content');
+select * from finish();
+rollback;

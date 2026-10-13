@@ -296,3 +296,30 @@ Mindkét táblán szervezeti RLS van. A létrehozás és feladatmentés RPC-n ke
 Az `execution_journal_entries` append-only munkanapló-bejegyzéseket tárolja. A `work_date` PostgreSQL `date`, ezért különválik a `created_at` rögzítési időpontjától; opcionális `task_id` csak ugyanahhoz a tervhez tartozhat. A `correction_of_entry_id` explicit, azonos terven belüli korrekciós hivatkozást biztosít, az eredeti bejegyzés módosítása nélkül.
 
 Az `execution_task_events` eseményeit az `execution_tasks` státuszfrissítés utáni trigger írja. A trigger hibája a teljes státuszfrissítést visszagörgeti. Csak tényleges státuszváltozás rögzül; közvetlen authenticated INSERT/UPDATE/DELETE nincs engedélyezve. A napló és eseménytörténet szervezeti RLS-sel, terv/feladat composite FK-kkal, idővonal-indexekkel és 100-as lekérdezési limittel működik.
+
+# F9.3.1 — Kivitelezési fényképdokumentáció
+
+Az `execution-photos` privát Storage bucket kizárólag a kivitelezési képeknek
+fenntartott, 10 MB objektumlimittel és `image/jpeg`, `image/png`, `image/webp`
+engedélyezett MIME-listával. A bucket nem public; HEIC/HEIF nincs bekapcsolva,
+mert ebben a mérföldkőben nem lenne megbízhatóan azonos a böngésző-, szerver- és
+feldolgozási kompatibilitás.
+
+Az `execution_photos` relációs tábla nem tárol binárist és nem tárol public URL-t.
+Az object key szervezeti/projekt/terv prefixű, UUID-alapú, MIME-kiterjesztésű,
+egyedi és triggerrel védett. A projekt-, terv-, task- és naplóhivatkozás minden
+esetben azonos szervezethez tartozik; a trigger a terv projektjét és az opcionális
+task/journal azonos tervét is ellenőrzi. A `request_key` idempotenciát ad.
+
+Az authenticated olvasási Storage policy csak olyan objektumot enged ki, amelyhez
+látható `execution_photos` metadata-sor tartozik és a felhasználó tagja az adott
+szervezetnek. Feltöltésnél a szervezeti tagság és az object key prefix együtt
+szükséges; a metadata-RPC a projekt/terv/kapcsolatok végső szerveroldali ellenőrzése.
+Nincs authenticated overwrite/delete policy. A szerver action a fájl magic byte
+aláírását is ellenőrzi, feltöltés után metadata-sort hoz létre, hiba esetén pedig
+megpróbálja eltávolítani az árva Storage objektumot; a két szolgáltatás közötti
+hamis atomi tranzakciót nem állítja.
+
+Az oldal szerveroldalon legfeljebb 100 projektképet kér le, és 5 perces signed
+URL-eket készít. A napló immutable marad: a fotókapcsolat külön rekord, a
+`work_date` és `created_at` változatlan. Távoli Supabase migration nem történt.
