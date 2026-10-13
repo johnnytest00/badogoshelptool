@@ -239,6 +239,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .quotation-review dd { margin: .25rem 0 0; color: var(--foreground); font-weight: 800; }
 .quotation-finalized-detail { display: grid; gap: .75rem; }
 .quotation-finalized-detail p { margin: 0; color: var(--muted); }
+.status-finalized { background: #dbeafe; color: #1d4ed8; }.status-sent { background: #ffedd5; color: #9a3412; }.status-accepted { background: #dcfce7; color: #166534; }.status-rejected { background: #fee2e2; color: #991b1b; }
+.quotation-timeline { display: grid; gap: .6rem; border-top: 1px solid var(--border); padding-top: 1rem; }.quotation-timeline h3 { margin: 0; color: var(--foreground); font-size: 1rem; }.quotation-timeline ol { display: grid; gap: .65rem; margin: 0; padding: 0; list-style: none; }.quotation-timeline li { display: grid; gap: .2rem; border-left: 3px solid var(--brand); padding: .55rem .75rem; background: var(--surface-strong); }.quotation-timeline li span, .quotation-timeline li small { color: var(--muted); font-size: .78rem; }
 @media (max-width: 700px) { .quotation-meta, .quotation-line-grid { grid-template-columns: 1fr; }.quotation-summary, .quotation-card { align-items: stretch; grid-template-columns: 1fr; flex-direction: column; }.quotation-summary { display: grid; }.quotation-card .secondary-button { width: 100%; } }
 
 /* F7.2.3 mobile readability and navigation hardening. */

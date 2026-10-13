@@ -1,5 +1,20 @@
 # Tesztmátrix
 
+## F8.3.2 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Lifecycle state machine | Sikeres | 4 engedélyezett előrelépés; reopening és terminális átmenetek Vitestben elutasítva. |
+| Status history schema/RLS | Sikeres | Append-only tábla, szervezeti read policy, közvetlen authenticated INSERT tiltás. |
+| Atomic transition RPC | Sikeres | SECURITY INVOKER, FOR UPDATE, expected version, finalized revision konzisztencia. |
+| Finalization regresszió | Sikeres | F8.3.1 finalize RPC és pénzügyi state constraint megmaradt. |
+| Legacy compatibility | Sikeres | Korábbi finalized rekord státusztörténet nélkül olvasható; visszamenőleges esemény nem készült. |
+| UI status filter/actions | Sikeres | Öt magyar státusz, állapotfüggő gombok és terminális állapotban nincs átmeneti akció. |
+| Browser lifecycle smoke | Sikeres | Finalized → sent → accepted, timeline, 27 498,50 HUF változatlan, PDF megnyílt. |
+| pgTAP | Sikeres | 003_quotation_finalization.sql + 004_quotation_lifecycle.sql: 19/19 PASS. |
+| Vitest | Sikeres | 21 fájl / 79 teszt PASS. |
+| Typecheck, lint, build | Sikeres | Mindhárom végső ellenőrzés PASS. |
+
 ## F8.3.1 ellenőrzések
 
 | Ellenőrzés | Állapot | Megjegyzés |

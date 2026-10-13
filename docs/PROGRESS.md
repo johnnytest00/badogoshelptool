@@ -70,6 +70,27 @@ Nem készült küldés, elfogadás, számlázás, további üzleti státusz, ÁF
 F8.3.2 funkció. A helyi smoke-flow a meglévő DEMO-jelölt fejlesztési adatokkal
 futott; távoli Supabase-változás nem történt.
 
+## F8.3.2 — ajánlati életciklus és státusztörténet (kész)
+
+- Az ajánlatok életciklusa: piszkozat, véglegesített, elküldött, elfogadott,
+  elutasított. Az engedélyezett átmenetek: draft → finalized → sent →
+  accepted/rejected; az elfogadott és elutasított állapot terminális.
+- Elkészült az append-only quotation_status_events tábla, szervezeti RLS,
+  immutable jogosultsági modell és tranzakciós státuszesemény-trigger.
+- A transition_quotation_status SECURITY INVOKER RPC tagságot, projekt- és
+  ajánlattulajdonlást, aktuális állapotot, expected versiont és finalized
+  revízió-konzisztenciát ellenőriz; a párhuzamos döntések közül csak az első
+  sikeres.
+- A felület magyar státuszszűrőt, állapotfüggő műveleteket, manuális
+  elküldöttnek jelölést, ügyféldöntés-megerősítést, opcionális megjegyzést és
+  valós státusztimeline-t mutat. Automatikus e-mail, kézbesítési bizonyíték,
+  elektronikus aláírás, számla vagy szerződés nem készül.
+- A PDF- és pénzügyi snapshot változatlan marad; a finalized/sent/accepted/
+  rejected státuszok ugyanahhoz a rögzített revízióhoz kötődnek.
+- Ellenőrzés: Vitest 21 fájl/79 teszt PASS, typecheck/lint/build PASS,
+  célzott pgTAP 19/19 PASS, browser smoke finalized → sent → accepted →
+  timeline → PDF → terminális műveletek PASS.
+
 ## Katalógushoz kötött, verziózott lemezkiosztás
 
 - Az aktuális szervezet aktív lemez-/tetőfedés terméke és variánsa választható; a server action, RLS és összetett FK tiltja a keresztszervezeti hivatkozást.

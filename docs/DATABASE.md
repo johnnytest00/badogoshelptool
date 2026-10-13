@@ -264,3 +264,25 @@ A `create_sheet_layout_takeoff_draft` kizárólag aktuális, verified, mentett �
 az upstream verified `roof.gable` területből és explicit ráhagyásból számolja,
 nem fogad el kliens által küldött végeredményt. Más egységhez nincs implicit
 konverzió, approved kimutatást pedig egyik F7.3.2 művelet sem módosít.
+## F8.3.2 — státusz-életciklus és eseménytörténet
+
+A 20261013040000_quotation_lifecycle.sql a státusz-enumot sent, accepted és
+rejected értékekkel bővíti, valamint létrehozza az append-only
+quotation_status_events táblát. Az esemény szervezeti és ajánlati azonosítót,
+forrás/cél státuszt, időpontot, actor UUID-t, opcionális megjegyzést és a
+finalized revízió referenciáját őrzi. Közvetlen authenticated beszúrás, módosítás
+és törlés nincs; a státuszváltozást a SECURITY DEFINER trigger rögzíti.
+
+Az engedélyezett üzleti átmenetek: draft → finalized, finalized → sent,
+sent → accepted vagy sent → rejected. A transition_quotation_status SECURITY
+INVOKER RPC csak az elküldött/elfogadott/elutasított célállapotokat kezeli; a
+véglegesítést továbbra is az F8.3.1 finalize RPC végzi. A DB trigger tiltja a
+reopeninget, a terminális állapot további módosítását, valamint a finalized
+pénzügyi és revíziómezők változtatását. A FOR UPDATE zár és expected version
+megakadályozza, hogy két konkurens döntés egyszerre érvényesüljön.
+
+Régi finalized rekordokhoz nincs automatikusan visszamenőleges esemény, mert az
+korábbi műveletet nem szabad kitalálni. Ezek olvashatók maradnak, és a következő
+valós lifecycle-átmenetektől kezdve kapnak történeti eseményt. A lifecycle
+semmilyen e-mail-küldést, kézbesítési bizonyítékot, elektronikus aláírást,
+szerződést, számlát vagy gyártási rendelést nem hoz létre.

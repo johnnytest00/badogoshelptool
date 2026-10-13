@@ -8,6 +8,7 @@ import { lineTotal, scaledToDecimal, sumMoney } from "@/domain/quotations/money"
 
 export type QuotationActionResult = { ok: boolean; error?: string; quotationId?: string };
 export type QuotationFinalizeResult = { ok: boolean; error?: string; quotationId?: string; revisionId?: string };
+export type QuotationStatusActionResult = { ok: boolean; error?: string; quotationId?: string; eventId?: string };
 type LooseQuery = { select: (columns: string) => LooseQuery; eq: (column: string, value: string | null) => LooseQuery; maybeSingle: () => Promise<{ data: Record<string, unknown> | null }> };
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 
@@ -92,6 +93,27 @@ export async function duplicateFinalizedQuotationAction(data: FormData): Promise
   if (error || !result?.[0]) return { ok: false, error: error?.message ?? "A piszkozat létrehozása nem sikerült." };
   revalidatePath(`/projektek/${projectId}/ajanlatok`);
   return { ok: true, quotationId: result[0].quotation_id };
+}
+
+export async function transitionQuotationStatusAction(data: FormData): Promise<QuotationStatusActionResult> {
+  const organizationId = text(data, "organizationId");
+  const projectId = text(data, "projectId");
+  const quotationId = text(data, "quotationId");
+  const targetStatus = text(data, "targetStatus");
+  const expectedVersion = Number(text(data, "version") || "0");
+  const note = text(data, "note") || null;
+  const auth = await getAuthContext();
+  if (!auth?.organizations.some((organization) => organization.id === organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
+  if (!quotationId || !["sent", "accepted", "rejected"].includes(targetStatus) || !Number.isInteger(expectedVersion)) return { ok: false, error: "A státuszváltáshoz hiányos adatok érkeztek." };
+  const supabase = await createClient();
+  const db = supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{ quotation_id: string; event_id: string }> | null; error: { code?: string; message?: string } | null }> };
+  const { data: result, error } = await db.rpc("transition_quotation_status", { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: quotationId, p_target_status: targetStatus, p_expected_version: expectedVersion, p_note: note });
+  if (error || !result?.[0]) {
+    const message = error?.code === "40001" ? "Az ajánlat időközben megváltozott; töltsd újra az oldalt." : error?.code === "55000" ? "Az ajánlat jelenlegi állapotából ez a művelet nem végezhető el." : error?.message ?? "A státusz mentése nem sikerült.";
+    return { ok: false, error: message };
+  }
+  revalidatePath(`/projektek/${projectId}/ajanlatok`);
+  return { ok: true, quotationId: result[0].quotation_id, eventId: result[0].event_id };
 }
 
 async function loadMaterialSnapshot(supabase: Awaited<ReturnType<typeof createClient>>, organizationId: string, line: QuotationLine) {
