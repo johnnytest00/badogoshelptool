@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { addBend, calculateDraft, createTemplate, editBend, editStraight, removeBend, reverseAngle, selectionMatches, toDomainInput } from "@/features/sheet-metal/profile-editor-model";
+import { addBend, calculateDraft, createTemplate, editBend, editStraight, fromDomainInput, removeBend, reverseAngle, selectionMatches, toDomainInput } from "@/features/sheet-metal/profile-editor-model";
 import { drawingDimensions, drawingFrame, primitivePath, selectedDrawingId, svgPoint } from "@/features/sheet-metal/profile-drawing-model";
 
 describe("F9.6.3.2 profile editor model", () => {
+  it("round-trips explicit quantities in immutable profile inputs", () => {
+    const draft = { ...createTemplate("l"), lengthPerPiece: "2500", pieceCount: "4", materialSpec: "DEMO-A", dirty: true };
+    const input = toDomainInput(draft);
+    expect(input).toMatchObject({ formedRunLengthMm: 2500, pieceCount: 4, material: { materialSpec: "DEMO-A" } });
+    expect(fromDomainInput(input)).toMatchObject({ lengthPerPiece: "2500", pieceCount: "4", materialSpec: "DEMO-A" });
+    expect(toDomainInput(fromDomainInput(input))).toEqual(input);
+    const result = calculateDraft(draft);
+    expect(result.ok && result.output.materialRequirement.totalNetBlankAreaSqM).toBeNull();
+    const legacy = toDomainInput(createTemplate("l"));
+    expect(fromDomainInput(legacy)).toMatchObject({ lengthPerPiece: "", pieceCount: "" });
+  });
+
   it("initializes DEMO L, U and custom open templates with unknown allowances", () => {
     const l = createTemplate("l"), u = createTemplate("u"), custom = createTemplate("custom");
     expect([l.straights.length, l.bends.length, u.straights.length, u.bends.length]).toEqual([2, 1, 3, 2]);
@@ -60,9 +72,23 @@ describe("F9.6.3.2 profile editor model", () => {
     expect(calculateDraft({ ...createTemplate("l"), thickness: "-1" }).ok).toBe(false);
     expect(calculateDraft(editBend(createTemplate("l"), "b1", { angle: "180" })).ok).toBe(false);
     const crossing = createTemplate("custom");
-    crossing.straights = ["20", "20", "18", "30"].map((length, index) => ({ id: `s${index + 1}`, length, origin: "demo" }));
+    crossing.straights = ["20", "20", "18", "30"].map((length, index) => ({ id: `s${index + 1}`, length, dimensionSource: { kind: "demo", label: "DEMO teszt" } }));
     crossing.bends = ["90", "90", "90"].map((angle, index) => ({ id: `b${index + 1}`, angle, radius: "2", mode: "unknown", value: "", source: "" }));
     expect(calculateDraft(crossing).ok).toBe(false);
+  });
+
+  it("round-trips saved technical inputs, provenance and profile type without filling missing BA/K", () => {
+    const original = toDomainInput(createTemplate("u"));
+    const sourced = { ...original, profileId: "11111111-1111-4111-8111-111111111111", material: { catalogVariantId: "22222222-2222-4222-8222-222222222222", materialSpec: "DEMO tesztleírás", provenance: { kind: "catalog_snapshot" as const, label: "DEMO variáns", catalogVariantId: "22222222-2222-4222-8222-222222222222" } },
+      bends: original.bends.map((bend) => ({ ...bend, signedTurnDeg: -60, allowance: { mode: "k_factor" as const, kFactor: 0.4, source: { kind: "machine_calibration" as const, label: "DEMO kalibráció", machineId: "DEMO-M1", toolingId: "DEMO-T1", calibrationId: "DEMO-C1", manuallyOverridden: false } } })) };
+    const restored = fromDomainInput(sourced);
+    expect(toDomainInput(restored)).toEqual(sourced);
+    const overridden = toDomainInput(editBend(restored, "b1", { value: "0.5" })).bends[0].allowance;
+    expect(overridden.mode === "k_factor" && overridden.source.manuallyOverridden).toBe(true);
+    const missing = fromDomainInput({ ...sourced, bends: sourced.bends.map((bend) => ({ ...bend, allowance: { mode: "unknown" as const } })) });
+    expect(toDomainInput(missing).bends[0].allowance).toEqual({ mode: "unknown" });
+    const missingResult = calculateDraft(missing);
+    expect(missingResult.ok && missingResult.output.flatPattern.widthMm).toBeNull();
   });
 
   it("maps domain coordinates and arc sweep into SVG and keeps annotations tied to output values", () => {

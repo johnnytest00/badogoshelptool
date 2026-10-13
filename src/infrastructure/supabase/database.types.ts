@@ -774,6 +774,11 @@ isOneToOne: false
               "calculation_id": string,"calculation_revision_id": string,"revision_number": number
             }[]
                            },
+"save_sheet_metal_profile_calculation":
+{ Args: { "p_calculation_id": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_project_id": string }; Returns: {
+              "calculation_id": string,"calculation_revision_id": string,"revision_number": number
+            }[]
+                           },
 "save_metal_sheet_layout":
 { Args: { "p_data_provenance": Json,"p_display_name": string,"p_expected_revision_number": number,"p_input_data": Json,"p_layout_calculation_id": string,"p_material_variant_id": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_roof_model_id": string,"p_source_geometry_calculation_revision_id": string,"p_source_roof_revision_id": string,"p_warnings": Json }; Returns: {
               "calculation_id": string,"calculation_revision_id": string,"revision_created": boolean,"revision_number": number

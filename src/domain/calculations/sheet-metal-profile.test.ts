@@ -14,7 +14,7 @@ function demoProfile(lengths: number[], turns: number[], options: { thickness?: 
     : options.ba !== undefined ? { mode: "explicit_ba" as const, baMm: options.ba, source: demoSource }
       : { mode: "k_factor" as const, kFactor: options.k ?? 0.4, source: demoSource };
   return {
-    schemaVersion: "1.0.0", label: "DEMO profil", coordinateConvention: "x-right-y-up", dimensionConvention: "finished_tangent",
+    schemaVersion: "1.0.0", profileType: lengths.length === 3 ? "u" : "l", label: "DEMO profil", coordinateConvention: "x-right-y-up", dimensionConvention: "finished_tangent",
     thicknessMm: options.thickness ?? 1,
     straights: lengths.map((tangentLengthMm, index) => ({ id: `s${index}`, tangentLengthMm, dimensionSource: demoSource })),
     bends: turns.map((signedTurnDeg, index) => ({ id: `b${index}`, signedTurnDeg, insideRadiusMm: options.radius ?? 1, allowance })),
@@ -37,6 +37,31 @@ function fail(raw: unknown, code: string) {
 }
 
 describe("sheet_metal.profiles.flat-pattern — independent DEMO references", () => {
+  it("computes preliminary net rectangular area for multiple identical pieces", () => {
+    const output = succeed({ ...demoProfile([30, 40], [90], { ba: 3 }), formedRunLengthMm: 2500, pieceCount: 4 });
+    expect(output.flatPattern.widthMm).toBe(73);
+    expect(output.materialRequirement).toEqual({ lengthPerPieceMm: 2500, pieceCount: 4,
+      netBlankAreaPerPieceSqM: 0.1825, totalNetBlankAreaSqM: 0.73 });
+  });
+
+  it("preserves quantity inputs but leaves area null when BA/K is missing", () => {
+    const output = succeed({ ...demoProfile([30, 40], [90], { unknown: true }), formedRunLengthMm: 2500, pieceCount: 4 });
+    expect(output.geometry.segments).toHaveLength(2);
+    expect(output.materialRequirement).toEqual({ lengthPerPieceMm: 2500, pieceCount: 4,
+      netBlankAreaPerPieceSqM: null, totalNetBlankAreaSqM: null });
+  });
+
+  it("rejects invalid quantity and area boundaries without rounding", () => {
+    const base = demoProfile([30, 40], [90], { ba: 3 });
+    for (const formedRunLengthMm of [0, -1, 1_000_001, Number.POSITIVE_INFINITY])
+      fail({ ...base, formedRunLengthMm, pieceCount: 1 }, "VALIDATION_ERROR");
+    for (const pieceCount of [0, -1, 1.5, 100_001, Number.MAX_SAFE_INTEGER])
+      fail({ ...base, formedRunLengthMm: 2500, pieceCount }, "VALIDATION_ERROR");
+    fail({ ...demoProfile([400_000, 400_000], [90], { ba: 3 }), formedRunLengthMm: 1_000_000, pieceCount: 100_000 }, "NUMERIC_OVERFLOW");
+    expect(succeed({ ...base, formedRunLengthMm: 1.234567, pieceCount: 2 }).materialRequirement.totalNetBlankAreaSqM)
+      .toBeCloseTo(73 * 1.234567 * 2 / 1_000_000, 14);
+  });
+
   it("1. computes an L profile with one 90° K-factor bend and analytic contours", () => {
     const result = succeed(demoProfile([30, 40], [90]));
     expect(result.bends[0].allowanceMm).toBeCloseTo(0.7 * Math.PI, 12);

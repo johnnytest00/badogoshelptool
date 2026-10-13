@@ -403,3 +403,19 @@ alatt változtathatatlanná teszi a szervezet-, projekt-, kalkuláció-, revízi
 opcionális tetőmodell-forrást, valamint a transfer kéréskulcsot és payloadot. A
 név, státusz, jóváhagyási adatok és verzió szabályos lifecycle-változásait ez nem
 akadályozza; a jóváhagyott állapot külön, szigorúbb trigger-védelme megmarad.
+
+## F9.6.3.3 — lemezprofil-revíziók
+
+A `20261013080700` + `20261013080800` + `20261013080900` lokális migrációk a meglévő `calculations` / `calculation_revisions` táblákat használják. Nem jött létre párhuzamos profil-tábla vagy katalógus-séma. A végső `save_sheet_metal_profile_calculation(organization, project, calculation, name, input, expected_revision)` SECURITY INVOKER RPC csak bemenetet fogad; PostgreSQL maga állítja elő és tárolja az immutable `output_snapshot` BA/K összegzését. Az első két időbélyeges migrációs lépést a harmadik input-only aláírásra cseréli; az alkalmazott migrációkat nem módosítottuk.
+
+Az RPC aktív `private.is_org_member` tagságot, a szervezethez tartozó projektet, a profilazonosítóhoz tartozó ugyanazon projekt/kalkulátortípust, ismert profil- és méréskonvenciókat, inputdimenziókat, BA/K tartományokat és az expected revisiont ellenőrzi. Profilazonosítónként `pg_advisory_xact_lock` védi az első mentési versenyt is; tranzakció egy új `calculation_revisions` sort szúr be, majd frissíti az aktuális revision pointert. A meglévő immutability trigger tiltja a revision UPDATE/DELETE műveletét. Cross-project/cross-org és nem tag műveletet az RLS/RPC tesztek elutasítanak. A kalkulációs revision dependency táblában nincs katalógusvariáns típusú upstream kapcsolat; explicit profil–variáns technikai szerződés hiányában nem készült mapping.
+
+Az alkalmazási Server Action minden UI-mentésnél a TypeScript production domainmotort hívja, amely a teljes analitikus geometriát, önmetszést és outputot ellenőrzi. A DB kimeneti snapshotot ezután sem kliens, sem Server Action nem adja át. A pgTAP igazolja az RPC szervezeti/projekt izolációját, bemenet-eredmény matematikai összegzését, hiányzó BA/K `null`-ját, immutable historyt és stale revision elutasítást; a valódi két authenticated kapcsolatú próba egyetlen V2-t és egy stale conflictot igazolt. A migrációk és tesztek kizárólag helyi Supabase-en futottak, reset és hosted módosítás nélkül.
+
+## F9.6.3.4.1 — profilanyag és mennyiség az immutable revízióban
+
+A `20261013081000`–`20261013081300` közötti négy helyi migráció új táblát vagy katalógusoszlopot nem hoz létre. A meglévő `material_variants.technical_specs.profileMaterialSpec` explicit, opcionális szöveges szerződés; régi rekordnál a hiánya feloldatlan kompatibilitás. A `calculation_revisions` BEFORE INSERT trigger a profilhoz tartozó inputból önállóan ellenőrzi a BA/K alapú terítékszélességet és a darabhossz/darabszám korlátját, majd a hiteles szélességből írja az `output_snapshot.materialRequirement` nettó m² értékeit. Régi revíziók nem változnak és újra betölthetők.
+
+Katalógus-hozzárendelésnél a trigger az aktuális szervezetazonos, aktív `sheet_metal` terméket és variánst RLS alatt, `FOR SHARE` zárral olvassa; `square_meter` egységet, pontos anyagazonosítót, azonos vastagságot és forrásnevet követel. A termék/variáns azonosítóját, anyagspecifikációját, vastagságát, egységét, forrásnevét, URL-jét és dátumát maga írja az immutable input `material.catalogSnapshot` mezőjébe. Idegen szervezet variánsa elutasított. A meglévő expected-revision/advisory-lock konkurenciavédelem és UPDATE/DELETE tilalom érvényben marad. Nincs material takeoff átadás vagy ár-snapshot ebben a mérföldkőben.
+
+Az F9.6.3.3 alatt mentett outputban nincs `materialRequirement`; a betöltő ezt történeti hiányként kezeli, és a régi revízióhoz nem jelenít meg visszamenőleg új területszámot.

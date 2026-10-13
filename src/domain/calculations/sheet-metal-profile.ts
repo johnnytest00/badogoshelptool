@@ -13,6 +13,8 @@ export const SHEET_METAL_PROFILE_RESULT_SCHEMA_VERSION = "1.0.0" as const;
 export const MIN_PROFILE_DIMENSION_MM = 0.000001;
 export const MIN_PROFILE_TURN_DEG = 0.000001;
 export const MAX_PROFILE_BENDS = 50;
+export const MAX_PROFILE_PIECES = 100000;
+export const MAX_PROFILE_NET_AREA_SQM = 1000000000;
 
 const positiveMm = z.number().finite().min(MIN_PROFILE_DIMENSION_MM).max(MAX_PROFILE_EXTENT_MM);
 const sourceSchema = z.object({
@@ -50,14 +52,19 @@ const bendSchema = z.object({
 export const sheetMetalProfileInputSchema = z.object({
   schemaVersion: z.literal(SHEET_METAL_PROFILE_INPUT_SCHEMA_VERSION),
   profileId: z.uuid().optional(),
+  profileType: z.enum(["l", "u", "custom"]),
   label: z.string().trim().min(1).max(160),
   coordinateConvention: z.literal("x-right-y-up", { error: "Csak x-right-y-up koordinátarendszer támogatott." }),
   dimensionConvention: z.enum(["finished_tangent", "outside_virtual_sharp", "inside_virtual_sharp"]),
   thicknessMm: positiveMm,
-  material: z.object({ catalogVariantId: z.uuid().optional(), materialSpec: z.string().trim().max(200).optional(), provenance: sourceSchema }).strict().optional(),
+  material: z.object({ catalogVariantId: z.uuid().optional(), materialSpec: z.string().trim().max(200).optional(), provenance: sourceSchema,
+    catalogSnapshot: z.object({ productId: z.uuid(), variantId: z.uuid(), materialSpec: z.string().trim().min(1).max(200), thicknessMm: positiveMm,
+      purchasingUnit: z.literal("square_meter"), provenance: z.enum(["verified", "user_provided", "estimated", "demo", "missing"]),
+      sourceName: z.string().trim().min(1).max(200), sourceUrl: z.string().max(2048).nullable().optional(), sourceDate: z.string().max(40).nullable().optional() }).strict().optional() }).strict().optional(),
   straights: z.array(straightSchema).min(1).max(MAX_PROFILE_BENDS + 1),
   bends: z.array(bendSchema).max(MAX_PROFILE_BENDS),
   formedRunLengthMm: positiveMm.optional(),
+  pieceCount: z.number().int().min(1).max(MAX_PROFILE_PIECES).optional(),
   notes: z.array(z.string().trim().min(1).max(500)).max(50).optional(),
 }).strict().superRefine((input, context) => {
   if (input.straights.length !== input.bends.length + 1) {
@@ -102,6 +109,8 @@ export const sheetMetalProfileOutputSchema = z.object({
   })),
   flatPattern: z.object({ widthMm: z.number().finite().positive().nullable(), bendLineOffsetsMm: z.array(z.number().finite()).nullable(),
     method: z.enum(["explicit_ba", "k_factor", "mixed", "no_bends"]).nullable(), classification: classificationSchema, issues: z.array(resultIssueSchema) }),
+  materialRequirement: z.object({ lengthPerPieceMm: z.number().finite().positive().nullable(), pieceCount: z.number().int().positive().nullable(),
+    netBlankAreaPerPieceSqM: z.number().finite().nonnegative().nullable(), totalNetBlankAreaSqM: z.number().finite().nonnegative().nullable() }),
   classificationByField: z.object({ geometry: classificationSchema, flatPattern: classificationSchema }),
   issues: z.array(resultIssueSchema),
   parameterSnapshot: z.array(z.object({ bendId: z.string(), mode: z.enum(["explicit_ba", "k_factor", "unknown"]), value: z.number().finite().nullable(), source: sourceSchema.nullable() })),
@@ -179,9 +188,17 @@ export function calculateSheetMetalProfile(input: SheetMetalProfileInput): Sheet
     });
   }
   const classification = incomplete ? "INCOMPLETE" : bends.length === 0 ? "GEOMETRICALLY_DETERMINED" : "PARAMETER_BASED_ESTIMATE";
+  const lengthPerPieceMm = input.formedRunLengthMm ?? null, pieceCount = input.pieceCount ?? null;
+  const netBlankAreaPerPieceSqM = widthMm !== null && lengthPerPieceMm !== null ? widthMm * lengthPerPieceMm / 1_000_000 : null;
+  const totalNetBlankAreaSqM = netBlankAreaPerPieceSqM !== null && pieceCount !== null ? netBlankAreaPerPieceSqM * pieceCount : null;
+  if (netBlankAreaPerPieceSqM !== null && (!Number.isFinite(netBlankAreaPerPieceSqM) || netBlankAreaPerPieceSqM > MAX_PROFILE_NET_AREA_SQM)
+    || totalNetBlankAreaSqM !== null && (!Number.isFinite(totalNetBlankAreaSqM) || totalNetBlankAreaSqM > MAX_PROFILE_NET_AREA_SQM)) {
+    throw calculationError("NUMERIC_OVERFLOW", "A nettó blankterület túllépi a biztonságos számtartományt.", ["materialRequirement"]);
+  }
   const issues = [...flatIssues, ...parameterIssues];
   return { schemaVersion: SHEET_METAL_PROFILE_RESULT_SCHEMA_VERSION, geometry, bends,
     flatPattern: { widthMm, bendLineOffsetsMm, method, classification, issues },
+    materialRequirement: { lengthPerPieceMm, pieceCount, netBlankAreaPerPieceSqM, totalNetBlankAreaSqM },
     classificationByField: { geometry: "GEOMETRICALLY_DETERMINED", flatPattern: classification }, issues,
     parameterSnapshot: input.bends.map((bend) => ({ bendId: bend.id, mode: bend.allowance.mode,
       value: bend.allowance.mode === "explicit_ba" ? bend.allowance.baMm : bend.allowance.mode === "k_factor" ? bend.allowance.kFactor : null,

@@ -590,3 +590,26 @@ ellenőrzött.
 | Keskeny böngészőnézet | Sikeres | 390×844 px: egyoszlopos grid, 313 px SVG, vízszintes dokumentum-túlcsordulás nincs (`scrollWidth=390`). |
 | Fizikai érintés / teljes regresszió / adatbázis | Nem futott | Pointer/pinch kód jelen van, fizikai iPad/mobil gesztus nem ellenőrzött. UI-only fázis, nincs mentés/migráció/pgTAP vagy teljes Vitest. |
 | Gyártási alkalmasság | Nem ellenőrzött | Nincs gép-/szerszám-/anyagkalibráció és terepi szakmai jóváhagyás. |
+
+## F9.6.3.3 — profilperzisztencia és revízióbiztonság
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Input/provenance round-trip és hiányos BA/K | Sikeres | `npx vitest run src/features/sheet-metal/profile-editor.test.ts src/domain/calculations/sheet-metal-profile.test.ts`: 2 fájl, 27/27 PASS; profile type, katalogizált provenance-minta, gép/tool/calibration ID, signed turn és `unknown` BA/K round-trip; hiányzó BA/K `null`. |
+| Helyi migráció | Sikeres | `20261013080700_sheet_metal_profile_persistence.sql`, `.80800_sheet_metal_profile_persistence_fix.sql`, `.80900_sheet_metal_profile_authoritative_output.sql` reset nélkül helyi Supabase-re alkalmazva. A végső RPC input-only; outputot a DB számítja. Hosted környezet nem érintett. |
+| pgTAP/RLS/immutable | Sikeres | `SUPABASE_TELEMETRY_DISABLED=1 npx supabase test db --local supabase/tests/database/013_sheet_metal_profile.sql`: 1 fájl, 19/19 PASS; V1/V2, adatbázisoldali BA/K eredmény, hiányos null-width, unsupported convention, stale expected revision, cross-project/cross-org/non-member read/write, revision UPDATE/DELETE tiltás. |
+| Valódi konkurencia | Sikeres | `node scripts/verify-sheet-metal-profile-concurrency.mjs`: 2 független authenticated DB kapcsolat; 1 V2 sikeres mentés, 1 stale conflict; V1/V2 megmaradt, max revision=2. |
+| Alkalmazáskapuk | Sikeres | A végső `npx vitest run ...profile-editor.test.ts ...sheet-metal-profile.test.ts` 27/27 PASS, `npm run typecheck`, `npm run lint`, `npm run build` (Next 16.4.0 webpack), `git diff --check` PASS. |
+| Authenticated browser workflow | Sikeres | Helyi `local.owner@local.test`, DEMO projekt. L 60→75 mm, 90→60°; V1 mentés/reload és SVG/input helyreállítás; K=0,4 forrásprovenance-szal V2; V1 visszatöltve változatlan, V2 elérhető; unknown BA/K-val V3; a végső input-only RPC-val V4, reload után 81 mm és null teríték. |
+| Katalógusmapping / fizikai QA / gyártás | Nyitott | `technical_specs` nem hordoz explicit profilkompatibilitási szerződést; mapping F9.6.3.4. Fizikai mobil, gépkalibráció és gyártói megfelelőség nem ellenőrzött. |
+
+## F9.6.3.4.1 — profilanyag-mennyiség
+
+| Ellenőrzés | Állapot | Bizonyíték |
+|---|---|---|
+| Nettó m², darabszám, hiányzó BA/K, határok, round-trip | Sikeres | `npx vitest run src/domain/calculations/sheet-metal-profile.test.ts src/domain/calculations/profile-material-compatibility.test.ts src/features/sheet-metal/profile-editor.test.ts`: 3 fájl, 32/32 PASS. |
+| Katalógus és revízió/RLS | Sikeres | `SUPABASE_TELEMETRY_DISABLED=1 npx supabase test db --local supabase/tests/database/013_sheet_metal_profile.sql supabase/tests/database/014_profile_material_requirements.sql`: 2 fájl, 40/40 PASS; V1/V2, szervezetidegen variáns, hiányzó attribútum, inkompatibilis egység/vastagság, hiányos BA/K. |
+| Helyi migráció | Sikeres | `20261013081000`–`20261013081300` helyi `supabase db push --local` reset nélkül alkalmazva. |
+| Alkalmazáskapuk | Sikeres | `npm run typecheck`, `npm run lint`, `npm run build` PASS; `git diff --check` a végén ellenőrizve. |
+| Böngésző mentés/reload | Sikeres | Helyi authenticated DEMO projekt: 103 mm × 2000 mm / 1 000 000 = 0,206 m²/db; 3 db = 0,618 m²; V1 mentés/reload után mezők és eredmény változatlan. |
+| Teljes regresszió, gyártás, beszerzés | Nem futott / nem ellenőrzött | Célzott kapuk nem jelentenek teljes regressziót; nincs valós gép/gyártói jóváhagyás, stock- vagy takeoff-átadás. |

@@ -35,7 +35,11 @@ const optionalNonNegativeNumber = z.number().finite().nonnegative().nullable();
 export const materialVariantInputSchema = z.object({
   productId: uuid, name: z.string().trim().min(1, "A variáns neve kötelező.").max(200), sku: optionalText(120), purchasingUnit: z.enum(materialPurchasingUnits),
   nominalWidthMm: optionalNonNegativeNumber, effectiveWidthMm: optionalNonNegativeNumber, thicknessMm: optionalNonNegativeNumber, lengthMm: optionalNonNegativeNumber, packagingQuantity: z.number().finite().positive().nullable(),
-  technicalSpecs: z.record(z.string(), z.string()).default({}), dataProvenance: z.enum(materialProvenances), sourceName: optionalText(200), sourceUrl: optionalUrl, sourceDate: z.string().trim().refine((value) => !value || !Number.isNaN(Date.parse(value)), "Érvényes dátum szükséges.").optional().default(""), sourceNotes: optionalText(5000),
+  technicalSpecs: z.record(z.string(), z.string()).superRefine((specs, context) => {
+    if (specs.profileMaterialSpec !== undefined && (!specs.profileMaterialSpec.trim() || specs.profileMaterialSpec.length > 200)) {
+      context.addIssue({ code: "custom", path: ["profileMaterialSpec"], message: "A profilanyag-azonosító 1–200 karakter lehet." });
+    }
+  }).default({}), dataProvenance: z.enum(materialProvenances), sourceName: optionalText(200), sourceUrl: optionalUrl, sourceDate: z.string().trim().refine((value) => !value || !Number.isNaN(Date.parse(value)), "Érvényes dátum szükséges.").optional().default(""), sourceNotes: optionalText(5000),
 });
 
 const priceAmount = z.number().finite().nonnegative().refine((value) => Number(value.toFixed(2)) === value, "Legfeljebb két tizedes szükséges.");
