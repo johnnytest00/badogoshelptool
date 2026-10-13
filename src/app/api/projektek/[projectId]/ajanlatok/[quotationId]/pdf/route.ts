@@ -11,13 +11,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ proj
   const auth = await getAuthContext();
   if (!auth) return new NextResponse("Bejelentkezés szükséges.", { status: 401 });
   const { projectId, quotationId } = await params;
-  const revisionId = new URL(request.url).searchParams.get("revision");
+  const requestedRevisionId = new URL(request.url).searchParams.get("revision");
   const supabase = await createClient();
-  const { data: quotation, error: quotationError } = await supabase.from("quotations").select("id, organization_id, project_id, name, currency, current_revision_id").eq("id", quotationId).eq("project_id", projectId).maybeSingle();
+  const quotationResponse = await supabase.from("quotations").select("id, organization_id, project_id, name, currency, status, current_revision_id, finalized_revision_id").eq("id", quotationId).eq("project_id", projectId).maybeSingle() as unknown as { data: { id: string; organization_id: string; project_id: string; name: string; currency: string; status: "draft" | "finalized"; current_revision_id: string | null; finalized_revision_id: string | null } | null; error: { message?: string } | null };
+  const { data: quotation, error: quotationError } = quotationResponse;
   if (quotationError || !quotation || !auth.organizations.some((organization) => organization.id === quotation.organization_id)) return new NextResponse("Az ajánlat nem található.", { status: 404 });
   const [{ data: project }, { data: revision }, { data: organization }, { data: revisionOrder }] = await Promise.all([
     supabase.from("projects").select("name, location, description, client_id").eq("id", projectId).eq("organization_id", quotation.organization_id).maybeSingle(),
-    supabase.from("quotation_revisions").select("id, revision_number, line_items_snapshot, subtotal, price_class, currency, created_at, totals_snapshot, input_snapshot").eq("id", revisionId || quotation.current_revision_id || "").eq("quotation_id", quotation.id).eq("organization_id", quotation.organization_id).maybeSingle(),
+    supabase.from("quotation_revisions").select("id, revision_number, line_items_snapshot, subtotal, price_class, currency, created_at, totals_snapshot, input_snapshot").eq("id", quotation.status === "finalized" ? quotation.finalized_revision_id ?? "" : requestedRevisionId || quotation.current_revision_id || "").eq("quotation_id", quotation.id).eq("organization_id", quotation.organization_id).maybeSingle(),
     supabase.from("organizations").select("name").eq("id", quotation.organization_id).maybeSingle(),
     supabase.from("quotation_revisions").select("id").eq("quotation_id", quotation.id).eq("organization_id", quotation.organization_id).order("created_at", { ascending: true }),
   ]);

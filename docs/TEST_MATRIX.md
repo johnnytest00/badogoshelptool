@@ -1,5 +1,18 @@
 # Tesztmátrix
 
+## F8.3.1 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Finalization migration | Sikeres | 20261013030000 quotation_finalization + RPC-korrekciós migration; local DB push, reset nélkül. |
+| Finalization pgTAP | Sikeres | 8/8 PASS: enum, mezők, state constraint, guard trigger, RPC és authenticated EXECUTE. |
+| Quotation list/search/filter | Sikeres | Projektoldali lista, referencia/ügyfél keresés és draft/finalized filter browserben látható. |
+| Review/finalize/lock | Sikeres | Review panel ügyféllel, v2-vel, 2 tétellel és 27 498,50 HUF nettó összeggel; finalize után locked állapot. |
+| Immutable PDF | Sikeres | A véglegesített PDF preview külön tabban megnyílt; route a finalized_revision_id-t használja. |
+| Duplicate finalized quotation | Sikeres | Új ID, v1 draft és szerkesztő nyílt meg; az eredeti v2 finalized, 27 498,50 HUF maradt. |
+| Vitest | Sikeres | 20 fájl / 77 teszt PASS. |
+| Typecheck, lint, build | Sikeres | npm run typecheck, npm run lint, npm run build PASS. |
+
 ## F8.1 ellenőrzések
 
 | Ellenőrzés | Állapot | Megjegyzés |

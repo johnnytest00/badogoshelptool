@@ -7,6 +7,8 @@ import { quotationDraftSchema, type QuotationLine } from "@/domain/quotations/co
 import { lineTotal, scaledToDecimal, sumMoney } from "@/domain/quotations/money";
 
 export type QuotationActionResult = { ok: boolean; error?: string; quotationId?: string };
+export type QuotationFinalizeResult = { ok: boolean; error?: string; quotationId?: string; revisionId?: string };
+type LooseQuery = { select: (columns: string) => LooseQuery; eq: (column: string, value: string | null) => LooseQuery; maybeSingle: () => Promise<{ data: Record<string, unknown> | null }> };
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 
 export async function saveQuotationDraftAction(data: FormData): Promise<QuotationActionResult> {
@@ -49,6 +51,45 @@ export async function saveQuotationDraftAction(data: FormData): Promise<Quotatio
   const snapshot = { name: draft.name, clientId: draft.clientId || null, currency: "HUF", priceClass: [...priceClasses][0] ?? null, lines: lineSnapshots, documentSnapshot, precision: { quantityScale: 6, moneyScale: 2, rounding: "half_up" } };
   const { data: result, error } = await db.rpc("save_quotation_draft", { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: quotationId, p_name: draft.name, p_client_id: draft.clientId || null, p_currency: "HUF", p_input_snapshot: snapshot, p_line_items_snapshot: lineSnapshots, p_totals_snapshot: totalsSnapshot, p_subtotal: scaledToDecimal(subtotal.minor, 2), p_expected_version: currentVersion });
   if (error || !result?.[0]) return { ok: false, error: error?.code === "40001" ? "Az ajánlat időközben megváltozott; töltsd újra az oldalt." : error?.message ?? "Az ajánlat mentése nem sikerült." };
+  revalidatePath(`/projektek/${projectId}/ajanlatok`);
+  return { ok: true, quotationId: result[0].quotation_id };
+}
+
+export async function finalizeQuotationAction(data: FormData): Promise<QuotationFinalizeResult> {
+  const organizationId = text(data, "organizationId");
+  const projectId = text(data, "projectId");
+  const quotationId = text(data, "quotationId");
+  const revisionId = text(data, "revisionId");
+  const expectedVersion = Number(text(data, "version") || "0");
+  const auth = await getAuthContext();
+  if (!auth?.organizations.some((organization) => organization.id === organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
+  if (!quotationId || !revisionId || !Number.isInteger(expectedVersion)) return { ok: false, error: "A véglegesítéshez hiányos adatok érkeztek." };
+  const supabase = await createClient();
+  const db = supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{ quotation_id: string; revision_id: string }> | null; error: { code?: string; message?: string } | null }> };
+  const { data: result, error } = await db.rpc("finalize_quotation", { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: quotationId, p_revision_id: revisionId, p_expected_version: expectedVersion });
+  if (error || !result?.[0]) {
+    const message = error?.code === "40001" ? "Az ajánlat időközben megváltozott; töltsd újra az oldalt." : error?.code === "55000" ? "Ez az ajánlat már véglegesítve van, vagy már nem módosítható." : error?.message ?? "A véglegesítés nem sikerült.";
+    return { ok: false, error: message };
+  }
+  revalidatePath(`/projektek/${projectId}/ajanlatok`);
+  return { ok: true, quotationId: result[0].quotation_id, revisionId: result[0].revision_id };
+}
+
+export async function duplicateFinalizedQuotationAction(data: FormData): Promise<QuotationActionResult> {
+  const organizationId = text(data, "organizationId");
+  const projectId = text(data, "projectId");
+  const quotationId = text(data, "quotationId");
+  const auth = await getAuthContext();
+  if (!auth?.organizations.some((organization) => organization.id === organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
+  const supabase = await createClient();
+  const db = supabase as unknown as { from: (table: string) => LooseQuery; rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{ quotation_id: string }> | null; error: { message?: string } | null }> };
+  const { data: quote } = await db.from("quotations").select("id, name, client_id, status, current_revision_id, finalized_revision_id, project_id").eq("id", quotationId).eq("organization_id", organizationId).eq("project_id", projectId).maybeSingle();
+  if (!quote || quote.status !== "finalized" || typeof quote.finalized_revision_id !== "string") return { ok: false, error: "Csak véglegesített, ehhez a projekthez tartozó ajánlat másolható." };
+  const { data: revision } = await db.from("quotation_revisions").select("input_snapshot, line_items_snapshot, totals_snapshot, subtotal, currency").eq("id", quote.finalized_revision_id).eq("quotation_id", String(quote.id)).eq("organization_id", organizationId).maybeSingle();
+  if (!revision) return { ok: false, error: "A véglegesített revízió nem található." };
+  const snapshot = revision.input_snapshot;
+  const { data: result, error } = await db.rpc("save_quotation_draft", { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: null, p_name: `${String(quote.name)} · új piszkozat`, p_client_id: typeof quote.client_id === "string" ? quote.client_id : null, p_currency: String(revision.currency), p_input_snapshot: snapshot, p_line_items_snapshot: revision.line_items_snapshot, p_totals_snapshot: revision.totals_snapshot, p_subtotal: revision.subtotal, p_expected_version: 0 });
+  if (error || !result?.[0]) return { ok: false, error: error?.message ?? "A piszkozat létrehozása nem sikerült." };
   revalidatePath(`/projektek/${projectId}/ajanlatok`);
   return { ok: true, quotationId: result[0].quotation_id };
 }

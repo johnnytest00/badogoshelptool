@@ -47,6 +47,29 @@ ezeknél a PDF ezt az adatot hiányzóként kezeli, nem örököl utólagos muta
 ügyfél/projekt adatot. Automatikus küldés, számla és jogi adózási minősítés nem
 készült.
 
+## F8.3.1 — ajánlatkezelés és véglegesítés (kész)
+
+- Elkészült az ajánlati projektoldal szervezett listája, referencia/ügyfél
+  keresése, állapotszűrése, revízió- és összegmegjelenítése.
+- A draft és finalized állapotot új, lokálisan alkalmazott migráció kezeli;
+  a véglegesítés szerveroldali tagság-, projekt-, revízió-, ügyfél-, tétel- és
+  pénzügyi ellenőrzéseket végez.
+- A finalize_quotation SECURITY INVOKER RPC sorzárolással és expected versionnel
+  védi a stale/concurrent finalize eseteket; a lezárt ajánlatot trigger és RPC
+  is immutable-ként kezeli.
+- A lezárt ajánlat rögzíti a pontos revíziót, időpontot és felhasználót. PDF-je
+  mindig ehhez a revízióhoz kötődik; duplikálás új, szerkeszthető piszkozatot
+  hoz létre, az eredeti változatlan marad.
+- Ellenőrzés: célzott pgTAP 8/8 PASS, Vitest 20 fájl/77 teszt PASS,
+  typecheck/lint/build PASS; browser-flow: lista → review → finalize → locked
+  állapot → PDF előnézet → új piszkozat duplikálása.
+
+### F8.3.1 korlátok
+
+Nem készült küldés, elfogadás, számlázás, további üzleti státusz, ÁFA-motor vagy
+F8.3.2 funkció. A helyi smoke-flow a meglévő DEMO-jelölt fejlesztési adatokkal
+futott; távoli Supabase-változás nem történt.
+
 ## Katalógushoz kötött, verziózott lemezkiosztás
 
 - Az aktuális szervezet aktív lemez-/tetőfedés terméke és variánsa választható; a server action, RLS és összetett FK tiltja a keresztszervezeti hivatkozást.

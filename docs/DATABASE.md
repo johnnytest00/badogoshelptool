@@ -159,6 +159,24 @@ Az ügyfél oldalon csak a név kötelező. Az e-mail Zod- és adatbázis-valid�
 a telefonszám szándékosan enyhe szöveges mező, így magyar és nemzetközi formátumok
 is elfogadhatók. A DEMO ügyfél és F2.3 seedadat továbbra is egyértelmű DEMO jelölésű.
 
+## F8.3.1 — véglegesítés
+
+A 20261013030000_quotation_finalization.sql a státusz-enumot draft és finalized
+értékekre bővíti. A quotations.finalized_revision_id, finalized_at és
+finalized_by mezők összetett FK-val és state constrainttel rögzítik, hogy a
+véglegesített ajánlat melyik immutable revízióhoz tartozik.
+
+A finalize_quotation SECURITY INVOKER RPC aktív tagságot, azonos szervezetű
+projektet, aktuális revíziót, expected versiont, ügyfelet, nem üres tétellistát,
+egységes net/gross besorolást, pozitív mennyiséget, nem negatív árat és teljes
+HUF összesítést ellenőriz. A FOR UPDATE zár és a finalize-guard trigger
+megakadályozza a stale vagy párhuzamos lezárást, illetve a későbbi módosítást.
+
+A PDF route finalized ajánlatnál figyelmen kívül hagyja a kliens által kért másik
+revíziót és kizárólag a rögzített finalized revisiont tölti be. A duplikálás
+szerveroldalon új quotation identitást és az immutable snapshot alapján új draft
+v1 revíziót készít; az eredeti sorok és pénzügyi értékek nem módosulnak.
+
 ## F5 gable kalkulációs mentés
 
 Az `20261012030000_gable_calculation_persistence.sql` migration hozzáadja a
