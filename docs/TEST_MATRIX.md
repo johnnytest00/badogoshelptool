@@ -386,3 +386,12 @@ ellenőrzött.
 | Adatbázis | F9.1 migráció alkalmazása helyi Supabase-en | PASS: migráció alkalmazva |
 | Biztonság | org/project/source composite FK, RLS, elfogadott + végleges revízió trigger | PASS: 005 F9.1 + teljes suite, 209 teszt |
 | UI | terv létrehozása, két feladat, kész státusz, progress, reload, forrásajánlat | PASS: egy végső browser smoke flow |
+# F9.2 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Journal schema/RLS | Fókuszáltan sikeres | 006 pgTAP: append-only jogosultságok, RLS, composite FK-k, request-key |
+| Task status events | Fókuszáltan sikeres | After-update trigger, változatlan státusz tiltása, authenticated közvetlen írás tiltása |
+| Dátum- és időszemantika | Implementálva | PostgreSQL `date` munkadátum + külön `created_at`/`changed_at` |
+| Unified timeline | Implementálva | Munkanapló + feladatesemény, date → timestamp → id rendezés, max. 100+100 rekord |
+| Teljes ellenőrzés | Sikeres | Typecheck, lint, 22 Vitest-fájl / 82 teszt, build, pgTAP 223/223 és egy browser smoke PASS |

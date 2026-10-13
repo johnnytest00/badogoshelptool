@@ -1,0 +1,18 @@
+begin;
+select plan(14);
+select ok(to_regclass('public.execution_journal_entries') is not null, 'journal table exists');
+select ok(to_regclass('public.execution_task_events') is not null, 'task event table exists');
+select ok((select relrowsecurity from pg_class where oid='public.execution_journal_entries'::regclass), 'journal has RLS');
+select ok((select relrowsecurity from pg_class where oid='public.execution_task_events'::regclass), 'task events have RLS');
+select ok(exists(select 1 from pg_constraint where conname='execution_journal_plan_org_fk'), 'journal is plan scoped');
+select ok(exists(select 1 from pg_constraint where conname='execution_journal_task_org_fk'), 'journal task reference is organization scoped');
+select ok(exists(select 1 from pg_constraint where conname='execution_journal_correction_org_fk'), 'corrections remain in the same organization');
+select ok(exists(select 1 from pg_constraint where conname='execution_journal_request_key_uq'), 'journal creation is idempotent');
+select ok(exists(select 1 from pg_trigger where tgrelid='public.execution_tasks'::regclass and tgname='execution_tasks_status_event'), 'task status event trigger exists');
+select ok(exists(select 1 from pg_constraint where conname='execution_task_events_changed_ck'), 'unchanged statuses cannot become events');
+select ok((select has_table_privilege('authenticated', 'public.execution_journal_entries', 'SELECT')), 'members can read journal');
+select ok((select has_table_privilege('authenticated', 'public.execution_journal_entries', 'INSERT')), 'members can create journal');
+select ok(not (select has_table_privilege('authenticated', 'public.execution_journal_entries', 'UPDATE')), 'journal cannot be updated by users');
+select ok(exists(select 1 from information_schema.routines where routine_schema='public' and routine_name='create_execution_journal_entry'), 'journal RPC exists');
+select * from finish();
+rollback;

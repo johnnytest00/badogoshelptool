@@ -291,3 +291,8 @@ szerződést, számlát vagy gyártási rendelést nem hoz létre.
 Az `execution_plans` és `execution_tasks` az ajánlatoktól különálló, szervezeti és projekt-szinten izolált operatív nyilvántartás. Az ajánlati forrás opcionális; ha megadott, a migráció triggerrel ellenőrzi, hogy ugyanahhoz a projekthez tartozó, `accepted` állapotú ajánlat `finalized_revision_id` értéke legyen. A forrás-referencia később immutable.
 
 Mindkét táblán szervezeti RLS van. A létrehozás és feladatmentés RPC-n keresztül, szerveroldali tagság-ellenőrzéssel és feladat-verzióval történik. A `request_key` egyedi terven/feladatterven belül, így ismételt hálózati beküldés nem hoz létre duplikátumot. Több terv hivatkozhat ugyanarra az elfogadott ajánlatra.
+# F9.2 — Munkanapló és feladatesemények
+
+Az `execution_journal_entries` append-only munkanapló-bejegyzéseket tárolja. A `work_date` PostgreSQL `date`, ezért különválik a `created_at` rögzítési időpontjától; opcionális `task_id` csak ugyanahhoz a tervhez tartozhat. A `correction_of_entry_id` explicit, azonos terven belüli korrekciós hivatkozást biztosít, az eredeti bejegyzés módosítása nélkül.
+
+Az `execution_task_events` eseményeit az `execution_tasks` státuszfrissítés utáni trigger írja. A trigger hibája a teljes státuszfrissítést visszagörgeti. Csak tényleges státuszváltozás rögzül; közvetlen authenticated INSERT/UPDATE/DELETE nincs engedélyezve. A napló és eseménytörténet szervezeti RLS-sel, terv/feladat composite FK-kkal, idővonal-indexekkel és 100-as lekérdezési limittel működik.

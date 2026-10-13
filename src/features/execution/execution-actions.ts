@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
-import { executionPlanSchema, executionTaskSchema } from "@/domain/execution/contracts";
+import { executionJournalCategorySchema, executionPlanSchema, executionTaskSchema } from "@/domain/execution/contracts";
 
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 type Rpc = { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: any; error: { code?: string; message?: string } | null }> };
@@ -30,4 +30,16 @@ export async function saveExecutionTaskAction(data: FormData) {
   const { data: result, error } = await db.rpc("save_execution_task", { p_organization_id: organizationId, p_plan_id: planId, p_task_id: text(data, "taskId") || null, p_title: parsed.data.title, p_description: parsed.data.description || null, p_status: parsed.data.status, p_priority: parsed.data.priority, p_due_date: parsed.data.dueDate || null, p_sort_order: parsed.data.sortOrder, p_expected_version: parsed.data.version, p_request_key: text(data, "requestKey") || crypto.randomUUID() });
   if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A feladat mentése nem sikerült.") };
   revalidatePath(`/projektek/${projectId}`); return { ok: true, taskId: result[0].task_id };
+}
+
+export async function createExecutionJournalEntryAction(data: FormData) {
+  const organizationId = text(data, "organizationId"), projectId = text(data, "projectId"), planId = text(data, "planId");
+  if (!await access(organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
+  const category = executionJournalCategorySchema.safeParse(text(data, "category") || "general");
+  const workDate = text(data, "workDate");
+  if (!category.success || !/^\d{4}-\d{2}-\d{2}$/.test(workDate) || !text(data, "content")) return { ok: false, error: "Add meg a munkavégzés dátumát és a bejegyzés tartalmát." };
+  const db = await createClient() as unknown as Rpc;
+  const { data: result, error } = await db.rpc("create_execution_journal_entry", { p_organization_id: organizationId, p_plan_id: planId, p_task_id: text(data, "taskId") || null, p_work_date: workDate, p_category: category.data, p_content: text(data, "content"), p_problems: text(data, "problems") || null, p_next_steps: text(data, "nextSteps") || null, p_request_key: text(data, "requestKey") || crypto.randomUUID() });
+  if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A naplóbejegyzés mentése nem sikerült.") };
+  revalidatePath(`/projektek/${projectId}`); return { ok: true, entryId: result[0].entry_id };
 }
