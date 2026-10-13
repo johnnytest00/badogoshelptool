@@ -1,5 +1,14 @@
 # Tesztmátrix
 
+## F9.1.1 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Annotációs geometria | Fókuszáltan sikeres | 3 teszt: kompakt offset, aligned normál, szögív és címkepozíció |
+| F5/F6 geometriai invariáns | Sikeres | A rajzmodell továbbra is az F5 kimenetből képez; számítási modul nem módosult |
+| Viewport és rétegek | Fókuszáltan sikeres | Fit/reset a látható modellel számol; existing pan/pinch kód változatlan |
+| Teljes ellenőrzés | Sikeres | 22 Vitest-fájl / 82 teszt, typecheck, lint, `git diff --check`, build és egy browser smoke PASS |
+
 ## F8.3.2 ellenőrzések
 
 | Ellenőrzés | Állapot | Megjegyzés |
@@ -369,3 +378,11 @@ Megjegyzés: a böngészős PDF-panel azonos URL esetén egy korábbi dokumentum
 cache-elhetett; a route `private, no-store` fejléccel és az immutable revízió
 ID-jával dolgozik. A tényleges új dokumentum előállítása és HTTP 200 válasza
 ellenőrzött.
+# F9.1 — Kivitelezési tervek
+
+| Terület | Ellenőrzés | Állapot |
+|---|---|---|
+| Statikus | `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build` | PASS: 21 fájl / 79 Vitest; build sikeres |
+| Adatbázis | F9.1 migráció alkalmazása helyi Supabase-en | PASS: migráció alkalmazva |
+| Biztonság | org/project/source composite FK, RLS, elfogadott + végleges revízió trigger | PASS: 005 F9.1 + teljes suite, 209 teszt |
+| UI | terv létrehozása, két feladat, kész státusz, progress, reload, forrásajánlat | PASS: egy végső browser smoke flow |

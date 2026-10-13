@@ -286,3 +286,8 @@ korábbi műveletet nem szabad kitalálni. Ezek olvashatók maradnak, és a köv
 valós lifecycle-átmenetektől kezdve kapnak történeti eseményt. A lifecycle
 semmilyen e-mail-küldést, kézbesítési bizonyítékot, elektronikus aláírást,
 szerződést, számlát vagy gyártási rendelést nem hoz létre.
+# F9.1 — Kivitelezési tervezés
+
+Az `execution_plans` és `execution_tasks` az ajánlatoktól különálló, szervezeti és projekt-szinten izolált operatív nyilvántartás. Az ajánlati forrás opcionális; ha megadott, a migráció triggerrel ellenőrzi, hogy ugyanahhoz a projekthez tartozó, `accepted` állapotú ajánlat `finalized_revision_id` értéke legyen. A forrás-referencia később immutable.
+
+Mindkét táblán szervezeti RLS van. A létrehozás és feladatmentés RPC-n keresztül, szerveroldali tagság-ellenőrzéssel és feladat-verzióval történik. A `request_key` egyedi terven/feladatterven belül, így ismételt hálózati beküldés nem hoz létre duplikátumot. Több terv hivatkozhat ugyanarra az elfogadott ajánlatra.

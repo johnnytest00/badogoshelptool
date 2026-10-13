@@ -125,7 +125,8 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
     segments = [{ start: points[0], end: points[1], label: "Bal tetősík" }, { start: points[1], end: points[2], label: "Jobb tetősík" }];
     guides = [{ start: point(-output.dimensions.buildingWidthMm / 2, 0), end: point(output.dimensions.buildingWidthMm / 2, 0), label: "Fal megtámasztási síkja", hidden: true }, { start: point(0, 0), end: points[1], label: "Felező segédvonal", hidden: true }];
     dimensions = [dimension("horizontal", point(-output.dimensions.horizontalSlopeRunMm, 0), point(output.dimensions.horizontalSlopeRunMm, 0), 900, output.dimensions.horizontalRoofWidthMm), dimension("vertical", point(0, 0), points[1], 900, output.heights.roofRiseMm), dimension("aligned", points[0], points[1], -650, output.lengths.slopeLengthIncludingEaveMm)];
-    angles = [{ vertex: points[1], start: point(points[1].x - output.dimensions.horizontalSlopeRunMm * 0.35, points[1].y + output.heights.roofRiseMm * 0.35), end: point(points[1].x + output.dimensions.horizontalSlopeRunMm * 0.35, points[1].y + output.heights.roofRiseMm * 0.35), label: `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 2 }).format(output.angles.pitchDegrees)}°` }];
+    // The label is the pitch of one roof plane, so the arc compares one slope ray with the horizontal reference ray.
+    angles = [{ vertex: points[1], start: point(points[1].x + output.dimensions.horizontalSlopeRunMm * 0.35, points[1].y + output.heights.roofRiseMm * 0.35), end: point(points[1].x + output.dimensions.horizontalSlopeRunMm * 0.35, points[1].y), label: `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 2 }).format(output.angles.pitchDegrees)}°` }];
     allPoints = [...points, ...guides.flatMap((item) => [item.start, item.end])];
   }
   const flatPoints = allPoints.filter((item) => Number.isFinite(item.x) && Number.isFinite(item.y));

@@ -1,0 +1,14 @@
+begin;
+select plan(10);
+select ok(to_regclass('public.execution_plans') is not null, 'execution plans table exists');
+select ok(to_regclass('public.execution_tasks') is not null, 'execution tasks table exists');
+select ok((select relrowsecurity from pg_class where oid='public.execution_plans'::regclass), 'execution plans has RLS');
+select ok((select relrowsecurity from pg_class where oid='public.execution_tasks'::regclass), 'execution tasks has RLS');
+select ok(exists(select 1 from pg_constraint where conname='execution_plans_source_pair_ck'), 'source quotation and revision are paired');
+select ok(exists(select 1 from pg_trigger where tgrelid='public.execution_plans'::regclass and tgname='execution_plans_validate_source'), 'source is validated by trigger');
+select ok(exists(select 1 from pg_constraint where conname='execution_plans_request_key_uq'), 'plan creation is idempotent per request key');
+select ok(exists(select 1 from pg_constraint where conname='execution_tasks_request_key_uq'), 'task creation is idempotent per request key');
+select ok(exists(select 1 from information_schema.routines where routine_schema='public' and routine_name='create_execution_plan'), 'plan creation RPC exists');
+select ok(exists(select 1 from information_schema.routines where routine_schema='public' and routine_name='save_execution_task'), 'task save RPC exists');
+select * from finish();
+rollback;

@@ -8,6 +8,12 @@
 - Tartsd be az aktuális fázishatárt: ne készíts későbbi üzleti funkciót, hitelesítést, Supabase-réteget vagy kalkulációs motort előre.
 - Minden mérföldkő végén javasolj rövid Conventional Commit üzenetet, amely tartalmazza a mérföldkő verzióját és fő funkcionalitását; commitot csak külön kérésre készíts.
 
+## Evidence-Based Engineering Rules
+
+- A specifikációt, a meglévő sémát és az aktuális kódmintákat ellenőrizd implementáció előtt; ne tölts ki hiányzó szakmai vagy üzleti adatot feltételezéssel.
+- A dokumentációban és az átadásban különítsd el a bizonyított, nem futtatott és blokkolt állapotot; egy teszt csak tényleges futtatás után tekinthető sikeresnek.
+- Minden tartós adatváltozásnál legyen egyértelmű jogosultsági, szervezeti és konkurencia-kezelési bizonyíték, a forrás-snapshotok pedig maradjanak visszakövethetők és módosíthatatlanok.
+
 ## Token-Efficient Development & Verification
 
 - Célzottan vizsgáld a releváns fájlokat, minimális kontextust tölts be.

@@ -6,6 +6,7 @@ import type { GableRoofOutput } from "@/domain/calculations/gable-roof";
 import type { MetalSheetLayoutOutput } from "@/domain/calculations/metal-sheet-layout";
 import { createGableDrawingModel, drawingLayers, drawingViews, filterDrawingModel, type DrawingLayerId, type DrawingPoint, type DrawingView, type GableDrawingModel } from "@/domain/drawings/gable-drawing";
 import { clampDrawingZoom, clientPointToViewBox, drawingInitialViewport, fitDrawingViewport, panViewport, pinchViewport, rebasePanGesture, type ViewportBounds, type ViewportPoint } from "./drawing-viewport";
+import { angleScreenGeometry, dimensionScreenGeometry, technicalAnnotationRules } from "@/domain/drawings/annotation-layout";
 
 const SVG_WIDTH = 1000;
 const SVG_HEIGHT = 560;
@@ -27,27 +28,21 @@ function getDrawingBounds(model: GableDrawingModel): ViewportBounds {
   const add = (point: DrawingPoint) => points.push(mapPoint(point, model));
   const addPair = (start: DrawingPoint, end: DrawingPoint) => { add(start); add(end); };
   model.polygons.forEach((item) => item.points.forEach(add));
-  model.segments.forEach((item) => addPair(item.start, item.end));
-  model.guides.forEach((item) => addPair(item.start, item.end));
-  model.dimensions.forEach((item) => addPair(item.start, item.end));
-  model.angles.forEach((item) => { add(item.start); add(item.end); add(item.vertex); });
+  model.segments.filter((item) => !item.hidden).forEach((item) => addPair(item.start, item.end));
+  model.guides.filter((item) => !item.hidden).forEach((item) => addPair(item.start, item.end));
+  model.dimensions.forEach((item) => { const layout = dimensionScreenGeometry(item.kind, mapPoint(item.start, model), mapPoint(item.end, model), item.offset); points.push(layout.start, layout.end, layout.extensionStart, layout.extensionEnd, layout.label); });
+  model.angles.forEach((item) => { const layout = angleScreenGeometry(mapPoint(item.vertex, model), mapPoint(item.start, model), mapPoint(item.end, model)); points.push(layout.start, layout.end, layout.label); });
   model.sheetStrips.forEach((item) => item.points.forEach(add));
   const xs = points.map((item) => item.x);
   const ys = points.map((item) => item.y);
-  return { minX: Math.min(...xs) - 32, minY: Math.min(...ys) - 32, maxX: Math.max(...xs) + 32, maxY: Math.max(...ys) + 32 };
+  return { minX: Math.min(...xs) - technicalAnnotationRules.boundsPadding, minY: Math.min(...ys) - technicalAnnotationRules.boundsPadding, maxX: Math.max(...xs) + technicalAnnotationRules.boundsPadding, maxY: Math.max(...ys) + technicalAnnotationRules.boundsPadding };
 }
 
 function DimensionLine({ model, item }: Readonly<{ model: GableDrawingModel; item: GableDrawingModel["dimensions"][number] }>) {
   const start = mapPoint(item.start, model);
   const end = mapPoint(item.end, model);
-  const horizontal = item.kind === "horizontal";
-  const x1 = horizontal ? start.x : start.x + item.offset;
-  const y1 = horizontal ? start.y + item.offset : start.y;
-  const x2 = horizontal ? end.x : end.x + item.offset;
-  const y2 = horizontal ? end.y + item.offset : end.y;
-  const labelX = (x1 + x2) / 2;
-  const labelY = (y1 + y2) / 2 - 8;
-  return <g className="technical-dimension"><line x1={x1} y1={y1} x2={x2} y2={y2} /><line x1={start.x} y1={start.y} x2={x1} y2={y1} className="technical-extension" /><line x1={end.x} y1={end.y} x2={x2} y2={y2} className="technical-extension" /><text x={labelX} y={labelY} textAnchor="middle">{item.label}</text></g>;
+  const layout = dimensionScreenGeometry(item.kind, start, end, item.offset);
+  return <g className="technical-dimension"><line x1={layout.start.x} y1={layout.start.y} x2={layout.end.x} y2={layout.end.y} /><line x1={layout.extensionStart.x} y1={layout.extensionStart.y} x2={layout.start.x} y2={layout.start.y} className="technical-extension" /><line x1={layout.extensionEnd.x} y1={layout.extensionEnd.y} x2={layout.end.x} y2={layout.end.y} className="technical-extension" /><text x={layout.label.x} y={layout.label.y} textAnchor={layout.labelAnchor} dominantBaseline="middle">{item.label}</text></g>;
 }
 
 function TechnicalSvg({ model, layers, title, zoom, pan, svgRef, onPointerDown, onPointerMove, onPointerUp }: Readonly<{ model: GableDrawingModel; layers: VisibleLayers; title: string; zoom: number; pan: { x: number; y: number }; svgRef: React.RefObject<SVGSVGElement | null>; onPointerDown: (event: React.PointerEvent<SVGSVGElement>) => void; onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGSVGElement>) => void }>) {
@@ -61,7 +56,7 @@ function TechnicalSvg({ model, layers, title, zoom, pan, svgRef, onPointerDown, 
     {filtered.guides.map((segment, index) => <line key={`guide-${index}`} className="technical-guide" x1={mapPoint(segment.start, model).x} y1={mapPoint(segment.start, model).y} x2={mapPoint(segment.end, model).x} y2={mapPoint(segment.end, model).y} />)}
     {filtered.segments.map((segment, index) => <line key={`${segment.label}-${index}`} className={`technical-segment ${segment.hidden ? "is-hidden-edge" : ""}`} x1={mapPoint(segment.start, model).x} y1={mapPoint(segment.start, model).y} x2={mapPoint(segment.end, model).x} y2={mapPoint(segment.end, model).y} />)}
     {filtered.dimensions.map((item, index) => <DimensionLine key={`${item.label}-${index}`} model={model} item={item} />)}
-    {filtered.angles.map((angle) => { const vertex = mapPoint(angle.vertex, model); const start = mapPoint(angle.start, model); const end = mapPoint(angle.end, model); return <g key={angle.label} className="technical-angle"><path d={`M ${start.x} ${start.y} Q ${vertex.x} ${vertex.y} ${end.x} ${end.y}`} /><text x={vertex.x} y={vertex.y + 26}>{angle.label}</text></g>; })}
+    {filtered.angles.map((angle) => { const vertex = mapPoint(angle.vertex, model); const start = mapPoint(angle.start, model); const end = mapPoint(angle.end, model); const layout = angleScreenGeometry(vertex, start, end); return <g key={angle.label} className="technical-angle"><path d={`M ${layout.start.x} ${layout.start.y} A ${technicalAnnotationRules.angleRadius} ${technicalAnnotationRules.angleRadius} 0 0 1 ${layout.end.x} ${layout.end.y}`} /><text x={layout.label.x} y={layout.label.y} textAnchor="middle" dominantBaseline="middle">{angle.label}</text></g>; })}
     </g>
   </svg>;
 }
@@ -76,7 +71,8 @@ export function TechnicalDrawing({ output, isSaved, sheetLayout, sheetLayoutIsSa
   const gesture = useRef<{ kind: "pan" | "pinch"; startPoint?: ViewportPoint; startPan: { x: number; y: number }; startZoom: number; distance?: number; midpoint?: ViewportPoint } | null>(null);
   const viewport = useRef<{ zoom: number; pan: { x: number; y: number } }>({ zoom: drawingInitialViewport.zoom, pan: drawingInitialViewport.pan });
   const model = useMemo(() => createGableDrawingModel(output, view, sheetLayout), [output, sheetLayout, view]);
-  const drawingBounds = useMemo(() => getDrawingBounds(model), [model]);
+  const visibleModel = useMemo(() => filterDrawingModel(model, layers), [model, layers]);
+  const drawingBounds = useMemo(() => getDrawingBounds(visibleModel), [visibleModel]);
   const setViewport = useCallback((next: Readonly<{ zoom: number; pan: ViewportPoint }>) => {
     const value = { zoom: clampDrawingZoom(next.zoom), pan: next.pan };
     viewport.current = value;
@@ -84,7 +80,7 @@ export function TechnicalDrawing({ output, isSaved, sheetLayout, sheetLayoutIsSa
     setPan(value.pan);
   }, []);
   const setZoomBounded = useCallback((next: number) => setViewport({ zoom: next, pan: viewport.current.pan }), [setViewport]);
-  const resetViewport = useCallback(() => setViewport(drawingInitialViewport), [setViewport]);
+  const resetViewport = useCallback(() => { const rect = svgRef.current?.getBoundingClientRect(); setViewport(fitDrawingViewport(drawingBounds, { width: rect?.width ?? SVG_WIDTH, height: rect?.height ?? SVG_HEIGHT })); }, [drawingBounds, setViewport]);
   const fitViewport = useCallback(() => {
     const rect = svgRef.current?.getBoundingClientRect();
     setViewport(fitDrawingViewport(drawingBounds, { width: rect?.width ?? SVG_WIDTH, height: rect?.height ?? SVG_HEIGHT }));
@@ -135,7 +131,7 @@ export function TechnicalDrawing({ output, isSaved, sheetLayout, sheetLayoutIsSa
   const updateLayer = (id: DrawingLayerId) => setLayers((current) => ({ ...current, [id]: !current[id] }));
   return <section className="technical-drawing" aria-labelledby="technical-drawing-heading">
     <div className="technical-drawing-header"><div><p className="section-eyebrow">Rajzok</p><h2 id="technical-drawing-heading">Interaktív műszaki rajz</h2></div><span className={`drawing-state ${sheetLayoutIsSaved || (isSaved && !sheetLayout) ? "is-saved" : "is-preview"}`}>{sheetLayout ? sheetLayoutIsSaved ? "Mentett lemezkiosztás" : "Nem mentett lemezkiosztás" : isSaved ? "Mentett revízió" : "Nem mentett előnézet"}</span></div>
-    <div className="drawing-view-tabs" role="tablist" aria-label="Rajznézet választása">{drawingViews.map((item) => <button key={item.id} type="button" role="tab" aria-selected={view === item.id} className={view === item.id ? "is-active" : ""} onClick={() => { setView(item.id); resetViewport(); }}>{item.label}</button>)}</div>
+    <div className="drawing-view-tabs" role="tablist" aria-label="Rajznézet választása">{drawingViews.map((item) => <button key={item.id} type="button" role="tab" aria-selected={view === item.id} className={view === item.id ? "is-active" : ""} onClick={() => setView(item.id)}>{item.label}</button>)}</div>
     <div className="drawing-canvas" onWheel={(event) => { event.preventDefault(); setZoomBounded(viewport.current.zoom + (event.deltaY < 0 ? .1 : -.1)); }}><TechnicalSvg model={model} layers={layers} title={model.title} zoom={zoom} pan={pan} svgRef={svgRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={stopPointer} /></div>
     <div className="drawing-toolbar" role="toolbar" aria-label="Rajz vezérlők"><div className="drawing-toolbar-group" aria-label="Nagyítás"><button type="button" title="Kicsinyítés" aria-label="Kicsinyítés" onClick={() => setZoomBounded(viewport.current.zoom - .1)}><Minus aria-hidden="true" className="size-4" /></button><output className="drawing-zoom-value" aria-live="polite" aria-label={`Nagyítás: ${Math.round(zoom * 100)}%`}>{Math.round(zoom * 100)}%</output><button type="button" title="Nagyítás" aria-label="Nagyítás" onClick={() => setZoomBounded(viewport.current.zoom + .1)}><Plus aria-hidden="true" className="size-4" /></button></div><div className="drawing-toolbar-group" aria-label="Nézet"><button type="button" title="Rajz illesztése a viewporthoz" aria-label="Rajz illesztése" onClick={fitViewport}><Maximize2 aria-hidden="true" className="size-4" /></button><button type="button" title="Nézet visszaállítása 100%-ra" aria-label="Nézet visszaállítása" onClick={resetViewport}><RotateCcw aria-hidden="true" className="size-4" /></button></div><span className="drawing-toolbar-hint"><Move aria-hidden="true" className="size-4" /> Egy ujjal a rajz vonala mentén húzva mozgathatod, két ujjal nagyíthatod.</span></div>
     <fieldset className="drawing-layers"><legend>Rétegek</legend>{drawingLayers.map((layer) => <label key={layer.id}><input type="checkbox" checked={layers[layer.id]} onChange={() => updateLayer(layer.id)} /> <span>{layer.label}</span></label>)}</fieldset>
