@@ -459,3 +459,36 @@ ellenőrzött.
 | Readiness és adatfolyam-leltár | Dokumentálva | A G01–G04 állapot, EXIF/GPS, szervezeti izoláció, backup/restore és pilot checklist a PILOT_READINESS.md-ben található. |
 | Terminológiai UI/PDF korrekció | Sikeres | A geometriai eredmény és a kivitelezési PDF belső/geometriai határai pontosítva; célzott Vitest 6/6, typecheck, lint és webpack production build PASS. |
 | Hosted, restore, cross-org, terepi smoke | Nem ellenőrzött | Nincs bizonyíték ebben a lokális mérföldkőben. |
+
+## F9.6.1 — ereszcsatorna-anyagbecslés
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Domain referenciaesetek | Sikeres | Célzott Vitest: 1 fájl / 5 teszt PASS; egy- és többszakaszos eresz, pontos/részleges szál, lefolyó, kézi komponens, konzolbecslés, hibás bemenet és registry. |
+| Typecheck | Sikeres | npm run typecheck PASS. |
+| Perzisztens UI és revision mentés | F9.6.1.1.1-ben kész | A következő integrációs táblázat tartalmazza a lokális acceptance bizonyítékot. |
+| Geometria | F9.6.1.1.1-ben kész | Két ereszjavaslat a mentett nyeregtető modellből; a forrásrevízió-idő lekérdezés javítva. |
+| Katalógus- és takeoff-integráció | Nem implementált | F9.6.1.2 hatóköre. |
+| Hidraulikai/gyártói megfelelés | Támogatáson kívül | Nem számít és nem állít ilyen eredményt. |
+
+## F9.6.1.1 — alkalmazásintegráció
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Projektútvonal | Sikeres buildben | Új /projektek/[projectId]/ereszcsatorna route generálódik. |
+| Form és domain újraszámítás | Typecheck/lint/build | A kliens csak domain-kalkulátort hív; a mentési action szerveroldalon újraszámol. |
+| Revision RPC és RLS | Célzott lokális pgTAP PASS | 009_gutter_calculation.sql: 21 teszt; a külön szervezethez tartozó felhasználó olvasása/írása elutasítva. |
+| Geometry suggestion | Böngészőben PASS | Két mentett nyeregtető-eresz javaslat explicit kiválasztása, forrás-revíziókapcsolat mentve. |
+| Material takeoff / SVG | Nem implementált | F9.6.1.2 hatóköre. |
+
+## F9.6.1.1.1 — integráció végső elfogadása
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Projekt-navigáció és UI | Böngésző PASS | Projektoldalról elérhető az Ereszcsatorna-kalkulátor link; két ereszszakasz, szálhossz, lefolyó, könyök, kézi tartozék szerkeszthető. |
+| Célzott Vitest | Sikeres | gutter-material.test.ts: 5/5 PASS. |
+| Typecheck / lint / build / diff | Sikeres | `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check` mind PASS; route szerepel a buildben. |
+| Migration és revision/RLS | Célzott lokális PASS | `20261013080100` alkalmazva incremental módon; pgTAP 21/21 PASS, rollbackos teszttranzakcióval. Tulajdonos létrehozás/mentés, külön szervezeti tag elutasítása, keresztprojekt geometria, stale revision `40001`, UPDATE/DELETE immutabilitás igazolt. |
+| Böngészős persistence | Hitelesített DEMO PASS | Mentés, teljes reload, két eresz/revízióforrás, kereskedelmi eresz- és lefolyószál, lefolyó/könyök, kézi tartozék és eredmény hidratálása; V2 mentés után V1 4000 mm-en, V2 5000 mm-en olvasható vissza. |
+| Konkurenciavédelem | RÉSZLEGES | Advisory tranzakciós lock és stale revision hibát a migráció és a soros pgTAP konfliktusteszt bizonyít; két tényleges párhuzamos RPC-hívást nem futtattunk. |
+| Környezet / kiegészítő | Részleges | CLI 2.120.0 helyi állapotot emelt, szűk engedéllyel vizsgáltuk; reset/hosted változás nem történt. Szűk képernyős böngészős smoke nincs. |

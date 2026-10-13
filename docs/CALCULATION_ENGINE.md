@@ -1,5 +1,18 @@
 # F4 — Domain calculation foundation
 
+## F9.6.1 — Ereszcsatorna-anyagbecslés
+
+Az első, gyártófüggetlen ereszcsatorna-domain modul azonosítója `gutters.material-estimate`, verziója 1.0.0. A tiszta TypeScript motor egymástól független ereszszakaszokat, külön lefolyómeneteket és explicit kézi komponensmennyiségeket fogad.
+
+- Eresz- és lefolyószál: `ceil(hossz_mm / kereskedelmi_szálhossz_mm)` szakaszonként. Ez előzetes kereskedelmi szálbecslés, nem vágási vagy toldási terv.
+- Maradék hossz szakaszonként megmarad; független menetek nem kerülnek összevonásra.
+- Konzolbecslés csak felhasználó által megadott kiosztás esetén készül: `ceil(hossz / kiosztás) + 1`; az eredmény külön figyelmeztetést kap, nem gyártói előírás.
+- Végzáró, összekötő, kifolyó, könyök és egyéb tartozék kézi mennyiségként adható meg.
+- Nem történik hidraulikai méretezés, csatorna- vagy lefolyóátmérő-következtetés, szabvány- vagy gyártói megfelelés-igazolás.
+- A bemenet megőrzi a mérési forrást és tetőél-referenciát; az F9.6.1.1.1 projektkalkulátor explicit geometry-javaslatból tölti, és a mentett revízióhoz tetőmodell-revízió dependency kapcsolódik.
+
+Az egységtesztek lefedik az egy- és többszakaszos esetet, pontos szálhatárt, részleges szálat, lefolyót, kézi komponenst, konzolbecslést, hibás bemenetet és registry-integrációt. A perzisztens revíziót az F9.6.1.1.1 integráció kezeli; katalóguskapcsolat és material takeoff átadás külön implementációs feladat.
+
 ## F7.2 material takeoff boundary
 
 Az F7.2 nem módosítja a `roof.gable` matematikáját. A takeoff kizárólag a

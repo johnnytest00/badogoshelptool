@@ -1,0 +1,68 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { executeCalculator } from "@/domain/calculations/engine";
+import { gutterMaterialCalculator, type GutterMaterialInput } from "@/domain/calculations/gutter-material";
+import { saveGutterCalculationAction } from "./gutter-actions";
+import type { GutterCalculationRecord, GutterGeometrySuggestion } from "./gutter-data";
+
+type Props = { organizationId: string; projectId: string; suggestions: GutterGeometrySuggestion[]; saved: GutterCalculationRecord | null };
+const emptyRun = (id: string) => ({ id, name: "Új ereszszakasz", lengthMm: 0, description: "", measurementSource: "site_measurement" as const, roofEdge: null, bracketSpacingMm: null });
+const initial = (saved: GutterCalculationRecord | null): GutterMaterialInput => saved?.input ?? { gutterStockLengthMm: 4000, runs: [emptyRun("run-1")], downpipes: [], manualComponents: [] };
+const numberValue = (value: string) => Number(value.replace(",", ".")) || 0;
+
+export function GutterCalculator({ organizationId, projectId, suggestions, saved }: Props) {
+  const router = useRouter();
+  const [input, setInput] = useState<GutterMaterialInput>(() => initial(saved));
+  const [name, setName] = useState("Ereszcsatorna-becslés");
+  const [message, setMessage] = useState("");
+  const [viewedRevisionNumber, setViewedRevisionNumber] = useState<number | null>(null);
+  const [pending, startTransition] = useTransition();
+  const result = useMemo(() => { const calculation = executeCalculator(gutterMaterialCalculator, input); return calculation.ok ? calculation.output : null; }, [input]);
+  const updateRun = (id: string, patch: Partial<GutterMaterialInput["runs"][number]>) => setInput((current) => ({ ...current, runs: current.runs.map((run) => run.id === id ? { ...run, ...patch } : run) }));
+  const updateDownpipe = (id: string, patch: Partial<GutterMaterialInput["downpipes"][number]>) => setInput((current) => ({ ...current, downpipes: current.downpipes.map((run) => run.id === id ? { ...run, ...patch } : run) }));
+  const save = () => {
+    const data = new FormData();
+    data.set("organizationId", organizationId); data.set("projectId", projectId); data.set("name", name);
+    data.set("input", JSON.stringify(input)); data.set("sourceRoofRevisionId", input.runs.find((run) => run.roofEdge)?.roofEdge?.revisionId ?? "");
+    data.set("expectedRevisionNumber", String(saved?.revisionNumber ?? 0));
+    startTransition(async () => { const response = await saveGutterCalculationAction(data); setMessage(response.ok ? `Mentve: revízió ${response.revisionNumber}` : response.error ?? "A mentés nem sikerült."); if (response.ok) { setViewedRevisionNumber(null); router.refresh(); } });
+  };
+  const addComponent = () => setInput((current) => ({ ...current, manualComponents: [...current.manualComponents, { id: `component-${Date.now()}`, category: "end_cap", quantity: 0, note: "" }] }));
+  const categoryLabels: Record<string, string> = { end_cap: "Végzáró", connector: "Összekötő", bracket: "Konzol", outlet: "Kifolyó", downpipe: "Lefolyó", elbow: "Könyök", accessory: "Egyéb tartozék" };
+  return <section className="detail-surface gutter-calculator" aria-labelledby="gutter-title">
+    <div className="section-heading"><div><p className="section-eyebrow">F9.6.1.1.1 · Anyagbecslés</p><h2 id="gutter-title">Ereszcsatorna-kalkulátor</h2></div><span className="status-pill">{saved ? viewedRevisionNumber ? `Megtekintés: revízió ${viewedRevisionNumber}` : `Aktuális revízió ${saved.revisionNumber}` : "Új kalkuláció"}</span></div>
+    <p className="detail-description">Előzetes anyagmennyiség. Nem hidraulikai méretezés és nem végleges vágási terv.</p>
+    {saved && saved.revisions.length > 1 && <div className="gutter-history" aria-label="Mentett kalkulációs revíziók"><strong>Korábbi revíziók</strong>{saved.revisions.map((revision) => <button type="button" className="secondary-button" key={revision.revisionId} onClick={() => { setInput(revision.input); setViewedRevisionNumber(revision.revisionNumber === saved.revisionNumber ? null : revision.revisionNumber); }}>{`Revízió ${revision.revisionNumber}${revision.revisionNumber === saved.revisionNumber ? " · aktuális" : " · történeti"}`}</button>)}</div>}
+    <label className="material-field"><span>Megnevezés</span><input value={name} onChange={(event) => setName(event.target.value)} /></label>
+    <label className="material-field"><span>Kereskedelmi ereszszál (mm)</span><input inputMode="decimal" value={input.gutterStockLengthMm || ""} onChange={(event) => setInput({ ...input, gutterStockLengthMm: numberValue(event.target.value) })} /></label>
+    {suggestions.length > 0 && <div className="gutter-suggestions"><strong>Geometriai javaslatok</strong><small>Csak gombnyomásra kerülnek be.</small>{suggestions.map((suggestion) => <button type="button" className="secondary-button" key={suggestion.id} onClick={() => setInput((current) => current.runs.some((run) => run.roofEdge?.edgeId === suggestion.id) ? current : ({ ...current, runs: [...current.runs, { id: `run-${Date.now()}`, name: suggestion.label, lengthMm: suggestion.lengthMm, description: "Geometriából javasolt", measurementSource: "drawing", roofEdge: { revisionId: suggestion.roofModelRevisionId, edgeId: suggestion.id }, bracketSpacingMm: null }] }))}>{suggestion.label} · {suggestion.lengthMm.toLocaleString("hu-HU")} mm hozzáadása</button>)}</div>}
+    <div className="gutter-run-list"><div className="section-heading"><h3>Ereszszakaszok</h3><button type="button" className="secondary-button" onClick={() => setInput({ ...input, runs: [...input.runs, emptyRun(`run-${Date.now()}`)] })}>+ Szakasz</button></div>{input.runs.map((run) => <div className="gutter-run" key={run.id}>
+      <label className="material-field"><span>Megnevezés</span><input value={run.name} onChange={(event) => updateRun(run.id, { name: event.target.value })} /></label>
+      <label className="material-field"><span>Hossz (mm)</span><input inputMode="decimal" value={run.lengthMm || ""} onChange={(event) => updateRun(run.id, { lengthMm: numberValue(event.target.value) })} /></label>
+      <label className="material-field"><span>Mérés forrása</span><select value={run.measurementSource} onChange={(event) => updateRun(run.id, { measurementSource: event.target.value as typeof run.measurementSource })}><option value="site_measurement">Helyszíni mérés</option><option value="drawing">Rajz/geometria</option><option value="user_provided">Felhasználói adat</option><option value="demo">DEMO</option></select></label>
+      <label className="material-field"><span>Konzolkiosztás (mm)</span><input inputMode="decimal" value={run.bracketSpacingMm || ""} onChange={(event) => updateRun(run.id, { bracketSpacingMm: event.target.value ? numberValue(event.target.value) : null })} /></label>
+      <button type="button" className="text-button" disabled={input.runs.length <= 1} onClick={() => setInput({ ...input, runs: input.runs.filter((item) => item.id !== run.id) })}>Eltávolítás</button>
+    </div>)}</div>
+    <div className="gutter-run-list"><div className="section-heading"><h3>Lefolyómenetek</h3><button type="button" className="secondary-button" onClick={() => setInput({ ...input, downpipes: [...input.downpipes, { id: `down-${Date.now()}`, name: "Új lefolyó", lengthMm: 0, commercialLengthMm: 3000, selectedBends: 0, relatedAccessories: [] }] })}>+ Lefolyó</button></div>{input.downpipes.map((run) => <div className="gutter-run" key={run.id}>
+      <label className="material-field"><span>Megnevezés</span><input value={run.name} onChange={(event) => updateDownpipe(run.id, { name: event.target.value })} /></label>
+      <label className="material-field"><span>Hossz (mm)</span><input inputMode="decimal" value={run.lengthMm || ""} onChange={(event) => updateDownpipe(run.id, { lengthMm: numberValue(event.target.value) })} /></label>
+      <label className="material-field"><span>Kereskedelmi szál (mm)</span><input inputMode="decimal" value={run.commercialLengthMm || ""} onChange={(event) => updateDownpipe(run.id, { commercialLengthMm: numberValue(event.target.value) })} /></label>
+      <label className="material-field"><span>Könyök (db)</span><input type="number" min="0" value={run.selectedBends} onChange={(event) => updateDownpipe(run.id, { selectedBends: Number(event.target.value) || 0 })} /></label>
+      <button type="button" className="secondary-button" onClick={() => updateDownpipe(run.id, { relatedAccessories: [...run.relatedAccessories, { name: "Tartozék", quantity: 0 }] })}>+ Lefolyó tartozéka</button>
+      {run.relatedAccessories.map((accessory, index) => <div className="gutter-accessory" key={`${run.id}-accessory-${index}`}><label className="material-field"><span>Tartozék neve</span><input value={accessory.name} onChange={(event) => updateDownpipe(run.id, { relatedAccessories: run.relatedAccessories.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} /></label><label className="material-field"><span>Mennyiség (db)</span><input type="number" min="0" value={accessory.quantity} onChange={(event) => updateDownpipe(run.id, { relatedAccessories: run.relatedAccessories.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: Number(event.target.value) || 0 } : item) })} /></label><button type="button" className="text-button" onClick={() => updateDownpipe(run.id, { relatedAccessories: run.relatedAccessories.filter((_, itemIndex) => itemIndex !== index) })}>Tartozék eltávolítása</button></div>)}
+      <button type="button" className="text-button" onClick={() => setInput({ ...input, downpipes: input.downpipes.filter((item) => item.id !== run.id) })}>Lefolyó eltávolítása</button>
+    </div>)}</div>
+    <div className="gutter-run-list"><div className="section-heading"><h3>Kézi tartozékok</h3><button type="button" className="secondary-button" onClick={addComponent}>+ Tartozék</button></div>{input.manualComponents.map((component) => <div className="gutter-run" key={component.id}>
+      <label className="material-field"><span>Típus</span><select value={component.category} onChange={(event) => setInput({ ...input, manualComponents: input.manualComponents.map((item) => item.id === component.id ? { ...item, category: event.target.value as typeof component.category } : item) })}><option value="end_cap">Végzáró</option><option value="connector">Összekötő</option><option value="outlet">Kifolyó</option><option value="elbow">Könyök</option><option value="bracket">Konzol</option><option value="downpipe">Lefolyó</option><option value="accessory">Egyéb</option></select></label>
+      <label className="material-field"><span>Mennyiség (db)</span><input type="number" min="0" value={component.quantity} onChange={(event) => setInput({ ...input, manualComponents: input.manualComponents.map((item) => item.id === component.id ? { ...item, quantity: Number(event.target.value) || 0 } : item) })} /></label>
+      <label className="material-field"><span>Megjegyzés</span><input value={component.note} onChange={(event) => setInput({ ...input, manualComponents: input.manualComponents.map((item) => item.id === component.id ? { ...item, note: event.target.value } : item) })} /></label>
+      <button type="button" className="text-button" onClick={() => setInput({ ...input, manualComponents: input.manualComponents.filter((item) => item.id !== component.id) })}>Eltávolítás</button>
+    </div>)}</div>
+    <div className="gutter-results"><h3>Előzetes mennyiségek</h3>{result ? <><p><strong>{result.totals.gutterStockSections}</strong> ereszszál · <strong>{result.totals.downpipeStockSections}</strong> lefolyószál</p>{result.gutterRuns.map((run) => <div key={run.id}><span>{run.name}</span><strong>{run.stockSections} szál{run.remainderMm ? ` · maradék ${run.remainderMm} mm` : ""}</strong></div>)}{result.downpipeRuns.map((run) => <div key={run.id}><span>{run.name}</span><strong>{run.stockSections} lefolyószál{run.remainderMm ? ` · maradék ${run.remainderMm} mm` : ""}</strong></div>)}{result.componentQuantities.filter((item) => item.source === "manual").map((item, index) => <div key={`${item.category}-${index}`}><span>{categoryLabels[item.category] ?? item.category}</span><strong>{item.quantity} db · kézi</strong></div>)}{result.assumptions.map((assumption) => <p className="detail-description" key={assumption}>{assumption}</p>)}{result.warnings.map((warning) => <p className="form-message" key={warning}>{warning}</p>)}</> : <p className="form-message is-error">Adj meg érvényes hosszakat.</p>}</div>
+    <div className="form-actions"><button className="primary-button" type="button" onClick={save} disabled={pending || !result}>{pending ? "Mentés…" : "Revízió mentése"}</button></div>{message && <p className={`form-message ${message.startsWith("Mentve") ? "is-success" : "is-error"}`} role="status">{message}</p>}
+  </section>;
+}
+
+

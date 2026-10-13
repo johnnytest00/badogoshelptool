@@ -455,3 +455,19 @@ Elkészült a [termékérettségi audit](PRODUCT_READINESS_AUDIT.md), célzott r
 ## F9.5.1 — pilot readiness és üzembiztonság
 
 Állapot: PARTIAL. Elkészült a [pilot readiness és üzembiztonság](PILOT_READINESS.md) leltár G01–G04 állapottal, adatfolyam- és EXIF/GPS-értékeléssel, szervezeti izolációs bizonyítékokkal, backup/restore hiányokkal, checklisttel és go/no-go blokkolókkal. A kimeneti határok terminológiája célzottan pontosítva lett; adatbázis-migráció és történeti adatváltoztatás nem történt. A célzott Vitest 6/6, typecheck, lint és webpack production build sikeres; hosted, restore, cross-org böngészős és terepi ellenőrzés nem bizonyított.
+
+## F9.5.2 — szakmai terepi pilot előkészítés
+
+Állapot: PARTIAL / előkészítve. Elkészült a [pilot tesztterv](PILOT_TEST_PLAN.md) három megvalósított workflow-val, pilot-belépési kapukkal, számítási összevetési módszerrel, mobil iPhone/iPad ellenőrzőlistával, UX/gap-priorizálással és F9.6.1 ereszcsatorna-anyagbecslési előfeltételekkel. Elkészült a [visszajelzési sablon](PILOT_FEEDBACK_TEMPLATE.md). A szakmai pilot még nem történt meg; F9.5.1 hosted, adatvédelmi, restore és izolációs blokkolói változatlanok. Alkalmazáskód, séma és Supabase nem módosult.
+
+## F9.6.1 — ereszcsatorna-anyagbecslés
+
+Állapot: PARTIAL. Elkészült a gyártófüggetlen, tiszta TypeScript domain-kalkulátor és production registry-integráció: független ereszszakaszok, lefolyómenetek, kereskedelmi szálbecslés, explicit kézi komponensek és felhasználói kiosztásból származó, figyelmeztetett konzolbecslés. A célzott 5/5 Vitest és typecheck sikeres. Perzisztens UI, geometriai revízió-import, szervezeti mentés, katalógus- és material-takeoff integráció, SVG és böngészős workflow még nincs megvalósítva; gyártói/hidraulikai állítás nincs.
+
+## F9.6.1.1 — ereszcsatorna-kalkulátor alkalmazásintegráció
+
+Állapot: PARTIAL. Elkészült a projektútvonal és navigáció, az eresz-, lefolyó- és kézi tartozékszerkesztő, a geometry javaslat, a szerveroldali újraszámítás és lokális immutable revision mentés. A mentés szervezet- és projektazonosítást, expected revision ellenőrzést, tranzakciós advisory lockot és tetőmodell-revízió függőséget használ. A célzott egység- és adatbázisteszt, valamint a helyi hitelesített mentés/reload/revíziófolyamat sikeres. A hosted/RLS/restore és tényleges párhuzamos hívás terhelési bizonyítéka hiányzik. Material takeoff és professzionális SVG nem készült.
+
+## F9.6.1.1.1 — integráció lezárási kísérlet
+
+Állapot: PARTIAL. A Supabase CLI hozzáférése szűk, emelt helyi futtatással helyreállt; a `20261013080100` migráció reset nélkül, a korábbi alkalmazott migrációk után került fel. A 21 ellenőrzéses pgTAP suite ellenőrzi a mentési RPC-t, a külön szervezetben lévő felhasználó olvasási/írási elutasítását, keresztprojekt tetőrevízió elutasítását, snapshot-immutabilitást és elavult revízió ütközését. Egy hitelesített helyi DEMO böngészőfolyamatban két geometriai eresz, kereskedelmi szálhossz, lefolyó, kézi tartozék mentése, reload, új revízió és a korábbi revízió visszaolvasása igazolt. A próbán feltárt geometriai lekérdezés/revízió-azonosító hiba javítva lett. A tényleges egyidejű RPC-hívások race-tesztje, szűk képernyős böngésző-ellenőrzés, hosted izoláció és restore továbbra sincs bizonyítva; ezért a mérföldkő PARTIAL.

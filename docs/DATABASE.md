@@ -338,3 +338,12 @@ kliensoldali kategória/feladat/dátumszűréssel és determinisztikus feltölt�
 szerinti rendezéssel. Az előtte/utána összehasonlítás nem mentett pár, csak a
 már engedélyezetten betöltött két fotó ideiglenes kiválasztása; public URL vagy
 külső képfeldolgozás nincs.
+# F9.6.1.1.1 adatbázis-állapot
+
+A `20261013080100_gutter_calculation_persistence.sql` lokális, incremental migráció új egyedi projektszintű kalkulációs indexet és `save_gutter_material_calculation` RPC-t ad. A függvény a meglévő `calculations`, `calculation_revisions` és `calculation_dependencies` architektúrát használja; input/output/provenance/warning snapshotot ment, az aktuális revision pointert frissíti, és minden tetőmodell-forrásrevíziót rögzít. SECURITY INVOKER, szervezeti tagságot és projekttulajdont ellenőriz, a keresztprojekt forrást elutasítja, az `authenticated` szerepkörre korlátozott, `public` és `anon` számára visszavont EXECUTE joggal.
+
+A revision mentést tranzakciós advisory lock sorosítja szervezet/projekt/kalkulátortípus szerint; az elvárt revíziószám eltérése `40001` konfliktust ad. A 009 pgTAP teszt ellenőrzi a létrehozást, külön szervezeti tag elutasítását, forráshivatkozást, immutable snapshotot és a soros stale revision konfliktust. Egyidejű két RPC-hívás race-tesztje nincs lefuttatva.
+
+A meglévő material_variants katalógusban van gutter kategória és opcionális length_mm, de ez nem bizonyít gyártói termékadatot. Katalóguskapcsolat csak szervezethez kötött, forrás- és provenance-mezőkkel készíthető; hiányzó paraméter nem tölthető ki. Material takeoff átadás jelenleg a meglévő, nyeregtető-revízióhoz kötött workflow-ra korlátozott, ezért ereszcsatorna-revíziót nem szabad csendben átadni vagy jóváhagyni.
+
+Hosted adatbázis, backup/restore és hosted izoláció nem változott és nem lett ellenőrizve. A lokális acceptance bizonyíték nem helyettesíti ezeket.
