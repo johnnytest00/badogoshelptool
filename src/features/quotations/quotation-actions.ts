@@ -35,7 +35,7 @@ export async function saveQuotationDraftAction(data: FormData): Promise<Quotatio
     lineSnapshots.push({ ...line, quantity: line.quantity.replace(",", "."), unitPrice: line.unitPrice.replace(",", "."), lineTotal: scaledToDecimal(total.minor, 2), materialSnapshot: material, takeoffSnapshot: takeoff });
   }
   const subtotal = sumMoney(lineSnapshots.map((line) => lineTotal(String(line.quantity), String(line.unitPrice))));
-  const snapshot = { name: draft.name, clientId: draft.clientId || null, currency: "HUF", priceClass: [...priceClasses][0] ?? null, precision: { quantityScale: 6, moneyScale: 2, rounding: "half_up" } };
+  const snapshot = { name: draft.name, clientId: draft.clientId || null, currency: "HUF", priceClass: [...priceClasses][0] ?? null, lines: lineSnapshots, precision: { quantityScale: 6, moneyScale: 2, rounding: "half_up" } };
   const { data: result, error } = await db.rpc("save_quotation_draft", { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: quotationId, p_name: draft.name, p_client_id: draft.clientId || null, p_currency: "HUF", p_input_snapshot: snapshot, p_line_items_snapshot: lineSnapshots, p_totals_snapshot: { priceClass: [...priceClasses][0] ?? null, subtotal: scaledToDecimal(subtotal.minor, 2), currency: "HUF", complete: draft.lines.every((line) => line.unitPrice !== "") }, p_subtotal: scaledToDecimal(subtotal.minor, 2), p_expected_version: currentVersion });
   if (error || !result?.[0]) return { ok: false, error: error?.code === "40001" ? "Az ajánlat időközben megváltozott; töltsd újra az oldalt." : error?.message ?? "Az ajánlat mentése nem sikerült." };
   revalidatePath(`/projektek/${projectId}/ajanlatok`);

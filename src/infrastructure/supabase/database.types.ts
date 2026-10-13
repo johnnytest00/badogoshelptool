@@ -381,6 +381,64 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"quotation_revisions": {
+                  Row: {
+                    "created_at": string,"created_by": string,"currency": string,"id": string,"input_snapshot": NonNullable<Json>,"line_items_snapshot": NonNullable<Json>,"organization_id": string,"price_class": Database["public"]['Enums']["quotation_price_class"] | null,"quotation_id": string,"revision_number": number,"subtotal": number | null,"totals_snapshot": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by": string,"currency": string,"id"?: string,"input_snapshot": NonNullable<Json>,"line_items_snapshot": NonNullable<Json>,"organization_id": string,"price_class"?: Database["public"]['Enums']["quotation_price_class"] | null,"quotation_id": string,"revision_number": number,"subtotal"?: number | null,"totals_snapshot": NonNullable<Json>
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string,"currency"?: string,"id"?: string,"input_snapshot"?: NonNullable<Json>,"line_items_snapshot"?: NonNullable<Json>,"organization_id"?: string,"price_class"?: Database["public"]['Enums']["quotation_price_class"] | null,"quotation_id"?: string,"revision_number"?: number,"subtotal"?: number | null,"totals_snapshot"?: NonNullable<Json>
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quotation_revisions_quotation_id_organization_id_fkey"
+      columns: ["quotation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "quotations"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
+                },"quotations": {
+                  Row: {
+                    "client_id": string | null,"created_at": string,"created_by": string,"currency": string,"current_revision_id": string | null,"id": string,"name": string,"organization_id": string,"project_id": string,"status": Database["public"]['Enums']["quotation_status"],"updated_at": string,"version": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id"?: string | null,"created_at"?: string,"created_by": string,"currency"?: string,"current_revision_id"?: string | null,"id"?: string,"name": string,"organization_id": string,"project_id": string,"status"?: Database["public"]['Enums']["quotation_status"],"updated_at"?: string,"version"?: number
+                  }
+                  Update: {
+                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string,"currency"?: string,"current_revision_id"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"project_id"?: string,"status"?: Database["public"]['Enums']["quotation_status"],"updated_at"?: string,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quotations_client_id_organization_id_fkey"
+      columns: ["client_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "clients"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "quotations_current_revision_fk"
+      columns: ["current_revision_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "quotation_revisions"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "quotations_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quotations_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"roof_model_revisions": {
                   Row: {
                     "created_at": string,"created_by": string | null,"id": string,"input_data": NonNullable<Json>,"organization_id": string,"revision_number": number,"roof_model_id": string,"schema_version": string,"validation_status": string
@@ -475,10 +533,15 @@ isOneToOne: false
 { Args: { "p_data_provenance": Json,"p_display_name": string,"p_expected_revision_number": number,"p_input_data": Json,"p_layout_calculation_id": string,"p_material_variant_id": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_roof_model_id": string,"p_source_geometry_calculation_revision_id": string,"p_source_roof_revision_id": string,"p_warnings": Json }; Returns: {
               "calculation_id": string,"calculation_revision_id": string,"revision_created": boolean,"revision_number": number
             }[]
+                           },
+"save_quotation_draft":
+{ Args: { "p_client_id": string,"p_currency": string,"p_expected_version": number,"p_input_snapshot": Json,"p_line_items_snapshot": Json,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_quotation_id": string,"p_subtotal": number,"p_totals_snapshot": Json }; Returns: {
+              "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number
+            }[]
                            }
           }
           Enums: {
-            "material_category": "roof_covering"|"sheet_metal"|"gutter"|"flashing"|"insulation"|"timber"|"accessory"|"other","material_data_provenance": "verified"|"user_provided"|"estimated"|"demo"|"missing","material_price_kind": "net"|"gross","material_product_status": "active"|"archived","material_purchasing_unit": "piece"|"linear_meter"|"square_meter"|"cubic_meter"|"kilogram"|"package","material_takeoff_method": "area"|"linear"|"manual","material_takeoff_status": "draft"|"approved","organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other"
+            "material_category": "roof_covering"|"sheet_metal"|"gutter"|"flashing"|"insulation"|"timber"|"accessory"|"other","material_data_provenance": "verified"|"user_provided"|"estimated"|"demo"|"missing","material_price_kind": "net"|"gross","material_product_status": "active"|"archived","material_purchasing_unit": "piece"|"linear_meter"|"square_meter"|"cubic_meter"|"kilogram"|"package","material_takeoff_method": "area"|"linear"|"manual","material_takeoff_status": "draft"|"approved","organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other","quotation_line_type": "MATERIAL"|"LABOR"|"OTHER","quotation_price_class": "net"|"gross","quotation_status": "draft"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -598,7 +661,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "material_category": ["roof_covering", "sheet_metal", "gutter", "flashing", "insulation", "timber", "accessory", "other"],"material_data_provenance": ["verified", "user_provided", "estimated", "demo", "missing"],"material_price_kind": ["net", "gross"],"material_product_status": ["active", "archived"],"material_purchasing_unit": ["piece", "linear_meter", "square_meter", "cubic_meter", "kilogram", "package"],"material_takeoff_method": ["area", "linear", "manual"],"material_takeoff_status": ["draft", "approved"],"organization_role": ["owner", "admin", "member"],"project_status": ["draft", "in_progress", "quoted", "accepted", "completed", "archived"],"project_type": ["roof_renovation", "roof_construction", "gutter_work", "other"]
+            "material_category": ["roof_covering", "sheet_metal", "gutter", "flashing", "insulation", "timber", "accessory", "other"],"material_data_provenance": ["verified", "user_provided", "estimated", "demo", "missing"],"material_price_kind": ["net", "gross"],"material_product_status": ["active", "archived"],"material_purchasing_unit": ["piece", "linear_meter", "square_meter", "cubic_meter", "kilogram", "package"],"material_takeoff_method": ["area", "linear", "manual"],"material_takeoff_status": ["draft", "approved"],"organization_role": ["owner", "admin", "member"],"project_status": ["draft", "in_progress", "quoted", "accepted", "completed", "archived"],"project_type": ["roof_renovation", "roof_construction", "gutter_work", "other"],"quotation_line_type": ["MATERIAL", "LABOR", "OTHER"],"quotation_price_class": ["net", "gross"],"quotation_status": ["draft"]
           }
         }
 } as const

@@ -7,8 +7,9 @@
 | Pénz referenciaesetek | Sikeres | 4/4 Vitest; 18 750,00 + 7 498,50 = 26 248,50 HUF. |
 | Typecheck | Sikeres | `npm run typecheck`. |
 | Lint | Sikeres | `npm run lint`. |
-| Supabase F8.1 migration / pgTAP | Nem verifikált | A helyi PostgreSQL nem futott, Docker socket/54322 kapcsolat hiányzott. |
-| Browser F8.1 workflow | Nem verifikált | Adatbázis-elérhetőség hiányában nem futott. |
+| Supabase F8.1 migration / pgTAP | Sikeres | Lokális fejlesztési DB reset nélkül; külön shadow replay; 180/180 PASS. |
+| Browser F8.1 workflow | Sikeres | Local DEMO user → projekt → ügyfél → katalógus-anyag + munkadíj → 26 248,50 HUF → mentés/reload. A sorváltozás idempotenciahibáját javítás után új revízióval ellenőriztem. |
+| F8.1 domain/regresszió | Sikeres | 20 Vitest fájl / 77 teszt PASS; a módosítás után typecheck, lint és célzott pénzteszt PASS. |
 
 ## F7.3.2 ellenőrzések
 

@@ -1,6 +1,6 @@
 # F7.3.2 állapot
 
-## F8.1 — ajánlati piszkozatok (implementálás alatt)
+## F8.1 — ajánlati piszkozatok (kész)
 
 - Elkészült a projekt alatti `/projektek/[projectId]/ajanlatok` magyar,
   mobilbarát szerkesztő: anyag, munkadíj és egyéb sor, ügyfél, kézi vagy
@@ -8,8 +8,12 @@
 - A `quotations` / `quotation_revisions` migration és az atomikus,
   optimistic-concurrency `save_quotation_draft` RPC megőrzi az immutable
   bemeneti, anyag- és ársnapshotokat; nettó/bruttó keverés tiltott.
-- A fixpontos HUF domain-referenciaesetek 4/4 PASS. A helyi Supabase/Docker
-  kapcsolat hiánya miatt a migráció, pgTAP és browser-flow még nem igazolt.
+- A fixpontos HUF domain-referenciaesetek 4/4 PASS. Az F8.1.1 lokális
+  migration-replay, 180/180 pgTAP és browser-flow sikeres; a browser során
+  talált idempotencia-snapshot hibát javítottam, így a valódi tételmódosítás új
+  revíziót készít, azonos mentés továbbra is idempotens.
+- A browser-flow-ban a jóváhagyott `171,875 square_meter` takeoff-tétel
+  kontrolláltan kiválasztható volt; történeti takeoff-adatot nem módosítottam.
 
 ### F8.1 korlátok
 
