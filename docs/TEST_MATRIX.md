@@ -518,3 +518,14 @@ ellenőrzött.
 | Migráció és cleanup | Sikeres | `20261013080200`, `20261013080300` és `20261013080400` incremental, reset nélkül; local/remote history oszlopok lokálisan egyeznek. Temporary table/function, concurrency projekt és action szervezet: 0. Hosted környezet nem érintett. |
 | Fókuszált browser follow-up | Sikeres | Meglévő hitelesített helyi munkamenet: kompatibilis DEMO `piece` variáns, atomi draft, átirányítás, 3 `piece`, forrásrevízió és warning látható; a smoke-draft eltávolítva. |
 | 390 px mobil QA | Nem ellenőrzött | A rendelkezésre álló native Brave vezérlő nem adott megbízható explicit viewport-emulációt; MOBILE QA UNVERIFIED. |
+
+## F9.6.2.1 — szegélyanyag-becslő domainmotor
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Szegélykategóriák és független futások | Sikeres | Mind a hat kategória explicit runként működik; több futás külön darabszámot kap, nincs automatikus geometriai hozzárendelés. |
+| Matematikai referenciaesetek | Sikeres | 7 DEMO eset: pontos határ, részleges következő szál, explicit átfedés határa, több független él, végkiterjesztés és tartalék, hiányzó/hibás kapcsolat, explicit hasznos hossz. |
+| Validáció és determinisztikusság | Sikeres | Hibás hossz, átfedés, hasznos hossz, hiányzó geometriai provenance, ismétlődő ID, overflow, kézi tétel és ismételt futás célzottan tesztelt. |
+| Domain + meglévő gutter regresszió | Sikeres | `npx vitest run src/domain/calculations/flashing-material.test.ts src/domain/calculations/gutter-material.test.ts`: 2 fájl / 15 teszt PASS. |
+| Registry, typecheck, lint és build | Sikeres | A kalkulátor explicit production registrytag; `npm run typecheck`, `npm run lint`, `npm run build` PASS. |
+| Gyártói, UI és adatbázis viselkedés | Nem része / nem ellenőrzött | Nincs termékspecifikus korlátozás-ellenőrzés, geometry-import, perzisztencia, RLS, takeoff vagy böngészős workflow ebben a fázisban. |

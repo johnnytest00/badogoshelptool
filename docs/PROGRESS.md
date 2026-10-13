@@ -493,3 +493,11 @@ Bizonyíték: 29/29 célzott pgTAP; két független authenticated adatbázis-kap
 ## F9.6.2 — Bádogos szegélyek kalkulátora — rövid ajánlás
 
 Következő külön mérföldkőként, az F9.6.1 bevált revision-, katalógus-, SVG- és draft-takeoff határait újrahasznosítva érdemes indítani. Az első gyártófüggetlen domain-modell kezelje az orom-, fal-, eresz- és gerincszegélyt, a vápalemezt, valamint explicit felhasználói profilt; csak megadott szakaszhossz, kereskedelmi elemhossz, darabszám, ráhagyás és kézi tartozék alapján számoljon. Profilgeometria, átfedés, rögzítés és gyártói korlát kizárólag igazolt vagy egyértelműen felhasználói adatból származhat; ezek nélkül az eredmény maradjon láthatóan előzetes becslés.
+
+### F9.6.2.0 — kutatás és domain-terv
+
+Állapot: **COMPLETE (DESIGN)**. Elkészült a [szegélykalkulátor-terv](FLASHING_CALCULATOR_DESIGN.md) célzott Lindab, PREFA és Ruukki gyártói forrásokkal, explicit átfedést kezelő matematikai szerződéssel, a tényleges `roof.gable` élhatárokhoz igazított importjavaslattal, provenance- és takeoff-határokkal, valamint DEMO matematikai tesztesetekkel. Kalkulátor, UI, adatbázis és migráció nem készült; teszt, build, pgTAP és böngészős ellenőrzés nem futott. Konkrét gyártói alkalmazhatóság és terepi szakmai jóváhagyás nyitott.
+
+### F9.6.2.1 — szegélyanyag-becslő domainmotor
+
+Állapot: **COMPLETE (DOMAIN)**. A tiszta `sheet_metal.flashings.material-estimate` kalkulátor bekerült a meglévő production registrybe. Kezeli mind a hat tervezett kategóriát, független futásokat, külön végkiterjesztést/tartalékot, explicit átfedést, explicit hasznos fedési hosszt, ismeretlen kapcsolatot, paraméter-provenance-t, figyelmeztetéseket és kézi darabtételt. A célzott Vitest 15/15 PASS (10 új szegélyteszt és 5 meglévő gutter regressziós teszt); `npm run typecheck`, `npm run lint`, `npm run build` és `git diff --check` PASS. A tesztek lokálisan futottak; adatbázis-, jogosultsági, UI-, böngészős és szakmai/gyártói ellenőrzés nem része ennek a domainfázisnak. A F9.6.2.2 geometry UI és perzisztencia továbbra is nyitott.

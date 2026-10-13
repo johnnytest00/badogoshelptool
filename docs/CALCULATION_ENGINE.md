@@ -171,3 +171,18 @@ Az SVG ugyanebből a bemenetből épít determinisztikus, független szakaszokat
 kereskedelmi szálhatárokat. Lefolyó és eresz között csak tárolt kapcsolat
 jeleníthető meg; hiányzó kapcsolatnál a lefolyó önálló sematikus elem. A rajz nem
 hitelesített szerelési dokumentáció.
+
+## F9.6.2.1 — `sheet_metal.flashings.material-estimate`
+
+A tiszta TypeScript kalkulátor a production registryben szerepel, és az `orom` (`verge`), `fal` (`wall`), `eresz` (`eaves`), `gerinc` (`ridge`), `vápa` (`valley`) és `egyedi` (`custom`) szegélyfutásokat azonos, gyártófüggetlen mennyiségi logikával kezeli. A szakaszokat a hívó explicit módon adja meg; nincs roof-edge import, kategóriánkénti automatikus szabály, adatbázis, UI vagy takeoff-adapter ebben a fázisban.
+
+Minden hossz egész, pozitív, safe-integer `mm`; a végkiterjesztés és tartalék egész, nemnegatív `mm`. `D = hossz + kezdő kiterjesztés + végkiterjesztés`, `Dᵣ = D + tartalék`. A számítás a `Dᵣ` tervezési célra ad előzetes darabszámot, de külön mutatja `D`-t és a tartalékot. Minden futás független; közös vágás és maradék-újrafelhasználás nincs.
+
+- `no_overlap_confirmed`: explicit nullás átfedés, `n = ceil(Dᵣ / S)`.
+- `explicit_overlap` esetén `0 ≤ O < S`: `n=1`, ha `Dᵣ ≤ S`; különben `n = ceil((Dᵣ−O)/(S−O))`. A kapacitás `nS−(n−1)O`, az explicit átfedés-fogyasztás `(n−1)O`.
+- `effective_length_supplied` esetén `0 < U ≤ S`, ahol `U` a következő szál hozzáadott fedési hossza: `n=1`, ha `Dᵣ ≤ S`; különben `n=1+ceil((Dᵣ−S)/U)`. Ebből a tényleges fizikai átfedés nem következik, ezért az átfedés-fogyasztás null/hiányzó.
+- `unknown` módnál a szál- és összesített névleges mennyiség `null`, az eredmény `incomplete`; átfedést nem feltételez.
+
+A `totalNominalStockLengthMm` a darabszám × névleges szálhossz. `availableCoverageCapacityMm` és `unallocatedCoverageCapacityMm` a választott matematikai modellben elérhető és a tervezési célon felüli fedési kapacitás; ezek nem offcut-maradékok, nem újrafelhasználható készlet és nem vágási veszteség. Az output provenance-t őriz a hosszmérésről, forrásrevízió-hivatkozásról és névleges/kapcsolati paraméterekről. A `geometry` hossz forrás-revíziót és élhivatkozást követel. A DEMO forrás külön warningot ad; semmilyen gyártói verified állapotot nem gyárt.
+
+Érvénytelen/hiányzó/nem egész vagy nem biztonságos hossz, `O ≥ S`, `U > S`, ismétlődő azonosító vagy geometriai forráshivatkozás nélküli geometry input a Zod határon elutasított. A köztes összegek és szorzatok BigInttel készülnek, majd safe-integer eredményre korlátozottak; túlfutás `NUMERIC_OVERFLOW`. A kalkulátor nem validál gyártói minimum/maximumot, hajlást, lemezvastagságot, csomópontot, rögzítést, sarok- vagy végszabályt; ezeket és a végleges beszerzési mennyiséget minden eredmény kifejezetten feloldatlanul/előzetesként jelzi. Gyártói útmutató vagy SKU hiányában nincs alapátfedés, veszteség vagy rendelési kerekítés.
