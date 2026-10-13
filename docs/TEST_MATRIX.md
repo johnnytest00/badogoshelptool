@@ -537,6 +537,19 @@ ellenőrzött.
 | Roof-edge mapping és forráshossz | Sikeres | Célzott Vitest 12/12 (11 domain + 1 mapping); ellenőrzött mapping 2 eresz, 1 gerinc, 4 oromél; tört mm eredeti hossza, egész mm-re felfelé kerekítés és explicit felülírás snapshotja ellenőrizve. |
 | Typecheck | Sikeres | `npm run typecheck`. |
 | Lint, production build | Sikeres | `npm run lint`, `npm run build`. |
-| Migráció + pgTAP | Blokkolt | A CLI migrációlistázása a helyi PostgreSQL `127.0.0.1:54322` ECONNREFUSED hibáját adta; Docker/Supabase indítás és reset nem történt. 18 célzott pgTAP állítás megírva, nem futott. |
-| Authenticated action és concurrency | Nem ellenőrzött | Élő helyi DB nélkül nem igazolható. |
-| Browser V1/V2/reload/history workflow | Blokkolt | Az egyetlen localhost smoke alatt a dev szerver `listen EPERM` hibával nem indult; a megnyitott lap üres maradt. DB/Auth szintén nem elérhető. |
+| Migráció + pgTAP | Korábbi körben blokkolt; lezárva a 2.2.1-ben | A CLI/Docker socket sandbox-hozzáférés feloldása után a migráció reset nélkül lefutott, a teljes pgTAP 329/329 PASS; a végső bizonyíték a következő táblázatban. |
+| Authenticated action és concurrency | Korábban nem ellenőrzött; lezárva a 2.2.1-ben | A helyi böngészős mentés működött; stale expected revision és immutable revíziók pgTAP-ban igazolva. |
+| Browser V1/V2/reload/history workflow | Korábbi körben blokkolt; lezárva a 2.2.1-ben | A már futó helyi Next szerver `localhost` címén használt; V1/V2 mentés, reload és V1 visszanyitás PASS. |
+
+## F9.6.2.2.1 — végső lokális integráció-ellenőrzés
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Környezetdiagnosztika | Sikeres | Docker 29.8.0; a projekt helyi Supabase adatbázisa és szolgáltatásai már healthy állapotban futottak, a 54322-es port foglalt volt. Az első sandbox hiba a Docker socket engedélyezésével feloldódott; reset nem történt. |
+| Migráció | Sikeres | `SUPABASE_TELEMETRY_DISABLED=1 supabase migration up --local`: `20261013080500_flashing_calculation_persistence.sql` alkalmazva; `supabase migration list --local` szerint a helyi migrációs előzmény egyezik. Hosted DB nem volt célpont. |
+| pgTAP | Sikeres | `SUPABASE_TELEMETRY_DISABLED=1 supabase test db --local`: 11 fájl / 329 állítás PASS, köztük 19 flashing-állítás. Az első futás 1 assertion hibát mutatott egy túl tág tesztlekérdezés miatt; a szűkített tesztet a teljes suite újrafuttatása igazolta. |
+| Geometria és adatkonzisztencia | Sikeres | UI validációs workflow-val meglévő aktuális verified nyeregtető-revízió ferde oroméle került be: 6625,00000036 mm eredeti snapshot, 6626 mm kalkulációs egész hossz, `lengthOverridden=false`, pontos modell/kalkulációs revíziók. A seed `demo` státuszú tetőjét nem használtam verified forrásként. |
+| Browser save/reload/history | Sikeres | Egy fókuszált helyi workflow: explicit DEMO V1 mentés, 100 mm tartalék módosításával V2, oldal reload, V1 visszanyitása. UI és read-only DB is megőrzött V1/V2-t mutatott; mindkét revízióhoz 2 forrásfüggőség tartozik. |
+| Concurrency és immutable history | Sikeres | pgTAP igazolta az elavult expected revision elutasítását, a V1/V2 megtartását és a történeti revízió update/delete tiltását; authenticated UI-val mentés/reload is sikeres. |
+| Typecheck/lint/build | Nem futott újra | Alkalmazáskód nem változott az előző F9.6.2.2 kör óta; az ottani 12/12 célzott Vitest, typecheck, lint és build PASS bizonyítéka megmarad, de ez nem új végső futtatás. |
+| Mobil és gyártói megfelelés | Nem verifikált | Fizikai eszközös QA és gyártói/specifikus jóváhagyás nem része a lokális integrációs bizonyítéknak. |
