@@ -579,3 +579,14 @@ ellenőrzött.
 | Diff/whitespace | Sikeres | `git diff --check` PASS. |
 | Teljes regresszió/adatbázis/böngésző | Nem futott | A fázis tiszta domain és registry; nincs UI, perzisztencia, Supabase vagy migráció. |
 | Gyártási megfelelés | Nem ellenőrzött | Nincs mért gép–szerszám–anyag kalibráció, hajtási sorrend/ütközés/visszarugózás vagy szakmai pilot. |
+
+## F9.6.3.2 — helyi profil-editor
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Célzott editor + domain Vitest | Sikeres | `npx vitest run src/features/sheet-metal/profile-editor.test.ts src/domain/calculations/sheet-metal-profile.test.ts`: 2 fájl, 26/26 PASS. DEMO sablon, szerkesztés/váltás, BA/K-hiány, validáció/önmetszés, SVG arc/y-leképezés, méretforrás és kijelölésazonosság. |
+| Typecheck / lint / build / diff | Sikeres | `npm run typecheck`, `npm run lint`, `npm run build` (Next 16.4.0 webpack), `git diff --check` PASS. |
+| Hitelesített helyi böngésző | Sikeres | Projekt→editor, L 60→75 mm és 90→60°, SVG és felirat frissült; BA 2,5 mm + DEMO forrás → 117,5 mm; U sablonváltási figyelmeztetés; SVG→sor és sor→SVG kijelölés; 125% zoom, egérpan; ismeretlen BA/K, hibás vastagság és rajz elrejtése. |
+| Keskeny böngészőnézet | Sikeres | 390×844 px: egyoszlopos grid, 313 px SVG, vízszintes dokumentum-túlcsordulás nincs (`scrollWidth=390`). |
+| Fizikai érintés / teljes regresszió / adatbázis | Nem futott | Pointer/pinch kód jelen van, fizikai iPad/mobil gesztus nem ellenőrzött. UI-only fázis, nincs mentés/migráció/pgTAP vagy teljes Vitest. |
+| Gyártási alkalmasság | Nem ellenőrzött | Nincs gép-/szerszám-/anyagkalibráció és terepi szakmai jóváhagyás. |
