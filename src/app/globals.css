@@ -387,3 +387,31 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 850px) { .profile-grid { grid-template-columns: 1fr; }.profile-svg { aspect-ratio: 1.6; } }
 @media (max-width: 850px) { .profile-persistence-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .profile-header { flex-direction: column; }.profile-basic-fields, .profile-result-grid { grid-template-columns: 1fr; }.profile-fields-three { grid-template-columns: repeat(2, minmax(0, 1fr)); }.profile-reverse { grid-column: 1 / -1; grid-row: 2; }.profile-svg { aspect-ratio: 1; min-height: 16rem; }.profile-section-heading { align-items: flex-start; flex-direction: column; }.profile-persistence-controls { grid-template-columns: 1fr; }.profile-persistence-controls button { width: 100%; } }
+/* F9.7.1 project overview disclosures and calculator entry points */
+.project-calculator-section { margin-top: 1rem; }
+.project-calculator-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.project-calculator-link { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .7rem; align-items: start; min-width: 0; min-height: 7rem; padding: 1rem; border: 1px solid var(--border); border-radius: .9rem; background: var(--surface-strong); color: var(--foreground); text-decoration: none; transition: border-color 140ms ease, background-color 140ms ease; }
+.project-calculator-link:hover { border-color: var(--brand); background: var(--surface); }
+.project-calculator-link > span:nth-child(2) { display: grid; gap: .35rem; }
+.project-calculator-link strong { font-size: .9rem; line-height: 1.4; }
+.project-calculator-link small { color: var(--muted); font-size: .75rem; line-height: 1.5; }
+.project-calculator-open { grid-column: 2; color: var(--brand-ink); font-size: .75rem; font-weight: 800; }
+.project-execution-disclosure { margin-block: 1rem; overflow: clip; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface); }
+.project-execution-disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 4rem; padding: .8rem 1.15rem; cursor: pointer; list-style: none; }
+.project-execution-disclosure > summary::-webkit-details-marker, .execution-nested-disclosure > summary::-webkit-details-marker { display: none; }
+.project-execution-disclosure > summary h2 { margin: 0; color: var(--foreground); font-size: 1.15rem; }
+.execution-disclosure-chevron { flex: none; color: var(--brand-ink); transition: transform 160ms ease; }
+.project-execution-disclosure[open] > summary .execution-disclosure-chevron { transform: rotate(180deg); }
+.project-execution-content { padding: 0 .75rem .75rem; animation: execution-disclosure-enter 150ms ease-out both; }
+.execution-nested-disclosure { margin-block: .75rem; border: 1px solid var(--border); border-radius: .85rem; background: var(--surface); }
+.execution-nested-disclosure > summary { display: flex; align-items: center; justify-content: space-between; min-height: 3rem; padding: .65rem .9rem; color: var(--foreground); font-weight: 800; cursor: pointer; list-style: none; }
+.execution-nested-disclosure > summary::after { width: .5rem; height: .5rem; border-right: 2px solid var(--brand-ink); border-bottom: 2px solid var(--brand-ink); content: ""; transform: rotate(45deg) translateY(-2px); transition: transform 140ms ease; }
+.execution-nested-disclosure[open] > summary::after { transform: rotate(225deg) translate(-2px, -1px); }
+.execution-nested-content { display: grid; gap: .75rem; padding: 0 .75rem .75rem; animation: execution-disclosure-enter 150ms ease-out both; }
+.execution-nested-content > .execution-journal, .execution-nested-content > .execution-photos { margin: 0; }
+.execution-nested-content .execution-timeline { margin-top: .25rem; }
+.project-execution-disclosure summary:focus-visible, .execution-nested-disclosure summary:focus-visible, .project-calculator-link:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+@keyframes execution-disclosure-enter { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 850px) { .project-calculator-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .project-calculator-grid { grid-template-columns: 1fr; }.project-execution-content { padding-inline: .5rem; }.project-execution-disclosure > summary { padding-inline: .85rem; } }
+@media (prefers-reduced-motion: reduce) { .project-calculator-link, .execution-disclosure-chevron, .execution-nested-disclosure > summary::after { transition: none; }.project-execution-content, .execution-nested-content { animation: none; } }

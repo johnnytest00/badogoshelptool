@@ -624,3 +624,15 @@ ellenőrzött.
 | Eresz és szegély regresszió | Sikeres | `SUPABASE_TELEMETRY_DISABLED=1 npx supabase test db supabase/tests/database/012_flashing_takeoff_integration.sql supabase/tests/database/010_gutter_takeoff_hardening.sql --local`: 57/57 PASS. |
 | Alkalmazás és böngésző | Sikeres | Célzott profil Vitest 32/32 PASS; a végső action-változtatás után `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check` PASS. Egy hitelesített DEMO flow: V1 → kompatibilis DEMO variáns V2 → 0,618 m² előnézet → új draft → revízió/árhiány ellenőrzés → hiányos V3 átadás tiltása és a korábbi V2 draft stale jelzése, változatlan snapshotja. |
 | Teljes regresszió és gyártás | Nem futott / nem ellenőrzött | A célzott tesztek nem teljes regresszió; nincs fizikai eszközös QA, gép-/szerszámkalibráció vagy kereskedelmi blankoptimalizálás. |
+
+## F9.7.1 — projekt-navigáció és összecsukható kivitelezés
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Fókuszált Vitest | PASS | `npx vitest run src/features/projects/project-navigation.test.ts`: 1 fájl / 3 teszt; mindhárom projekt+organization route, alapból zárt parent/nested disclosures és parent close nested reset helper. |
+| Typecheck / lint / build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (webpack) mind sikeres. |
+| Roof models elkülönülése | Forráskód alapján | Project page a tetőmodell-szekciót a `ExecutionSection` testvéreként rendereli; a szülő részletező nem rejti el. Böngészőben nem ellenőrzött. |
+| Működés és független disclosure | Részleges | A natív `<details>/<summary>` kezeli a nyitást, billentyűzetet és expanded/collapsed szemantikát. Szerveroldali markup teszteli az alapállapotot; interaktív kézi browser QA nem futott. |
+| Responsive / keyboard browser QA | Nem futott | `npm run dev` port bind `EPERM` mind `0.0.0.0:3000` és `127.0.0.1:3000`; böngészőtab nem volt. A 850/560 px CSS breakpointok forrásból ellenőrizhetők, tényleges 390 px/tablet render nincs bizonyítva. |
+| Adatbázis / jogosultság / üzleti action | Nem futott / nem változott | Csak kliens UI-állapot változott; nincs DB, RLS, dokumentumtárolás, journal/action vagy Supabase módosítás. |
+| `git diff --check` | PASS | A végső tracked diff ellenőrzése sikeres; az új fájlokat is külön ellenőriztem whitespace-hibára. |
