@@ -8,7 +8,7 @@ vi.mock("./takeoff-actions", () => ({
   approveMaterialTakeoffStateAction: async () => ({ ok: false }),
 }));
 
-import { TakeoffItemForm } from "./takeoff-forms";
+import { ApproveTakeoffForm, TakeoffItemForm } from "./takeoff-forms";
 
 const variant = (purchasingUnit: MaterialVariantRecord["purchasingUnit"]): MaterialVariantRecord => ({
   id: purchasingUnit, productId: "product", name: `DEMO ${purchasingUnit}`, sku: null, purchasingUnit,
@@ -29,5 +29,11 @@ describe("anyagkimutatás-tétel felülete", () => {
     expect(html).toContain("Kézi mennyiség");
     expect(html).toContain("Felhasznált árverzió");
     expect(html).not.toContain("combinedRoofM2");
+  });
+
+  it("a jóváhagyás önálló, tördelhető és elkülönített akcióterületet kap", () => {
+    const html = renderToStaticMarkup(createElement(ApproveTakeoffForm, { organizationId: "org", projectId: "project", takeoffId: "takeoff" }));
+    expect(html).toContain('class="takeoff-approval-form"');
+    expect(html).toContain("Kimutatás jóváhagyása");
   });
 });

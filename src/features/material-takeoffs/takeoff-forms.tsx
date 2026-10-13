@@ -41,5 +41,5 @@ export function TakeoffItemForm({ organizationId, projectId, takeoffId, variants
 
 export function ApproveTakeoffForm({ organizationId, projectId, takeoffId }: Readonly<{ organizationId: string; projectId: string; takeoffId: string }>) {
   const [state, action] = useActionState(approveMaterialTakeoffStateAction, initial);
-  return <form action={action}><input type="hidden" name="organizationId" value={organizationId} /><input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="takeoffId" value={takeoffId} />{state.error && <p className="form-error" role="alert">{state.error}</p>}<button className="primary-button" type="submit">Kimutatás jóváhagyása</button></form>;
+  return <form action={action} className="takeoff-approval-form"><input type="hidden" name="organizationId" value={organizationId} /><input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="takeoffId" value={takeoffId} />{state.error && <p className="form-error" role="alert">{state.error}</p>}<button className="primary-button" type="submit">Kimutatás jóváhagyása</button></form>;
 }

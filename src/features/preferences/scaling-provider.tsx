@@ -4,9 +4,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import {
   clampScalingValue,
   parseScalingPreferences,
+  persistScalingPreferences,
+  resetScalingPreferences,
   scalingDefaults,
   scalingStorageKey,
-  serializeScalingPreferences,
   updateScaling,
   type ScalingKey,
   type ScalingPreferences,
@@ -25,6 +26,7 @@ function applyScalingVariables(preferences: ScalingPreferences) {
   root.style.setProperty("--tp-text-scale", `${preferences.text / 100}`);
   root.style.setProperty("--tp-ui-scale", `${preferences.ui / 100}`);
   root.style.setProperty("--tp-drawing-scale", `${preferences.drawing / 100}`);
+  root.style.setProperty("--tp-spacing-scale", `${preferences.spacing / 100}`);
 }
 
 export function ScalingProvider({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -40,7 +42,7 @@ export function ScalingProvider({ children }: Readonly<{ children: React.ReactNo
     setPreferences((current) => {
       const next = updateScaling(current, key, value);
       applyScalingVariables(next);
-      window.localStorage.setItem(scalingStorageKey, serializeScalingPreferences(next));
+      persistScalingPreferences(window.localStorage, next);
       return next;
     });
   }, []);
@@ -49,16 +51,15 @@ export function ScalingProvider({ children }: Readonly<{ children: React.ReactNo
     setPreferences((current) => {
       const next = updateScaling(current, key, clampScalingValue(key, current[key] + delta));
       applyScalingVariables(next);
-      window.localStorage.setItem(scalingStorageKey, serializeScalingPreferences(next));
+      persistScalingPreferences(window.localStorage, next);
       return next;
     });
   }, []);
 
   const resetScales = useCallback(() => {
-    const next = { ...scalingDefaults };
+    const next = resetScalingPreferences(window.localStorage);
     setPreferences(next);
     applyScalingVariables(next);
-    window.localStorage.setItem(scalingStorageKey, serializeScalingPreferences(next));
   }, []);
 
   const value = useMemo(() => ({ ...preferences, setScale, adjustScale, resetScales }), [preferences, setScale, adjustScale, resetScales]);

@@ -696,3 +696,16 @@ ellenőrzött.
 | SVG és figyelmeztetés | PASS, célzott teszt + forrás | Szegélyrajz tiszta kiválasztási szabállyal élő/saved/invalid állapotban, billentyűzetes görgethető régió; profil zoomgombok és közös fit/reset; az eredmény és figyelmeztetés az átadás előtt. Fizikai touch nem ellenőrzött. |
 | Hitelesített böngésző / 390 és 768 px / fizikai eszköz | UNVERIFIED | Brave tablista az előző körben üres volt, ugyanazt a nem elérhető workflow-t nem ismételtem. Viewport és touch/pinch vizuális QA F9.7.4. |
 | Teljes regresszió / pgTAP / konkurencia | Nem futott | Kizárólag helyi UI-kód változott. Korábban bizonyított perzisztencia- és jogosultsági szerződésekre támaszkodik; új DB/RPC-változás nincs. |
+
+## F9.7.4.1 — iPad runtime és UX korrekciók
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Célzott Vitest | PASS | 10 fájl / 30 teszt; `secure-uuid.test.ts` (native, fallback/v4, hiányzó RNG, kulcsstabilitás), `secure-uuid-runtime.test.ts` (mindhárom kalkulátor render `randomUUID` nélkül), keyboard/floating placement, projektrajz, preferenciák/persistencia/reset, approval és meglévő kalkulátor UX. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. A Vitest fókuszált, nem teljes regresszió. |
+| UUID ok és idempotencia | PASS, dokumentáció + unit teszt | A `randomUUID()` secure-context API; az `HTTP 192.168.x.x` LAN-origin nem secure context. A `getRandomValues()` insecure contextben is elérhető; a közös helper ezt használja és v4/version/variant biteket állít. Takeoff payload/RPC nem változott. |
+| Supabase LAN / Auth / jogosultság | RÉSZBEN DIAGNOSZTIZÁLT, hálózatilag blokkolt | `.env.local` effektív URL-je korábban `127.0.0.1:54321` volt; a feladat hostját használó `192.168.1.31:54321`-re módosítva. A browser/server client azonos publikus URL+publishable key-t használ; service-role nincs jelen. `curl` mindkét API címre HTTP 000; Docker socket `permission denied`, `supabase status` sandbox `EPERM` telemetria-írásnál. Auth/session és RLS nem futott. |
+| Projekt rajzok / tenant scope | PASS, teszt + forrás | Több mentett nyeregtető külön modellnévvel, revízióval, egyedi címmel, meglévő nézetválasztókkal és részletes modell linkkel; a projektoldal már létező `getRoofModelsForProject(organizationId, projectId)` adatait használja, új query nincs. |
+| Approval / keyboard / global settings | PASS, célzott markup és tiszta logika | Approval akció külön, tördelhető és térközzel elválasztott; VisualViewport resize esetén csak a kilógó fókuszmező kerül középre; csúszkák text/UI/spacing/drawing tengelye független, localStorage persist/reset útvonal tesztelve; a lebegő ikon fontos vezérlővel való geometriai ütközéskor elrejtőzik. Fizikai billentyűzet- és overflow QA nem futott. |
+| Hitelesített böngészősmoke / iPad | Nem futott | Nincs böngészőtab; `npm run dev -- --hostname 0.0.0.0` bind `EPERM` miatt sikertelen. Fizikai iPad/iPhone nincs elérhető tesztkörnyezetben. Ne tekintsd mobil PASS-nak. |
+| DB/RPC/pgTAP / képletek | Nem futott / nem változott | Nincs migráció, RPC, adatjogosultság, takeoff szerződés vagy számítási képlet változás; nincs DB reset vagy hosted Supabase érintés. |

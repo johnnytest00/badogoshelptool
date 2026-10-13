@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, FilePlus2, LoaderCircle, Plus, Save, Trash2 } from "lucide-react";
 import { ProfileDrawing } from "@/features/sheet-metal/profile-drawing";
@@ -9,6 +9,7 @@ import { createProfileTakeoffDraftAction, saveSheetMetalProfileAction } from "@/
 import type { ProfileCatalogPreviewCandidate, SavedProfile } from "@/features/sheet-metal/profile-data";
 import { matchProfileMaterial } from "@/domain/calculations/profile-material-compatibility";
 import { materialProvenanceLabels, type MaterialProvenance } from "@/domain/materials/contracts";
+import { createIdempotencyKey, generateSecureUuid } from "@/lib/secure-uuid";
 
 const allowanceModeLabels: Record<string, string> = { unknown: "Ismeretlen hajlítási pótlék", explicit_ba: "Megadott BA", k_factor: "K-tényező" };
 const classificationLabels: Record<string, string> = { INCOMPLETE: "Hiányos terítékadat", PARAMETER_BASED_ESTIMATE: "Paraméteralapú becslés", GEOMETRICALLY_DETERMINED: "Geometriai eredmény", UNSUPPORTED: "Nem támogatott geometria" };
@@ -27,7 +28,8 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
   const [selectedRevisionId, setSelectedRevisionId] = useState(firstRevision?.revisionId ?? "");
   const [feedback, setFeedback] = useState("");
   const [transferPreviewOpen, setTransferPreviewOpen] = useState(false);
-  const [transferRequestKey, setTransferRequestKey] = useState(() => crypto.randomUUID());
+  const pendingProfileId = useRef<string | null>(null);
+  const [transferRequestKey] = useState(() => createIdempotencyKey());
   const [takeoffName, setTakeoffName] = useState("Profil nettó terítékfelülete · előzetes");
   const [transferFeedback, setTransferFeedback] = useState("");
   const [createdTakeoffId, setCreatedTakeoffId] = useState<string | null>(null);
@@ -54,20 +56,20 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
     const data = new FormData();
     data.set("organizationId", organizationId); data.set("projectId", projectId);
     data.set("calculationId", activeCalculationId); data.set("revisionId", selectedSavedRevision.revisionId);
-    data.set("variantId", draft.catalogVariantId); data.set("requestKey", transferRequestKey);
+    data.set("variantId", draft.catalogVariantId); data.set("requestKey", transferRequestKey.current());
     data.set("name", takeoffName.trim()); setTransferFeedback("");
     startTransition(async () => {
       const response = await createProfileTakeoffDraftAction(data);
       if (!response.ok || !response.takeoffId) { setTransferFeedback(response.error ?? "Az átadás nem sikerült."); return; }
       setCreatedTakeoffId(response.takeoffId); setTransferPreviewOpen(false);
-      setTransferRequestKey(crypto.randomUUID()); setTransferFeedback("Új anyagkimutatás-piszkozat létrejött.");
+      transferRequestKey.renew(); setTransferFeedback("Új anyagkimutatás-piszkozat létrejött.");
       router.refresh();
     });
   }
   function switchTemplate(template: Template) {
     if (template === draft.template && !draft.dirty) return;
     if (draft.dirty && !window.confirm("A jelenlegi szerkesztés nem mentett. Lecseréled a profilt a választott DEMO sablonra?")) return;
-    setDraft(createTemplate(template)); setActiveCalculationId(null); setExpectedRevision(0); setSelectedRevisionId(""); setFeedback(""); setSelection(null);
+    pendingProfileId.current = null; transferRequestKey.renew(); setDraft(createTemplate(template)); setActiveCalculationId(null); setExpectedRevision(0); setSelectedRevisionId(""); setFeedback(""); setSelection(null);
   }
   function switchProfile(calculationId: string) {
     if (!calculationId) return;
@@ -75,7 +77,7 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
     const profile = profiles.find((item) => item.calculationId === calculationId);
     const revision = profile?.revisions[0];
     if (!profile || !revision) return;
-    setDraft(fromDomainInput(revision.input)); setActiveCalculationId(profile.calculationId); setExpectedRevision(profile.currentRevisionNumber);
+    transferRequestKey.renew(); setDraft(fromDomainInput(revision.input)); setActiveCalculationId(profile.calculationId); setExpectedRevision(profile.currentRevisionNumber);
     setSelectedRevisionId(revision.revisionId); setFeedback(`Aktuális V${revision.revisionNumber} betöltve.`); setSelection(null);
   }
   function switchRevision(revisionId: string) {
@@ -84,16 +86,16 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
     const profile = profiles.find((item) => item.calculationId === activeCalculationId);
     const revision = profile?.revisions.find((item) => item.revisionId === revisionId);
     if (!profile || !revision) return;
-    setDraft(fromDomainInput(revision.input)); setExpectedRevision(profile.currentRevisionNumber); setSelectedRevisionId(revisionId);
+    transferRequestKey.renew(); setDraft(fromDomainInput(revision.input)); setExpectedRevision(profile.currentRevisionNumber); setSelectedRevisionId(revisionId);
     setFeedback(`V${revision.revisionNumber} betöltve${revision.revisionNumber < profile.currentRevisionNumber ? ` · mentés új V${profile.currentRevisionNumber + 1} revízióként történik` : ""}.`); setSelection(null);
   }
   function newProfile() {
     if (draft.dirty && !window.confirm("A jelenlegi profil módosításai nincsenek mentve. Új profilt kezdesz?")) return;
-    setDraft(createTemplate("l")); setActiveCalculationId(null); setExpectedRevision(0); setSelectedRevisionId(""); setFeedback("Új profil munkavázlat."); setSelection(null);
+    pendingProfileId.current = null; transferRequestKey.renew(); setDraft(createTemplate("l")); setActiveCalculationId(null); setExpectedRevision(0); setSelectedRevisionId(""); setFeedback("Új profil munkavázlat."); setSelection(null);
   }
   function saveProfile() {
     if (!result.ok || isPending || (draft.catalogVariantId && catalogMatch !== "TECHNICALLY_MATCHED_PARAMETERS")) return;
-    const calculationId = activeCalculationId ?? crypto.randomUUID();
+    const calculationId = activeCalculationId ?? (pendingProfileId.current ??= generateSecureUuid());
     const input = { ...toDomainInput(draft), profileId: calculationId };
     const data = new FormData(); data.set("organizationId", organizationId); data.set("projectId", projectId);
     data.set("calculationId", calculationId); data.set("expectedRevisionNumber", String(expectedRevision)); data.set("input", JSON.stringify(input));
@@ -101,6 +103,7 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
     startTransition(async () => {
       const saved = await saveSheetMetalProfileAction(data);
       if (!saved.ok) { setFeedback(saved.error ?? "A profil mentése nem sikerült."); return; }
+      pendingProfileId.current = null;
       setActiveCalculationId(saved.calculationId ?? calculationId); setExpectedRevision(saved.revisionNumber ?? expectedRevision + 1);
       setSelectedRevisionId(saved.revisionId ?? "");
       setDraft((current) => ({ ...current, profileId: saved.calculationId ?? calculationId, dirty: false }));
@@ -161,7 +164,7 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
       <p className="profile-help">Ár: {selectedCandidate?.price ? `${format(selectedCandidate.price.amount)} ${selectedCandidate.price.currency}/m² · ${selectedCandidate.price.sourceName ?? "forrás nincs megadva"}` : "nincs m² árverzió; hiányzó árként kerül át"}.</p>
       {!transferEligible && <p className="form-message is-error">{draft.dirty ? "A nem mentett módosításokat előbb mentsd új revízióként." : !selectedSavedRevision ? "Előbb mentsd a profilt." : selectedSavedRevision.revisionNumber !== activeProfile?.currentRevisionNumber ? "Történeti revízióból nem lehet átadni; nyisd meg az aktuálisat." : selectedSavedRevision.output.flatPattern.widthMm === null ? "Hiányzó BA/K miatt a terítékszélesség nem számítható." : selectedSavedRevision.output.materialRequirement.totalNetBlankAreaSqM === null ? "A nettó terítékfelülethez darabhossz és darabszám kell." : "Mentett, kompatibilis m² katalógusvariáns szükséges."}</p>}
       <button type="button" className="secondary-button" disabled={!transferEligible || isPending} onClick={() => setTransferPreviewOpen(true)}>Átadási előnézet</button>
-      {transferPreviewOpen && <div className="profile-allowances"><h3>Átadás megerősítése</h3><p>V{selectedSavedRevision?.revisionNumber} · {selectedCandidate?.productName} / {selectedCandidate?.variantName} · {selectedSavedRevision?.output.materialRequirement.totalNetBlankAreaSqM == null ? "–" : format(selectedSavedRevision.output.materialRequirement.totalNetBlankAreaSqM)} m² előzetes nettó terítékfelület. Nincs hulladék- vagy beszerzési ráhagyás.</p><label>Piszkozat neve<input value={takeoffName} maxLength={200} onChange={(event) => setTakeoffName(event.target.value)} /></label><button type="button" className="primary-button" disabled={!transferEligible || isPending || !takeoffName.trim()} onClick={transferProfile}>{isPending ? "Átadás…" : "Átadás megerősítése · új piszkozat"}</button><button type="button" className="secondary-button" onClick={() => setTransferPreviewOpen(false)}>Mégse</button></div>}
+      {transferPreviewOpen && <div className="profile-allowances"><h3>Átadás megerősítése</h3><p>V{selectedSavedRevision?.revisionNumber} · {selectedCandidate?.productName} / {selectedCandidate?.variantName} · {selectedSavedRevision?.output.materialRequirement.totalNetBlankAreaSqM == null ? "–" : format(selectedSavedRevision.output.materialRequirement.totalNetBlankAreaSqM)} m² előzetes nettó terítékfelület. Nincs hulladék- vagy beszerzési ráhagyás.</p><label>Piszkozat neve<input value={takeoffName} maxLength={200} onChange={(event) => { if (event.target.value !== takeoffName) transferRequestKey.renew(); setTakeoffName(event.target.value); }} /></label><button type="button" className="primary-button" disabled={!transferEligible || isPending || !takeoffName.trim()} onClick={transferProfile}>{isPending ? "Átadás…" : "Átadás megerősítése · új piszkozat"}</button><button type="button" className="secondary-button" onClick={() => setTransferPreviewOpen(false)}>Mégse</button></div>}
       {transferFeedback && <p className={`form-message ${createdTakeoffId ? "is-success" : "is-error"}`} role="status">{transferFeedback}</p>}
       {createdTakeoffId && <a className="secondary-button" href={`/projektek/${projectId}/anyagkimutatas?organization=${organizationId}&takeoff=${createdTakeoffId}`}>Piszkozat megnyitása</a>}
     </section>
