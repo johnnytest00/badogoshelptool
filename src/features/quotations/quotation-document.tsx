@@ -1,13 +1,5 @@
-import path from "node:path";
-import { Document, Font, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-
-Font.register({
-  family: "Noto Sans",
-  fonts: [
-    { src: path.join(process.cwd(), "node_modules/@fontsource/noto-sans/files/noto-sans-latin-ext-400-normal.woff") },
-    { src: path.join(process.cwd(), "node_modules/@fontsource/noto-sans/files/noto-sans-latin-ext-700-normal.woff"), fontWeight: 700 },
-  ],
-});
+import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import "./pdf-fonts";
 
 export type QuotationDocumentData = {
   organizationName: string;

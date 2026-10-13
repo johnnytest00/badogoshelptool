@@ -22,6 +22,10 @@
 - Ne készíts ismételt screenshot-loopokat és ne próbáld újra indokolatlanul a nem támogatott böngészős képességeket.
 - A nem elérhető ellenőrzéseket őszintén jelentsd, a szükséges biztonsági és matematikai ellenőrzéseket ne hagyd el.
 
+## Engineering Verification & Reporting
+
+Minden mérföldkő riportja röviden tartalmazza a státuszt, a ténylegesen megvalósított funkciókat, az újrahasznosított architektúrát, az adatkonzisztencia- és jogosultsági bizonyítékokat, a pontosan futtatott célzott/teljes/adatbázis/böngészős ellenőrzéseket, valamint az ismert korlátokat és a nem ellenőrzött követelményeket. A célzott teszt nem tekinthető teljes regressziónak; COMPLETE csak akkor adható, ha a kritikus elfogadási feltételek bizonyítottak.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

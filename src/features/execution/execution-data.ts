@@ -3,8 +3,8 @@ import { createClient } from "@/infrastructure/supabase/server";
 import type { ExecutionPhotoCategory } from "@/domain/execution/contracts";
 
 export type ExecutionTaskRecord = { id: string; title: string; description: string | null; status: "todo" | "in_progress" | "done"; priority: "low" | "normal" | "high"; dueDate: string | null; sortOrder: number; version: number };
-export type ExecutionPhotoRecord = { id: string; taskId: string | null; taskTitle: string | null; journalEntryId: string | null; journalDate: string | null; journalContent: string | null; displayFilename: string; mimeType: string; fileSize: number; caption: string | null; category: ExecutionPhotoCategory; uploadedAt: string; uploaderName: string | null; signedUrl: string | null };
-export type ExecutionPlanRecord = { id: string; title: string; description: string | null; version: number; createdAt: string; updatedAt: string; sourceQuotationId: string | null; sourceRevisionId: string | null; sourceQuotationName: string | null; sourceSubtotal: string | null; tasks: ExecutionTaskRecord[]; photos: ExecutionPhotoRecord[] };
+export type ExecutionPhotoRecord = { id: string; taskId: string | null; taskTitle: string | null; journalEntryId: string | null; journalDate: string | null; journalContent: string | null; objectKey: string; displayFilename: string; mimeType: string; fileSize: number; caption: string | null; category: ExecutionPhotoCategory; uploadedAt: string; uploaderName: string | null; signedUrl: string | null };
+export type ExecutionPlanRecord = { id: string; title: string; description: string | null; version: number; createdAt: string; updatedAt: string; sourceQuotationId: string | null; sourceRevisionId: string | null; sourceRevisionNumber: number | null; sourceQuotationName: string | null; sourceQuotationStatus: string | null; sourceSubtotal: string | null; tasks: ExecutionTaskRecord[]; photos: ExecutionPhotoRecord[] };
 export type AcceptedQuotationOption = { id: string; name: string; finalizedRevisionId: string; subtotal: string | null };
 export type ExecutionTimelineItem = { id: string; type: "journal" | "task_event"; date: string; recordedAt: string; authorAvailable: boolean; taskTitle: string | null; category?: "general" | "work_done" | "problem" | "next_step"; content?: string; problems?: string | null; nextSteps?: string | null; fromStatus?: "todo" | "in_progress" | "done"; toStatus?: "todo" | "in_progress" | "done" };
 type LooseClient = { from: (table: string) => any };
@@ -36,20 +36,20 @@ export async function getExecutionPlanningWorkspace(organizationId: string, proj
   }));
   const signedPhotoMap = new Map(signedPhotos);
   const sourceIds = plans.flatMap((p: any) => p.source_quotation_id ? [p.source_quotation_id] : []);
-  const { data: sourceQuotes } = sourceIds.length ? await db.from("quotations").select("id, name, finalized_revision_id").in("id", sourceIds).eq("organization_id", organizationId) : { data: [] };
+  const { data: sourceQuotes } = sourceIds.length ? await db.from("quotations").select("id, name, finalized_revision_id, status").in("id", sourceIds).eq("organization_id", organizationId) : { data: [] };
   const revisionIds = plans.flatMap((p: any) => p.source_revision_id ? [p.source_revision_id] : []);
-  const { data: revisions } = revisionIds.length ? await db.from("quotation_revisions").select("id, subtotal").in("id", revisionIds).eq("organization_id", organizationId) : { data: [] };
+  const { data: revisions } = revisionIds.length ? await db.from("quotation_revisions").select("id, revision_number, subtotal").in("id", revisionIds).eq("organization_id", organizationId) : { data: [] };
   const quoteMap = new Map<string, any>((sourceQuotes ?? []).map((q: any) => [q.id, q] as [string, any]));
   const revisionMap = new Map<string, any>((revisions ?? []).map((r: any) => [r.id, r] as [string, any]));
   return {
     plans: plans.map((plan: any): ExecutionPlanRecord => ({
       id: plan.id, title: plan.title, description: plan.description, version: plan.version, createdAt: plan.created_at, updatedAt: plan.updated_at,
-      sourceQuotationId: plan.source_quotation_id, sourceRevisionId: plan.source_revision_id, sourceQuotationName: quoteMap.get(plan.source_quotation_id)?.name ?? null, sourceSubtotal: revisionMap.get(plan.source_revision_id)?.subtotal ?? null,
+      sourceQuotationId: plan.source_quotation_id, sourceRevisionId: plan.source_revision_id, sourceRevisionNumber: revisionMap.get(plan.source_revision_id)?.revision_number == null ? null : Number(revisionMap.get(plan.source_revision_id)?.revision_number), sourceQuotationName: quoteMap.get(plan.source_quotation_id)?.name ?? null, sourceQuotationStatus: quoteMap.get(plan.source_quotation_id)?.status ?? null, sourceSubtotal: revisionMap.get(plan.source_revision_id)?.subtotal ?? null,
       tasks: tasks.filter((task: any) => task.plan_id === plan.id).map((task: any) => ({ id: task.id, title: task.title, description: task.description, status: task.status, priority: task.priority, dueDate: task.due_date, sortOrder: task.sort_order, version: task.version })),
       photos: photos.filter((photo: any) => photo.plan_id === plan.id).map((photo: any) => {
         const journalEntry = journal.find((entry: any) => entry.id === photo.journal_entry_id);
         const task = tasks.find((entry: any) => entry.id === photo.task_id);
-        return { id: photo.id, taskId: photo.task_id, taskTitle: task?.title ?? null, journalEntryId: photo.journal_entry_id, journalDate: journalEntry?.work_date ?? null, journalContent: journalEntry?.content ?? null, displayFilename: photo.display_filename, mimeType: photo.mime_type, fileSize: Number(photo.file_size), caption: photo.caption, category: photo.category, uploadedAt: photo.uploaded_at, uploaderName: uploaderMap.get(photo.uploaded_by) ?? null, signedUrl: signedPhotoMap.get(photo.id) ?? null };
+        return { id: photo.id, taskId: photo.task_id, taskTitle: task?.title ?? null, journalEntryId: photo.journal_entry_id, journalDate: journalEntry?.work_date ?? null, journalContent: journalEntry?.content ?? null, objectKey: photo.object_key, displayFilename: photo.display_filename, mimeType: photo.mime_type, fileSize: Number(photo.file_size), caption: photo.caption, category: photo.category, uploadedAt: photo.uploaded_at, uploaderName: uploaderMap.get(photo.uploaded_by) ?? null, signedUrl: signedPhotoMap.get(photo.id) ?? null };
       }),
     })),
     acceptedQuotations: quotes.map((q: any): AcceptedQuotationOption => ({ id: q.id, name: q.name, finalizedRevisionId: q.finalized_revision_id, subtotal: null })),

@@ -420,3 +420,34 @@ ellenőrzött.
 | Előtte/utána nézet | Sikeres | Felhasználói kiválasztás, oldalsó összehasonlítás, képcsere és responsive stacking; mindkét kép ténylegesen betöltődött signed URL-ről. |
 | Metadata és napló | Sikeres | Feltöltési idő, feltöltő-elérhetőség, feladat- és naplóhivatkozás megjelenik; eredeti journal content nem módosul. |
 | Böngészős smoke | Sikeres | Egyetlen hitelesített Brave workflow: két DEMO fotó kategorizálása, szűrés, összehasonlítás, választáscsere és reload utáni perzisztencia. |
+
+## F9.4.1 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Read-model aggregáció | Sikeres | Célzott Vitest 2/2: task-count, progress, üres terv, figyelmi tételek és determinisztikus idővonal-sorrend. |
+| Teljes automatizált kapuk | Sikeres | `npm run test`: 24 fájl / 86 teszt; `npm run typecheck`; `npm run lint`; `npm run build` webpack módban. |
+| Projekt- és szervezeti adatforrás | Sikeres | Meglévő szerveroldali, organization/project-szűrt execution lekérdezések; új overview tábla nincs. |
+| Fotó- és ajánlat-integráció | Sikeres | Korlátozott fotóelőnézet signed URL-lel, galéria- és meglévő ajánlati oldal-hivatkozás. |
+| Böngészős smoke | Sikeres | Egyetlen hitelesített lokális workflow: 2 task, 50% progress, figyelmi elem, idővonal, 2 fotóelőnézet és elfogadott ajánlati oldal megnyitása. |
+
+## F9.4.2 ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| PDF technológia | Sikeres | F8.2 közös `@react-pdf/renderer` pipeline és Noto Sans fontregisztráció, új construction-report komponenssel. |
+| Tartalom és üres állapotok | Sikeres | Célzott PDF-render teszt 3/3: A4 PDF fejléc, fejezetek, üres feladat-/napló-/fotóállapot és biztonságos fájlnév. |
+| Fotó biztonság | Sikeres | Szerveroldali org/project/plan/photo ellenőrzés, privát Storage `download(objectKey)`, JPEG/PNG korlát, nincs URL-alapú fetch. |
+| Erőforrás-korlátok | Sikeres | Legfeljebb 8 fotó, 4 MB/kép, 12 MB összesen; túllépés egyértelmű hibával tér vissza. |
+| Teljes automatizált kapuk | Sikeres | `npm run test`: 25 fájl / 87 teszt; `npm run typecheck`; `npm run lint`; `npm run build` webpack módban. |
+| Böngészős PDF smoke | Sikeres | Hitelesített lokális projekt: fejezetválasztó, 2 DEMO fotó, preview route, preview/download/print linkek; a reprezentatív PDF közvetlen renderelése vizuálisan is ellenőrzött. |
+
+### F9.4.2.1 célzott PDF-layout ellenőrzések
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Pagination és orphan heading | Sikeres | A kapcsolódó ajánlat szakasza `wrap={false}`-szal, a címsor `minPresenceAhead`-del együtt marad; reprezentatív PDF-ben nincs üres második oldal vagy orphan címsor. Hosszabb riportok továbbra is tördelhetők. |
+| Feladatesemény sor | Sikeres | Flex-alapú feladat / átmenet / metaadat oszlopok, biztonságos hosszú feladatszöveg-tördelés és dátum–felhasználó térköz. |
+| Státuszjel és revízió | Sikeres | Noto Sans `→` karakter; elérhető revíziószám `vN` formában, a belső revízióazonosító külön megőrizve. |
+| Célzott render és kapuk | Sikeres | PDF-render teszt 1/1, `npm run typecheck`, `npm run lint`, `npm run build` webpack módban. |
+| Oldalkép, fotók, footer | Sikeres | Egy reprezentatív, két DEMO-képes lokális PDF renderelt oldalképe: 1 A4 oldal, mindkét kép, magyar ékezetek, státuszjel, revízió és `1 / 1 oldal` footer látható. |
