@@ -462,7 +462,9 @@ Elkészült a [termékérettségi audit](PRODUCT_READINESS_AUDIT.md), célzott r
 
 ## F9.6.1 — ereszcsatorna-anyagbecslés
 
-Állapot: PARTIAL. Elkészült a gyártófüggetlen, tiszta TypeScript domain-kalkulátor és production registry-integráció: független ereszszakaszok, lefolyómenetek, kereskedelmi szálbecslés, explicit kézi komponensek és felhasználói kiosztásból származó, figyelmeztetett konzolbecslés. A célzott 5/5 Vitest és typecheck sikeres. Perzisztens UI, geometriai revízió-import, szervezeti mentés, katalógus- és material-takeoff integráció, SVG és böngészős workflow még nincs megvalósítva; gyártói/hidraulikai állítás nincs.
+Állapot: **COMPLETE (LOCAL)**. A dokumentált lokális bizonyíték végig lefedi a mentett tetőgeometria → gutter kalkuláció → immutable gutter-revízió → explicit, egységkompatibilis katalógusvariáns → ugyanazon mentett adatokból épülő technikai SVG → új draft material takeoff láncot. A forrásrevízió- és provenance-snapshotok visszakövethetők; a szervezet-/projektizoláció, konkurens mentés és atomi idempotencia adatbázis- és Server Action szinten ellenőrzött; approved rekordot az átadás nem módosít.
+
+A mennyiségek előzetes `piece` kereskedelmi szál-/tartozékbecslések. Nincs implicit folyóméter-, csomag- vagy gyártói konverzió, hidraulikai méretezés, gyártói megfelelés vagy hitelesített szerelési terv. A lokális lezárás nem jelent production readiness vagy szakmai validációt: nyitott a valós iPhone/iPad ellenőrzés, a szakmai terepi validáció, a gyártóspecifikus szabályok, a hosted környezet ellenőrzése és az operatív backup/restore.
 
 ## F9.6.1.1 — ereszcsatorna-kalkulátor alkalmazásintegráció
 
@@ -487,3 +489,7 @@ Az eredeti hitelesített böngészős workflow változatlanul érvényes. Az F9.
 Állapot: COMPLETE lokális elfogadással. A `20261013080200` migráció explicit `transfer_request_key` és immutable logikai `transfer_payload` mezőt, egyedi szervezet/projekt/kéréskorlátot és atomi `create_gutter_takeoff_draft` RPC-t vezetett be. A `20261013080300` javította a korábbi takeoff DELETE triggerek `NEW` visszatérési hibáját úgy, hogy a jóváhagyott rekordok immutabilitása megmaradt, a draftok szabályos törlése pedig ismét működik. A `20261013080400` a draft forrásazonosítóit, kéréskulcsát és payloadját közvetlen UPDATE ellen is immutable-lé tette.
 
 Bizonyíték: 29/29 célzott pgTAP; két független authenticated adatbázis-kapcsolatból pontosan egy létrehozás és egy reuse, egy draft és egy tétel; 8/8 A–H valódi Server Action határteszt két ideiglenes, külön szervezethez tartozó bejelentkezett identitással; 8/8 célzott domain/SVG Vitest; teljes Vitest 95 PASS és 8 környezetfüggő teszt szabályosan skip; typecheck, lint és production build PASS. A lokális migrációtörténet `20261013080400`-ig egyezik, minden ideiglenes fixture és segédobjektum eltávolítását nulla darabszám igazolta. Hosted migráció, hosted RLS, backup/restore és terepi mobilvizsgálat nem történt.
+
+## F9.6.2 — Bádogos szegélyek kalkulátora — rövid ajánlás
+
+Következő külön mérföldkőként, az F9.6.1 bevált revision-, katalógus-, SVG- és draft-takeoff határait újrahasznosítva érdemes indítani. Az első gyártófüggetlen domain-modell kezelje az orom-, fal-, eresz- és gerincszegélyt, a vápalemezt, valamint explicit felhasználói profilt; csak megadott szakaszhossz, kereskedelmi elemhossz, darabszám, ráhagyás és kézi tartozék alapján számoljon. Profilgeometria, átfedés, rögzítés és gyártói korlát kizárólag igazolt vagy egyértelműen felhasználói adatból származhat; ezek nélkül az eredmény maradjon láthatóan előzetes becslés.

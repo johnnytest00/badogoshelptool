@@ -468,7 +468,7 @@ ellenőrzött.
 | Typecheck | Sikeres | npm run typecheck PASS. |
 | Perzisztens UI és revision mentés | F9.6.1.1.1-ben kész | A következő integrációs táblázat tartalmazza a lokális acceptance bizonyítékot. |
 | Geometria | F9.6.1.1.1-ben kész | Két ereszjavaslat a mentett nyeregtető modellből; a forrásrevízió-idő lekérdezés javítva. |
-| Katalógus- és takeoff-integráció | Nem implementált | F9.6.1.2 hatóköre. |
+| Katalógus- és takeoff-integráció | F9.6.1.2.1-ben kész | Az explicit variánskapcsolat, egységvédelem, atomi draft átadás és snapshot-integritás bizonyítékát a lenti F9.6.1.2/.2.1 táblázatok tartalmazzák. |
 | Hidraulikai/gyártói megfelelés | Támogatáson kívül | Nem számít és nem állít ilyen eredményt. |
 
 ## F9.6.1.1 — alkalmazásintegráció
@@ -479,7 +479,7 @@ ellenőrzött.
 | Form és domain újraszámítás | Typecheck/lint/build | A kliens csak domain-kalkulátort hív; a mentési action szerveroldalon újraszámol. |
 | Revision RPC és RLS | Célzott lokális pgTAP PASS | 009_gutter_calculation.sql: 21 teszt; a külön szervezethez tartozó felhasználó olvasása/írása elutasítva. |
 | Geometry suggestion | Böngészőben PASS | Két mentett nyeregtető-eresz javaslat explicit kiválasztása, forrás-revíziókapcsolat mentve. |
-| Material takeoff / SVG | Nem implementált | F9.6.1.2 hatóköre. |
+| Material takeoff / SVG | F9.6.1.2.1-ben kész | A katalógus-, technikai SVG- és draft takeoff-integráció külön mérföldkőként lezárva; bizonyíték lent. |
 
 ## F9.6.1.1.1 — integráció végső elfogadása
 
