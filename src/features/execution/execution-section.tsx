@@ -9,7 +9,7 @@ export function ExecutionSection({ children }: Readonly<{ children: React.ReactN
   }
 
   return (
-    <details className="project-execution-disclosure" onToggle={resetNestedSectionsWhenClosed}>
+    <details id="kivitelezes" className="project-execution-disclosure" onToggle={resetNestedSectionsWhenClosed}>
       <summary>
         <h2>Kivitelezés</h2>
         <ChevronDown aria-hidden="true" className="execution-disclosure-chevron" />

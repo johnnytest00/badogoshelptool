@@ -14,6 +14,8 @@ describe("ereszcsatorna-kalkulátor felülete", () => {
     }));
     expect(html).toContain("Választott ereszcsatorna-szál hossza (mm)");
     expect(html).toContain("A könyökök a rajzon megjelennek, de nem kerülnek automatikusan az anyagkimutatásba.");
+    expect(html).toContain("Új, még nem mentett számítás");
+    expect(html).toContain("Mentés új változatként · V1");
     expect(html).not.toContain('value="4000"');
     expect(html).not.toContain("F9.6.1.1.1");
   });

@@ -24,7 +24,7 @@ describe("project overview navigation and execution disclosures", () => {
       ),
     }));
 
-    expect(html).toContain("<details class=\"project-execution-disclosure\">");
+    expect(html).toContain("<details id=\"kivitelezes\" class=\"project-execution-disclosure\">");
     expect(html).toContain("<h2>Kivitelezés</h2>");
     expect(html.match(/<details class="execution-nested-disclosure">/g)).toHaveLength(2);
     expect(html).toContain("<summary>Dokumentáció</summary>");

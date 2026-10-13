@@ -650,3 +650,38 @@ ellenőrzött.
 | Böngésző, mobil, PDF vizuális | Nem futott | A korábbi helyi szerverindítás mindkét loopback/bind címen `EPERM` hibával zárult; ebben a körben nem ismételtem a sikertelen indítást. Vizuális és hitelesített workflow továbbra is külön ellenőrzést igényel. |
 | Teljes regresszió / adatbázis | Nem futott | A változtatás UI-szöveg és kliensoldali mezőválaszték; képlet, séma, RLS és perzisztencia-szerződés változatlan. |
 | `git diff --check` | PASS | A végső tracked diff és az új fájlok külön whitespace-ellenőrzése sikeres. |
+
+## F9.7.2 — egységes projektfolyamat-áttekintő
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Fókuszált Vitest | PASS | `npx vitest run src/features/projects/project-workflow-overview.test.ts src/features/projects/project-navigation.test.ts`: 3 fájl / 7 teszt; üres adatok, valós status mapping, latest version, project+organization link, tenant filters, no false completion, disclosure megmarad. |
+| Typecheck / lint / build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (webpack). |
+| Böngészős smoke | PASS, desktop | Egy hitelesített helyi DEMO projekt: 3 kalkulátormodul státusza/linkjei, takeoff/quotation valós státuszösszesítő, Tetőmodellek és projektadatok látszottak; Kivitelezés csukva maradt. Egy ereszkalkulátor read-only bejárása ellenőrizte a magyar mezőket, bemeneti értékeket, revíziót, becslési korlátokat és tiltott átadást; adatot nem módosítottam. |
+| Keskeny nézet | Nem ellenőrzött | A meglévő desktop Brave tab nem tett lehetővé viewport override-ot; reszponzív breakpoint csak forrásból ellenőrizhető. |
+| Jogosultság/adatkonzisztencia | Forrás alapján | Új lekérdezések `organization_id` és `project_id` szűrtek; tető/kivitelezés meglévő projektlekérdezések újrahasználva. Csak SELECT listaadat, nincs mutáció. RLS/DB teszt ebben a körben nem futott. |
+| Teljes regresszió / DB | Nem futott | Nincs séma, üzleti státusz, kalkulációs vagy átadási logika változás. |
+| `git diff --check` | PASS | Végső változtatáskészlet whitespace ellenőrzése. |
+
+### F9.7.2.1 — reszponzív és akadálymentességi QA
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Desktop vizuális / keyboard | Részleges PASS | Hitelesített Brave projektoldal: fókuszkeret látható billentyűzetes Tab után; Kivitelezés Space billentyűvel nyílt/csukódott. AX fa mutatta az egyedi linkneveket, szemantikus főcímet és natív disclosure-t. Nincs screen-reader QA. |
+| 390 / 768 px | Nem futott | Böngészőleltárban nem volt viewport-override; nincs tényleges vizuális vagy overflow bizonyíték. CSS breakpoint: workflow 4→2 oszlop 850 px alatt, 1 oszlop 560 px alatt; kalkulátornavigáció 3→2→1; projektadat 760 px alatt 1 oszlop. Ez forrásvizsgálat, nem render QA. |
+| Forrás/CSS akadálymentességi ellenőrzés | PASS, forrás alapján | Workflow modul linkek minimum 44 px magasak és saját fókuszkeretet kaptak; fő és kártyacímek h2/h3; státuszok szövegesek; natív `<details>/<summary>` expanded/keyboard szemantikát ad. |
+| Jogosultság/adat-hozzáférés | PASS, forrás + teszt | Oldal a `getProjectForOrganization(orgId, projectId)` ellenőrzés null eredményénél leáll, és csak utána kéri le az aggregátumokat. A workflow query mindhárom táblát org+project szerint szűri; `project-workflow-data.test.ts` ezt közvetlenül ellenőrzi. RLS-t nem módosítottam. |
+| Fókuszált Vitest | PASS | `npx vitest run src/features/projects/project-workflow-overview.test.ts src/features/projects/project-workflow-data.test.ts src/features/projects/project-navigation.test.ts`: 3 fájl / 8 teszt. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (webpack), `git diff --check`. |
+
+## F9.7.3 — kalkulátor UX-konzisztencia
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Kalkulátor UI Vitest | PASS | `npx vitest run src/features/gutters/gutter-calculator-ux.test.ts src/features/flashings/calculator-ux.test.ts src/features/sheet-metal/profile-editor.test.ts`: 3 fájl / 12 teszt; magyar revízióállapot és új változat mentési felirat regressziója, meglévő szakmai feliratok. SSR markup, nem kliensinterakció. |
+| Typecheck / lint / build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack). |
+| Keskeny űrlap forrásellenőrzés | PASS, CSS alapján | 560 px alatt profilmezők és mentési vezérlők egy oszlopra váltanak. 390/768 px tényleges render vagy overflow nem igazolt. |
+| Hitelesített böngészősmoke | Nem futott | Brave tablista üres; helyi szerverindítás korábbi körben `EPERM` hibát adott, nem ismételtem a korábban sikertelen viewport-emulációt. |
+| SVG, katalógus és draft átadás UI | Nem ellenőrzött | E körben ezek elrendezése/vezérlése nem változott; a kliensszövegek alapján sem tekinthető elfogadottnak az interaktív viselkedés. |
+| DB, jogosultság, üzleti logika | Nem futott / nem változott | Nincs action, snapshot, képlet, adatbázisséma, migráció, RPC vagy engedélyezési szerződés változás. |
+| `git diff --check` | PASS | A feladatváltoztatásokra futtatva. |

@@ -17,6 +17,7 @@ describe("szegély- és profilkalkulátor szakmai feliratai", () => {
     expect(html).toContain("Toldásonkénti átfedést adok meg");
     expect(html).toContain("Minden további szál hasznos fedési hosszát adom meg");
     expect(html).toContain("Átfedés nélküli kapcsolatot csak akkor adj meg");
+    expect(html).toContain("Új, még nem mentett számítás");
     expect(html).not.toContain("F9.6.2");
   });
   it("a profilnál a tangensméretet, irányt és a BA/K forrásigényét mutatja", () => {
