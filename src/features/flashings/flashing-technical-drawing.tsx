@@ -9,7 +9,7 @@ export function FlashingTechnicalDrawing({ input, output, sourceRevisionId }: Re
   const sourceLabel = sourceRevisionId === "Nem mentett előnézet" ? "nem mentett előnézet" : "mentett számítási változat";
   const connectionLabels: Record<string, string> = { unknown: "nincs megadva", explicit_overlap: "megadott átfedés", effective_length_supplied: "megadott hasznos fedés", no_overlap_confirmed: "átfedés nélküliként megadva" };
   return <div className="flashing-drawing" aria-label="Szegélyanyag műszaki áttekintés">
-    <div className="flashing-drawing-scroll">
+    <div className="flashing-drawing-scroll" role="region" aria-label="Szegélyrajz, vízszintesen görgethető" tabIndex={0}>
       <svg viewBox={`0 0 ${model.width} ${model.height}`} role="img" aria-labelledby="flashing-drawing-title flashing-drawing-desc">
         <title id="flashing-drawing-title">Szegélyszakaszok méretezett sémája</title>
         <desc id="flashing-drawing-desc">A {sourceLabel} alapján készült, méretarányos lineáris becslési séma. Nem mutat tetőtopológiát, profilmetszetet vagy szerelési kapcsolatot. Kapcsolati adatok: {connectionLabels[model.connectionMode] ?? "nincs megadva"}.</desc>
@@ -43,6 +43,6 @@ export function FlashingTechnicalDrawing({ input, output, sourceRevisionId }: Re
         </g>
       </svg>
     </div>
-    <p className="detail-description">Lineáris séma, nem tetőrajz, profilmetszet, vágásterv vagy szerelési jóváhagyás. A terméknév és a kategória nem bizonyít profil- vagy gyártói kompatibilitást.</p>
+    <p className="detail-description">A széles séma vízszintesen görgethető; külön nagyítás vagy mozgatás nem érhető el. Lineáris séma, nem tetőrajz, profilmetszet, vágásterv vagy szerelési jóváhagyás. A terméknév és a kategória nem bizonyít profil- vagy gyártói kompatibilitást.</p>
   </div>;
 }

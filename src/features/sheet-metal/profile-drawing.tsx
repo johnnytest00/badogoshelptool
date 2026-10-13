@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent } from "react";
-import { Minus, Plus, RotateCcw, Scan } from "lucide-react";
+import { Minus, Plus, Scan } from "lucide-react";
 import type { SheetMetalProfileOutput } from "@/domain/calculations/sheet-metal-profile";
 import { drawingDimensions, drawingFrame, primitivePath } from "@/features/sheet-metal/profile-drawing-model";
 import { selectionMatches, type Selection } from "@/features/sheet-metal/profile-editor-model";
@@ -71,8 +71,7 @@ export function ProfileDrawing({ output, selection, onSelect, thicknessMm }: Rea
     <div className="profile-drawing-toolbar"><span>Méretarányos keresztmetszet · {Math.round(view.zoom * 100)}%</span><div>
       <button type="button" className="icon-button" aria-label="Kicsinyítés" onClick={() => changeZoom(1 / 1.25)}><Minus size={18} /></button>
       <button type="button" className="icon-button" aria-label="Nagyítás" onClick={() => changeZoom(1.25)}><Plus size={18} /></button>
-      <button type="button" className="icon-button" aria-label="Nézet alaphelyzetbe" onClick={() => setView(initialView)}><RotateCcw size={18} /></button>
-      <button type="button" className="icon-button" aria-label="Profil illesztése" onClick={() => setView(initialView)}><Scan size={18} /></button>
+      <button type="button" className="icon-button" aria-label="Profil illesztése és nézet alaphelyzetbe állítása" onClick={() => setView(initialView)}><Scan size={18} /></button>
     </div></div>
     <svg ref={svgRef} className="profile-svg" viewBox={`${frame.x} ${frame.y} ${frame.width} ${frame.height}`} role="group" aria-label="Interaktív lemezprofil keresztmetszet" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerCancel} onWheel={onWheel}>
       <g transform={`translate(${view.x} ${view.y}) translate(${center.x} ${center.y}) scale(${view.zoom}) translate(${-center.x} ${-center.y})`}>
@@ -100,6 +99,6 @@ export function ProfileDrawing({ output, selection, onSelect, thicknessMm }: Rea
         {capMid && <text className="profile-thickness-label" x={capMid.x} y={capMid.y} textAnchor="end" fontSize={textSize * .85}>t = {mm(thicknessMm)} mm</text>}
       </g>
     </svg>
-    <p className="profile-drawing-note">Az ívek és a kontúr a számított geometriából származnak. A méretfeliratok helye szemléltető; ez nem gyártási rajz.</p>
+    <p className="profile-drawing-note">Nagyítás és kicsinyítés a gombokkal vagy görgetéssel; a rajz egy ujjal vagy egérrel mozgatható. Az illesztés a nézetet alaphelyzetbe állítja. Az ívek és a kontúr a számított geometriából származnak. A méretfeliratok helye szemléltető; ez nem gyártási rajz.</p>
   </div>;
 }

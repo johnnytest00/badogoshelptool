@@ -6,6 +6,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 vi.mock("./gutter-actions", () => ({ saveGutterCalculationAction: vi.fn(), createGutterTakeoffDraftAction: vi.fn() }));
 
 import { GutterCalculator } from "./gutter-calculator";
+import { calculateGutterMaterial, type GutterMaterialInput } from "@/domain/calculations/gutter-material";
 
 describe("ereszcsatorna-kalkulátor felülete", () => {
   it("nem kínál forrás nélküli szálhosszt és jelzi a lefolyótartozékok átadását", () => {
@@ -18,5 +19,21 @@ describe("ereszcsatorna-kalkulátor felülete", () => {
     expect(html).toContain("Mentés új változatként · V1");
     expect(html).not.toContain('value="4000"');
     expect(html).not.toContain("F9.6.1.1.1");
+  });
+
+  it("mentett számításnál az eredmény, rajz, katalógus és átadás olvasási sorrendjét megőrzi", () => {
+    const input: GutterMaterialInput = { gutterStockLengthMm: 4000, runs: [{ id: "r1", name: "DEMO eresz", lengthMm: 5000, description: "DEMO", measurementSource: "demo", roofEdge: null, bracketSpacingMm: null }], downpipes: [], manualComponents: [] };
+    const output = calculateGutterMaterial(input);
+    const revision = { revisionId: "revision-1", revisionNumber: 1, input, output, createdAt: "2026-10-13T00:00:00Z" };
+    const html = renderToStaticMarkup(createElement(GutterCalculator, {
+      organizationId: "org", projectId: "project", suggestions: [], catalogVariants: [],
+      saved: { calculationId: "calculation-1", ...revision, sourceRoofRevisionId: null, revisions: [revision] },
+    }));
+    expect(html).toContain("DEMO eresz");
+    expect(html).toContain("Mentett aktuális változat · V1");
+    expect(html.indexOf("Előzetes mennyiségek")).toBeLessThan(html.indexOf("Ereszcsatorna anyagbecslési séma"));
+    expect(html.indexOf("Ereszcsatorna anyagbecslési séma")).toBeLessThan(html.indexOf("Anyagok hozzárendelése"));
+    expect(html).toContain("Átadás megerősítése · új piszkozat");
+    expect(html).toContain("legalább egy kompatibilis katalógusváltozatot");
   });
 });

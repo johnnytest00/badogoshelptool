@@ -6,7 +6,7 @@ export function GutterTechnicalDrawing({ input, output, sourceRevisionId }: Read
   return <div className="gutter-drawing" aria-label="Ereszcsatorna technikai séma">
     <svg viewBox={`0 0 ${model.width} ${model.height}`} role="img" aria-labelledby="gutter-drawing-title gutter-drawing-desc">
       <title id="gutter-drawing-title">Ereszcsatorna anyagbecslési séma</title>
-      <desc id="gutter-drawing-desc">A mentett revízió konfigurált ereszszakaszai és egymástól független lefolyómenetei; nem kivitelezési rajz.</desc>
+      <desc id="gutter-drawing-desc">A {sourceRevisionId ? "mentett számítási változat" : "nem mentett előnézet"} ereszszakaszai és egymástól független lefolyómenetei; nem kivitelezési rajz.</desc>
       <text x="24" y="28" className="gutter-svg-title">Ereszcsatorna · séma</text>
       {model.runs.map((run) => <g key={run.id}>
         <text x="24" y={run.y + 34} className="gutter-svg-label">{run.label}</text>

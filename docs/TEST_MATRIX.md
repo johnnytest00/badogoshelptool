@@ -685,3 +685,14 @@ ellenőrzött.
 | SVG, katalógus és draft átadás UI | Nem ellenőrzött | E körben ezek elrendezése/vezérlése nem változott; a kliensszövegek alapján sem tekinthető elfogadottnak az interaktív viselkedés. |
 | DB, jogosultság, üzleti logika | Nem futott / nem változott | Nincs action, snapshot, képlet, adatbázisséma, migráció, RPC vagy engedélyezési szerződés változás. |
 | `git diff --check` | PASS | A feladatváltoztatásokra futtatva. |
+
+## F9.7.3.1 — végső kalkulátor UX-konzisztencia
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Célzott Vitest | PASS | `npx vitest run src/features/flashings/drawing-preview.test.ts src/features/flashings/calculator-ux.test.ts src/features/gutters/gutter-calculator-ux.test.ts src/features/sheet-metal/profile-editor.test.ts`: 4 fájl / 18 teszt. Névváltozás miatti mentetlen állapot, élő és mentett rajzforrás, invalid rajz elrejtése, mentett eredmény/rajz/katalógus/átadási vezérlők, profil zoom és egyetlen illesztés/alaphelyzet gomb. SSR markup és tiszta UI-állapot teszt, nem kattintásos böngészőteszt. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Katalógus és átadás | PASS, forrás + markup | Eresznél darabegység, árhiány, mentett V-forrás és letiltási ok; szegélynél előzetes db/fm, kompatibilitás, árstátusz, stale/dirty jelzés; profilnál nettó m² és BA/K korlát megmaradt. Szerveraction és RPC változatlan; új backendteszt nem futott. |
+| SVG és figyelmeztetés | PASS, célzott teszt + forrás | Szegélyrajz tiszta kiválasztási szabállyal élő/saved/invalid állapotban, billentyűzetes görgethető régió; profil zoomgombok és közös fit/reset; az eredmény és figyelmeztetés az átadás előtt. Fizikai touch nem ellenőrzött. |
+| Hitelesített böngésző / 390 és 768 px / fizikai eszköz | UNVERIFIED | Brave tablista az előző körben üres volt, ugyanazt a nem elérhető workflow-t nem ismételtem. Viewport és touch/pinch vizuális QA F9.7.4. |
+| Teljes regresszió / pgTAP / konkurencia | Nem futott | Kizárólag helyi UI-kód változott. Korábban bizonyított perzisztencia- és jogosultsági szerződésekre támaszkodik; új DB/RPC-változás nincs. |
