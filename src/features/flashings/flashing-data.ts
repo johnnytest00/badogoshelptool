@@ -3,6 +3,8 @@ import { gableRoofCalculator } from "@/domain/calculations/gable-roof";
 import { flashingMaterialInputSchema, flashingMaterialCalculator, type FlashingMaterialInput, type FlashingMaterialOutput } from "@/domain/calculations/flashing-material";
 import { mapGableRoofToFlashingSuggestions } from "@/domain/calculations/flashing-geometry";
 import { createClient } from "@/infrastructure/supabase/server";
+import { getMaterialProductsForOrganization } from "@/features/materials/material-data";
+import type { FlashingCatalogVariant } from "@/domain/calculations/flashing-material-integration";
 
 export type FlashingGeometrySuggestion = {
   id: string;
@@ -14,6 +16,21 @@ export type FlashingGeometrySuggestion = {
 
 export type FlashingSavedRevision = { revisionId: string; revisionNumber: number; displayName: string; input: FlashingMaterialInput; output: FlashingMaterialOutput; createdAt: string; stale: boolean };
 export type FlashingCalculationRecord = FlashingSavedRevision & { calculationId: string; revisions: FlashingSavedRevision[] };
+
+export async function getFlashingCatalogVariants(organizationId: string): Promise<FlashingCatalogVariant[]> {
+  const products = (await Promise.all(["flashing", "sheet_metal"].map((category) => getMaterialProductsForOrganization(organizationId, { category })))).flat();
+  return products.filter((product) => product.status === "active").flatMap((product) => product.variants.map((variant) => ({
+    id: variant.id, productId: product.id, productName: product.name, productCategory: product.category,
+    productStatus: product.status, manufacturerName: product.manufacturerName, productCode: product.productCode,
+    variantName: variant.name, sku: variant.sku, purchasingUnit: variant.purchasingUnit, lengthMm: variant.lengthMm,
+    nominalWidthMm: variant.nominalWidthMm, effectiveWidthMm: variant.effectiveWidthMm, thicknessMm: variant.thicknessMm,
+    packagingQuantity: variant.packagingQuantity, technicalSpecs: variant.technicalSpecs, provenance: variant.provenance,
+    sourceName: variant.sourceName, sourceUrl: variant.sourceUrl, sourceDate: variant.sourceDate, sourceNotes: variant.sourceNotes,
+    latestPrice: variant.latestPrice ? { id: variant.latestPrice.id, amount: variant.latestPrice.amount, currency: variant.latestPrice.currency,
+      purchasingUnit: variant.latestPrice.purchasingUnit, priceKind: variant.latestPrice.priceKind, effectiveDate: variant.latestPrice.effectiveDate,
+      provenance: variant.latestPrice.provenance, sourceName: variant.latestPrice.sourceName, sourceUrl: variant.latestPrice.sourceUrl } : null,
+  })));
+}
 
 const parseInput = (value: unknown) => { const result = flashingMaterialInputSchema.safeParse(value); return result.success ? result.data : null; };
 const parseOutput = (value: unknown) => { const parsed = flashingMaterialCalculator.outputSchema.safeParse(value); return parsed.success ? parsed.data as FlashingMaterialOutput : null; };

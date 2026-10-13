@@ -354,7 +354,17 @@ A `20261013080500_flashing_calculation_persistence.sql` új, szervezet/projekt/k
 
 A mentés külön dependency sort rögzít a tetőmodell-revízióra és a geometriai kalkulációs revízióra. Az UI szerveroldalon újraszámol, nem küldött kliens-outputot használ; az RPC az exact upstream ownershipet és mező-hozzárendelést újra validálja. A célzott `011_flashing_calculation.sql` pgTAP lefedi a V1/V2 létrehozást, snapshot-megőrzést, mindkét dependencyt, expected-revision konfliktust, nem támogatott/keresztprojekt forrást, nem tag olvasását/írását és közvetlen revision módosítás/törlés tiltását.
 
-Ellenőrzési korlát: a feladatkörnyezetben a Supabase CLI szerinti `migration list --local` nem tudott kapcsolódni a `127.0.0.1:54322` PostgreSQL-hez (ECONNREFUSED); a helyi migráció nem lett alkalmazva, pgTAP nem futott. A CLI telemetria-írását környezeti kapcsolóval tiltva a tényleges adatbázis-elérhetetlenség így is megállapítható volt. Hosted adatbázishoz nem csatlakoztam.
+Helyi bizonyíték: a `20261013080500` migráció incremental módon alkalmazva; a célzott `011_flashing_calculation.sql` pgTAP része és az F9.6.2.2.1 végső lokális ellenőrzésben dokumentált 11 fájl / 329 állítás PASS. Hosted adatbázis nem célpont.
+
+## F9.6.2.3 — flashing takeoff draft RPC
+
+A `20261013080600_flashing_takeoff_integration.sql` új táblát nem hoz létre: a F9.6.1-ben bevezetett `transfer_request_key` és `transfer_payload`, valamint a `(organization_id, project_id, transfer_request_key)` egyediség újrahasználatával regisztrálja a `create_flashing_takeoff_draft` SECURITY INVOKER függvényt. EXECUTE csak `authenticated` számára engedélyezett; az `anon`/`public` jog visszavont.
+
+A függvény tagságot, projektet, aktuális verified `sheet_metal.flashings.material-estimate` revíziót, calculator/input-schema verziót és termékstátuszt ellenőriz. Minden mennyiséget a mentett outputból olvas: `run-piece` csak pozitív, nem-null darabszámra; `run-linear` csak explicit pozitív célhossz / 1000 konverzióra; kézi tétel a mentett input mennyiségéből készül. Egységpárosítás pontos (`piece` vagy `linear_meter`), run csak `flashing`/`sheet_metal`, kézi komponens ezen felül `accessory`/`other` kategóriájú terméket is választhat. Variánsazonosító, product/variant technical fields és provenance a material snapshotban; legutóbbi kompatibilis ár pontos ID-je, értéke, dátuma és forrása price snapshotban kerül megőrzésre, hiányzó ár `null`.
+
+A tetőmodell- és geometriai kalkulációs sorokat stabil ID-sorrendben `FOR SHARE` zárolja, utána ellenőrzi a szervezet/projekt ownershipet, current revision pointert, verified státuszt és exact dependency-párt. A draft és minden tétel egyetlen tranzakcióban jön létre; az egyedi kéréskulcs az azonos payloadot reuse-olja, módosult payloadhoz elutasítást ad. Approved recordot az RPC nem módosít; a meglévő approved immutability trigger továbbra is érvényes.
+
+Helyi ellenőrzés: migráció incremental, reset nélkül alkalmazva; `012_flashing_takeoff_integration.sql` 19/19 pgTAP PASS; `scripts/verify-flashing-takeoff-concurrency.mjs` két authenticated kapcsolattal 1 create / 1 reuse eredményt adott. A concurrency script kizárólag saját, véletlen azonosítójú lokális DEMO fixture-t hoz létre és távolít el. Hosted Supabase nem érintett.
 
 ## F9.6.1.2 integrációs adatfolyam
 

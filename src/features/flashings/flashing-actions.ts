@@ -2,14 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { executeCalculator } from "@/domain/calculations/engine";
-import { flashingMaterialCalculator, flashingMaterialInputSchema } from "@/domain/calculations/flashing-material";
+import { FLASHING_MATERIAL_CALCULATOR_VERSION, FLASHING_MATERIAL_INPUT_SCHEMA_VERSION, flashingMaterialCalculator, flashingMaterialInputSchema } from "@/domain/calculations/flashing-material";
+import { buildFlashingTakeoffCandidates, checkFlashingMappings, flashingTakeoffMappingSchema } from "@/domain/calculations/flashing-material-integration";
 import { getAuthContext } from "@/features/auth/auth.server";
+import { getFlashingCatalogVariants } from "@/features/flashings/flashing-data";
 import { createClient } from "@/infrastructure/supabase/server";
 import type { Json } from "@/infrastructure/supabase/database.types";
 
 export type FlashingSaveResult = { ok: boolean; error?: string; revisionNumber?: number };
+export type FlashingTakeoffResult = { ok: boolean; error?: string; takeoffId?: string };
 const read = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+const stableJson = (value: unknown): string => JSON.stringify(value, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : item);
 const edgeRules = new Map([
   ["left-eave", { field: "lengths.eachEaveEdgeMm", category: "eaves" }],
   ["right-eave", { field: "lengths.eachEaveEdgeMm", category: "eaves" }],
@@ -80,6 +84,51 @@ export async function saveFlashingCalculationAction(data: FormData): Promise<Fla
   revalidatePath(`/projektek/${projectId}`);
   revalidatePath(`/projektek/${projectId}/szegelyek`);
   return { ok: true, revisionNumber: result[0].revision_number };
+}
+
+export async function createFlashingTakeoffDraftAction(data: FormData): Promise<FlashingTakeoffResult> {
+  const organizationId = read(data, "organizationId"), projectId = read(data, "projectId");
+  const calculationId = read(data, "calculationId"), revisionId = read(data, "revisionId");
+  const requestKey = read(data, "requestKey"), name = read(data, "name");
+  if (![organizationId, projectId, calculationId, revisionId, requestKey].every(isUuid)) return { ok: false, error: "Érvénytelen projekt-, kalkuláció-, revízió- vagy kérésazonosító." };
+  const auth = await getAuthContext();
+  if (!auth?.organizations.some((organization) => organization.id === organizationId)) return { ok: false, error: "Ehhez a műhelyhez nincs hozzáférésed." };
+  let rawMappings: unknown;
+  try { rawMappings = JSON.parse(read(data, "mappings")); } catch { return { ok: false, error: "Az anyag-hozzárendelések formátuma hibás." }; }
+  if (!Array.isArray(rawMappings) || !rawMappings.length) return { ok: false, error: "Legalább egy katalógustételt rendelj hozzá." };
+  const mappings = rawMappings.map((item) => flashingTakeoffMappingSchema.safeParse(item));
+  if (mappings.some((item) => !item.success)) return { ok: false, error: "Egy anyag-hozzárendelés érvénytelen." };
+  const validMappings = mappings.map((item) => item.success ? item.data : null).filter((item): item is NonNullable<typeof item> => item !== null);
+  if (new Set(validMappings.map((item) => item.candidateId)).size !== validMappings.length) return { ok: false, error: "Egy becslési tétel többször szerepel." };
+  const roots = validMappings.flatMap((item) => item.candidateId.startsWith("run-") ? [item.candidateId.split(":")[1]] : []);
+  if (new Set(roots).size !== roots.length) return { ok: false, error: "Egy szakaszhoz csak egy mennyiségi módot válassz." };
+  const supabase = await createClient();
+  const [{ data: project }, { data: calculation, error: calculationError }] = await Promise.all([
+    supabase.from("projects").select("id").eq("id", projectId).eq("organization_id", organizationId).maybeSingle(),
+    supabase.from("calculations").select("id, current_revision_id, calculator_type, project_id, organization_id, roof_model_id").eq("id", calculationId).eq("organization_id", organizationId).eq("project_id", projectId).eq("calculator_type", flashingMaterialCalculator.id).is("roof_model_id", null).maybeSingle(),
+  ]);
+  if (!project || calculationError || !calculation || calculation.current_revision_id !== revisionId) return { ok: false, error: "A projekt vagy a mentett aktuális szegélyrevízió nem érhető el." };
+  const { data: revision, error: revisionError } = await supabase.from("calculation_revisions").select("id, input_snapshot, output_snapshot, validation_status, calculator_implementation_version, input_schema_version").eq("id", revisionId).eq("calculation_id", calculationId).eq("organization_id", organizationId).maybeSingle();
+  if (revisionError || !revision || revision.validation_status !== "verified" || revision.calculator_implementation_version !== FLASHING_MATERIAL_CALCULATOR_VERSION || revision.input_schema_version !== FLASHING_MATERIAL_INPUT_SCHEMA_VERSION) return { ok: false, error: "A mentett szegélyrevízió nem ellenőrzött, nem támogatott verziójú vagy nem ehhez a kalkulációhoz tartozik." };
+  const input = flashingMaterialInputSchema.safeParse(revision.input_snapshot);
+  const output = flashingMaterialCalculator.outputSchema.safeParse(revision.output_snapshot);
+  if (!input.success || !output.success) return { ok: false, error: "A mentett kalkuláció snapshotja nem értelmezhető." };
+  const recalc = executeCalculator(flashingMaterialCalculator, input.data);
+  if (!recalc.ok || stableJson(recalc.output) !== stableJson(output.data)) return { ok: false, error: "A mentett eredmény nem egyezik az aktuális kalkulációval; frissítsd a revíziót." };
+  const candidates = buildFlashingTakeoffCandidates(input.data, output.data);
+  if (validMappings.some((mapping) => !candidates.some((candidate) => candidate.id === mapping.candidateId))) return { ok: false, error: "Egy hozzárendelt mennyiség nem található a mentett revízióban." };
+  const variants = await getFlashingCatalogVariants(organizationId);
+  const mappingChecks = checkFlashingMappings(candidates.filter((candidate) => validMappings.some((mapping) => mapping.candidateId === candidate.id)), validMappings, variants);
+  const invalid = mappingChecks.find((check) => check.status !== "compatible");
+  if (invalid) return { ok: false, error: `${invalid.candidate.label}: ${invalid.message}` };
+  const { data: result, error } = await supabase.rpc("create_flashing_takeoff_draft", {
+    p_organization_id: organizationId, p_project_id: projectId, p_calculation_id: calculationId,
+    p_revision_id: revisionId, p_name: name || `Szegélyanyagok · ${new Date().toLocaleDateString("hu-HU")}`,
+    p_request_key: requestKey, p_mappings: validMappings as unknown as Json,
+  });
+  if (error || !result?.[0]) return { ok: false, error: error?.code === "42501" ? "A műhelyhez vagy katalógusváltozathoz nincs hozzáférés." : error?.code === "22023" ? "Az átadás adatai megváltoztak vagy nem kompatibilisek; ellenőrizd a mennyiséget és a katalógust." : "Az anyagkimutatás draft nem jött létre." };
+  revalidatePath(`/projektek/${projectId}/anyagkimutatas`);
+  return { ok: true, takeoffId: result[0].takeoff_id };
 }
 
 function runLength(runs: readonly { lengthMm: number; roofEdgeReference?: { edgeId: string; roofModelId: string; roofModelRevisionId: string } | null }[], reference: { edgeId: string; roofModelId: string; roofModelRevisionId: string }) {

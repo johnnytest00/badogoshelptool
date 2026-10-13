@@ -553,3 +553,15 @@ ellenőrzött.
 | Concurrency és immutable history | Sikeres | pgTAP igazolta az elavult expected revision elutasítását, a V1/V2 megtartását és a történeti revízió update/delete tiltását; authenticated UI-val mentés/reload is sikeres. |
 | Typecheck/lint/build | Nem futott újra | Alkalmazáskód nem változott az előző F9.6.2.2 kör óta; az ottani 12/12 célzott Vitest, typecheck, lint és build PASS bizonyítéka megmarad, de ez nem új végső futtatás. |
 | Mobil és gyártói megfelelés | Nem verifikált | Fizikai eszközös QA és gyártói/specifikus jóváhagyás nem része a lokális integrációs bizonyítéknak. |
+
+## F9.6.2.3 — szegély anyagkatalógus, draft-átadás és SVG
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| Katalógus-hozzárendelés | Sikeres | Célzott `flashing-material-integration.test.ts`: mind a hat kategória, egységütközés, archived termék elutasítása, aktív flashing/sheet_metal variáns elfogadása, provenance és ár-ID ellenőrizve. Név alapján kompatibilitást nem állítunk. |
+| Mennyiség és SVG | Sikeres | 6/6 Vitest a flashing geometry teszttel együtt: `null` szálbecslés nem lesz 0, explicit target→fm tartalékkal, méretarány, végkiterjesztés, határok, átfedés és forrásrevízió ellenőrzött. |
+| RPC, jogosultság és immutabilitás | Sikeres | `20261013080600_flashing_takeoff_integration.sql`; `012_flashing_takeoff_integration.sql`: 28/28 pgTAP. Forrásrevízió, piece/fm mennyiségek, null count tiltás/részleges insert hiánya, product/variant identity, technical provenance, exact árrevision ID/forrás snapshot, egység/kategória, cross-project/cross-org, jogosulatlan tagság, idempotencia, payload eltérés és approved immutabilitás PASS. |
+| Valódi párhuzamos idempotencia | Sikeres | `node scripts/verify-flashing-takeoff-concurrency.mjs`: két független authenticated kapcsolat; 1 create + 1 reuse, azonos takeoff-id, egy draft/tétel, authoritative 4,1 fm. A lokális, véletlen DEMO-fixture célzott cleanup-pal készült. |
+| Browser elfogadás | Sikeres | Egy helyi authenticated DEMO munkafolyamat: mentett V2, SVG, kompatibilis `linear_meter` variáns, új draft megnyitása; 6,726 fm, exact V2 revision és estimated provenance látható. A kiválasztott egységhez nem volt ár, ezért price snapshot null/warning. Korábbi approved rekord változatlanul látható. |
+| Alkalmazáskapuk | Sikeres | Célzott Vitest 6/6, `npm run typecheck`, teljes `npm run lint`, `npm run build` webpack PASS. |
+| Narrow viewport/gyártói validáció | Nem ellenőrzött | Fizikai eszközön nem tesztelt; a terméknév/kategória nem bizonyít gyártói profil- vagy szerelési megfelelést. |

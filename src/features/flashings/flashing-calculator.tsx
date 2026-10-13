@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { FlashingCalculationRecord, FlashingGeometrySuggestion } from "./flashing-data";
-import { saveFlashingCalculationAction } from "./flashing-actions";
+import { createFlashingTakeoffDraftAction, saveFlashingCalculationAction } from "./flashing-actions";
 import { executeCalculator } from "@/domain/calculations/engine";
 import { flashingCategories, flashingMaterialCalculator, flashingMaterialInputSchema, type FlashingCategory, type FlashingMaterialInput } from "@/domain/calculations/flashing-material";
+import { buildFlashingTakeoffCandidates, checkFlashingMappings, type FlashingCatalogVariant } from "@/domain/calculations/flashing-material-integration";
+import { FlashingTechnicalDrawing } from "./flashing-technical-drawing";
 
 type RunDraft = { id: string; category: FlashingCategory; name: string; lengthMm: string; lengthSource: FlashingMaterialInput["runs"][number]["lengthSource"]; roofEdgeReference: FlashingMaterialInput["runs"][number]["roofEdgeReference"]; startExtensionMm: string; endExtensionMm: string; reserveMm: string };
 type Draft = { name: string; nominalLengthMm: string; nominalLengthLabel: string; connectionMode: "unknown" | "no_overlap_confirmed" | "explicit_overlap" | "effective_length_supplied"; overlapMm: string; effectiveLengthMm: string; runs: RunDraft[] };
@@ -34,15 +36,18 @@ function toDomainInput(draft: Draft): unknown {
   return { sectionSpec: { nominalLengthMm: numeric(draft.nominalLengthMm), nominalLengthSource: source, connection }, runs: draft.runs.map((run) => ({ ...run, lengthMm: numeric(run.lengthMm), startExtensionMm: numeric(run.startExtensionMm), endExtensionMm: numeric(run.endExtensionMm), reserveMm: numeric(run.reserveMm) })), manualComponents: [] };
 }
 
-export function FlashingCalculator({ organizationId, projectId, suggestions, saved }: Readonly<{ organizationId: string; projectId: string; suggestions: FlashingGeometrySuggestion[]; saved: FlashingCalculationRecord | null }>) {
+export function FlashingCalculator({ organizationId, projectId, suggestions, saved, catalogVariants }: Readonly<{ organizationId: string; projectId: string; suggestions: FlashingGeometrySuggestion[]; saved: FlashingCalculationRecord | null; catalogVariants: FlashingCatalogVariant[] }>) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(() => saved ? draftFromInput(saved.input, saved.displayName) : createInitialDraft());
   const [expectedRevision, setExpectedRevision] = useState(saved?.revisionNumber ?? 0);
   const [baseline, setBaseline] = useState(() => saved ? JSON.stringify(saved.input) : "");
   const [history, setHistory] = useState<FlashingCalculationRecord["revisions"]>(() => saved?.revisions ?? []);
+  const [selectedRevisionId, setSelectedRevisionId] = useState(saved?.revisionId ?? "");
+  const [variantMappings, setVariantMappings] = useState<Record<string, string>>({});
+  const requestKey = useRef(crypto.randomUUID());
   const [feedback, setFeedback] = useState("");
   const [isPending, startTransition] = useTransition();
-  useEffect(() => { if (saved) setHistory(saved.revisions); }, [saved]);
+  useEffect(() => { if (saved) { setHistory(saved.revisions); setSelectedRevisionId(saved.revisionId); } }, [saved]);
 
   const parsed = useMemo(() => flashingMaterialInputSchema.safeParse(toDomainInput(draft)), [draft]);
   const calculated = useMemo(() => parsed.success ? executeCalculator(flashingMaterialCalculator, parsed.data) : null, [parsed]);
@@ -50,6 +55,15 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sav
   const dirty = currentJson !== baseline;
   const validationMessages = parsed.success ? [] : parsed.error.issues.map((issue) => `${issue.path.join(" · ")}: ${issue.message}`);
   const domainErrors = calculated && !calculated.ok ? calculated.errors.map((issue) => issue.message) : [];
+  const selectedRevision = history.find((revision) => revision.revisionId === selectedRevisionId) ?? null;
+  const transferCandidates = useMemo(() => selectedRevision ? buildFlashingTakeoffCandidates(selectedRevision.input, selectedRevision.output) : [], [selectedRevision]);
+  const selectedMappings = useMemo(() => transferCandidates.flatMap((candidate) => variantMappings[candidate.id] ? [{ candidateId: candidate.id, variantId: variantMappings[candidate.id]! }] : []), [transferCandidates, variantMappings]);
+  const mappingChecks = useMemo(() => checkFlashingMappings(transferCandidates, selectedMappings, catalogVariants), [transferCandidates, selectedMappings, catalogVariants]);
+  const selectedGroups = selectedMappings.flatMap((mapping) => { const candidate = transferCandidates.find((item) => item.id === mapping.candidateId); return candidate ? [candidate.groupId] : []; });
+  const hasDuplicateGroup = new Set(selectedGroups).size !== selectedGroups.length;
+  const drawingOutput = selectedRevision?.output ?? (calculated?.ok ? calculated.output : null);
+  const drawingInput = selectedRevision?.input ?? (parsed.success ? parsed.data : null);
+  const transferReady = Boolean(saved && selectedRevision && selectedRevision.revisionId === saved.revisionId && !selectedRevision.stale && !dirty && selectedMappings.length > 0 && !hasDuplicateGroup && mappingChecks.filter((check) => selectedMappings.some((item) => item.candidateId === check.candidate.id)).every((check) => check.status === "compatible"));
 
   const update = (change: (current: Draft) => Draft) => setDraft((current) => change(current));
   const updateRun = (id: string, change: (run: RunDraft) => RunDraft) => update((current) => ({ ...current, runs: current.runs.map((run) => run.id === id ? change(run) : run) }));
@@ -73,6 +87,20 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sav
     });
   };
 
+  const transfer = () => {
+    if (!transferReady || !saved || !selectedRevision) return;
+    const data = new FormData();
+    data.set("organizationId", organizationId); data.set("projectId", projectId); data.set("calculationId", saved.calculationId);
+    data.set("revisionId", selectedRevision.revisionId); data.set("requestKey", requestKey.current); data.set("name", `${draft.name} · anyagkimutatás`.slice(0, 200));
+    data.set("mappings", JSON.stringify(selectedMappings));
+    setFeedback("");
+    startTransition(async () => {
+      const result = await createFlashingTakeoffDraftAction(data);
+      if (!result.ok || !result.takeoffId) { setFeedback(result.error ?? "Az anyagkimutatás draft létrehozása nem sikerült."); return; }
+      router.push(`/projektek/${projectId}/anyagkimutatas?organization=${organizationId}&takeoff=${result.takeoffId}#takeoff-${result.takeoffId}`);
+    });
+  };
+
   return <div className="materials-workspace flashing-workspace">
     <section className="projects-toolbar material-detail-header"><div><p className="section-eyebrow">F9.6.2 · PROJEKTKALKULÁTOR</p><h1>Bádogos szegélyek kalkulátora</h1><p>Több, egymástól független szakasz előzetes anyaghossz- és darabszámbecslése.</p></div><div className="flashing-save-state" aria-live="polite">{dirty ? <span className="status-pill">Mentetlen módosítás</span> : <span className="status-pill">{expectedRevision ? `Mentve · V${expectedRevision}` : "Új kalkuláció"}</span>}</div></section>
 
@@ -85,6 +113,12 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sav
     {(validationMessages.length > 0 || domainErrors.length > 0) && <section className="flashing-errors" role="alert"><strong>Ellenőrizendő adatok</strong>{[...validationMessages, ...domainErrors].map((message, index) => <p key={`${index}-${message}`}>{message}</p>)}</section>}
     <section className="detail-surface flashing-section" aria-labelledby="results-title"><div className="section-heading"><div><p className="section-eyebrow">ELŐZETES BECSLÉS</p><h2 id="results-title">Eredmény és figyelmeztetések</h2></div></div>{calculated?.ok ? <><div className="flashing-results">{calculated.output.runs.map((result) => <article className="flashing-result" key={result.id}><div className="flashing-result-heading"><strong>{result.name}</strong><span className="status-pill">{result.status === "incomplete" ? "HIÁNYOS" : result.lengthSource === "user_provided" ? "FELHASZNÁLÓI ADAT" : "ELŐZETES"}</span></div><p>{categoryLabels[result.category]} · szükséges fedés: {result.requiredCoverageLengthMm.toLocaleString("hu-HU")} mm · tartalékkal: {result.planningTargetLengthMm.toLocaleString("hu-HU")} mm</p>{result.estimatedSectionCount === null ? <strong className="flashing-count-missing">Darabszám nem számítható.</strong> : <strong>Becsült szál: {result.estimatedSectionCount} db · toldás: {result.jointCount} db · névleges készlethossz: {result.totalNominalStockLengthMm?.toLocaleString("hu-HU")} mm</strong>}{result.estimatedSectionCount === null && <small>Hiányzó adat: válassz igazolt átfedés nélküli kapcsolatot, vagy adj meg explicit átfedést / szálankénti hasznos fedési többletet. Gyártói alapértéket a kalkulátor nem állít be.</small>}{result.warnings.map((warning) => <small key={warning}>{warning}</small>)}</article>)}</div><p className="detail-description">A darabszám matematikai becslés, nem végleges beszerzési mennyiség, vágásterv vagy szerelési jóváhagyás.</p></> : <p className="missing-data">Adj meg érvényes hosszakat és szálparamétereket az eredményhez. A hibás mezők értéke megmarad a javításhoz.</p>}</section>
 
-    <section className="detail-surface flashing-section" aria-labelledby="history-title"><div className="section-heading"><div><p className="section-eyebrow">IMMUTABLE ELŐZMÉNYEK</p><h2 id="history-title">Mentett revíziók</h2></div></div>{history.length ? <div className="flashing-history">{history.map((revision) => <button type="button" className="secondary-button" key={revision.revisionId} onClick={() => { setDraft(draftFromInput(revision.input, revision.displayName)); setBaseline(JSON.stringify(revision.input)); setFeedback(revision.stale ? `V${revision.revisionNumber} történeti forrása elavult; a snapshot változatlan.` : `V${revision.revisionNumber} betöltve.`); }}>{`V${revision.revisionNumber} · ${revision.displayName} · ${new Date(revision.createdAt).toLocaleString("hu-HU")}${revision.stale ? " · elavult forrás" : ""}`}</button>)}</div> : <p className="missing-data">Még nincs mentett revízió.</p>}<div className="form-actions"><button className="primary-button" type="button" disabled={isPending || !dirty || !parsed.success || !calculated?.ok} onClick={save}>{isPending ? "Mentés…" : `Mentés új revízióként${expectedRevision ? ` · V${expectedRevision + 1}` : " · V1"}`}</button>{feedback && <p className={feedback.includes("sikerült") || feedback.includes("nem") ? "form-message is-error" : "form-message is-success"} role="status">{feedback}</p>}</div></section>
+    <section className="detail-surface flashing-section" aria-labelledby="drawing-title"><div className="section-heading"><div><p className="section-eyebrow">MÉRETEZETT SÉMA</p><h2 id="drawing-title">Műszaki áttekintés</h2></div></div>{drawingInput && drawingOutput ? <FlashingTechnicalDrawing input={drawingInput} output={drawingOutput} sourceRevisionId={selectedRevision?.revisionId ?? "Nem mentett előnézet"} /> : <p className="missing-data">Érvényes számított adat szükséges a műszaki áttekintéshez.</p>}</section>
+
+    <section className="detail-surface flashing-section" aria-labelledby="mapping-title"><div className="section-heading"><div><p className="section-eyebrow">KATALÓGUSHOZZÁRENDELÉS</p><h2 id="mapping-title">Anyagok hozzárendelése</h2></div></div><p className="detail-description">A darabbecslés és a tartalékot tartalmazó tervezési folyóméter alternatíva: szakaszonként legfeljebb az egyiket válaszd. A kiválasztás csak kategóriát és egységet ellenőriz, gyártói profil- vagy szerelési kompatibilitást nem igazol.</p>{!selectedRevision ? <p className="missing-data">Anyagkimutatás előkészítéséhez ments előbb egy ellenőrzött kalkulációs revíziót.</p> : selectedRevision.stale ? <p className="flashing-count-missing">A kiválasztott revízió forrásgeometriája elavult; új átadás nem indítható.</p> : !transferCandidates.length ? <p className="missing-data">A mentett revízióban nincs átadható anyagtétel.</p> : <div className="flashing-mapping-list">{transferCandidates.map((candidate) => { const check = mappingChecks.find((item) => item.candidate.id === candidate.id)!; const variant = catalogVariants.find((item) => item.id === variantMappings[candidate.id]); return <article className="flashing-mapping-row" key={candidate.id}><div><strong>{candidate.label}</strong><small>{candidate.quantity.toLocaleString("hu-HU", { maximumFractionDigits: 3 })} {candidate.unit === "piece" ? "db" : "fm"} · {candidate.measurementSource}</small><small>{candidate.warning}</small></div><label className="material-field">Katalógusváltozat<select value={variantMappings[candidate.id] ?? ""} onChange={(event) => { setVariantMappings((current) => ({ ...current, [candidate.id]: event.target.value })); requestKey.current = crypto.randomUUID(); }}><option value="">Nincs hozzárendelve</option>{catalogVariants.map((item) => <option key={item.id} value={item.id}>{item.productName} · {item.variantName} · {item.purchasingUnit}{item.sku ? ` · ${item.sku}` : ""}</option>)}</select></label><div><small className={check.status === "incompatible" ? "flashing-count-missing" : ""}>{check.message}</small>{variant && <small>{variant.manufacturerName ?? "Gyártó nincs megadva"} · {variant.productCode ?? "termékkód nincs megadva"} · {variant.provenance}{variant.sourceName ? ` · forrás: ${variant.sourceName}` : ""}</small>}{variant && <small>Paraméterek: {Object.keys(variant.technicalSpecs).length ? Object.entries(variant.technicalSpecs).map(([key, value]) => `${key}: ${value}`).join(" · ") : "nincs rögzítve"}{variant.lengthMm ? ` · hossz ${variant.lengthMm} mm` : ""}{variant.thicknessMm ? ` · vastagság ${variant.thicknessMm} mm` : ""}</small>}{variant && <small>{variant.latestPrice ? `Legutóbbi ár: ${variant.latestPrice.amount.toLocaleString("hu-HU")} ${variant.latestPrice.currency}/${variant.latestPrice.purchasingUnit} · ${variant.latestPrice.sourceName ?? variant.latestPrice.provenance} · ${variant.latestPrice.effectiveDate}` : "Nincs rögzített árverzió."}</small>}</div></article>; })}</div>}
+      <div className="flashing-transfer-preview"><h3>Anyagkimutatás előkészítése</h3><p>{selectedRevision ? `Forrás: mentett V${selectedRevision.revisionNumber} · ${selectedRevision.revisionId}` : "Nincs kiválasztott mentett revízió."} · {selectedMappings.length} hozzárendelés · új draft jön létre, jóváhagyott kimutatás nem módosul.</p>{hasDuplicateGroup && <small className="flashing-count-missing">Egy szakaszhoz csak egy mennyiségi mód választható.</small>}{selectedMappings.length > 0 && <ul>{selectedMappings.map((mapping) => { const candidate = transferCandidates.find((item) => item.id === mapping.candidateId)!; const variant = catalogVariants.find((item) => item.id === mapping.variantId); return <li key={mapping.candidateId}>{candidate.label}: {candidate.quantity.toLocaleString("hu-HU", { maximumFractionDigits: 3 })} {candidate.unit === "piece" ? "db" : "fm"} → {variant?.productName} / {variant?.variantName}</li>; })}</ul>}<button className="primary-button" type="button" disabled={isPending || !transferReady} onClick={transfer}>{isPending ? "Draft létrehozása…" : "Új draft létrehozása"}</button></div>
+    </section>
+
+    <section className="detail-surface flashing-section" aria-labelledby="history-title"><div className="section-heading"><div><p className="section-eyebrow">IMMUTABLE ELŐZMÉNYEK</p><h2 id="history-title">Mentett revíziók</h2></div></div>{history.length ? <div className="flashing-history">{history.map((revision) => <button type="button" className={selectedRevisionId === revision.revisionId ? "primary-button" : "secondary-button"} key={revision.revisionId} onClick={() => { setSelectedRevisionId(revision.revisionId); setVariantMappings({}); requestKey.current = crypto.randomUUID(); setDraft(draftFromInput(revision.input, revision.displayName)); setBaseline(JSON.stringify(revision.input)); setFeedback(revision.stale ? `V${revision.revisionNumber} történeti forrása elavult; a snapshot változatlan.` : `V${revision.revisionNumber} betöltve.`); }}>{`V${revision.revisionNumber} · ${revision.displayName} · ${new Date(revision.createdAt).toLocaleString("hu-HU")}${revision.stale ? " · elavult forrás" : ""}`}</button>)}</div> : <p className="missing-data">Még nincs mentett revízió.</p>}<div className="form-actions"><button className="primary-button" type="button" disabled={isPending || !dirty || !parsed.success || !calculated?.ok} onClick={save}>{isPending ? "Mentés…" : `Mentés új revízióként${expectedRevision ? ` · V${expectedRevision + 1}` : " · V1"}`}</button>{feedback && <p className={feedback.includes("sikerült") || feedback.includes("nem") ? "form-message is-error" : "form-message is-success"} role="status">{feedback}</p>}</div></section>
   </div>;
 }

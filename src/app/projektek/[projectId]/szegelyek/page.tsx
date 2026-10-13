@@ -5,7 +5,7 @@ import { BackNavigation } from "@/components/navigation/back-navigation";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getProjectForOrganization } from "@/features/projects/project-data";
 import { FlashingCalculator } from "@/features/flashings/flashing-calculator";
-import { getFlashingCalculation, getFlashingGeometrySuggestions } from "@/features/flashings/flashing-data";
+import { getFlashingCalculation, getFlashingCatalogVariants, getFlashingGeometrySuggestions } from "@/features/flashings/flashing-data";
 
 export default async function FlashingCalculatorPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string }>; searchParams: Promise<{ organization?: string }> }>) {
   const { projectId } = await params;
@@ -16,6 +16,6 @@ export default async function FlashingCalculatorPage({ params, searchParams }: R
   const organizationId = selected.organization.id;
   const project = await getProjectForOrganization(organizationId, projectId);
   if (!project) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1><Link className="login-secondary-link" href={`/projektek?organization=${organizationId}`}>Vissza a projektekhez</Link></section></main>;
-  const [suggestions, saved] = await Promise.all([getFlashingGeometrySuggestions(organizationId, projectId), getFlashingCalculation(organizationId, projectId)]);
-  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${organizationId}`} label="Vissza a projekthez" /><FlashingCalculator organizationId={organizationId} projectId={projectId} suggestions={suggestions} saved={saved} /></div></main>;
+  const [suggestions, saved, catalogVariants] = await Promise.all([getFlashingGeometrySuggestions(organizationId, projectId), getFlashingCalculation(organizationId, projectId), getFlashingCatalogVariants(organizationId)]);
+  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${organizationId}`} label="Vissza a projekthez" /><FlashingCalculator organizationId={organizationId} projectId={projectId} suggestions={suggestions} saved={saved} catalogVariants={catalogVariants} /></div></main>;
 }
