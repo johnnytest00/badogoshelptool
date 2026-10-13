@@ -9,6 +9,7 @@ import { createClient } from "@/infrastructure/supabase/server";
 import type { Json } from "@/infrastructure/supabase/database.types";
 
 export type ProfileSaveResult = { ok: boolean; error?: string; calculationId?: string; revisionId?: string; revisionNumber?: number };
+export type ProfileTransferResult = { ok: boolean; error?: string; takeoffId?: string };
 const read = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
@@ -55,5 +56,58 @@ export async function saveSheetMetalProfileAction(data: FormData): Promise<Profi
   if (error || !saved?.[0]) return { ok: false, error: error?.code === "40001" ? "A profil időközben új revíziót kapott. Töltsd be az aktuális verziót, majd ments újra." : error?.code === "42501" ? "Ehhez a műhelyhez vagy profilhoz nincs hozzáférésed." : "A profil mentése nem sikerült." };
   revalidatePath(`/projektek/${projectId}/lemezprofilok`);
   return { ok: true, calculationId: saved[0].calculation_id, revisionId: saved[0].calculation_revision_id, revisionNumber: saved[0].revision_number };
+}
+
+export async function createProfileTakeoffDraftAction(data: FormData): Promise<ProfileTransferResult> {
+  const organizationId = read(data, "organizationId"), projectId = read(data, "projectId");
+  const calculationId = read(data, "calculationId"), revisionId = read(data, "revisionId");
+  const variantId = read(data, "variantId"), requestKey = read(data, "requestKey");
+  const name = read(data, "name");
+  if (![organizationId, projectId, calculationId, revisionId, variantId, requestKey].every(isUuid))
+    return { ok: false, error: "Érvénytelen projekt-, profil-, revízió-, variáns- vagy kérésazonosító." };
+  if (!name || name.length > 200) return { ok: false, error: "Adj meg érvényes piszkozatnevet." };
+  const auth = await getAuthContext();
+  if (!auth?.organizations.some((organization) => organization.id === organizationId))
+    return { ok: false, error: "Ehhez a műhelyhez nincs hozzáférésed." };
+  const supabase = await createClient();
+  const [{ data: project }, { data: source }] = await Promise.all([
+    supabase.from("projects").select("id").eq("id", projectId).eq("organization_id", organizationId).maybeSingle(),
+    supabase.from("calculations").select("id, current_revision_id").eq("id", calculationId)
+      .eq("organization_id", organizationId).eq("project_id", projectId)
+      .eq("calculator_type", sheetMetalProfileCalculator.id).is("roof_model_id", null).maybeSingle(),
+  ]);
+  if (!project || source?.current_revision_id !== revisionId)
+    return { ok: false, error: "A projekt vagy az aktuális mentett profilrevízió nem érhető el." };
+  const { data: revision } = await supabase.from("calculation_revisions")
+    .select("input_snapshot, output_snapshot, input_schema_version, calculator_implementation_version")
+    .eq("id", revisionId).eq("organization_id", organizationId).eq("calculation_id", calculationId).maybeSingle();
+  if (!revision || revision.input_schema_version !== sheetMetalProfileCalculator.inputSchemaVersion
+    || revision.calculator_implementation_version !== sheetMetalProfileCalculator.implementationVersion)
+    return { ok: false, error: "A mentett profilrevízió nem támogatott vagy nem érhető el." };
+  const input = sheetMetalProfileInputSchema.safeParse(revision.input_snapshot);
+  if (!input.success || input.data.profileId !== calculationId || input.data.material?.catalogVariantId !== variantId)
+    return { ok: false, error: "A mentett profil anyagkapcsolata vagy bemenete érvénytelen." };
+  const calculated = executeCalculator(sheetMetalProfileCalculator, input.data);
+  if (!calculated.ok || calculated.output.flatPattern.widthMm === null
+    || calculated.output.materialRequirement.totalNetBlankAreaSqM === null)
+    return { ok: false, error: "A profil geometriája, BA/K paramétere vagy nettó blankterülete nem számítható." };
+  const stored = revision.output_snapshot as { flatPattern?: { widthMm?: unknown }; materialRequirement?: { totalNetBlankAreaSqM?: unknown } } | null;
+  const width = stored?.flatPattern?.widthMm, area = stored?.materialRequirement?.totalNetBlankAreaSqM;
+  if (typeof width !== "number" || typeof area !== "number"
+    || Math.abs(width - calculated.output.flatPattern.widthMm) > 1e-9
+    || Math.abs(area - calculated.output.materialRequirement.totalNetBlankAreaSqM) > 1e-9)
+    return { ok: false, error: "A mentett profil eredménye eltér az újraszámolt értéktől." };
+  const { data: result, error } = await supabase.rpc("create_profile_takeoff_draft", {
+    p_organization_id: organizationId, p_project_id: projectId, p_calculation_id: calculationId,
+    p_revision_id: revisionId, p_variant_id: variantId, p_name: name, p_request_key: requestKey,
+  });
+  if (error || !result?.[0]) return { ok: false, error: error?.code === "42501"
+    ? "A profilhoz, projekthez vagy katalógusvariánshoz nincs hozzáférésed."
+    : error?.code === "P0002" ? "A mentett profilrevízió már nem aktuális vagy nem ehhez a projekthez tartozik."
+    : error?.message?.includes("BA/K") || error?.message?.includes("blankterület") || error?.message?.includes("terítékszélesség")
+      ? error.message : error?.message?.includes("request key") ? "A kéréskulcsot más adatokkal már felhasználták."
+        : "Az átadás nem sikerült. Ellenőrizd az aktuális revíziót, a területet és a katalóguskapcsolatot." };
+  revalidatePath(`/projektek/${projectId}/anyagkimutatas`);
+  return { ok: true, takeoffId: result[0].takeoff_id };
 }
 

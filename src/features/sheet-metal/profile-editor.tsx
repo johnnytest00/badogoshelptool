@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, FilePlus2, LoaderCircle, Plus, Save, Trash2 } from "lucide-react";
 import { ProfileDrawing } from "@/features/sheet-metal/profile-drawing";
 import { addBend, calculateDraft, createTemplate, editBend, editStraight, fromDomainInput, removeBend, reverseAngle, selectionMatches, toDomainInput, type ProfileDraft, type Selection, type Template } from "@/features/sheet-metal/profile-editor-model";
-import { saveSheetMetalProfileAction } from "@/features/sheet-metal/profile-actions";
-import type { SavedProfile } from "@/features/sheet-metal/profile-data";
-import { matchProfileMaterial, type ProfileCatalogCandidate } from "@/domain/calculations/profile-material-compatibility";
+import { createProfileTakeoffDraftAction, saveSheetMetalProfileAction } from "@/features/sheet-metal/profile-actions";
+import type { ProfileCatalogPreviewCandidate, SavedProfile } from "@/features/sheet-metal/profile-data";
+import { matchProfileMaterial } from "@/domain/calculations/profile-material-compatibility";
 
 const format = (value: number) => new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value);
 const templateLabels: Record<Template, string> = { l: "L-profil", u: "U-profil", custom: "Egyedi nyitott profil" };
 
-export function ProfileEditor({ organizationId, projectId, profiles, catalogCandidates }: Readonly<{ organizationId: string; projectId: string; profiles: SavedProfile[]; catalogCandidates: ProfileCatalogCandidate[] }>) {
+export function ProfileEditor({ organizationId, projectId, profiles, catalogCandidates }: Readonly<{ organizationId: string; projectId: string; profiles: SavedProfile[]; catalogCandidates: ProfileCatalogPreviewCandidate[] }>) {
   const router = useRouter();
   const firstProfile = profiles[0];
   const firstRevision = firstProfile?.revisions[0];
@@ -21,6 +21,11 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
   const [expectedRevision, setExpectedRevision] = useState(firstProfile?.currentRevisionNumber ?? 0);
   const [selectedRevisionId, setSelectedRevisionId] = useState(firstRevision?.revisionId ?? "");
   const [feedback, setFeedback] = useState("");
+  const [transferPreviewOpen, setTransferPreviewOpen] = useState(false);
+  const [transferRequestKey, setTransferRequestKey] = useState(() => crypto.randomUUID());
+  const [takeoffName, setTakeoffName] = useState("Profil nettó blankterület · előzetes");
+  const [transferFeedback, setTransferFeedback] = useState("");
+  const [createdTakeoffId, setCreatedTakeoffId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [selection, setSelection] = useState<Selection>(null);
   const result = useMemo(() => calculateDraft(draft), [draft]);
@@ -29,6 +34,31 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
   const displayedRequirement = savedRequirement ?? (result.ok ? result.output.materialRequirement : null);
   const selectedCandidate = catalogCandidates.find((candidate) => candidate.variantId === draft.catalogVariantId) ?? null;
   const catalogMatch = draft.catalogVariantId ? matchProfileMaterial(selectedCandidate, draft.materialSpec, Number(draft.thickness.replace(",", "."))) : null;
+  const activeProfile = profiles.find((profile) => profile.calculationId === activeCalculationId);
+  const selectedSavedRevision = activeProfile?.revisions.find((revision) => revision.revisionId === selectedRevisionId);
+  const transferEligible = !!selectedSavedRevision && !draft.dirty &&
+    selectedSavedRevision.revisionNumber === activeProfile?.currentRevisionNumber &&
+    selectedSavedRevision.output.flatPattern.widthMm !== null &&
+    selectedSavedRevision.output.materialRequirement.totalNetBlankAreaSqM !== null &&
+    selectedSavedRevision.output.materialRequirement.lengthPerPieceMm !== null &&
+    selectedSavedRevision.output.materialRequirement.pieceCount !== null &&
+    selectedSavedRevision.input.material?.catalogVariantId === draft.catalogVariantId &&
+    catalogMatch === "TECHNICALLY_MATCHED_PARAMETERS";
+  function transferProfile() {
+    if (!transferEligible || !activeCalculationId || !selectedSavedRevision || isPending || !takeoffName.trim()) return;
+    const data = new FormData();
+    data.set("organizationId", organizationId); data.set("projectId", projectId);
+    data.set("calculationId", activeCalculationId); data.set("revisionId", selectedSavedRevision.revisionId);
+    data.set("variantId", draft.catalogVariantId); data.set("requestKey", transferRequestKey);
+    data.set("name", takeoffName.trim()); setTransferFeedback("");
+    startTransition(async () => {
+      const response = await createProfileTakeoffDraftAction(data);
+      if (!response.ok || !response.takeoffId) { setTransferFeedback(response.error ?? "Az átadás nem sikerült."); return; }
+      setCreatedTakeoffId(response.takeoffId); setTransferPreviewOpen(false);
+      setTransferRequestKey(crypto.randomUUID()); setTransferFeedback("Új anyagkimutatás-piszkozat létrejött.");
+      router.refresh();
+    });
+  }
   function switchTemplate(template: Template) {
     if (template === draft.template && !draft.dirty) return;
     if (draft.dirty && !window.confirm("A jelenlegi szerkesztés nem mentett. Lecseréled a profilt a választott DEMO sablonra?")) return;
@@ -110,6 +140,24 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
       {draft.catalogVariantId && <p className="profile-help">{catalogMatch === "TECHNICALLY_MATCHED_PARAMETERS" ? "Műszaki paraméterek egyeznek: anyagazonosító, vastagság és m² egység. Ez nem gyártói igazolás és nem gyártási jóváhagyás." : catalogMatch === "UNRESOLVED" ? "Katalóguskapcsolat feloldatlan: hiányzik az explicit anyagazonosító, vastagság vagy forrásnév." : "Katalóguskapcsolat inkompatibilis: az anyagazonosító, vastagság, kategória vagy egység eltér."}</p>}
       <div className="profile-result-grid"><div><small>Terítékszélesség</small><strong>{result.ok && result.output.flatPattern.widthMm !== null ? `${format(result.output.flatPattern.widthMm)} mm` : "Nem számítható"}</strong></div><div><small>Nettó blankterület / db</small><strong>{displayedRequirement?.netBlankAreaPerPieceSqM !== null && displayedRequirement?.netBlankAreaPerPieceSqM !== undefined ? `${format(displayedRequirement.netBlankAreaPerPieceSqM)} m²` : "Nem számítható"}</strong></div><div><small>Összes nettó blankterület</small><strong>{displayedRequirement?.totalNetBlankAreaSqM !== null && displayedRequirement?.totalNetBlankAreaSqM !== undefined ? `${format(displayedRequirement.totalNetBlankAreaSqM)} m²` : "Nem számítható"}</strong></div></div>
       <p className="profile-summary-note">W × darabhossz ÷ 1 000 000; összesen × darabszám. Hiányzó BA/K esetén nincs terület. A nettó téglalapfelület nem beszerzési mennyiség, táblaszám, tekercsfogyás, vágásterv vagy gyárthatósági igazolás.</p>
+    </section>
+    <section className="detail-surface profile-summary" aria-label="Anyagkimutatás előkészítése">
+      <div className="profile-section-heading"><h2>Anyagkimutatás előkészítése</h2><span>Új piszkozat · m²</span></div>
+      <p className="profile-summary-note">Csak az aktuális, mentett profilrevízió előzetes nettó blankterülete adható át. A paraméteregyezés nem gépkalibráció vagy gyártói igazolás.</p>
+      <div className="profile-result-grid">
+        <div><small>Mentett revízió</small><strong>{selectedSavedRevision ? `V${selectedSavedRevision.revisionNumber}` : "Nincs mentett revízió"}</strong></div>
+        <div><small>Profilhossz és darabszám</small><strong>{selectedSavedRevision?.output.materialRequirement.lengthPerPieceMm ?? "–"} mm · {selectedSavedRevision?.output.materialRequirement.pieceCount ?? "–"} db</strong></div>
+        <div><small>Terítékszélesség</small><strong>{selectedSavedRevision?.output.flatPattern.widthMm == null ? "Nem számítható" : `${format(selectedSavedRevision.output.flatPattern.widthMm)} mm`}</strong></div>
+        <div><small>Nettó blankterület</small><strong>{selectedSavedRevision?.output.materialRequirement.totalNetBlankAreaSqM == null ? "Nem számítható" : `${format(selectedSavedRevision.output.materialRequirement.totalNetBlankAreaSqM)} m²`}</strong></div>
+      </div>
+      <p className="profile-help">Anyag: {selectedSavedRevision?.input.material?.materialSpec || "nincs megadva"} · vastagság: {selectedSavedRevision?.input.thicknessMm ?? "–"} mm · variáns: {selectedCandidate ? `${selectedCandidate.productName} / ${selectedCandidate.variantName}` : "nincs"}.</p>
+      <p className="profile-help">BA/K és számítás: {selectedSavedRevision?.input.bends.map((bend) => `${bend.id}: ${bend.allowance.mode}${bend.allowance.mode === "unknown" ? "" : ` (${bend.allowance.source.label})`}`).join("; ") || "nincs hajtás"} · {selectedSavedRevision?.output.flatPattern.classification ?? "nem ellenőrzött"}. Katalógus: {catalogMatch ?? "nincs kapcsolat"}; paraméterforrás: {selectedCandidate?.sourceName ?? "nincs"} ({selectedCandidate?.provenance ?? "–"}).</p>
+      <p className="profile-help">Ár: {selectedCandidate?.price ? `${format(selectedCandidate.price.amount)} ${selectedCandidate.price.currency}/m² · ${selectedCandidate.price.sourceName ?? "forrás nincs megadva"}` : "nincs m² árverzió; hiányzó árként kerül át"}.</p>
+      {!transferEligible && <p className="form-message is-error">{draft.dirty ? "A nem mentett módosításokat előbb mentsd új revízióként." : !selectedSavedRevision ? "Előbb mentsd a profilt." : selectedSavedRevision.revisionNumber !== activeProfile?.currentRevisionNumber ? "Történeti revízióból nem lehet átadni; nyisd meg az aktuálisat." : selectedSavedRevision.output.flatPattern.widthMm === null ? "Hiányzó BA/K miatt a terítékszélesség nem számítható." : selectedSavedRevision.output.materialRequirement.totalNetBlankAreaSqM === null ? "A nettó blankterülethez darabhossz és darabszám kell." : "Mentett, kompatibilis m² katalógusvariáns szükséges."}</p>}
+      <button type="button" className="secondary-button" disabled={!transferEligible || isPending} onClick={() => setTransferPreviewOpen(true)}>Átadási előnézet</button>
+      {transferPreviewOpen && <div className="profile-allowances"><h3>Átadás megerősítése</h3><p>V{selectedSavedRevision?.revisionNumber} · {selectedCandidate?.productName} / {selectedCandidate?.variantName} · {selectedSavedRevision?.output.materialRequirement.totalNetBlankAreaSqM == null ? "–" : format(selectedSavedRevision.output.materialRequirement.totalNetBlankAreaSqM)} m² előzetes nettó blankterület. Nincs hulladék- vagy beszerzési ráhagyás.</p><label>Piszkozat neve<input value={takeoffName} maxLength={200} onChange={(event) => setTakeoffName(event.target.value)} /></label><button type="button" className="primary-button" disabled={!transferEligible || isPending || !takeoffName.trim()} onClick={transferProfile}>{isPending ? "Átadás…" : "Új piszkozat létrehozása"}</button><button type="button" className="secondary-button" onClick={() => setTransferPreviewOpen(false)}>Mégse</button></div>}
+      {transferFeedback && <p className={`form-message ${createdTakeoffId ? "is-success" : "is-error"}`} role="status">{transferFeedback}</p>}
+      {createdTakeoffId && <a className="secondary-button" href={`/projektek/${projectId}/anyagkimutatas?organization=${organizationId}&takeoff=${createdTakeoffId}`}>Piszkozat megnyitása</a>}
     </section>
     <section className="detail-surface profile-summary" aria-live="polite"><div className="profile-section-heading"><h2>Számítás és ellenőrzés</h2><span>{draft.dirty || !activeCalculationId ? "Nem mentett előnézet" : "Szerveroldalon is újraszámított eredmény"}</span></div>{result.ok ? <><div className="profile-result-grid"><div><small>Geometria</small><strong>Érvényes, önmetszés nélkül</strong><span>{result.output.geometry.segments.length} egyenes · {result.output.geometry.bends.length} hajtás</span></div><div><small>Terítékszélesség</small><strong>{result.output.flatPattern.widthMm === null ? "Terítékszélesség nem számítható." : `${format(result.output.flatPattern.widthMm)} mm`}</strong><span>{result.output.flatPattern.classification === "INCOMPLETE" ? "Hiányos paraméter" : result.output.flatPattern.classification === "PARAMETER_BASED_ESTIMATE" ? "Paraméteralapú becslés" : "Geometriailag meghatározott"}</span></div></div><div className="profile-allowances">{result.output.bends.map((bend, index) => <p key={bend.id}>H{index + 1}: {bend.allowanceMm === null ? "BA/K hiányzik" : `BA ${format(bend.allowanceMm)} mm`} · {bend.allowanceMode === "explicit_ba" ? "explicit BA" : bend.allowanceMode === "k_factor" ? "K-tényező" : "ismeretlen"} · forrás: {bend.sourceSnapshot?.label ?? "nincs"}</p>)}</div>{result.output.issues.length > 0 && <div className="profile-warnings">{result.output.issues.slice(0, 5).map((issue, index) => <p key={`${issue.code}-${index}`}>{issue.message}</p>)}</div>}</> : <div className="profile-errors" role="alert">{errors.map((error, index) => <p key={index}>{error}</p>)}{result.errors.length > errors.length && <p>További {result.errors.length - errors.length} hiba van. Ellenőrizd a mezőket.</p>}</div>}<p className="profile-summary-note">A DEMO sablonértékek nem gyártói adatok. A mentett eredményt a szerver domainmotorja számolja újra. Gép-, szerszám- és anyagkalibráció, gyárthatóság nem igazolt.</p></section>
   </div>;

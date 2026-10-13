@@ -5,8 +5,11 @@ import type { ProfileCatalogCandidate } from "@/domain/calculations/profile-mate
 
 export type SavedProfileRevision = { revisionId: string; revisionNumber: number; createdAt: string; input: SheetMetalProfileInput; output: SheetMetalProfileOutput };
 export type SavedProfile = { calculationId: string; displayName: string; currentRevisionNumber: number; revisions: SavedProfileRevision[] };
+export type ProfileCatalogPreviewCandidate = ProfileCatalogCandidate & {
+  price: { amount: number; currency: string; sourceName: string | null } | null;
+};
 
-export async function getProfileCatalogCandidates(organizationId: string): Promise<ProfileCatalogCandidate[]> {
+export async function getProfileCatalogCandidates(organizationId: string): Promise<ProfileCatalogPreviewCandidate[]> {
   const supabase = await createClient();
   const { data: products, error: productError } = await supabase.from("material_products")
     .select("id, name, category, status").eq("organization_id", organizationId).eq("category", "sheet_metal").eq("status", "active");
@@ -16,8 +19,15 @@ export async function getProfileCatalogCandidates(organizationId: string): Promi
     .select("id, product_id, name, purchasing_unit, thickness_mm, technical_specs, data_provenance, source_name")
     .eq("organization_id", organizationId).in("product_id", products.map((product) => product.id));
   if (variantError) throw new Error("A katalógusvariánsok nem tölthetők be.");
+  if (!variants?.length) return [];
+  const { data: prices, error: priceError } = await supabase.from("material_prices")
+    .select("id, variant_id, amount, currency, source_name, effective_date, recorded_at")
+    .eq("organization_id", organizationId).eq("purchasing_unit", "square_meter")
+    .in("variant_id", variants.map((variant) => variant.id))
+    .order("effective_date", { ascending: false }).order("recorded_at", { ascending: false }).order("id", { ascending: false });
+  if (priceError) throw new Error("A katalógusárak nem tölthetők be.");
   const productById = new Map(products.map((product) => [product.id, product]));
-  return (variants ?? []).flatMap((variant) => {
+  return variants.flatMap((variant) => {
     const product = productById.get(variant.product_id);
     if (!product) return [];
     const specs = variant.technical_specs;
@@ -25,7 +35,9 @@ export async function getProfileCatalogCandidates(organizationId: string): Promi
     return [{ productId: product.id, productName: product.name, variantId: variant.id, variantName: variant.name,
       category: product.category, status: product.status, purchasingUnit: variant.purchasing_unit,
       thicknessMm: variant.thickness_mm === null ? null : Number(variant.thickness_mm), materialSpec,
-      provenance: variant.data_provenance, sourceName: variant.source_name }];
+      provenance: variant.data_provenance, sourceName: variant.source_name,
+      price: (() => { const price = prices?.find((item) => item.variant_id === variant.id); return price
+        ? { amount: Number(price.amount), currency: price.currency, sourceName: price.source_name } : null; })() }];
   });
 }
 

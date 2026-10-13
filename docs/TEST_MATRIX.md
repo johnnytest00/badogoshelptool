@@ -613,3 +613,14 @@ ellenőrzött.
 | Alkalmazáskapuk | Sikeres | `npm run typecheck`, `npm run lint`, `npm run build` PASS; `git diff --check` a végén ellenőrizve. |
 | Böngésző mentés/reload | Sikeres | Helyi authenticated DEMO projekt: 103 mm × 2000 mm / 1 000 000 = 0,206 m²/db; 3 db = 0,618 m²; V1 mentés/reload után mezők és eredmény változatlan. |
 | Teljes regresszió, gyártás, beszerzés | Nem futott / nem ellenőrzött | Célzott kapuk nem jelentenek teljes regressziót; nincs valós gép/gyártói jóváhagyás, stock- vagy takeoff-átadás. |
+
+## F9.6.3.4.2 — profilanyag átadás
+
+| Ellenőrzés | Állapot | Bizonyíték |
+|---|---|---|
+| Nettó m², mentett revízió, katalógus, ár és snapshot | Sikeres | `SUPABASE_TELEMETRY_DISABLED=1 npx supabase test db supabase/tests/database/015_profile_takeoff_integration.sql --local`: 37/37 PASS; 0,618 m², pontos revízió, BA-forrás, ár nélküli és egységazonos áras snapshot, immutable tétel. |
+| Jogosultság, stale, hiányos BA/K, null area | Sikeres | Ugyanazon pgTAP: authenticated nonmember/cross-project elutasítás, eltérő anyag/vastagság/egység, V1 stale, hiányos BA/K és null area elutasítása, approved immutabilitás. |
+| Idempotencia, konkurencia | Sikeres | Azonos kulcs/payload reuse, eltérő payload elutasítás, új kulcs új draft; `node scripts/verify-profile-takeoff-concurrency.mjs`: két független authenticated kapcsolat, 1 create + 1 reuse, 1 draft és 1 tétel, 0,618 m². |
+| Eresz és szegély regresszió | Sikeres | `SUPABASE_TELEMETRY_DISABLED=1 npx supabase test db supabase/tests/database/012_flashing_takeoff_integration.sql supabase/tests/database/010_gutter_takeoff_hardening.sql --local`: 57/57 PASS. |
+| Alkalmazás és böngésző | Sikeres | Célzott profil Vitest 32/32 PASS; a végső action-változtatás után `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check` PASS. Egy hitelesített DEMO flow: V1 → kompatibilis DEMO variáns V2 → 0,618 m² előnézet → új draft → revízió/árhiány ellenőrzés → hiányos V3 átadás tiltása és a korábbi V2 draft stale jelzése, változatlan snapshotja. |
+| Teljes regresszió és gyártás | Nem futott / nem ellenőrzött | A célzott tesztek nem teljes regresszió; nincs fizikai eszközös QA, gép-/szerszámkalibráció vagy kereskedelmi blankoptimalizálás. |

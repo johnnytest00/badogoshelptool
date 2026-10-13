@@ -746,6 +746,11 @@ isOneToOne: false
               "draft_created": boolean,"takeoff_id": string
             }[]
                            },
+"create_profile_takeoff_draft":
+{ Args: { "p_calculation_id": string,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_request_key": string,"p_revision_id": string,"p_variant_id": string }; Returns: {
+              "draft_created": boolean,"takeoff_id": string
+            }[]
+                           },
 "create_sheet_layout_takeoff_draft":
 { Args: { "p_allowance_percent": number,"p_layout_calculation_id": string,"p_layout_revision_id": string,"p_name": string,"p_organization_id": string,"p_project_id": string }; Returns: string
                            },
