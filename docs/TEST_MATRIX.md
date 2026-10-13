@@ -325,3 +325,19 @@ Megjegyzés: a Next 16 alapértelmezett Turbopack buildje portkötési hibával 
 | `npm run test` | Sikeres | 13 fájl / 43 teszt sikeres. |
 | `npm run build` | Sikeres | Next.js 16.4.0 webpack build; új F5 route-okkal. |
 | `npm audit` | Nem verifikálható | npm registry DNS-hiba (`ENOTFOUND registry.npmjs.org`). |
+## F8.2 — PDF-ajánlat
+
+| Terület | Ellenőrzés | Eredmény |
+|---|---|---|
+| PDF technológia | `@react-pdf/renderer` Node route, beágyazott Noto Sans | PASS |
+| Forrásrevízió | kiválasztott revision ID, org/project/quote/revision lánc | PASS a route/build alapján |
+| Pénzügy | mentett HUF subtotal, price class és category subtotal használata | PASS |
+| Biztonság | auth + tagság + RLS + no-store válasz | PASS a route ellenőrzés alapján |
+| UI | előnézet / letöltés / nyomtatás, történeti revíziós linkek | PASS browser smoke |
+| PDF vizuális QA | A4, magyar ékezetek, táblázat, összeg, footer | PASS browser PDF-panel |
+| Automatizált kapuk | `npm run test`, `npm run typecheck`, `npm run lint`, `npm run build` | PASS: 77 teszt |
+
+Megjegyzés: a böngészős PDF-panel azonos URL esetén egy korábbi dokumentumot
+cache-elhetett; a route `private, no-store` fejléccel és az immutable revízió
+ID-jával dolgozik. A tényleges új dokumentum előállítása és HTTP 200 válasza
+ellenőrzött.

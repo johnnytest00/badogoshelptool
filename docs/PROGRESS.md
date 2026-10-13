@@ -20,6 +20,33 @@
 Nincs PDF vagy jogilag végleges dokumentum, VAT-motor, küldés, elfogadás,
 számlázás vagy automatikus árképzés.
 
+## F8.2 — professzionális PDF-ajánlat (kész)
+
+- Az immutable ajánlati revíziókból szerveroldali, Node runtime-os
+  `@react-pdf/renderer` pipeline készít A4-es, többoldalas PDF-et; a magyar
+  karaktereket beágyazott Noto Sans font biztosítja.
+- Az F8.1 mentés dokumentum-meta snapshotot is őriz (projekt és ügyfél
+  adatai), valamint kategória-összesítőket. A PDF nem számol újra pénzügyi
+  értéket, a revízió saját sortételeit és mentett összegét használja.
+- A projekt ajánlati oldalán minden revízióhoz elérhető a PDF előnézet,
+  letöltés és natív böngészős nyomtatás. A történeti revízió külön ID alapján
+  nyitható meg, a route hitelesítést, szervezeti tagságot és projekt/ajánlat/
+  revízió tulajdonlást ellenőriz.
+- A dokumentum nettó/bruttó besorolást, hiányos piszkozat-figyelmeztetést,
+  kategória szerinti részösszegeket, biztonságos fájlnevet és oldalszámot
+  jelenít meg; ÁFA-kulcsot vagy számlázási állítást nem talál ki.
+- Ellenőrzés: 20 Vitest fájl / 77 teszt PASS, typecheck PASS, lint PASS,
+  production build PASS; a helyi browser-flow-ban a PDF előnézet 200-as
+  választ, magyar ékezeteket, többoldalas-kompatibilis A4 elrendezést és a
+  mentett 27 498,50 HUF összeget mutatta.
+
+### F8.2 ismert korlátok
+
+Az F8.1-ben létrejött régi revíziók nem tartalmaznak dokumentum-meta snapshotot;
+ezeknél a PDF ezt az adatot hiányzóként kezeli, nem örököl utólagos mutable
+ügyfél/projekt adatot. Automatikus küldés, számla és jogi adózási minősítés nem
+készült.
+
 ## Katalógushoz kötött, verziózott lemezkiosztás
 
 - Az aktuális szervezet aktív lemez-/tetőfedés terméke és variánsa választható; a server action, RLS és összetett FK tiltja a keresztszervezeti hivatkozást.
