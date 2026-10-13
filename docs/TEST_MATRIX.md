@@ -565,3 +565,17 @@ ellenőrzött.
 | Browser elfogadás | Sikeres | Egy helyi authenticated DEMO munkafolyamat: mentett V2, SVG, kompatibilis `linear_meter` variáns, új draft megnyitása; 6,726 fm, exact V2 revision és estimated provenance látható. A kiválasztott egységhez nem volt ár, ezért price snapshot null/warning. Korábbi approved rekord változatlanul látható. |
 | Alkalmazáskapuk | Sikeres | Célzott Vitest 6/6, `npm run typecheck`, teljes `npm run lint`, `npm run build` webpack PASS. |
 | Narrow viewport/gyártói validáció | Nem ellenőrzött | Fizikai eszközön nem tesztelt; a terméknév/kategória nem bizonyít gyártói profil- vagy szerelési megfelelést. |
+
+## F9.6.3.1 — lemezprofil- és hajlítási domain
+
+| Ellenőrzés | Állapot | Megjegyzés |
+|---|---|---|
+| 9 DEMO matematikai referencia | Sikeres | Független várt értékek: L, U, több/ellentétes hajtás, vastagság, explicit BA, hiányzó paraméter, külső csúcsméret elutasítása, lehetetlen méret, kis szög. |
+| Célzott geometria/validáció/registry Vitest | Sikeres | `npx vitest run src/domain/calculations/sheet-metal-profile.test.ts`: 1 fájl, 19/19 PASS. Önmetszés, analitikus ívsugár és tangensfolytonosság, nem 90°-os szög, numerikus határok, ismétlés és registry szerepel. |
+| Meglévő engine/flashing regresszió | Sikeres | `npx vitest run src/domain/calculations/engine.test.ts src/domain/calculations/flashing-material.test.ts`: 2 fájl, 15/15 PASS. |
+| Typecheck | Sikeres | `npm run typecheck`; a végső domain típusszerződés PASS. |
+| Lint | Sikeres | `npm run lint`; első futás 1 használatlan értékadást jelzett, javítás után PASS. |
+| Production build | Sikeres | `npm run build` (Next 16.4.0 webpack): compile, TypeScript, statikus oldal-generálás PASS. |
+| Diff/whitespace | Sikeres | `git diff --check` PASS. |
+| Teljes regresszió/adatbázis/böngésző | Nem futott | A fázis tiszta domain és registry; nincs UI, perzisztencia, Supabase vagy migráció. |
+| Gyártási megfelelés | Nem ellenőrzött | Nincs mért gép–szerszám–anyag kalibráció, hajtási sorrend/ütközés/visszarugózás vagy szakmai pilot. |
