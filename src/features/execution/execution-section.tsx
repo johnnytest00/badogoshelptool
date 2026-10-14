@@ -3,13 +3,13 @@
 import type { SyntheticEvent } from "react";
 import { ChevronDown } from "lucide-react";
 
-export function ExecutionSection({ children }: Readonly<{ children: React.ReactNode }>) {
+export function ExecutionSection({ children, defaultOpen = false }: Readonly<{ children: React.ReactNode; defaultOpen?: boolean }>) {
   function resetNestedSectionsWhenClosed(event: SyntheticEvent<HTMLDetailsElement>) {
     if (!event.currentTarget.open) closeNestedExecutionDisclosures(event.currentTarget);
   }
 
   return (
-    <details id="kivitelezes" className="project-execution-disclosure" onToggle={resetNestedSectionsWhenClosed}>
+    <details id="kivitelezes" className="project-execution-disclosure" open={defaultOpen} onToggle={resetNestedSectionsWhenClosed}>
       <summary>
         <h2>Kivitelezés</h2>
         <ChevronDown aria-hidden="true" className="execution-disclosure-chevron" />

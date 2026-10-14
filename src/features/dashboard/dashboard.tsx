@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, ChevronRight, CircleHelp, FolderKanban, Settings2 } from "lucide-react";
+import { ArrowRight, FolderKanban, Settings2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useTheme } from "@/components/theme/theme-provider";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { LogoutButton } from "@/features/auth/auth-controls";
-import { dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
+import { dashboardFunctionHref, dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
 import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 import type { DashboardTab } from "@/features/dashboard/dashboard.types";
 import type { ProjectRecord } from "@/features/projects/project-data";
@@ -15,14 +15,11 @@ import { projectTypeLabels } from "@/domain/projects/contracts";
 
 export function Dashboard({ displayName, email, organizationName, organizationId, projects = [] }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; organizationId?: string; projects?: readonly ProjectRecord[] }>) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("functions");
-  const [notice, setNotice] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { setMode } = useTheme();
 
-  const showComingSoon = (label: string) => setNotice(`${label}: ez a modul hamarosan elérhető lesz.`);
   const resetTheme = () => {
     setMode("system");
-    setNotice("A megjelenés visszaállt a rendszer beállítására.");
   };
 
   return (
@@ -41,13 +38,12 @@ export function Dashboard({ displayName, email, organizationName, organizationId
 
         <div className="dashboard-content" role="tabpanel" aria-live="polite" aria-labelledby={`dashboard-tab-${activeTab}`}>
           {activeTab === "functions" ? (
-            <FunctionsView onSelect={showComingSoon} organizationId={organizationId} />
+            <FunctionsView organizationId={organizationId} />
           ) : (
             <ProjectsView projects={projects} organizationId={organizationId} />
           )}
         </div>
 
-        <p className="sr-only" role="status" aria-live="polite">{notice}</p>
       </div>
     </main>
   );
@@ -106,32 +102,29 @@ function DashboardTabs({ activeTab, onChange }: Readonly<{ activeTab: DashboardT
   );
 }
 
-function FunctionsView({ onSelect, organizationId }: Readonly<{ onSelect: (label: string) => void; organizationId?: string }>) {
+function FunctionsView({ organizationId }: Readonly<{ organizationId?: string }>) {
   return (
     <section aria-labelledby="functions-title">
       <SectionHeading eyebrow="Gyorsindító" title="Munkafolyamatok egy helyen" description="Válassz egy területet a következő lépéshez." />
       <div className="function-grid">
-        {dashboardFunctions.map((item) => <FunctionLauncher item={item} key={item.id} onSelect={onSelect} organizationId={organizationId} />)}
+        {dashboardFunctions.map((item) => <FunctionLauncher item={item} key={item.id} organizationId={organizationId} />)}
       </div>
       <div className="dashboard-tip">
-        <CircleHelp aria-hidden="true" className="size-5" />
-        <p><strong>Új a TetőProban?</strong> A funkciók fokozatosan válnak elérhetővé. A későbbi modulok mindig egyértelműen jelölve lesznek.</p>
+        <p><strong>Jelenlegi működés:</strong> a mentett kalkulációk és árajánlatok projekthez kötődnek. Önálló mentésük adatmodellje külön előkészítést igényel.</p>
       </div>
     </section>
   );
 }
 
-function FunctionLauncher({ item, onSelect, organizationId }: Readonly<{ item: DashboardFunction; onSelect: (label: string) => void; organizationId?: string }>) {
+function FunctionLauncher({ item, organizationId }: Readonly<{ item: DashboardFunction; organizationId?: string }>) {
   const Icon = item.icon;
-  if (item.id === "projects" && organizationId) return <Link className={`function-launcher tone-${item.tone}`} href={`/projektek?organization=${organizationId}`}><span className="function-icon"><Icon aria-hidden="true" className="size-6" /></span><span className="function-copy"><strong>{item.label}</strong><span>{item.description}</span></span><span className="function-arrow"><ArrowRight aria-hidden="true" className="size-5" /></span></Link>;
-  if (item.id === "materials" && organizationId) return <Link className={`function-launcher tone-${item.tone}`} href={`/anyagok?organization=${organizationId}`}><span className="function-icon"><Icon aria-hidden="true" className="size-6" /></span><span className="function-copy"><strong>{item.label}</strong><span>{item.description}</span></span><span className="function-arrow"><ArrowRight aria-hidden="true" className="size-5" /></span></Link>;
+  if (!organizationId) return null;
   return (
-    <button className={`function-launcher tone-${item.tone}`} type="button" onClick={() => onSelect(item.label)} aria-label={`${item.label}, hamarosan elérhető`}>
+    <Link className={`function-launcher tone-${item.tone}`} href={dashboardFunctionHref(item.id, organizationId)}>
       <span className="function-icon"><Icon aria-hidden="true" className="size-6" /></span>
       <span className="function-copy"><strong>{item.label}</strong><span>{item.description}</span></span>
-      <span className="coming-soon-badge">Hamarosan</span>
-      <ChevronRight aria-hidden="true" className="function-arrow size-5" />
-    </button>
+      <span className="function-arrow"><ArrowRight aria-hidden="true" className="size-5" /></span>
+    </Link>
   );
 }
 

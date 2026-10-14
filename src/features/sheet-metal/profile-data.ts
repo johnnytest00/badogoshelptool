@@ -41,7 +41,7 @@ export async function getProfileCatalogCandidates(organizationId: string): Promi
   });
 }
 
-function persistedResultMatches(value: unknown, output: SheetMetalProfileOutput): boolean {
+export function persistedResultMatches(value: unknown, output: SheetMetalProfileOutput): boolean {
   if (!value || typeof value !== "object") return false;
   const stored = value as { schemaVersion?: unknown; flatPattern?: { widthMm?: unknown }; bends?: unknown; materialRequirement?: { lengthPerPieceMm?: unknown; pieceCount?: unknown; netBlankAreaPerPieceSqM?: unknown; totalNetBlankAreaSqM?: unknown } };
   if (stored.schemaVersion !== "1.0.0" || !stored.flatPattern || !Array.isArray(stored.bends)) return false;

@@ -21,6 +21,16 @@ describe("ereszcsatorna-kalkulátor felülete", () => {
     expect(html).not.toContain("F9.6.1.1.1");
   });
 
+  it("projekt nélkül számol, de nem mutat mentési vagy kimutatás-átadási műveletet", () => {
+    const html = renderToStaticMarkup(createElement(GutterCalculator, {
+      organizationId: "org", suggestions: [], saved: null, catalogVariants: [],
+    }));
+    expect(html).toContain("Ereszcsatorna-kalkulátor");
+    expect(html).toContain("Önálló számítás");
+    expect(html).not.toContain("Mentés új változatként");
+    expect(html).not.toContain("Anyagkimutatás-piszkozat");
+  });
+
   it("mentett számításnál az eredmény, rajz, katalógus és átadás olvasási sorrendjét megőrzi", () => {
     const input: GutterMaterialInput = { gutterStockLengthMm: 4000, runs: [{ id: "r1", name: "DEMO eresz", lengthMm: 5000, description: "DEMO", measurementSource: "demo", roofEdge: null, bracketSpacingMm: null }], downpipes: [], manualComponents: [] };
     const output = calculateGutterMaterial(input);

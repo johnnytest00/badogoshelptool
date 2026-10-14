@@ -9,6 +9,13 @@ export type AcceptedQuotationOption = { id: string; name: string; finalizedRevis
 export type ExecutionTimelineItem = { id: string; type: "journal" | "task_event"; date: string; recordedAt: string; authorAvailable: boolean; taskTitle: string | null; category?: "general" | "work_done" | "problem" | "next_step"; content?: string; problems?: string | null; nextSteps?: string | null; fromStatus?: "todo" | "in_progress" | "done"; toStatus?: "todo" | "in_progress" | "done" };
 type LooseClient = { from: (table: string) => any };
 
+export async function getExecutionOverviewForOrganization(organizationId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("execution_plans").select("id, project_id, title, updated_at").eq("organization_id", organizationId).order("updated_at", { ascending: false }).limit(200);
+  if (error) throw new Error("A kivitelezési áttekintő betöltése nem sikerült.");
+  return (data ?? []).map((plan) => ({ id: plan.id, projectId: plan.project_id, title: plan.title, updatedAt: plan.updated_at }));
+}
+
 export async function getExecutionPlanningWorkspace(organizationId: string, projectId: string) {
   const supabase = await createClient();
   const db = supabase as unknown as LooseClient;

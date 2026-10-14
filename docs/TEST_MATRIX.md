@@ -744,3 +744,47 @@ ellenőrzött.
 | Mentés / történeti revízió | Kód szerint, adatbázissal nem ellenőrzött | Sikeres action eltávolítja recovery kulcsot; meglévő mentés változatlan `quote.version`-t küld, recovery csak kliensállapotot állít vissza. Nincs DB/RPC módosítás; immutabilitási tesztet vagy DB ellenőrzést nem futtattam. |
 | Browser Back / visszatérés / explicit UI választás | UNVERIFIED böngészőben | Nem volt elérhető hitelesített browser tab, korábbi dev bind `EPERM`; automata teszt a tárolólogikát fedi, nem a valós history navigációt vagy kattintásos UI-t. Next 16.4 helyi docs alapján a `Link.onNavigate` kizárólag SPA Link navigációra vonatkozik. |
 | Korlátok | Rögzített | Tab session végén/bezáráskor, tiltott vagy megtelt `sessionStorage` esetén draft elveszhet. Külső és browser-history navigáció nincs univerzálisan blokkolva; tárolható draft visszatéréskor explicit restore/discard döntést kap. |
+
+## F9.7.6.1 — globális navigáció és standalone alapozás
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Fókuszált Vitest | PASS | `npx vitest run src/features/dashboard/dashboard.test.ts src/features/projects/project-navigation.test.ts src/features/execution/execution-overview.test.ts src/features/gutters/gutter-calculator-ux.test.ts src/features/flashings/calculator-ux.test.ts src/features/sheet-metal/profile-editor.test.ts`: 6 fájl / 28 teszt. Dashboard csak 5 tényleges területet hirdet, minden cél-URL viszi a kiválasztott szervezetet, nincs dokumentum-placeholder; projekt-navigáció és kivitelezés PASS; mindhárom kalkulátor projekt nélkül is renderel számítási felületet, miközben a mentés és takeoff UI rejtve marad. |
+| Lint / build / typecheck | PASS | `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `npm run typecheck`. A production route-lista tartalmazza `/kalkulatorok`, `/ajanlatok`, `/kivitelezes` útvonalat és a meglévő projekt-route-okat. |
+| `git diff --check` | PASS | A végső változtatáskészlet whitespace-ellenőrzése sikeres. |
+| Szervezet és query-adatok | PASS, forrás + célzott teszt | Minden landing oldal `getProjectOrganization` tagság-kontextust használ és a választást az URL-en viszi tovább. A projektlekérdezés szervezet-szűrt; az execution overview csak `execution_plans.organization_id` szerint olvas metaadatot, majd az azonos szervezeti projektlistához mapeli. Meglévő RLS változatlan. |
+| Jogosulatlan hozzáférés / adatbázis | Nem futott | Új route-ok membership selectiont és szervezet-szűrést használnak; pgTAP/RLS vagy Auth integráció nem futott. Runtime elutasításról nincs bizonyíték. Nincs migration, RPC vagy grant/policy változás. |
+| Böngésző / reszponzív | Nem futott | CUA leltárban nem volt nyitott hitelesített tab. A korábban dokumentált dev-server bind `EPERM` hibáját nem ismételtem. Mobil/desktop tényleges render QA nincs; CSS forrás alapján grid breakpoint és mobil egymás alatti layout marad. |
+| Standalone adatkonzisztencia | Stateless UI teszt + forrásvizsgálat + dokumentáció | Mindhárom kalkulátor csak a kliens oldalon számol és kifejezetten jelzi, hogy frissítéskor az eredmény elvész; save/transfer vezérlő nincs. Schema/RPC/képlet/árképzés nem módosult. `docs/STANDALONE_WORKFLOWS.md` rögzíti a `project_id`, immutable revízió/source, quotation finalization/PDF, RLS/FK és migrációs függőségeket. Standalone mentésre/projektkapcsolásra nem állítunk funkcionális PASS-t. |
+| Teljes regresszió | Nem futott | A célzott teszt nem teljes regresszió; korábbi kalkulátor-, DB- és concurrency suite-okat nem ismételtem. |
+
+Javasolt commit: `feat(F9.7.6.1): add global workflow navigation`.
+
+## F9.7.6.2 — standalone ownership és globális tetőgeometria
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Geometriai preview és globális útvonal | PASS, célzott teszt + build | `npx vitest run src/features/roof-models/standalone-gable-preview.test.ts src/domain/calculations/gable-roof.test.ts src/features/dashboard/dashboard.test.ts`: 3 fájl / 10 PASS. Production build route-listája tartalmazza `/kalkulatorok/nyeregteto`; a preview meglévő `roof.gable` motort és `TechnicalDrawing` komponenst használ, mentési gomb nincs. Az első tesztfutás egy hibásan várt szöveget talált; címke/assertion pontosítása után az ismételt célzott futás PASS. |
+| Ownership és sémaszerződés | Tervezési döntés | `docs/STANDALONE_WORKFLOWS.md`: standalone műhely + létrehozó tulajdon, csak aktív tagsággal a creator olvas; projekt rekordok a mostani tagsági szabályt tartják. Nincs migráció, DB-bizonyíték nincs. |
+| Projekt és takeoff regresszió | Nem érintett, nem futtatott | Project-scope persistence, RPC, dependency, quotation és takeoff adatbázis-kód nem változott; teljes regresszió nem futott. |
+| Typecheck / lint / build / diff-check | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) és `git diff --check` PASS. |
+| Local Supabase / pgTAP | Meglévő tesztek PASS; standalone Auth/RLS nem tesztelt | `SUPABASE_TELEMETRY_DISABLED=1 supabase test db`: 15 fájl / 434 teszt PASS kizárólag a helyi DB-n; reset és migráció nélkül. Ezek a meglévő projektmód szerződéseit fedik, nem bizonyítják az új standalone owner szabályt. |
+| Standalone Auth/RLS / konkurencia | Nem implementált / nem ellenőrzött | Nincs új standalone RPC vagy sémaváltozás, ezért standalone izolációs és valódi párhuzamos mentési bizonyíték nincs. |
+| Böngészős smoke | Nem futott | A CUA inventoryban nem volt browser tab, a globális route hitelesített szervezeti sessiont igényel; bejelentkezés és helyi szerverindítás nem történt. A source/build bizonyíték nem runtime browser/Auth bizonyíték. |
+| Standalone persistence / association | Nincs implementálva | Ez a `.2` sématerv lépés; tényleges mentés/lista/reopen `.3`/`.4`, biztonságos project-link `.5`. A jelen milestone önmagában PARTIAL a teljes standalone követelményhez képest. |
+
+Javasolt commit: `feat(F9.7.6.2): add global roof geometry preview`.
+
+## F9.7.6.3 — standalone calculation persistence
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Fókuszált TypeScript/domain | PASS | `npx vitest run src/features/calculations/standalone-persistence.test.ts src/domain/calculations/gutter-material.test.ts src/domain/calculations/flashing-material.test.ts src/domain/calculations/sheet-metal-profile.test.ts`: 4 fájl / 41 teszt. Input-engine recalculation, geometry-ref tiltás, incomplete flashing és null BA/K width. |
+| Local Auth Server Action integráció | PASS | `RUN_LOCAL_SUPABASE_ACTION_TESTS=1 SUPABASE_TELEMETRY_DISABLED=1 npx vitest run src/features/calculations/standalone-actions.local.integration.test.ts`: 2 valós helyi Auth user, 1 teszt. Mindhárom save, gutter V1/V2 + stale conflict, input/output újraszámolás, owner list/read/current/history; same-org nem creator listája üres és közvetlen rekordolvasása null. Admin kizárólag fixture/auth setup és cleanup. |
+| Local pgTAP / project regresszió | PASS | `SUPABASE_TELEMETRY_DISABLED=1 supabase test db --local supabase/tests/database/009_gutter_calculation.sql supabase/tests/database/011_flashing_calculation.sql supabase/tests/database/013_sheet_metal_profile.sql supabase/tests/database/016_standalone_calculations.sql`: 4 fájl / 88 assertion. Creator owner, cross-org/forged org/ID, geometry source, direct insert, revision immutability, incomplete result, stale conflict; projektmód gutter/flashing/profile megőrizve. |
+| Valódi concurrency | PASS | `SUPABASE_TELEMETRY_DISABLED=1 node scripts/verify-standalone-calculation-concurrency.mjs`: két külön `authenticated` PostgreSQL kapcsolat egyszerre indul; pontosan 1 V2 siker, 1 stale konfliktus, két összrevízió, V1 input változatlan. Lokális random DEMO fixture a script végén törlődik. |
+| Migration / adatbázis állapot | PASS, local only | Latest applied előzmény `20261013081700`; az új `20261014010000` incremental `supabase migration up --local` paranccsal került be. Reset, hosted DB és demo seed törlés nem történt. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Böngésző / teljes regresszió | Nem futott | Backend milestone, frontend UX későbbi `.4`; célzott pgTAP és TS nem teljes történeti regresszió. Hosted DB/Auth és backup/restore nem ellenőrzött. |
+
+Javasolt commit: `feat(F9.7.6.3): persist standalone calculations`.

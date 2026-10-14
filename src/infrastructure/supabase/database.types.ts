@@ -83,14 +83,14 @@ isOneToOne: false
                   ]
                 },"calculations": {
                   Row: {
-                    "calculator_type": string,"created_at": string,"current_revision_id": string | null,"display_name": string,"id": string,"organization_id": string,"project_id": string,"roof_model_id": string | null,"status": string,"updated_at": string
+                    "calculator_type": string,"created_at": string,"created_by": string | null,"current_revision_id": string | null,"display_name": string,"id": string,"organization_id": string,"ownership_scope": string,"project_id": string | null,"roof_model_id": string | null,"status": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "calculator_type": string,"created_at"?: string,"current_revision_id"?: string | null,"display_name": string,"id"?: string,"organization_id": string,"project_id": string,"roof_model_id"?: string | null,"status"?: string,"updated_at"?: string
+                    "calculator_type": string,"created_at"?: string,"created_by"?: string | null,"current_revision_id"?: string | null,"display_name": string,"id"?: string,"organization_id": string,"ownership_scope"?: string,"project_id"?: string | null,"roof_model_id"?: string | null,"status"?: string,"updated_at"?: string
                   }
                   Update: {
-                    "calculator_type"?: string,"created_at"?: string,"current_revision_id"?: string | null,"display_name"?: string,"id"?: string,"organization_id"?: string,"project_id"?: string,"roof_model_id"?: string | null,"status"?: string,"updated_at"?: string
+                    "calculator_type"?: string,"created_at"?: string,"created_by"?: string | null,"current_revision_id"?: string | null,"display_name"?: string,"id"?: string,"organization_id"?: string,"ownership_scope"?: string,"project_id"?: string | null,"roof_model_id"?: string | null,"status"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -736,12 +736,12 @@ isOneToOne: false
               "plan_id": string
             }[]
                            },
-"create_gutter_takeoff_draft":
+"create_flashing_takeoff_draft":
 { Args: { "p_calculation_id": string,"p_mappings": Json,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_request_key": string,"p_revision_id": string }; Returns: {
               "draft_created": boolean,"takeoff_id": string
             }[]
                            },
-"create_flashing_takeoff_draft":
+"create_gutter_takeoff_draft":
 { Args: { "p_calculation_id": string,"p_mappings": Json,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_request_key": string,"p_revision_id": string }; Returns: {
               "draft_created": boolean,"takeoff_id": string
             }[]
@@ -764,23 +764,18 @@ isOneToOne: false
               "task_id": string,"task_version": number
             }[]
                            },
+"save_flashing_material_calculation":
+{ Args: { "p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_warnings": Json }; Returns: {
+              "calculation_id": string,"calculation_revision_id": string,"revision_number": number
+            }[]
+                           },
 "save_gable_roof_calculation":
 { Args: { "p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_roof_model_id": string,"p_warnings": Json }; Returns: {
               "calculation_id": string,"calculation_revision_id": string,"revision_number": number,"roof_model_id": string,"roof_model_revision_id": string
             }[]
                            },
 "save_gutter_material_calculation":
-{ Args: { "p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_source_roof_revision_id": string | null,"p_warnings": Json }; Returns: {
-              "calculation_id": string,"calculation_revision_id": string,"revision_number": number
-            }[]
-                           },
-"save_flashing_material_calculation":
-{ Args: { "p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_warnings": Json }; Returns: {
-              "calculation_id": string,"calculation_revision_id": string,"revision_number": number
-            }[]
-                           },
-"save_sheet_metal_profile_calculation":
-{ Args: { "p_calculation_id": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_project_id": string }; Returns: {
+{ Args: { "p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_source_roof_revision_id": string,"p_warnings": Json }; Returns: {
               "calculation_id": string,"calculation_revision_id": string,"revision_number": number
             }[]
                            },
@@ -792,6 +787,26 @@ isOneToOne: false
 "save_quotation_draft":
 { Args: { "p_client_id": string,"p_currency": string,"p_expected_version": number,"p_input_snapshot": Json,"p_line_items_snapshot": Json,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_quotation_id": string,"p_subtotal": number,"p_totals_snapshot": Json }; Returns: {
               "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number
+            }[]
+                           },
+"save_sheet_metal_profile_calculation":
+{ Args: { "p_calculation_id": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_project_id": string }; Returns: {
+              "calculation_id": string,"calculation_revision_id": string,"revision_number": number
+            }[]
+                           },
+"save_standalone_flashing_calculation":
+{ Args: { "p_calculation_id": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json }; Returns: {
+              "calculation_id": string,"calculation_revision_id": string,"revision_number": number
+            }[]
+                           },
+"save_standalone_gutter_calculation":
+{ Args: { "p_calculation_id": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json }; Returns: {
+              "calculation_id": string,"calculation_revision_id": string,"revision_number": number
+            }[]
+                           },
+"save_standalone_profile_calculation":
+{ Args: { "p_calculation_id": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json }; Returns: {
+              "calculation_id": string,"calculation_revision_id": string,"revision_number": number
             }[]
                            },
 "set_execution_photo_category":

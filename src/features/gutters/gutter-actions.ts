@@ -25,6 +25,7 @@ export async function saveGutterCalculationAction(data: FormData): Promise<Gutte
   const calculated = executeCalculator(gutterMaterialCalculator, parsed.data);
   if (!calculated.ok) return { ok: false, error: calculated.errors[0]?.message ?? "A kalkuláció nem számítható ki." };
   const sourceRoofRevisionId = uuid(text(data, "sourceRoofRevisionId"));
+  if (!sourceRoofRevisionId) return { ok: false, error: "A projektforrásként használt tetőrevízió hiányzik." };
   const expectedRevision = Number(text(data, "expectedRevisionNumber") || "0");
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) return { ok: false, error: "Érvénytelen revíziószám." };
   const supabase = await createClient();
