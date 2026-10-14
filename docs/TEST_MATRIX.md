@@ -1042,8 +1042,19 @@ Frontend mentés/újranyitás és böngészős ellenőrzés nem futott; F9.7.7.2
 | Célzott Vitest | PASS | 12 megadott domain, covering, takeoff action/read-model/UI contract fájl: 11 fájl PASS, 1 opt-in local integráció SKIP; 34 PASS, 3 SKIP. Az opt-in integráció külön futtatva 3/3 PASS. Ez célzott, nem teljes regresszió. |
 | Typecheck / lint / production build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) sorban PASS. |
 | Diff ellenőrzés | PASS | `git diff --check` sikeres a végleges diffen. |
-| Böngésző / frontend | NEM RÉSZE | Ez backend mérföldkő; nincs takeoff-választó UI. F9.7.7.3b követelménye marad. |
+| Böngésző / frontend | NEM RÉSZE | Ez backend mérföldkő volt; a választó UI és annak ellenőrzése F9.7.7.3b. |
 | Hosted DB, reset, commit, push, deploy | NEM FUTOTT | A lokális új migráció reset nélkül alkalmazva; hosted állapot nem módosult. |
+
+## F9.7.7.3b — trapézlemez-fedés anyagkimutatás UX
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Mentett revízió és katalógus UI | PASS | A szerveroldali opciószűrés kizárólag aktív `roof_covering`/`sheet_metal`, `piece` variánsokat ad; ismert szélesség/hossz csak egyezéskor ajánlható. A pontos historikus fedés- és tetőrevízió, db mennyiség, méretek, stale állapot, provenance és ár-elérhetőség megjelenik. |
+| UI/opció/action célzott Vitest | PASS | `npx vitest run src/features/roof-models/gable-covering-takeoff-ux.test.ts src/features/roof-models/gable-covering-takeoff-creation.test.ts src/features/roof-models/gable-trapezoidal-covering-ux.test.ts src/features/roof-models/gable-trapezoidal-covering-takeoff-actions.test.ts`: 4 fájl / 15 teszt PASS. SSR UI-állapot, V1/20 db, stale jelzés, unsaved megerősítés, inkompatibilis méret, scope és operation ID helper. Nem teljes regresszió. |
+| Typecheck / lint / production build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack). |
+| DB, jogosultság és idempotencia | KORÁBBI BIZONYÍTÉK | A 3a helyi pgTAP, authenticated Auth/RLS/action és kétkapcsolatos idempotencia eredményei változatlanul érvényesek; ebben a mérföldkőben adatbázis nem változott. Lásd a 3a sortáblát. |
+| Böngészős smoke | PASS (HELYI) | Hitelesített `local.owner@local.test` sessionnel a projekt DEMO fedés V1 / V4 tetőforrás kiválasztva; a 26 db, 7000 mm, méretek, aktuális forrás, DEMO provenance, hiányzó ár és draft-korlátok látszottak. Katalógusból egyező DEMO `piece` variánssal létrejött draft `922e2bd4-e8a9-468f-8a1c-989e12dda677`, a pontos takeoff URL nyílt meg és a draft 26 db-os tételként jelent meg, ár és jóváhagyás nélkül. A 6500 mm-es inkompatibilis variáns nem jelent meg a selectorban. A helyi DEMO katalógus-fixture és draft megmaradt. Hosted környezet, mobil Safari és valódi megszakított hálózati retry nem tesztelt. |
+| Hosted DB, reset, commit, push, deploy | NEM FUTOTT | Nincs hosted vagy romboló művelet. |
 
 Állapot: **COMPLETE (TAKEOFF BACKEND)** a teljes hosszú, egy sor/sík támogatott
 fedési kiosztásra. Az opt-in Auth teszt valós helyi Auth/RLS, DB writer és két

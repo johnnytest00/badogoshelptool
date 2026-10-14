@@ -1121,3 +1121,40 @@ ellenőrzések eredménye a TEST_MATRIX-ben. Frontend választó UI nincs ebben 
 feladatban. Hosted DB, reset, commit, push és deploy nem történt.
 
 Javasolt commit: `feat(F9.7.7.3a): create takeoff drafts from saved roof covering`.
+
+## F9.7.7.3b — trapézlemez-fedés anyagkimutatás UX
+
+Állapot: **COMPLETE (LOCAL UX SCOPE).** A projekt
+tetőmodell mentett fedési revíziójából megnyitható az új piszkozat megerősítő
+ablaka. A felület a kiválasztott pontos fedési és tetőrevíziót, a mentett
+darabszámot és méreteket, a források eredetét, a stale állapotot, a kompatibilis
+aktív műhely katalógusvariánsokat, azok méretadatait, provenance-át és
+ár-elérhetőségét mutatja. Csak `roof_covering`/`sheet_metal`, `piece` variáns
+ajánlható fel; ismert méreteltérés nem választható.
+
+Nem mentett tető- vagy fedésmódosításnál a párbeszédablak kimondja, hogy a
+kiosztás a mentett revízióból készül, és kifejezett választást kér; a mentési
+gombra fókuszáló út is elérhető. A kliens nem számol mennyiséget: a meglévő,
+szervezetet, projektet, exact forrásrevíziót és variánst ellenőrző Server Action
+kapja meg az azonosítót/nevet/variánst, az adatbázis a mentett snapshotból hozza
+létre az új draftot. A biztonságos operation ID kétértelmű hálózati retrykor és
+azonos payloadnál megmarad; forrás- vagy választásváltás új műveletet jelent.
+Siker után a létrejött takeoff pontos útvonala nyílik meg. Jóváhagyás, ajánlat,
+korábbi takeoff módosítása és adatbázisséma-változás nem része a felületnek.
+
+Újrahasznosított architektúra: a 3a action/RPC és takeoff route, a 2b mentett
+fedési revision/read model, a meglévő szervezeti RLS katalógusolvasás és a
+`generateSecureUuid`. A DB/RLS/action/idempotencia bizonyíték változatlanul a
+3a mérföldkőben rögzített helyi teszt; ebben a UI körben DB nem változott.
+
+Ellenőrzés: célzott Vitest 4 fájl / 15 teszt PASS; `npm run typecheck`,
+`npm run lint`, `npm run build` és `git diff --check` PASS. Egy helyi hitelesített
+workflow-ban a V1 / 26 db / 7000 mm fedésből DEMO `piece` variánssal új draft
+keletkezett, a felület a pontos `?takeoff=922e2bd4-e8a9-468f-8a1c-989e12dda677`
+takeoff URL-re navigált; a státusz draft, a forrásadat és a hiányzó ár látható.
+Az eltérő hosszú, 6500 mm-es DEMO variáns a megerősítő választóban nem jelent meg.
+A helyi katalógusban DEMO termék/variáns és egy új DEMO draft maradt. DB/RLS/
+idempotencia külön nem futott újra, mert séma nem változott; ezek a 3a bizonyítékai.
+Ez nem teljes regresszió. Hosted DB, commit, push és deploy nem történt.
+
+Javasolt commit: `feat(F9.7.7.3b): add covering to takeoff creation UX`.

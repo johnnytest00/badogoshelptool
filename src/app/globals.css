@@ -515,11 +515,18 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .association-confirmation dl div { display: grid; grid-template-columns: minmax(7rem, .35fr) 1fr; gap: .7rem; }
 .association-confirmation dt { color: var(--muted); }
 .association-confirmation dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.association-confirmation > div { display: grid; grid-template-columns: minmax(9rem, .4fr) 1fr; gap: .7rem; padding-bottom: .55rem; border-bottom: 1px solid var(--border); }
+.association-confirmation > div:last-child { border-bottom: 0; }
 .association-confirmation > p { margin: 0; color: var(--muted); line-height: 1.55; }
 .association-unsaved { display: flex; align-items: flex-start; gap: .55rem; padding: .75rem; border: 1px solid var(--border); border-radius: .75rem; }
 .association-unsaved input { flex: 0 0 auto; margin-top: .25rem; }
+.association-unsaved p { margin: .3rem 0 .55rem; line-height: 1.5; }
+.association-unsaved label { display: flex; align-items: flex-start; gap: .5rem; line-height: 1.45; }
+.association-search select { min-height: 2.8rem; width: 100%; border: 1px solid var(--border); border-radius: .7rem; background: var(--surface-strong); color: var(--foreground); padding: .65rem .8rem; }
+.covering-takeoff-catalog-review { display: grid; gap: .45rem; padding: .85rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface-strong); line-height: 1.5; overflow-wrap: anywhere; }
+.covering-takeoff-catalog-review span { color: var(--muted); }
 .association-success .primary-button { justify-self: start; }
-@media (max-width: 600px) { .project-module-actions { justify-content: flex-start; } .association-confirmation dl div { grid-template-columns: 1fr; gap: .15rem; } .association-dialog { border-radius: 1rem; } }
+@media (max-width: 600px) { .project-module-actions { justify-content: flex-start; } .association-confirmation dl div, .association-confirmation > div { grid-template-columns: 1fr; gap: .15rem; } .association-dialog { border-radius: 1rem; } }
 
 .trapezoidal-covering { display: grid; gap: 1rem; }
 .trapezoidal-covering .roof-help-note { overflow-wrap: anywhere; }

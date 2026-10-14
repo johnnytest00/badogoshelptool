@@ -84,7 +84,13 @@ export async function createGableCoveringTakeoffAction(rawRequest: unknown): Pro
     };
   } catch (error) {
     const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
-    if (code === "22023") return failure("INCOMPATIBLE_MAPPING", "A kiválasztott termékegység, méret vagy fedési kiosztás nem támogatott.");
+    if (code === "22023") {
+      const message = error && typeof error === "object" && "message" in error ? String(error.message) : "";
+      if (message.includes("aktív tetőfedés/lemez terméknek és db egységűnek")) return failure("INCOMPATIBLE_MAPPING", "A kiválasztott variáns már nem aktív, nem tetőfedés/lemez kategóriájú, vagy nem db egységű. Frissítsd a katalógust és válassz támogatott variánst.");
+      if (message.includes("katalógusméret eltér")) return failure("INCOMPATIBLE_MAPPING", "A katalógusban megadott lemezszélesség vagy -hossz eltér a mentett fedési revíziótól. Válassz egyező variánst, vagy javítsd a katalógusadatot.");
+      if (message.includes("műveletazonosítót más átadáshoz")) return failure("INCOMPATIBLE_MAPPING", "Ez a műveletazonosító már más adatokhoz tartozik. Indíts új átadást a módosított választással.");
+      return failure("INCOMPATIBLE_MAPPING", "A megadott katalógusvariáns vagy mentett lemezkiosztás nem támogatott. Ellenőrizd a méreteket és válassz db egységű tetőfedés/lemez terméket.");
+    }
     if (code === "40001") return failure("REVISION_CONFLICT", "A forrás vagy a céladat időközben megváltozott. Frissítsd az adatokat, majd indíts új átadást.");
     if (code === "42501") return failure("UNAUTHORIZED", "A projekt, forrásváltozat vagy anyagváltozat nem érhető el a fiókod számára.");
     if (code === "P0002") return failure("SOURCE_NOT_FOUND", "A pontos mentett forrásváltozat már nem érhető el.");

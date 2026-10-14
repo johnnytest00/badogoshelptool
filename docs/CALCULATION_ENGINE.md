@@ -285,6 +285,18 @@ Többsoros, toldott vagy átlapolt kiosztás, nem egész/hiányos lemezszám és
 `piece` katalógusegység nem támogatható. Nincs hossz szerinti darabcsoportosítás,
 vágásveszteség, anyagoptimalizálás vagy implicit méretátváltás.
 
+## F9.7.7.3b — takeoff létrehozási UX
+
+A projekt fedési panel megerősítő felülete kizárólag a kiválasztott, mentett
+projekt-revíziót adja át a 3a Server Actionnek. A katalóguslista az aktív
+szervezeti tetőfedés/lemez, darabegységű variánsokra szűr; ismert méreteknek
+egyezniük kell. Mennyiséget a kliens nem számol és nem küld. Nem mentett
+szerkesztés esetén explicit választás mutatja meg, hogy a mentett állapot kerül
+felhasználásra. Idempotens retry megtartja a biztonságos operation ID-t; a
+sikeres draft útvonalára navigál. Ez a felület nem hagy jóvá kimutatást és nem
+indít ajánlatot. A célzott UI/action teszt, typecheck, lint és build PASS;
+böngészős smoke státuszát a `TEST_MATRIX.md` rögzíti.
+
 
 ## F9.7.7.2a — trapézlemez-fedés persistencia
 

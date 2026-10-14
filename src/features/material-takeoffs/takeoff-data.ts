@@ -1,9 +1,15 @@
 import { createClient } from "@/infrastructure/supabase/server";
 import { GABLE_CALCULATOR_ID, GABLE_CALCULATOR_VERSION, GABLE_INPUT_SCHEMA_VERSION, gableRoofCalculator } from "@/domain/calculations/gable-roof";
-import { getMaterialProductsForOrganization, type MaterialVariantRecord } from "@/features/materials/material-data";
+import { getMaterialProductsForOrganization, type MaterialPriceRecord, type MaterialVariantRecord } from "@/features/materials/material-data";
 import { materialPurchasingUnitLabels, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
 
 export type SavedGableCalculation = { id: string; revisionId: string; displayName: string; revisionNumber: number; current: boolean; output: ReturnType<typeof gableRoofCalculator.calculate> };
+export type GableCoveringTakeoffOption = Readonly<{
+  id: string; productId: string; productName: string; productCode: string | null;
+  productCategory: "roof_covering" | "sheet_metal"; variantName: string;
+  purchasingUnit: string; nominalWidthMm: number | null; effectiveWidthMm: number | null; lengthMm: number | null;
+  provenance: string; sourceName: string | null; latestPrice: Pick<MaterialPriceRecord, "amount" | "currency" | "purchasingUnit" | "priceKind" | "effectiveDate" | "sourceName"> | null;
+}>;
 export type TakeoffRecord = { id: string; projectId: string; name: string; status: "draft" | "approved"; version: number; sourceCalculationId: string; sourceRevisionId: string; sourceDisplayName: string; sourceCurrentRevisionId: string | null; sourceRoofModelId: string | null; sourceRoofRevisionId: string | null; staleRoofSource: boolean; items: Array<{ id: string; variantName: string; sku: string | null; productName: string | null; productCategory: string | null; provenance: string; technicalDetails: string | null; priceDetails: string | null; quantity: number; unit: string; method: string; source: string; warning: string | null }> };
 
 const profileStateLabels: Record<string, string> = {
@@ -70,6 +76,21 @@ export async function getSavedGableCalculations(organizationId: string, projectI
 export async function getTakeoffVariants(organizationId: string): Promise<MaterialVariantRecord[]> {
   const products = await getMaterialProductsForOrganization(organizationId);
   return products.flatMap((product) => product.variants.filter(() => product.status === "active"));
+}
+
+export async function getGableCoveringTakeoffOptions(organizationId: string): Promise<GableCoveringTakeoffOption[]> {
+  const [roofCovering, sheetMetal] = await Promise.all([
+    getMaterialProductsForOrganization(organizationId, { category: "roof_covering" }),
+    getMaterialProductsForOrganization(organizationId, { category: "sheet_metal" }),
+  ]);
+  return [...roofCovering, ...sheetMetal].filter((product) => product.status === "active")
+    .flatMap((product) => product.variants.filter((variant) => variant.purchasingUnit === "piece").map((variant) => ({
+      id: variant.id, productId: product.id, productName: product.name, productCode: product.productCode,
+      productCategory: product.category as "roof_covering" | "sheet_metal", variantName: variant.name,
+      purchasingUnit: variant.purchasingUnit, nominalWidthMm: variant.nominalWidthMm,
+      effectiveWidthMm: variant.effectiveWidthMm, lengthMm: variant.lengthMm,
+      provenance: variant.provenance, sourceName: variant.sourceName, latestPrice: variant.latestPrice,
+    })));
 }
 
 export async function getMaterialTakeoffs(organizationId: string, projectId: string): Promise<TakeoffRecord[]> {

@@ -59,4 +59,12 @@ describe("fedési revízió anyagkimutatás action", () => {
     expect(await createGableCoveringTakeoffAction({ organizationId, projectId, calculationId, revisionId, variantId, operationId, name: "DEMO" })).toMatchObject({ ok: false, code: "UNSUPPORTED_LAYOUT" });
     expect(createGableCoveringTakeoffDraft).not.toHaveBeenCalled();
   });
+
+  it("a katalógusdimenzió-változás után a DB elutasításából konkrét javítási útmutatást ad", async () => {
+    vi.mocked(createGableCoveringTakeoffDraft).mockRejectedValueOnce(Object.assign(
+      new Error("A megadott katalógusméret eltér a mentett fedési változattól."), { code: "22023" },
+    ));
+    expect(await createGableCoveringTakeoffAction({ organizationId, projectId, calculationId, revisionId, variantId, operationId, name: "DEMO" }))
+      .toMatchObject({ ok: false, code: "INCOMPATIBLE_MAPPING", error: expect.stringContaining("Válassz egyező variánst") });
+  });
 });

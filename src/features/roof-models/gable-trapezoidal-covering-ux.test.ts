@@ -7,6 +7,7 @@ import { coveringRevisionView, sameOrNewCoveringOperation } from "./gable-trapez
 import type { SavedGableCovering, SavedGableCoveringRevision } from "./gable-trapezoidal-covering-data";
 
 vi.mock("./gable-trapezoidal-covering-actions", () => ({ saveGableTrapezoidalCovering: vi.fn(), readGableTrapezoidalCovering: vi.fn() }));
+vi.mock("./gable-trapezoidal-covering-takeoff-actions", () => ({ createGableCoveringTakeoffAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 import { GableTrapezoidalCoveringPanel } from "./gable-trapezoidal-covering-panel";
 
@@ -31,6 +32,7 @@ describe("trapézlemez mentési felület", () => {
     expect(html).toContain("Legfrissebb változat");
     expect(html).toContain("V1");
     expect(html).toContain("Sematikus fedési kiosztás");
+    expect(html).not.toContain("Anyagkimutatás készítése");
   });
   it("a kiválasztott történeti V1 inputot és eredményt együtt adja vissza", () => {
     const view = coveringRevisionView(v1);
@@ -41,10 +43,13 @@ describe("trapézlemez mentési felület", () => {
   it("projektben pontos mentett tetőforrást és elavult forrás jelzést ad", () => {
     const projectRevision: SavedGableCoveringRevision = { ...v1, scope: "project", input: { scope: "project", source: { geometryInput, roofModelRevisionId: "old-roof-revision" }, coveringInput: covering(1000) } };
     const projectSaved: SavedGableCovering = { ...saved, projectId: "project", roofModelId: "model", currentRevisionId: projectRevision.revisionId, currentRevisionNumber: 1, revisions: [projectRevision] };
-    const html = renderToStaticMarkup(createElement(GableTrapezoidalCoveringPanel, { mode: "project", organizationId: "org", projectId: "project", roofModelId: "model", roofModelRevisionId: "new-roof-revision", roofModelRevisionNumber: 2, savedCalculations: [projectSaved], name: "DEMO tető", geometryInput, geometry, sourceLabel: "DEMO modell" }));
+    const html = renderToStaticMarkup(createElement(GableTrapezoidalCoveringPanel, { mode: "project", organizationId: "org", projectId: "project", projectName: "DEMO projekt", roofModelId: "model", roofModelRevisionId: "new-roof-revision", roofModelRevisionNumber: 2, savedCalculations: [projectSaved], takeoffOptions: [{ id: "variant", productId: "product", productName: "DEMO tetőlemez", productCode: null, productCategory: "roof_covering", variantName: "DEMO 1100×1000×5000", purchasingUnit: "piece", nominalWidthMm: 1100, effectiveWidthMm: 1000, lengthMm: 5000, provenance: "demo", sourceName: "DEMO", latestPrice: null }], name: "DEMO tető", geometryInput, geometry, sourceLabel: "DEMO modell" }));
     expect(html).toContain("old-roof-revision");
     expect(html).toContain("eltér a tetőmodell legfrissebb revíziójától");
     expect(html).toContain("Újraszámítás a legfrissebb mentett tetőrevízióból");
+    expect(html).toContain("Anyagkimutatás készítése");
+    expect(html).toContain("V1");
+    expect(html).toContain("20 db (piece)");
   });
   it("azonos kéréshez ugyanazt a biztonságos műveletazonosítót tartja meg, módosult kéréshez újat kér", () => {
     let n = 0;
