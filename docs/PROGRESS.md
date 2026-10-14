@@ -813,4 +813,59 @@ további lapozás nincs bekötve. Böngészőn ellenőrizendő a catalog picker,
 HTTP-LAN secure UUID runtime, mobil billentyűzet és a teljes Server Action
 workflow.
 
+### F9.7.6.6.2a — standalone quotation E2E acceptance
+
+Állapot: **PARTIAL — a teljes authenticated browser acceptance nem bizonyított.**
+2026-10-14-én az aktív helyi, hitelesített DEMO sessionben a `/ajanlatok`
+betöltött; az üres standalone lista és a meglévő projektajánlatok listája
+látható volt. Az „Új árajánlat” link az `/ajanlatok/uj` editorra navigált,
+ahol a csak-piszkozat státusz és nettó HUF tájékoztató megjelent. A korábbi
+helyi, nem mentett recovery-t elvetettük. Mielőtt az első új DEMO ajánlat
+elmentésére sor került volna, a Brave fókusza másik privát ablakra váltott,
+egy Google belépési kihívással; a TetőPro ablak visszaválasztása közben az app
+újra fókuszt váltott. A belépési kihívást nem kezeltük és hitelesítést nem
+kerültünk meg. Nem ismert, hogy az editor mezőibe írási próbálkozás befejeződött-e;
+quote vagy revízió mentését nem állítjuk.
+
+Nem bizonyított: V1 mentés/visszaadott ID, reload és újranyitás, anyag- és
+munkadíjtételek tartóssága, katalógussor, szerverösszeg, V2, történeti V1,
+globális listába visszatérés, projektajánlat megnyitása, konfliktus/pending
+viselkedés. Kódhiba nem reprodukálódott, ezért kódmódosítás nem történt;
+statikus ellenőrzéseket és backend teszteket nem futtattunk újra. Nincs új
+adatbázis-változás.
+
+Javasolt acceptance: nyissuk meg újra a meglévő authenticated helyi DEMO
+sessiont, és egyetlen, `DEMO F9.7.6.6.2a E2E` nevű drafton hajtsuk végre a
+V1 → reload → V2 → V1 read-only → V2 workflow-t; a kézi ár fiktív DEMO adat,
+nettó HUF-ként legyen jelölve.
+
+Javasolt commit: `test(F9.7.6.6.2a): document standalone browser acceptance`.
+
 Javasolt commit: `feat(F9.7.6.6.2): add standalone quotation editor`.
+
+## F9.7.6.6.3.1 — standalone véglegesítés és PDF architektúra
+
+Állapot: **COMPLETE (DESIGN)**. Az aktuális projekt PDF renderer, project
+`finalize_quotation`, lifecycle statusok, quotation/revision snapshot, org és
+client séma alapján elkészült a végrehajtható F9.7.6.6.3.2 terv a
+`docs/QUOTATION_FINALIZATION_DESIGN.md` fájlban. A terv közös React-PDF
+renderert, immutable standalone issuance snapshotot, owner/org/scope védett,
+expected-version és idempotens finalize RPC-t, valamint on-demand,
+`private/no-store` PDF route-ot javasol; a projektútvonal változatlan marad.
+
+Bizonyított: a jelenlegi scope-kötött draft, immutable revision, HUF net/gross
+class, server-side `NUMERIC(20,2)` half-up line totals, project finalized
+revision pointer és private PDF route. Nem létezik tax rate/category/amount,
+issuer address/tax identity, standalone recipient snapshot, human quotation
+number vagy validity mező. A `net/gross` nem tax treatment; tax profile és
+kiállíthatóság addig blokkolt, amíg könyvelő/adótanácsadó nem erősíti meg a
+szabályt. Sem kód, sem migráció, sem PDF/finalize viselkedés nem változott.
+
+Ellenőrzés: releváns workflow/database/progress/test docs, F8.1/F8.3.1/F8.3.2
+migráció, Server Action, React-PDF document/adapter és PDF route célzott
+ellenőrzése; `git diff --check` PASS. Vitest, typecheck, lint, build, pgTAP,
+browser nem futott (docs-only). Nyitott döntés: kibocsátói és címzettminimum,
+adóprofil és kerekítés, ajánlatszámozás, érvényességi policy, byte-pontos PDF
+archiválási elvárás.
+
+Javasolt commit: `docs(F9.7.6.6.3.1): design standalone quotation issuance`.

@@ -170,3 +170,32 @@ A globális „Tetők és tetőfedés” csoportból nyitható a projekt nélkü
 
 Zhitov oldalak kizárólag funkcionális összehasonlításra lettek ellenőrizve: a nyeregtető referencia külön geometry, szarufa, léc, lemezméret és overlap bemeneteket mutat; a sátortető-oldal saját kontúrt, szarufa- és lécparamétereket, részrajzokat sorol. Ezek nem normatív források, és képleteik nem kerülnek átvételre. [Nyeregtető referencia](https://www.zhitov.com/hu/roof2/), [sátortető referencia](https://www.zhitov.com/hu/hip_roof/). A jelen projektben a termékspecifikus fedés, gyártói átfedés, veszteség, rögzítési kiosztás, megengedett szarufa-keresztmetszet és statikai kapacitás továbbra is nincs igazolva; egyik sem kerül DEMO alapértékként bevezetésre.
 
+## F9.7.6.6.3.1 — véglegesítés és PDF architektúraterv
+
+Az aktuális projekt `QuotationPdfDocument` A4 React-PDF layoutja és a
+`renderQuotationPdf` buffer-adapter újrahasználandó, közös issuer/recipient/
+document adatkontrakttal. A projekt-route tagság-, project-, quote- és
+revision-ellenőrzésű; finalized státusznál a `finalized_revision_id`-t olvassa,
+private no-store PDF-et streamel. Standalone-ra külön creator + aktív tagság +
+scope ellenőrzésű route kell. Az `organizations` jelenlegi `name` mezőjén kívül
+nincs kibocsátói cím/adóazonosító; a client adat opcionális; nincs emberi
+ajánlatszámozás vagy érvényességi mező.
+
+A jelenlegi `net/gross` csak egységes árbesorolás. A HUF tételösszeg
+`NUMERIC(20,2)`/half-up szerveroldali összegzés bizonyított, de ÁFA-kulcs,
+tax category, adóösszeg és historical tax snapshot nincs. Nettó/bruttó közti
+átváltás és kitalált tax treatment nem megengedett; a véglegesítés fail-closed,
+amíg könyvelő/adótanácsadó nem hagyja jóvá a kibocsátói/címzett minimumot,
+tax profilokat/kerekítést, sorszámozást és érvényességi szabályt.
+
+A 6.3.2 terv immutable issue snapshot + expected version/revision, `FOR UPDATE`,
+creator/org/scope ellenőrzés és idempotens issuance RPC; közös rendererből
+on-demand PDF; projekt-regresszió; majd security/financial/concurrency/browser
+acceptance. Nincs implementálva migráció, finalize RPC, adómotor vagy standalone
+PDF. Részletes terv: `docs/QUOTATION_FINALIZATION_DESIGN.md`.
+
+Ellenőrzés: célzottan ellenőriztük a F8.1/F8.3.1/F8.3.2 adatbázis-szerződést,
+`quotation-document.tsx`, `quotation-pdf.ts`, a projekt PDF route/action,
+quotation migrációkat és a schema/org/client mezőket. Ebben a milestone-ban
+csak dokumentáció módosult; nincs új kód, DB, teszt vagy browser futtatás.
+

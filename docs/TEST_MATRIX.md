@@ -36,8 +36,26 @@
 | Typecheck / lint | PASS | `npm run typecheck`, `npm run lint` ténylegesen lefutott a frontend változtatások után. |
 | Production build | PASS | `npm run build` Next.js 16.4.0 webpack; mindhárom globális standalone quotation route bekerült a build route listájába. |
 | Diff ellenőrzés | PASS | `git diff --check` a módosítások és dokumentáció után. |
-| Authenticated browser workflow, create/reopen/V1–V2/history/project regression | PARTIAL / UNVERIFIED | Authenticated local DEMO overview és új szerkesztő megnyílt; kézi/labor mezők és nettó becslés megjelent, katalogusváltozat-feloldás elindult. Draft save, reload, V2, history és project regression végig nem lett ellenőrizve; nincs browser PASS. |
+| Authenticated browser workflow, create/reopen/V1–V2/history/project regression | PARTIAL / UNVERIFIED | F9.7.6.6.2a alatt a helyi authenticated DEMO overview (üres standalone lista + projektajánlat-linkek) és az új editor megnyílt; draft-only és nettó HUF jelölés látszott. Korábbi nem mentett recovery elvetve. A Brave ezután másik privát ablakra váltott Google belépési kihívással; a sessiont nem kerültük meg. Mentés, ID, reload, V2, history, katalógus és projektlink megnyitása nem igazolt. Nem bizonyított kódhiba; kódot nem módosítottunk. |
 | DB / pgTAP / concurrency | Nincs újrafuttatva, változatlan szerződés | Nem volt backend-contract vagy migration változás; F9.7.6.6.1b történeti bizonyítékait nem ismételtük. |
+
+## F9.7.6.6.2a — E2E acceptance kísérlet
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Helyi authenticated DEMO overview | PASS | `/ajanlatok` renderelte az üres standalone listát, meglévő project quotation sorokat és azok navigációs linkjeit. A link megnyitása nem lett ellenőrizve. |
+| Standalone új editor megnyitása | PASS | „Új árajánlat” az `/ajanlatok/uj` route-ra navigált; a draft-only figyelmeztetés és nettó HUF tájékoztató látható volt. Korábbi session recovery-t elvetettük. |
+| Draft V1 → reload/reopen → V2 → historical V1 → current V2 | UNVERIFIED | Mentésig nem jutottunk. A Brave másik privát ablakra váltott Google login challenge-re, majd a TetőPro ablak visszahívásakor ismét fókuszváltás történt. Nem léptünk be újra és nem kerültük meg a kihívást. |
+| Kódjavítás / automatizált teszt | Nincs szükség | A browser blokkolás nem alkalmazáshiba; kód nem változott. Korábbi sikeres static/backend teszteket nem ismételtünk. |
+
+## F9.7.6.6.3.1 — architektúra-terv
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Aktuális adat- és alkalmazáskontraktok | PASS, célzott olvasás | F8.1 quotation schema, F8.3.1 finalize, F8.3.2 lifecycle, standalone migration/action, project PDF route és shared React-PDF renderer; organizations/clients mezők ellenőrizve. |
+| Design és dokumentumkonzisztencia | PASS | `docs/QUOTATION_FINALIZATION_DESIGN.md`, `STANDALONE_WORKFLOWS.md` és `PROGRESS.md` rögzíti a jelenlegi tényeket, hiányzó mezőket, tax boundaryt, biztonságot, sorrendet és open decisionöket. |
+| `git diff --check` | PASS | Ténylegesen lefutott a docs-only változtatások után. |
+| Vitest / typecheck / lint / build / DB / browser | Nem futott | Nincs kód- vagy DB-változás; architektúra-feladatban browser nem volt szükséges. |
 
 ## F9.1.1 ellenőrzések
 
