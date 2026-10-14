@@ -538,3 +538,5 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .covering-grid { fill: none; stroke: var(--foreground); stroke-opacity: .55; stroke-width: .75; }
 .covering-layout-svg text { fill: var(--foreground); font-size: 11px; }
 @media (max-width: 560px) { .covering-layout-svg { min-height: 8rem; } }
+
+.gable-metal-tile-panel { display: grid; gap: 1rem; margin-top: 1rem; }.gable-metal-tile-panel .roof-form-grid { margin-top: 0; }.metal-tile-status { border: 1px solid var(--border); border-radius: .9rem; padding: 1rem; color: var(--foreground); background: var(--surface-strong); }.metal-tile-status ul { margin: .5rem 0 0; padding-left: 1.2rem; }.metal-tile-status.is-valid { border-color: #15803d; }.metal-tile-status.is-unsupported, .metal-tile-status.is-invalid { border-color: #dc2626; }.metal-tile-status.is-incomplete { border-color: #d97706; }.gable-metal-tile-svg { display: block; width: 100%; min-width: 34rem; height: auto; }.gable-metal-tile-panel .roof-field input[type=checkbox] { width: 1rem; min-height: 1rem; accent-color: var(--brand); }

@@ -1158,3 +1158,13 @@ idempotencia külön nem futott újra, mert séma nem változott; ezek a 3a bizo
 Ez nem teljes regresszió. Hosted DB, commit, push és deploy nem történt.
 
 Javasolt commit: `feat(F9.7.7.3b): add covering to takeoff creation UX`.
+
+## F9.7.7.4a — cserepeslemez-fedés motor és előnézet
+
+Állapot: **COMPLETE (ENGINE + PREVIEW)**. Elkészült a tiszta, determinisztikus `roof.gable.metal-tile-covering` számítás domain-regisztrációval; a bemenet a valós `roof.gable` inputot és külön termékadat-snapshotot fogad. A motor kezeli a két azonos tetősík felületét, effective szélességből számított egész oszlopokat, teljes lemezszámot, fizikai lemezből képzett névleges területet, külön effective fedési hosszt, explicit végi ráhagyást, gyártói hosszkorlátot és modulkompatibilitást. Toldott/többsoros vagy elégtelen teljeshosszú kiosztás nem kap darabszámot.
+
+A projekt tetőszerkesztő élő, aktuális `roof.gable` geometriával mutatja az előnézetet, a `/kalkulatorok/cserepeslemez` útvonal pedig kézi tetőinputból ugyanazt a motort használja. A közös felület jelzi a geometriát és termékadat eredetét, a státuszt és a feltételes mennyiséget; a sematikus SVG csak VALID állapotot rajzol, az explicit oszlopokat és modulvonalakat jeleníti meg. A felület nem ment, nem ír DB-t, és nem állít gyártói vagy szerkezeti megfelelőséget.
+
+Bizonyíték: `npx vitest run src/domain/calculations/gable-metal-tile-covering.test.ts src/features/roof-models/gable-metal-tile-covering-preview.test.ts` — 2 fájl / 11 teszt PASS; `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack; `/kalkulatorok/cserepeslemez` route megjelent) és `git diff --check` PASS; a diff csak a célzott motor, preview, navigáció és dokumentáció fájljait érinti. Hitelesített böngészős smoke: UNVERIFIED, a CUA böngészőleltárban nem volt nyitott tab/session, ezért meglévő hitelesített munkafolyamat nem volt elérhető. DB/RLS/pgTAP nem alkalmazható, nincs adatváltozás. Korlát: aszimmetrikus/törött tető, nyílások, több lemezsor, toldás, gyártói/terhelési/telepítési igazolás, mentés és anyagkimutatás nincs támogatva.
+
+Javasolt commit: `feat(F9.7.7.4a): add metal tile covering engine and preview`.

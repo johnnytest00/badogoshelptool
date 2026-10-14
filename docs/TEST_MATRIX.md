@@ -1059,3 +1059,14 @@ Frontend mentés/újranyitás és böngészős ellenőrzés nem futott; F9.7.7.2
 Állapot: **COMPLETE (TAKEOFF BACKEND)** a teljes hosszú, egy sor/sík támogatott
 fedési kiosztásra. Az opt-in Auth teszt valós helyi Auth/RLS, DB writer és két
 PostgreSQL kapcsolat segítségével futott; ezek nem hosted környezetek.
+
+## F9.7.7.4a — cserepeslemez-fedés motor és előnézet
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Domain numerikus és státusztesztek | PASS | `npx vitest run src/domain/calculations/gable-metal-tile-covering.test.ts`: pontos 10 oszlop/sík és 20 db, 10 001 mm részleges szélesség és 22 db, 100 m² tetőfelület, fizikai/effective hossz különbsége, modulképlet, hiányzó/hibás adat, limit, átlapolás, túl rövid lemez, invalid geometria és oszloplimit. |
+| Projekt / standalone UI | PASS | `npx vitest run src/features/roof-models/gable-metal-tile-covering-preview.test.ts`: projekt geometriaprovenance, hiányos termékállapot, nincs félrevezető SVG vagy mentés; külön projekt nélküli kézi tetőinput jelenik meg. A projekt tetőform a live `roof.gable` kimenetet adja át a közös preview-nak. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack; `/kalkulatorok/cserepeslemez` route megjelent), `git diff --check`. |
+| Adatbázis / perzisztencia | NEM ALKALMAZHATÓ | Nincs DB-kontraktus, migráció, mentés, RLS vagy takeoff. |
+| Böngészős smoke | UNVERIFIED | A CUA böngészőleltárban nem volt nyitott tab/session; authenticated workflow nem volt elérhető. |
+| Hosted DB / reset / commit / push / deploy | NEM FUTOTT | A scope tiltja, és nem szükséges a motor/előnézet mérföldkőhöz. |

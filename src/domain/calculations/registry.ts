@@ -4,8 +4,9 @@ import { metalSheetLayoutCalculator } from "@/domain/calculations/metal-sheet-la
 import { gutterMaterialCalculator } from "@/domain/calculations/gutter-material";
 import { flashingMaterialCalculator } from "@/domain/calculations/flashing-material";
 import { sheetMetalProfileCalculator } from "@/domain/calculations/sheet-metal-profile";
+import { gableMetalTileCoveringCalculator } from "@/domain/calculations/gable-metal-tile-covering";
 
 /** Explicit production registry containing only implemented calculators. */
 export function createProductionCalculatorRegistry(): CalculatorRegistry {
-  return new CalculatorRegistry().register(gableRoofCalculator).register(metalSheetLayoutCalculator).register(gutterMaterialCalculator).register(flashingMaterialCalculator).register(sheetMetalProfileCalculator);
+  return new CalculatorRegistry().register(gableRoofCalculator).register(metalSheetLayoutCalculator).register(gutterMaterialCalculator).register(flashingMaterialCalculator).register(sheetMetalProfileCalculator).register(gableMetalTileCoveringCalculator);
 }
