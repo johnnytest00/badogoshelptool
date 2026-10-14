@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateQuotationFinancialContract, resolveTaxTreatment } from "./financial-contract";
 import { validateStandaloneLines } from "./standalone";
+import { quotationDraftSchema } from "./contracts";
 
 describe("quotation financial contract", () => {
   it("keeps NET HUF, unresolved tax, and payable amount separate", () => {
@@ -24,6 +25,19 @@ describe("quotation financial contract", () => {
   it("retains PostgreSQL-compatible line half-up rounding", () => {
     const result = validateStandaloneLines([{ type: "OTHER", description: "DEMO", quantity: "0.5", unit: "db", unitPrice: "0.01", priceClass: "net" }]);
     expect(result.ok && result.totals.subtotal).toBe("0.01");
+  });
+
+  it("validates persisted JSONB lines whose optional fields are null", () => {
+    const persistedLine = {
+      type: "LABOR", description: "DEMO szerelési munkadíj", quantity: "2", unit: "óra",
+      unitPrice: "12500", priceClass: "net", lineTotal: "25000.00", notes: null,
+      variantId: null, priceId: null, takeoffItemId: null,
+    };
+    const validated = validateStandaloneLines([persistedLine]);
+    expect(validated).toMatchObject({ ok: true, totals: { subtotal: "25000.00", currency: "HUF", priceClass: "net" } });
+    const parsed = quotationDraftSchema.safeParse({ name: "DEMO", currency: "HUF", lines: [persistedLine] });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.lines[0].notes).toBeUndefined();
   });
 
   it("rejects mixed price bases and values that exceed NUMERIC(20,2)", () => {

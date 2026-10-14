@@ -925,9 +925,62 @@ Nyitott: accounting jóváhagyott treatment/rate/formula/rounding, issuer status
 | PDF snapshot validation / render | PASS | `npx vitest run src/features/quotations/standalone-quotation-pdf.test.ts`: manual, LABOR, catalog price snapshot preservation; gross/contradictory contract denial; rendered PDF bytes and multipage page tree; shared project quotation document remains renderable. |
 | Auth route | PASS, mocked boundaries | 9 focused tests total across PDF and route suites. Route tests cover authorized creator/exact revision, anonymous 401, other creator/cross-org/expired membership/forged quote/revision denial, private/no-store and safe filename. No direct Auth integration test was added. |
 | Generated PDF content | PASS | Local 70-line PDF generated as 5 A4 pages; bundled Poppler `pdfinfo` + `pdftotext` verified repeated `PISZKOZAT`, `NEM VÉGLEGES AJÁNLAT` and clarification on each page, NET HUF labels/saved item content, and absence of VAT/gross/payable labels. |
-| Authenticated browser | PASS, one focused local DEMO workflow | New standalone DEMO V1, one LABOR line at 25,000 HUF net; PDF viewer showed saved issuer/recipient, description, price and net subtotal. Returned to editor; v1 and draft unchanged. The editor readiness panel separately displayed financial completeness/consistency blockers for this demo revision; that path needs follow-up before issuance. No historical V1-from-V2 or mobile viewport run. |
+| Authenticated browser | PASS, one focused local DEMO workflow | New standalone DEMO V1, one LABOR line at 25,000 HUF net; PDF viewer showed saved issuer/recipient, description, price and net subtotal. The editor readiness mismatch was later traced and corrected under F9.7.6.6.3.2d. |
 | Typecheck / lint / build | PASS | `npm run typecheck`; `npm run lint`; `npm run build` (Next.js 16.4.0 webpack), rerun after the final PDF revision-label correction. |
 | DB / Auth integration / lifecycle | Not run | No schema or write contract changed. Route-level auth is covered with mocked auth/session boundaries plus local authenticated browser access; no real Auth-route integration or pgTAP was run. No revision/status/number mutations in the route. |
 | Diff check | PASS | `git diff --check` after code and documentation updates. |
 
 Issuance remains blocked; `canIssue = false`. Tax treatment, atomic finalization, official number and issued PDF are outside this milestone.
+
+## F9.7.6.6.3.2d — quotation financial consistency and PDF authorization hardening
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Financial mismatch | PASS | Saved DEMO line: `2 × 12 500 HUF = 25 000`; line total, revision subtotal, totals snapshot and financial contract agree. Optional JSONB null metadata caused validator rejection, not monetary mismatch. Regression normalizes only optional `notes`/catalog/takeoff IDs. |
+| Draft versus issuance | PASS | Saved financial integrity permits preview; tax treatment, required issuer data, numbering and finalization remain independent blockers. `canIssue` stays false. No tax/GROSS/totals inference. |
+| Authenticated HTTP PDF owner | PASS, local real browser session | Exact V1 and V2 revision URLs returned rendered PDFs. V1 contained the original line; V2 contained the later DEMO line. Invalid quote ID and unauthorized/nonexistent revision returned generic 404 bodies. |
+| Historical editor revision | PASS, focused browser check | Selecting V1 initially reused V2 client state. The page now keys the editor by the selected revision ID; browser recheck showed the V1 original line and latest V2 line on their respective selections. |
+| Other authorization boundaries | Partial | Active same-org noncreator, revoked membership, and cross-org HTTP session cases not executed. Existing route Vitest covers mocked creator/org/membership/revision boundaries; no direct real Auth integration suite was added. |
+| Cache / privacy headers | Partial | Route tests assert private/no-store, PDF content type/disposition and safe error text. Headers were not inspected from a real HTTP response. |
+| Revision immutability / no lifecycle mutation | PASS, local read after HTTP requests | V1 and V2 IDs, saved lines, 25,000 subtotal, `draft` status and V2 current revision remained as expected. No number allocation observed. Existing records were not deleted. |
+| Project PDF regression | PASS, focused | `standalone-quotation-pdf.test.ts` includes and passed the shared existing project quotation renderer case. Project PDF authorization over HTTP was not rerun. |
+| Tests / build | PASS | 5 focused Vitest files / 27 tests; `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4 webpack). Physical mobile QA and full regression not run. |
+
+Állapot a d.1 elfogadása előtti checkpointon: **PARTIAL**. A hiányzó HTTP bizonyítékokat az alábbi d.1 mérföldkő pótolta. Issuance továbbra sem támogatott.
+
+## F9.7.6.6.3.2d.1 — standalone PDF HTTP security acceptance
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Owner V1/V2 explicit revision | VERIFIED | Valódi Next HTTP GET és Auth cookie: mindkettő 200, `application/pdf`; `pypdf` szövegkinyerés a V1 és V2 egyedi DEMO snapshot jelölőjét mutatta. A PDF hash is eltért. |
+| Same-org aktív tag | VERIFIED, denied | Valódi, másik felhasználói session: 404, `text/plain;charset=UTF-8`, PDF bájt nélkül, általános „Az ajánlat nem található.” üzenet. |
+| Visszavont tagság | VERIFIED, denied | A tagságot helyi fixture előkészítéskor visszavontuk; érvényes Auth session HTTP 404-et, PDF nélküli általános választ kapott. |
+| Másik szervezet / anonim | VERIFIED, denied | Másik org aktív tulajdonosa 404; cookie nélküli kérés 401. Egyik válasz sem tartalmazott PDF-et vagy SQL/stack/backend részletet. |
+| Hibás/nem létező azonosítók | VERIFIED, denied | Hibás és hiányzó quotation ID, hibás revision formátum és hamis, érvényes UUID revision 404; általános szöveges válasz, PDF nélkül. Kihagyott `revision` query viszont a szerződés szerint a jelenlegi V2-t adta 200-zal. |
+| Sikeres HTTP fejlécek | VERIFIED | Tényleges értékek: `Cache-Control: private, no-store, max-age=0`; `Content-Type: application/pdf`; `Content-Disposition: inline; filename="ajanlat-piszkozat-<UUID>.pdf"`; `X-Content-Type-Options: nosniff`. Nincs `public` cache direktíva vagy privát storage URL. |
+| Elutasítási HTTP fejlécek | VERIFIED | `Content-Type: text/plain;charset=UTF-8`; `Cache-Control: private, no-store, max-age=0`; `X-Content-Type-Options: nosniff`. A hibaszöveg nem fed fel belső azonosítót, SQL-t, stack trace-t vagy backend URL-t. |
+| Read-only / lifecycle | VERIFIED | HTTP GET előtt/után: `draft`, version 2, ugyanaz a current revision ID, pontosan két revízió, üres quotation document sequence. Számozás és finalizálás nem történt; a korábbi readiness vizsgálat `canIssue=false` állapotot igazolt. |
+| Célzott teszt, build, DB, böngésző | UNVERIFIED ebben a d.1 körben | Alkalmazáskód nem változott; a korábbi d. mérföldkő 27/27 Vitest + typecheck/lint/build eredményét nem futtattam újra. pgTAP, hosted, projekt-PDF HTTP és mobil QA nem futott. |
+| FAILED eset | Nincs elfogadási hiba | Az első, üres tételsorú helyi fixture 422-t kapott a PDF szerződés szerinti nettó HUF sor hiánya miatt; érvényes DEMO soros fixture-rel a teljes HTTP mátrix átment. |
+| `git diff --check` | VERIFIED | A d.1 dokumentációs diff után ténylegesen futtatva. |
+
+Státusz: **COMPLETE (PDF SECURITY)**. Csak helyi Supabase DEMO fixture és
+helyi Next route szerepelt; adatbázis-reset vagy hosted művelet nem történt.
+`supabase status` az opcionális helyi imgproxy, edge runtime, analytics, vector
+és pooler konténereket leállította; a helyi API/DB elérhető maradt.
+Javasolt commit: `test(F9.7.6.6.3.2d.1): verify standalone PDF HTTP security`.
+## F9.7.7.1 — trapézlemez-fedés kalkulátor
+
+| Ellenőrzés | Állapot | Bizonyíték |
+|---|---|---|
+| Domain fixtures | PASS | `npx vitest run src/domain/calculations/gable-trapezoidal-covering.test.ts src/features/roof-models/standalone-gable-preview.test.ts`: 2 fájl / 7 teszt PASS. Fixture: pontos és részleges oszlop, szimmetrikus síkok, teljes hossz, támogatott és hiányzó/hibás toldás, hiányzó adatok, termékhatár, explicit ráhagyás és mennyiségi határ. |
+| Typecheck | PASS | `npm run typecheck`. |
+| Lint | PASS | `npm run lint`. |
+| Production build | PASS | `npm run build` Next.js 16.4.0 webpack; route build sikeres. |
+| Diff check | PASS | `git diff --check`. |
+| Browser / UI tests / iPad / iPhone | Nem futott | UI automatizáció nem került be; böngészős acceptance és fizikai eszközök nincsenek igazolva. A korábbi böngészős helyi bind EPERM korlátot nem próbáltam ismét. |
+| Projekt/standalone forrás | Kódszinten integrált | Ugyanaz a domain motor és panel; projekt módban editori geometria, globális mód kézi `roof.gable` geometria. |
+| Tartós mentés / DB / gyártói katalógus | Nem része ennek a fázisnak | Nincs adatbázis-módosítás vagy termékadat-következtetés. |
+
+Állapot: **PARTIAL**. A domain és UI integráció létezik; UI automatizáció és
+böngészős acceptance bizonyíték hiányzik, ezért a mérföldkő nem COMPLETE.

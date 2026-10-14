@@ -520,3 +520,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .association-unsaved input { flex: 0 0 auto; margin-top: .25rem; }
 .association-success .primary-button { justify-self: start; }
 @media (max-width: 600px) { .project-module-actions { justify-content: flex-start; } .association-confirmation dl div { grid-template-columns: 1fr; gap: .15rem; } .association-dialog { border-radius: 1rem; } }
+
+.trapezoidal-covering { display: grid; gap: 1rem; }
+.roof-covering-confirm { margin-top: 1rem; }
+.roof-covering-confirm > span { justify-content: flex-start; align-items: flex-start; }
+.roof-covering-confirm input { width: 1.15rem; min-width: 1.15rem; min-height: 1.15rem; margin: .1rem .4rem 0 0; accent-color: var(--brand); }
+.covering-layout-svg { width: 100%; max-height: 20rem; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface-strong); color: var(--muted); }
+.covering-plane { fill: var(--brand-soft); stroke: var(--brand); stroke-width: 1.5; }
+.covering-grid { fill: none; stroke: var(--foreground); stroke-opacity: .55; stroke-width: .75; }
+.covering-layout-svg text { fill: var(--foreground); font-size: 11px; }
+@media (max-width: 560px) { .covering-layout-svg { min-height: 8rem; } }

@@ -12,7 +12,17 @@ export type StandaloneLineValidation =
 
 /** Pure input validation and fixed-point preview. The save RPC repeats all financial checks. */
 export function validateStandaloneLines(input: unknown): StandaloneLineValidation {
-  const parsed = quotationLineSchema.array().max(200).safeParse(input);
+  // JSONB snapshots store absent optional fields as null. Normalize only those
+  // descriptive/link fields; monetary values are parsed and validated unchanged.
+  const normalizedInput = Array.isArray(input) ? input.map((entry) => {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) return entry;
+    const line = { ...entry } as Record<string, unknown>;
+    for (const key of ["notes", "variantId", "priceId", "takeoffItemId"]) {
+      if (line[key] === null) delete line[key];
+    }
+    return line;
+  }) : input;
+  const parsed = quotationLineSchema.array().max(200).safeParse(normalizedInput);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "A tételek adatai érvénytelenek." };
   const classes = new Set(parsed.data.map((line) => line.priceClass));
   if (classes.size > 1) return { ok: false, error: "Nettó és bruttó tételek nem keverhetők." };

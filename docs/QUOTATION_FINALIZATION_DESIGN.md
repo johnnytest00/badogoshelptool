@@ -302,3 +302,32 @@ választást mutat.
 **Fennmaradó issuance határ:** `canIssue = false`; jóváhagyott adókezelés,
 kötelező kiállítási adatok, atomikus/idempotens véglegesítés, hivatalos szám és
 kiállított dokumentum továbbra sincs.
+
+## F9.7.6.6.3.2d — pénzügyi konzisztencia és PDF authorization hardening
+
+A readiness/PDF eltérés oka nem pénzügyi számítási hiba volt. A mentett JSONB
+sorok az üres `notes`, `variantId`, `priceId` és `takeoffItemId` mezőket `null`
+értékkel tartalmazzák, miközben a quotation line schema csak hiányzó vagy
+string értéket engedett. Emiatt a readiness a helyes sort hiányosnak, az összeget
+pedig eltérőnek minősítette. A PDF saját ellenőrzése elfogadta ugyanazt a
+snapshotot: `2 × 12 500 = 25 000 HUF`, és a mentett subtotal, totals snapshot,
+line total és financial contract egyezett.
+
+A domain validator kizárólag ezeket az opcionális, nem pénzügyi null mezőket
+normalizálja; a line schema ugyanezeket hiányzó értékké alakítja mentés előtt.
+Mennyiség, egységár, árbesorolás és tárolt összegek továbbra is szigorúan
+validáltak. Így draft-integritás mellett megengedett az előnézet, miközben
+issuance readiness külön hiányos marad az issuer-adatok, adókezelés, hivatalos
+szám és finalize hiánya miatt; `canIssue` továbbra is false.
+
+A valódi lokális HTTP útvonal tulajdonosi sessionnel V1 és V2 PDF-et adott; az
+explicit V1 kérés az eredeti „DEMO szerelési munkadíj” snapshotot hozta vissza,
+a V2 a „DEMO V2 HTTP revision snapshot” sort. A történeti editor ugyanazon
+ellenőrzéskor megtartotta a V2 lokális mezőállapotot; a komponenst a kiválasztott
+revision ID-hoz kötöttem, és böngészőben igazoltam a V1 eredeti sorát, majd a
+V2 aktuális sorát. A snapshotok és a `draft` státusz a PDF GET-ek után változatlan
+maradtak. A nem létező revízió valós HTTP kérése 500-at tárt fel; most 404.
+A konkrét DEMO ajánlat cross-user/member, revoked membership és cross-org HTTP
+esetei nem futottak le. A fejléc/cache és a projekt-renderer regresszió csak
+célzott route tesztből, illetve renderer tesztből bizonyított; hosted Auth,
+mobil QA és valós projekt-PDF HTTP regresszió nem történt.

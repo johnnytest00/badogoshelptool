@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput } from "@/domain/calculations/gable-roof";
 import { TechnicalDrawing } from "./technical-drawing";
+import { GableTrapezoidalCoveringPanel } from "./gable-trapezoidal-covering-panel";
 
 type Draft = Record<string, string> & { inputMode: "height" | "angle" };
 const emptyDraft: Draft = {
@@ -52,7 +53,7 @@ export function StandaloneGablePreview() {
       <div className="roof-result-metric"><small>Gerincvonal</small><strong>{format(result.lengths.ridgeLineMm / 1000, "m")}</strong></div>
       <div className="roof-result-metric"><small>Két ereszél összesen</small><strong>{format(result.lengths.totalEaveEdgesMm / 1000, "m")}</strong></div>
       <div className="roof-result-metric"><small>Ferde oromélek összesen</small><strong>{format(result.lengths.totalSlopingGableEdgesMm / 1000, "m")}</strong></div>
-    </div></section><TechnicalDrawing output={result} isSaved={false} /></>
+    </div></section><GableTrapezoidalCoveringPanel geometry={result} sourceLabel="Kézi tetőméretek · projekt nélküli előnézet" /><TechnicalDrawing output={result} isSaved={false} /></>
       : <p className="missing-data">Add meg az összes méretet egész milliméterben, vagy válassz érvényes tetőhajlást a geometriai előnézethez.</p>}
     <p className="roof-disclaimer">A ferde hossz geometriai érték; nem igazolt szarufavágási méret. A felület és hosszak nem jelentenek fedőanyag-, léc-, fólia- vagy szerkezeti mennyiséget.</p>
   </section>;

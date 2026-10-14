@@ -95,7 +95,6 @@ describe("standalone draft PDF route", () => {
 
   it("denies a forged revision without disclosing quotation data", async () => {
     state.revisionRows = [];
-    state.revisionError = { code: "23503" };
     const response = await GET(new Request(`https://local.test/api/ajanlatok/${quotationId}/pdf?revision=33333333-3333-4333-8333-333333333333`), { params: Promise.resolve({ quotationId }) });
     expect(response.status).toBe(404);
     expect(await response.text()).toBe("A kért revízió nem található.");

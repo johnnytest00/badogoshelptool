@@ -45,7 +45,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ quot
     p_revision_id: revisionId,
   });
   if (revisionResult.error || !revisionResult.data?.length || revisionResult.data[0].id !== revisionId) {
-    const status = revisionResult.error?.code === "42501" || revisionResult.error?.code === "23503" ? 404 : 500;
+    const denied = revisionResult.error?.code === "42501" || revisionResult.error?.code === "23503";
+    const absent = !revisionResult.error && (!revisionResult.data?.length || revisionResult.data[0].id !== revisionId);
+    const status = denied || absent ? 404 : 500;
     return response(status === 404 ? "A kért revízió nem található." : "A PDF-előnézet jelenleg nem készíthető el.", status);
   }
 

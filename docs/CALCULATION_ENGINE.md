@@ -232,3 +232,35 @@ A korábbi, `materialRequirement` nélküli immutable revíziók betöltéskor n
 ## F9.6.3.4.2 — profil nettó terület átadási szemantikája
 
 Az átadott mennyiség a mentett aktuális profilrevízió előzetes **nettó blankterülete** `square_meter` egységben: `widthMm × formedRunLengthMm × pieceCount / 1 000 000`. BA/K vagy darabhossz/darabszám hiányakor nincs átadási mennyiség; `null` sosem lesz nulla. A Server Action a teljes domainmotorral geometriai és területi újraszámítást végez, az SQL RPC függetlenül ellenőrzi a numerikus bemenetet, a szélességet, a területet és az aktuális m² katalógusparamétereket. Az adatbázis tételben hat tizedes m² pontossággal tárolja a mennyiséget, a snapshotban a számított numerikus alapérték is megmarad. A BA/K eredete és a számítási osztályozás látható (`PARAMETER_BASED_ESTIMATE` hajtással, `GEOMETRICALLY_DETERMINED` hajtás nélkül); ez nem gépkalibráció, gyártói megfelelőség, vágás-/nestingterv, táblaszám vagy beszerzési mennyiség.
+## F9.7.7.1 — trapézlemez-fedés nyeregtetőre
+
+A `gable-trapezoidal-covering.ts` a `roof.gable` kimenetét használja. A két
+szimmetrikus sík közös hosszirányú mérete `dimensions.overallRoofLengthMm`, a
+fedési ferde hossz `lengths.slopeLengthIncludingEaveMm`, a terület és hajlás
+szintén a meglévő geometriából származik. Nincs külön trigonometria és az
+eresztúlnyúlás nem kerül még egyszer hozzáadásra.
+
+`columnsPerPlane = ceil(overallRoofLength / effectiveCoveringWidth)`; a
+hasznos fedési szélességből nem vonódik le újabb oldalsó átfedés. Ha a kiválasztott
+lemezhossz eléri a ferde hossz + explicit hosszráhagyás célértéket, soronként egy lemez elég. Rövidebb lemeznél
+csak explicit, pozitív, lemezhossznál kisebb átlapolás és felhasználói
+kompatibilitási megerősítés mellett számolható sor:
+`rows = 1 + ceil((requiredCoveringLength - sheetLength)/(sheetLength - overlap))`.
+Kétsíkú összdarab `2 × columns × rows`; a darabszám egészre felfelé kerekül,
+1e-12-es osztási határtoleranciával. Síkonként legfeljebb 400 oszlop támogatott.
+Megadott minimum/maximum lemezhossz megsértése nem támogatott layoutot ad.
+
+A `VALID` eredmény az előzetes minimális kiosztást adja, nem beszerzési tervet.
+Hiányzó termékadat `INCOMPLETE`, hibás átfedés/szélesség `INVALID`, nem igazolt
+hosszanti toldás vagy túl nagy kiosztás `UNSUPPORTED`. Névleges összterület csak
+megadott névleges szélesség és lemezhossz esetén készül. Fedett terület a
+geometriai tetőterület; lemezátfedés, vágási veszteség és darabolási maradék
+nem kerül bele. Paraméterek manuálisak; jelenlegi katalógus nem igazolja a
+trapézlemez fedési méreteket. Nincs mentés, ár, statika, rögzítési séma,
+hajlásalkalmasság vagy gyártói megfelelőség-ellenőrzés.
+
+Független példafixture: 10 000 mm hossz, 6 000 mm szélesség, 4 000 mm
+emelkedés, túlnyúlás nélkül, 1 100 mm névleges / 1 000 mm hasznos szélesség és
+5 000 mm kiválasztott hossz esetén a `roof.gable` ferde hossza 5 000 mm,
+síkonként 10 oszlop, összesen 20 lemez, 100 m² tetőterület és 110 m² névleges
+lemezterület. Az elvárt értékeket a teszt a gyártási képlettől külön rögzíti.

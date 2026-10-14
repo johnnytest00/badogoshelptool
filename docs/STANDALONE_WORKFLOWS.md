@@ -254,3 +254,14 @@ Korlát: standalone preview nem issuance. `canIssue = false`; adójóváhagyás,
 kiállíthatósághoz szükséges adatok, atomikus finalize, hivatalos dokumentumszám
 és hivatalos PDF továbbra sincs. iPad/iPhone QA külön nem futott.
 
+## F9.7.7.1 — projekt nélküli trapézlemez-fedés előnézet
+
+A globális nyeregtető-előnézet a meglévő `roof.gable` geometriából ad közös
+fedési alapot. Az explicit névleges és hasznos fedési szélesség, kiválasztott
+lemezhossz és opcionális toldási adatok kézi inputok; automatikus katalógus-
+hozzárendelés vagy mentés nincs. A project roof editor is eléri ugyanazt a
+panelt a szerkesztett geometriával, mentéstől független élő előnézetként.
+Mindkét út csak két szimmetrikus, téglalap alakú nyeregtető-síkot támogat.
+Ismeretlen adatoknál a panel nem mutat kiosztási rajzot vagy sikeres darabszámot.
+Az eredmény előzetes becslés, nem rendelési vagy gyártási terv.
+

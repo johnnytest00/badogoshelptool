@@ -7,10 +7,10 @@ export const quotationLineSchema = z.object({
   unit: z.string().trim().min(1).max(40),
   unitPrice: z.string().trim().regex(/^\d+(?:[.,]\d{1,2})?$/, "Az egységár legfeljebb 2 tizedesjegyű nemnegatív szám lehet."),
   priceClass: z.enum(["net", "gross"]),
-  variantId: z.string().uuid().optional().or(z.literal("")),
-  priceId: z.string().uuid().optional().or(z.literal("")),
-  takeoffItemId: z.string().uuid().optional().or(z.literal("")),
-  notes: z.string().max(500).optional(),
+  variantId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
+  priceId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
+  takeoffItemId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
+  notes: z.string().max(500).nullish().transform((value) => value ?? undefined),
 });
 
 export const quotationDraftSchema = z.object({

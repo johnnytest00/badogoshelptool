@@ -1,5 +1,68 @@
 # F7.3.2 állapot
 
+## F9.7.6.6.3.2d — quotation pénzügyi konzisztencia és PDF hardening
+
+Állapot: **PARTIAL**. A konkrét DEMO V1 eltérés oka az opcionális line mezők
+`null` reprezentációja volt JSONB snapshotban. A line validator/schema most
+normalizálja az opcionális `notes`, `variantId`, `priceId`, `takeoffItemId`
+null értékeket; pénzügyi mezőn nincs coercion. A mentett 2 × 12 500 HUF nettó
+sor, 25 000 subtotal, totals snapshot és financial contract egyezett. A
+readiness ettől megszűnt pénzügyi hibát jelezni, miközben tax/issuer/number/
+finalize readiness blokkoló és `canIssue=false` megmaradt.
+
+A GET PDF route üres explicit revision eredményre 404-et ad az eddigi 500 helyett.
+Valódi, bejelentkezett lokális HTTP/browser sessionnel az owner PDF-et kapott a
+V1 és V2 exact revision ID-ra; V1-ben az eredeti, V2-ben a módosított
+DEMO leírás szerepelt. A historical editor revisionváltáskor a V2 lokális
+állapotát tartotta meg; a page a selected revision ID-hoz kötött editor key-t
+kapott, és a böngészős ismétlés már a kiválasztott V1/V2 mezőket mutatta. Hamis
+revision 404 „A kért revízió nem található.”, hibás
+quotation ID 404 „Az ajánlat nem található.” választ adott. A lokális snapshot
+ellenőrzés a V1/V2 sort és összegét, a `draft` státuszt és V2 current revisiont
+igazolta a GET-ek után; numbering nem történt.
+
+Futott: 5 célzott Vitest fájl, 27/27 PASS; ez tartalmazza a project quotation
+renderer regressziót és a route mock boundary teszteket. Typecheck, lint és
+Next.js 16.4 webpack production build PASS. A valódi HTTP aktív member,
+revoked membership és másik szervezet session esete, a valós HTTP cache/header
+vizsgálat, projekt-PDF HTTP és mobil QA nem futott; ezért PARTIAL. Hosted DB,
+reset, commit és deploy nem történt. Javasolt commit:
+`fix(F9.7.6.6.3.2d): align saved quotation financial readiness`.
+
+## F9.7.6.6.3.2d.1 — standalone PDF HTTP security acceptance
+
+Állapot: **COMPLETE (PDF SECURITY)**. A lokális Next route-ot tényleges
+Supabase Auth session cookie-val kértem le. Owner: V1 és V2 explicit revízió
+HTTP 200 `application/pdf`; a PDF szövegkinyerése a V1/V2 snapshot jelölőket
+elkülönítette. Aktív azonos szervezeti tag, visszavont tagságú érvényes Auth
+session és másik szervezet felhasználója HTTP 404-et kapott; anonim kérés 401.
+Hibás/nem létező ajánlatazonosító és hibás/hamis UUID revízió 404, PDF bájtok és
+belső hibaadat nélkül. Paraméter nélküli revision a jelenlegi V2-t adta 200-zal.
+
+A sikeres válasz tényleges fejlécei: `Cache-Control: private, no-store,
+max-age=0`, `Content-Type: application/pdf`,
+`Content-Disposition: inline; filename="ajanlat-piszkozat-<UUID>.pdf"`,
+`X-Content-Type-Options: nosniff`. Elutasítások: `text/plain;charset=UTF-8`,
+azonos cache/nosniff védelem és általános üzenet. Minden elutasított válasz
+PDF-tartalom nélküli volt. A V2 draft, version/current revision és két mentett
+revízió változatlan; numbering sequence nem keletkezett. A korábbi readiness
+ellenőrzés szerint `canIssue=false`; issuance továbbra sincs.
+
+VERIFIED: valós HTTP Auth mátrix, header/body ellenőrzés, V1/V2 tartalom és
+read-only adatállapot. FAILED: elfogadási eset nem maradt; az első üres tételsorú
+fixture HTTP 422-t kapott a helyes nettó pénzügyi sor-kontrakt miatt, ezért az
+ellenőrzést konzisztens DEMO sorral végeztem el. Nem változott az alkalmazáskód, ezért új Vitest,
+typecheck, lint vagy build nem futott; a d. mérföldkő korábbi 27/27 célzott
+Vitestje, typecheckje, lintje és buildje változatlanul az akkori kódállapotra
+vonatkozik. `git diff --check` a dokumentálás után fut. Nem futott: hosted,
+pgTAP, projekt-PDF HTTP és mobil QA. A helyi fixture-k DEMO jelöléssel a
+lokális Supabase-ban maradtak; éles adat vagy reset nem érintett.
+`supabase status` leállította az opcionális helyi imgproxy, edge runtime,
+analytics, vector és pooler konténereket; a helyi API/DB a HTTP tesztek alatt
+elérhető maradt.
+
+Javasolt commit: `test(F9.7.6.6.3.2d.1): verify standalone PDF HTTP security`.
+
 ## F9.7.6.5.2 — standalone számítás projektpéldánya (frontend)
 
 Állapot: **PARTIAL**. A támogatott három standalone editorban és a „Mentett számításaim” listában elérhető a projektben használat; csak a betöltött aktuális mentett revízió választható. A bounded, szerveroldali picker aktív műhelytagságot követel, legfeljebb 50 nem archivált/nem DEMO projektet keres név szerint, és csak projektnevet/helyszínt/típust/állapotot/verziót mutat. A megerősítés a pontos source V-számot és célprojektet jeleníti meg. Mentetlen editorváltozásnál explicit választás kell a legutóbbi mentett változathoz; a local edit nem kerül át.
@@ -985,3 +1048,12 @@ Fennmarad: issuance `canIssue=false`; adójóváhagyás/engine, atomikus finaliz
 hivatalos szám és issued PDF nincs. Readiness/UI összegellenőrzés eltérését
 külön vizsgálni kell, mielőtt kiállítási feladat indul. Javasolt commit:
 `feat(F9.7.6.6.3.2c): preview saved standalone quotation PDFs`.
+## F9.7.7.1 — trapézlemez-fedés mennyiségi előnézet
+
+Állapot: **PARTIAL**. Elkészült a tiszta nyeregtető-fedési
+motor, a kézi adatokat használó panel, a projektgeometria-editorba és a globális
+standalone nyeregtető-előnézetbe illesztve, valamint a sematikus SVG-rács.
+Nem készült mentés, gyártói adatmapping, vágási/rendelési terv vagy statikai
+funkció. Célzott domain teszt, typecheck, lint, build és diff check sikeres.
+UI-komponens teszt és böngészős smoke nem futott, ezért az acceptance nincs teljesen
+bizonyítva. Részletes állapot a TEST_MATRIX-ben.
