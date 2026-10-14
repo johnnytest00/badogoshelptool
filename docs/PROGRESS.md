@@ -1,5 +1,13 @@
 # F7.3.2 állapot
 
+## F9.7.6.5.2 — standalone számítás projektpéldánya (frontend)
+
+Állapot: **PARTIAL**. A támogatott három standalone editorban és a „Mentett számításaim” listában elérhető a projektben használat; csak a betöltött aktuális mentett revízió választható. A bounded, szerveroldali picker aktív műhelytagságot követel, legfeljebb 50 nem archivált/nem DEMO projektet keres név szerint, és csak projektnevet/helyszínt/típust/állapotot/verziót mutat. A megerősítés a pontos source V-számot és célprojektet jeleníti meg. Mentetlen editorváltozásnál explicit választás kell a legutóbbi mentett változathoz; a local edit nem kerül át.
+
+Újrahasznosított architektúra: meglévő `associateStandaloneCalculationAction`, `generateSecureUuid`, session/RLS-s Supabase action és a három projektkalkulátor route. Ugyanaz a műveletazonosító (és profilnál projekt calculation ID) marad hálózati retry során; új picker intent új secure UUID-t generál. A stale forrás/projekt választ frissítésre és ismételt megerősítésre kényszerít. Siker a backend visszaadott kalkuláció- és revízióazonosítójával navigál; az eredeti standalone adat nem változik. Existing takeoff workflow elérhető, de átadás nem automatikus. Association ledger olvasó UI nincs, ezért nem jelenítünk meg kitalált előzményt.
+
+Ellenőrzés: `npx vitest run src/features/calculations/standalone-project-association.test.ts src/features/gutters/gutter-calculator-ux.test.ts src/features/flashings/calculator-ux.test.ts src/features/sheet-metal/profile-editor.test.ts` — 4 fájl / 22 PASS; `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check` PASS. Böngésző inventoryban nem volt tab/auth session; egy workflow és fizikai iPad/iPhone ellenőrzés nem futott. DB contract nem változott, pgTAP/Auth tesztet nem futtattam; ezért PARTIAL. Javasolt commit: `feat(F9.7.6.5.2): integrate standalone project copies`.
+
 ## F9.7.6.5.1 — standalone számítás projektkapcsolása (backend)
 
 Állapot: **COMPLETE (BACKEND)**. A tényleges adatszerkezet és kalkulátorcontract alapján a B modellt választottam: az immutable standalone source aktuális revíziójából meglévő project RPC új projekt-revíziót készít, és az append-only association ledger rögzíti az exact source revisiont, creator/org/type adatot és a teljes input/output/validation/provenance snapshotot. A source revízió változatlan marad. Történeti/stale source elutasított; standalone roof geometry nem lép a projekt dependency DAG-ba.

@@ -2,7 +2,7 @@
 
 ## Jelenlegi állapot
 
-- A globális eresz-, szegély- és profilkalkulátor preview továbbra is kliensoldali, de a F9.7.6.3 backend már tudja menteni, listázni és visszaolvasni a három támogatott önálló számítást. Frontend mentési/újranyitási UX és anyagkimutatás-átadás nincs; ezek a F9.7.6.4 és későbbi határai.
+- A globális eresz-, szegély- és profilkalkulátor meglévő editorai a F9.7.6.3 óta tudják menteni/listázni/visszaolvasni a három önálló számítást; a F9.7.6.5.2 projektpicker és másolat-megerősítés is ezekbe az editorokba épül. A hitelesített böngészős workflow és a ledgerből származó felhasználási előzmény UI-ja még nincs bizonyítva/implementálva.
 - A `calculations.project_id` projekt scope-ban továbbra is kötelező a scope constraint szerint; a táblaszintű oszlop nullable lett, hogy a külön `standalone` scope project és roof kapcsolat nélkül élhessen. A revíziók immutable-ok; standalone rekord nem kerül a projekt dependency DAG-ba.
 - Az eresz- és szegélybecslés RPC-je szervezeti tagságot, létező projektet és expected revisiont ellenőriz, majd szervezet/projekt/kalkulátortípus szerint sorosítja a mentést. Projektenkénti egyedi index van. A profillekérdezés is szervezet és projekt szerint szűr.
 - A standalone gutter/flashing bemenetben a tetőgeometriai forrásreferenciák nullok és SQL/RPC szinten is elutasítottak; a profil saját, önálló geometriát tárol. Projektkalkulátorok korábbi forráskezelése változatlan.
@@ -90,7 +90,7 @@ Bizonyíték és határ: a helyi `016_standalone_calculations.sql` és az érint
 
 A három meglévő editor (`GutterCalculator`, `FlashingCalculator`, `ProfileEditor`) standalone módban is a meglévő domain motorral számol, majd az `saveStandaloneCalculationAction` szerveroldali actiont használja. Mentés után a stabil calculation ID kerül a route querybe; az oldal `getStandaloneCalculation` read modellel állítja vissza a revíziót. Új és meglévő számításnál az expected revision védi a V1/V2 mentést. Történeti kiválasztás csak olvasás; módosítás mentésekor új revízió készül, és az editor figyelmeztet az el nem mentett változat eldobására.
 
-A `/kalkulatorok/mentett` lista legfeljebb 100 saját, aktív szervezeti tagság alatt látható standalone rekordot mutat, kalkulátortípus-szűrővel és típushelyes megnyitással. A lista nem tölti le a teljes revíziótörténetet. A tetőgeometriai előnézet továbbra sem menthető; a standalone eresz/szegély nem kap projektgeometria-javaslatot. A backend projektkapcsolás a F9.7.6.5.1-ben elkészült, a picker UI a következő `.2` határa. A hitelesített böngészős V1/V2 futtatás továbbra sem bizonyított.
+A `/kalkulatorok/mentett` lista legfeljebb 100 saját, aktív szervezeti tagság alatt látható standalone rekordot mutat, kalkulátortípus-szűrővel és típushelyes megnyitással. A lista nem tölti le a teljes revíziótörténetet. A tetőgeometriai előnézet továbbra sem menthető; a standalone eresz/szegély nem kap projektgeometria-javaslatot. A backend projektkapcsolás a F9.7.6.5.1-ben, a felhasználói projektpicker a F9.7.6.5.2-ben készült el.
 
 ## F9.7.6.5.1 — standalone számítás projektkapcsolása (backend)
 
@@ -103,6 +103,16 @@ Az RPC követeli a hitelesített aktív org tagságot, ugyanazon szervezetű lé
 Frontend contract: `associateStandaloneCalculationAction` mezői: `organizationId`, `projectId`, `sourceCalculationId`, explicit `sourceRevisionId`, stabil retry `operationId`, opcionális `name`, `expectedProjectRevisionNumber`; profilnál kötelező stabil `projectCalculationId` (és expected revision 0). A szerveroldali action olvassa a forrást és újraszámol, a UI nem küldhet input/output snapshotot. Eresz/szegély célrevisiont a projekt read modelből kell betölteni; stale `40001` után új művelet szükséges.
 
 Ellenőrzés: helyi migration history `20261014010000`-ről reset nélkül `20261014020000`, a tényleges profil-RPC-aláíráshoz adott `20261014020100` és az append-only triggert hozzáadó `20261014020200` migrációra lépett. A 009/011/013/016/017 pgTAP 5 fájl / 118 assertion PASS; downstream 010/012/015 takeoff suite 3 fájl / 94 assertion PASS, beleértve az approved immutabilityt. Valós helyi Auth integráció 2 userrel 1/1 PASS; két külön authenticated PostgreSQL kapcsolat párhuzamos azonos kérésére egy ledger sor, egy projekt-revízió, azonos cél-ID és `reused` false/true. Célzott Vitest 4 fájl / 41 PASS, 1 opt-in teszt skip (külön Auth futás PASS), typecheck/lint/build PASS. Böngészős projektpicker nem része ennek a backend milestone-nak; hosted Supabase nem érintett.
+
+## F9.7.6.5.2 — standalone számítás projektpéldánya (frontend)
+
+Állapot: **PARTIAL**. A három mentett standalone editor és a „Mentett számításaim” lista a támogatott, saját rekord aktuális revíziójánál mutatja a „Felhasználás projektben” műveletet. A szerveroldali keresés csak aktív műhelytag számára, ugyanazon műhely nem archivált, nem `DEMO` projektjeiből ad legfeljebb 50 nevet; a picker név szerint keres, és helyszínnel, projekt-típussal, állapottal és verzióval különböztet. Ügyféladatot nem kér le.
+
+A megerősítés megmutatja a számítás nevét/típusát, pontos mentett forrásrevízióját és projektet. A projektbe másolat készül; a source változatlan marad. El nem mentett editoradatnál külön jelölővel kell elfogadni a legutóbbi mentett revízió használatát. Historical revision editorban nem kínálja fel a műveletet. Meglévő `associateStandaloneCalculationAction` és backend RPC fut; a kliens identitást nem állít, input/output snapshotot nem küld. Bizonytalan hálózati válasznál ugyanaz az operation ID és profil-cél-ID marad retryra; új picker/művelet új, secure UUID-t kap. Stale source/project válasznál a UI frissítést és ismételt áttekintést kér.
+
+A sikeres művelet az RPC által visszaadott kalkuláció- és revízió-ID-vel nyitja a tényleges projektkalkulátor route-ot; a gutter/flashing oldalak az aktuális projektkalkuláció ID/revízióját ellenőrzik, profiloldal pedig a visszakapott profilt és revíziót választja. Ez az út a meglévő projekt takeoff funkciókhoz visz, de maga az association nem készít vagy hagy jóvá takeoffot/árajánlatot. Ledger olvasására nincs frontend read model; felhasználási előzmény UI külön bővítés. Authenticated browser session és fizikai iPad/iPhone QA nem állt rendelkezésre, ezért a runtime elfogadás **UNVERIFIED** és a milestone nem COMPLETE.
+
+Automated bizonyíték: 4 fókuszált Vitest fájl / 22 teszt, typecheck, lint, production build és `git diff --check` PASS. DB/RPC változás nem történt; pgTAP és Auth/RLS tesztet nem futtattam.
 
 ### Meglévő tetőgeometria és tetőkalkulátor-ütemterv
 

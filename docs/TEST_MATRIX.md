@@ -800,7 +800,21 @@ Javasolt commit: `feat(F9.7.6.2): add global roof geometry preview`.
 | Focused TypeScript / typecheck / lint / build | PASS | Targeted standalone/domain Vitest: 4 files / 41 passed; default run skips the opt-in local Auth test, separately passed above. `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) passed. |
 | Browser / hosted / full historical suite | Not run | Backend-only milestone; no project picker yet. No hosted Supabase changes and no database reset. |
 
-Állapot: **COMPLETE (BACKEND)**; F9.7.6.5.2 frontend integration remains next. Javasolt commit: `feat(F9.7.6.5.1): associate standalone calculations with projects`.
+Állapot: **COMPLETE (BACKEND)**; a frontend workflow külön F9.7.6.5.2 mérföldkőben készült. Javasolt commit: `feat(F9.7.6.5.1): associate standalone calculations with projects`.
+
+## F9.7.6.5.2 — standalone calculation project integration
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Entry visibility and current source contract | Automated, partial | Detail editors gate the action on a loaded saved current revision; the saved list passes only a current revision ID and supported calculator type. Historical selections and unsaved calculations do not provide this action. Confirmation component test covers exact V number and the explicit saved-revision choice for unsaved edits. |
+| Project picker / access boundary | Implemented, automated not authenticated | Server action requires active organization membership and queries only same-organization, non-archived, non-DEMO projects; 50-row bound, name search, no customer fields. Actual RLS project selection was covered by earlier backend tests only at the association RPC boundary, not this new list action. |
+| Confirmation, source preservation, stale context | Focused Vitest PASS | `npx vitest run src/features/calculations/standalone-project-association.test.ts src/features/gutters/gutter-calculator-ux.test.ts src/features/flashings/calculator-ux.test.ts src/features/sheet-metal/profile-editor.test.ts`: 4 files / 22 tests. Operation identity helper preserves same operation and profile target IDs on retry and produces new IDs for a new intent. Existing action enforces current source and RPC errors map to Hungarian refresh/reconfirmation. No new DB write contract. |
+| Returned project route and revision identity | Implemented, runtime unverified | Success navigation uses the returned target calculation and revision IDs. Existing gutter/flashing project pages check both IDs; profile page checks profile/revision and selects them. Project calculator route components/build pass; authenticated created-record route was not opened. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Authenticated browser / physical mobile | UNVERIFIED | CUA inventory showed no browser tab or authenticated session; no browser workflow was run. Physical iPad/iPhone QA remains separate. |
+| Association history UI | Not implemented | No frontend ledger read model existed; no privilege was broadened. A source-history indicator remains a future enhancement. |
+
+Állapot: **PARTIAL**. Automated evidence does not prove the authenticated browser acceptance. No pgTAP/Auth suite was rerun because backend contracts were unchanged. Javasolt commit: `feat(F9.7.6.5.2): integrate standalone project copies`.
 
 ## F9.7.6.3 — standalone calculation persistence
 

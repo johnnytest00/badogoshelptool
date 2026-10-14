@@ -10,9 +10,50 @@ import type { Json } from "@/infrastructure/supabase/database.types";
 import { prepareStandaloneRevision, standaloneCalculatorTypes, type StandaloneCalculatorType } from "./standalone-persistence";
 
 export type StandaloneSaveResult = { ok: true; calculationId: string; revisionId: string; revisionNumber: number } | { ok: false; error: string };
-export type StandaloneAssociationResult = { ok: true; associationId: string; calculationId: string; revisionId: string; revisionNumber: number; reused: boolean } | { ok: false; error: string };
+export type StandaloneAssociationResult = { ok: true; associationId: string; calculationId: string; revisionId: string; revisionNumber: number; reused: boolean } | { ok: false; error: string; requiresReload?: boolean; retrySameOperation?: boolean };
+export type StandaloneAssociationProject = Readonly<{ id: string; name: string; location: string | null; projectType: string; status: string; version: number }>;
+export type StandaloneAssociationTarget = Readonly<{ project: StandaloneAssociationProject; expectedProjectRevisionNumber: number }>;
 const read = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+/** A bounded, organization-scoped picker read model. It returns no client or customer fields. */
+export async function searchStandaloneAssociationProjects(organizationId: string, rawSearch: string): Promise<StandaloneAssociationProject[]> {
+  const auth = await getAuthContext();
+  if (!isUuid(organizationId) || !auth?.organizations.some((organization) => organization.id === organizationId)) {
+    throw new Error("Ehhez a műhelyhez nincs hozzáférésed.");
+  }
+  const search = rawSearch.trim().slice(0, 80).replace(/[\\%_]/g, " ");
+  const supabase = await createClient();
+  let query = supabase.from("projects").select("id, name, location, project_type, status, version")
+    .eq("organization_id", organizationId).neq("status", "archived").not("name", "ilike", "DEMO%").order("updated_at", { ascending: false }).limit(50);
+  if (search) query = query.ilike("name", `%${search}%`);
+  const { data, error } = await query;
+  if (error) throw new Error("A projektek betöltése nem sikerült.");
+  return (data ?? []).map((row) => ({ id: row.id, name: row.name, location: row.location, projectType: row.project_type, status: row.status, version: row.version }));
+}
+
+/** Resolves the authorized destination and exact project calculation revision to confirm against. */
+export async function getStandaloneAssociationTarget(organizationId: string, projectId: string, calculatorType: string): Promise<StandaloneAssociationTarget | null> {
+  const auth = await getAuthContext();
+  if (!isUuid(organizationId) || !isUuid(projectId) || !auth?.organizations.some((organization) => organization.id === organizationId)
+    || !standaloneCalculatorTypes.includes(calculatorType as StandaloneCalculatorType)) return null;
+  const supabase = await createClient();
+  const [{ data: project, error: projectError }, { data: calculation, error: calculationError }] = await Promise.all([
+    supabase.from("projects").select("id, name, location, project_type, status, version").eq("id", projectId).eq("organization_id", organizationId).maybeSingle(),
+    calculatorType === sheetMetalProfileCalculator.id
+      ? Promise.resolve({ data: null, error: null })
+      : supabase.from("calculations").select("current_revision_id").eq("project_id", projectId).eq("organization_id", organizationId).eq("calculator_type", calculatorType).eq("ownership_scope", "project").maybeSingle(),
+  ]);
+  if (projectError || calculationError) throw new Error("A kiválasztott projekt adatai nem tölthetők be.");
+  if (!project || project.status === "archived") return null;
+  let expectedProjectRevisionNumber = 0;
+  if (calculation?.current_revision_id) {
+    const { data: revision, error } = await supabase.from("calculation_revisions").select("revision_number").eq("id", calculation.current_revision_id).eq("organization_id", organizationId).maybeSingle();
+    if (error || !revision) throw new Error("A projekt aktuális kalkulációs revíziója nem tölthető be.");
+    expectedProjectRevisionNumber = revision.revision_number;
+  }
+  return { project: { id: project.id, name: project.name, location: project.location, projectType: project.project_type, status: project.status, version: project.version }, expectedProjectRevisionNumber };
+}
 
 async function validateProfileCatalog(input: SheetMetalProfileInput, organizationId: string): Promise<string | null> {
   if (!input.material?.catalogVariantId) return null;
@@ -110,7 +151,7 @@ export async function associateStandaloneCalculationAction(data: FormData): Prom
     return { ok: false, error: "Ez a kalkulátortípus nem kapcsolható projekthez." };
   }
   if (source.current_revision_id !== sourceRevisionId) {
-    return { ok: false, error: "Csak a forrásszámítás aktuális revíziója kapcsolható projekthez." };
+    return { ok: false, error: "A forrásszámítás időközben új revíziót kapott. Frissítsd az oldalt, majd ellenőrizd újra a projektpéldányt.", requiresReload: true };
   }
   const [{ data: project }, { data: revision, error: revisionError }] = await Promise.all([
     supabase.from("projects").select("id").eq("id", projectId).eq("organization_id", organizationId).maybeSingle(),
@@ -155,8 +196,8 @@ export async function associateStandaloneCalculationAction(data: FormData): Prom
     p_output_data: prepared.value.output as Json,
   };
   const { data: associated, error } = await supabase.rpc("associate_standalone_calculation_to_project", rpcArgs);
-  if (error || !associated?.[0]) return { ok: false, error: error?.code === "40001"
-    ? "A forrás vagy a projekt számítása időközben megváltozott. Töltsd be az aktuális adatokat, majd indíts új műveletet."
+  if (error || !associated?.[0]) return { ok: false, requiresReload: error?.code === "40001", retrySameOperation: !!error && !error.code, error: error?.code === "40001"
+    ? "A forrás vagy a projekt számítása időközben megváltozott. Frissítsd az oldalt, majd ellenőrizd újra a projektpéldányt."
     : error?.code === "42501" ? "A forrás vagy a projekt nem érhető el a fiókod számára."
       : error?.code === "P0002" ? "A kiválasztott forrásrevízió hiányzik vagy nem használható."
         : error?.code === "22023" ? "A projektkapcsolás adatai érvénytelenek, vagy a műveletazonosító más adatokhoz tartozik."
