@@ -869,3 +869,40 @@ adóprofil és kerekítés, ajánlatszámozás, érvényességi policy, byte-pon
 archiválási elvárás.
 
 Javasolt commit: `docs(F9.7.6.6.3.1): design standalone quotation issuance`.
+
+## F9.7.6.6.3.2a — quotation document data & issuance foundation
+
+Állapot: **COMPLETE (DOCUMENT FOUNDATION)**. A `20261014040000` additív,
+helyi migrációban organization-scoped kibocsátói név/cím/elérhetőség/adóazonosító
+mezők és a jövőbeli kiállítási számlálótábla készültek. A draft mentési RPC
+server-derived issuer snapshotot, kézi vagy same-org ügyfélből származó
+címzett-snapshotot és opcionális referencia/lejárat/megjegyzés/feltétel adatot
+ment az immutable revision `input_snapshot.document` mezőjébe. A régi RPC
+aláírás delegáló wrapperrel megmaradt. A standalone editorban owner/admin
+kibocsátói profil-módosítás, recipient forrásválasztás, dokumentum-adatok és
+hitelesített szerveroldali readiness ellenőrzés érhető el; nincs finalize/PDF.
+
+Adatkonzisztencia/jogosultság: issuer oszlopgrant + meglévő owner/admin RLS;
+ügyfél részletei kizárólag azonos szervezetből szerveroldalon olvashatók;
+kézi címzett nincs `clients` rekordként létrehozva. Issuer és ügyfél módosítása
+nem ír át régi revision snapshotot. A sequences táblához auth direct grant
+nincs, és draft mentés nem allokál számot. A `canIssue` mindig false; az adó,
+finalizálás és számkiosztás konkrét blokkoló marad.
+
+Ellenőrzés: local Supabase migration up 040000/040100/040200 reset nélkül;
+célzott 018 + 019 pgTAP 62/62 PASS; `verify-quotation-document-auth.mjs`
+helyi valódi Auth 9/9 PASS; érintett Vitest 6 fájl / 25 teszt PASS; typecheck,
+lint, Next.js 16.4 webpack build és `git diff --check` PASS. Egy authenticated
+Brave smoke-ban a `/ajanlatok/uj` útvonalon mentett `DEMO F9.7.6.6.3.2a UI alap`
+V1 azonosítója `ea895051-f0b0-4e21-a833-f40c8a001703` lett; reload után a kézi
+címzett és megjegyzés megmaradt, az ajánlat a globális listában látszott, és egy
+meglévő projektajánlat szerkesztője is megnyílt. A szerveroldali readiness
+ellenőrzés visszajelzett; kiállíthatóságot nem állított. Hosted Supabase, reset,
+commit, push és deploy nem történt.
+
+Ismert határ: a 100 elemű recipient selector nem lapoz; nagy ügyfélállományban
+bővítendő. A dokumentumszámláló csak szervezetenkénti állapotmező; atomikus
+kiállítási művelet, egyedi issuance-szám és stabil issuance rekord még nincs.
+Az adókezelés, jogilag kötelező mezők és végleges PDF továbbra is nyitott.
+
+Javasolt commit: `feat(F9.7.6.6.3.2a): persist quotation document snapshots`.

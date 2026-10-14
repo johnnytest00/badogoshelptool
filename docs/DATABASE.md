@@ -485,3 +485,33 @@ Helyi bizonyíték: 009/011/013/016/017 pgTAP, 5 fájl / 118 assertion; downstre
 ## F9.6.3.4.2 — profil takeoff-draft RPC
 
 A `20261013081400`–`20261013081700` helyi migrációk `create_profile_takeoff_draft` SECURITY INVOKER RPC-t és profiltétel UPDATE-védelmet adnak a meglévő `material_takeoffs`/`material_takeoff_items` sémához. A `20261013081500` a menthető, hiányos `user_provided` profilrevíziót is beengedi az explicit BA/K elutasításig; a korábban alkalmazott `20261013081400` változatlan. A forráskalkuláció `FOR SHARE` zára együttműködik a mentési `FOR UPDATE` zárral. Az RPC szervezet- és projekttagságot, aktuális pontos revíziót, azonos szervezetű/aktív terméket, explicit anyagazonosítót, vastagságot, forrásnevet és `square_meter` egységet követel. Egy tranzakcióba kerül a draft, a m² tétel és a külön technikai/ár-snapshot. A szervezet/projekt/kéréskulcs egyedi constraint ütközéskor azonos immutable logikai payloadot újrahasznál, eltérőt elutasít. Approved rekordot nem frissít; a profiltétel snapshotja draftban sem módosítható. Hiányzó egységazonos ár `null` marad. A hajtás nélküli profil `GEOMETRICALLY_DETERMINED`, a BA/K-s profil `PARAMETER_BASED_ESTIMATE` osztályozása megmarad.
+
+## F9.7.6.6.3.2a — quotation dokumentumadat-alap
+
+A `20261014040000_quotation_document_data_foundation.sql` additívan bővíti az
+`organizations` táblát a `business_name`, `business_address`, `contact_email`,
+`contact_phone`, `tax_identifier` mezőkkel. Az olvasás a tagsági RLS-t követi;
+a mezők UPDATE grantja oszlopszűkített, az RLS meglévő owner/admin policy-je
+pedig csak műhelytulajdonosnak/adminnak enged írást.
+
+A document-aware standalone mentés az `input_snapshot.document` JSON objektumba
+menti a szerver által kiolvasott issuer adatot, a `manual` recipient snapshotot
+vagy same-org ügyfélből derivált `linked_client` snapshotot, valamint az
+opcionális `reference`, date-only `validUntil`, `notes`, `terms` mezőket. Ezek
+az immutable revision részei. A korábbi RPC aláírás kompatibilitási wrapperrel
+a dokumentum-aware íróra delegál; kliens továbbra sem írhat közvetlenül
+standalone quotation/revision/operation rekordot.
+
+A `quotation_document_sequences` RLS-es és az authenticated/anon szerepkörnek
+nincs közvetlen grantja vagy policy-je. A draft mentés nem hoz létre sort. Ez
+csak jövőbeli, issuance sorral egy tranzakcióban végzett számlálóemelés alapja;
+kiállítás és emberi dokumentumszám kiosztása még nincs.
+
+`20261014040200_validate_issuer_contact_email.sql` e-mail formátum CHECK-et is
+tesz a kibocsátói kapcsolati mezőre; az action és a readiness-validátor ugyanezt
+a határt jelzi. A kézi címzett hibás vagy hiányzó e-mailje draftként tárolható,
+de readiness hibát mutat.
+
+Bizonyíték: lokális Supabase migráció reset nélkül; 018 + 019 pgTAP 62/62 PASS;
+valódi local Auth JWT-s issuer/profile, manual/linked snapshot, creator-scope,
+V1 immutable és draft-szám nélküli teszt 9/9 PASS. Nincs hosted migráció.

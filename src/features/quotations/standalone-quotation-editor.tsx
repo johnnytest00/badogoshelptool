@@ -8,13 +8,14 @@ import { guardUnsavedNavigation, warnBeforeUnloadIfDirty } from "@/lib/unsaved-c
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneNetLabels, type StandaloneSaveOperation } from "./standalone-quotation-ui-state";
 import { quotationRecoveryKey, readQuotationRecovery, writeQuotationRecovery, isQuotationRecoveryCurrent, clearOtherQuotationRecoveryOwners, type QuotationRecovery, type QuotationDraftValues } from "./quotation-draft-recovery";
-import { resolveStandaloneQuotationCatalogItemAction, saveStandaloneQuotationDraftAction, type StandaloneQuotationResult } from "./standalone-quotation-actions";
+import { resolveStandaloneQuotationCatalogItemAction, saveStandaloneQuotationDraftAction, updateStandaloneIssuerProfileAction, validateStandaloneQuotationDocumentAction, type StandaloneDocumentSources, type StandaloneQuotationResult } from "./standalone-quotation-actions";
 import type { MaterialProductRecord } from "@/features/materials/material-data";
+import { emptyQuotationDocumentDraft, validateQuotationDocumentReadiness, type DocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
 
 type Line = QuotationDraftValues["lines"][number];
 type EditorLine = Line & { localId: string };
 type Revision = { id: string; revisionNumber: number; createdAt: string; subtotal: string | null };
-type CurrentRevision = { id: string; revision_number: number; line_items_snapshot: unknown; subtotal: string | number | null };
+type CurrentRevision = { id: string; revision_number: number; input_snapshot: unknown; line_items_snapshot: unknown; subtotal: string | number | null };
 const empty = (type: Line["type"]): Line => ({ type, description: "", quantity: "", unit: "", unitPrice: "", priceClass: "net", variantId: "", priceId: "", takeoffItemId: "", notes: "" });
 const toPersistedLine = (line: EditorLine): Line => {
   const { localId, ...persisted } = line;
@@ -22,10 +23,25 @@ const toPersistedLine = (line: EditorLine): Line => {
   return persisted;
 };
 const money = (value: string | number | null) => value === null ? "—" : `${Number(value).toLocaleString("hu-HU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ft`;
+const objectValue = (value: unknown): Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+const textValue = (value: unknown) => typeof value === "string" ? value : "";
 
-export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products }: Readonly<{
+function revisionDocument(revision?: CurrentRevision): { draft: QuotationDocumentDraft; issuer?: Record<string, unknown>; recipient?: Record<string, unknown> } {
+  const document = objectValue(objectValue(revision?.input_snapshot).document);
+  const recipient = objectValue(document.recipient);
+  const draft = {
+    ...emptyQuotationDocumentDraft(),
+    recipientSource: recipient.source === "linked_client" ? "client" as const : "manual" as const,
+    recipientClientId: textValue(recipient.clientId), recipientName: textValue(recipient.name), recipientAddress: textValue(recipient.address),
+    recipientEmail: textValue(recipient.email), recipientPhone: textValue(recipient.phone), recipientTaxIdentifier: textValue(recipient.taxIdentifier),
+    reference: textValue(document.reference), validUntil: textValue(document.validUntil), notes: textValue(document.notes), terms: textValue(document.terms),
+  };
+  return { draft, issuer: objectValue(document.issuer), recipient };
+}
+
+export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products, documentSources }: Readonly<{
   userId: string; organizationId: string; quotationId: string | null; name?: string; version: number; currentRevisionId: string | null;
-  currentRevision?: CurrentRevision; revisions: Revision[]; selectedRevisionId?: string; products: MaterialProductRecord[];
+  currentRevision?: CurrentRevision; revisions: Revision[]; selectedRevisionId?: string; products: MaterialProductRecord[]; documentSources: StandaloneDocumentSources;
 }>) {
   const router = useRouter();
   const lineKeyCounter = useRef(0);
@@ -34,6 +50,17 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const activeRevision = historical ? revisions.find((revision) => revision.id === selectedRevisionId) : undefined;
   const seed = historical ? currentRevision : currentRevision;
   const [name, setName] = useState(initialName ?? "");
+  const savedDocument = revisionDocument(currentRevision);
+  const [document, setDocument] = useState<QuotationDocumentDraft>(savedDocument.draft);
+  const [issuerProfile, setIssuerProfile] = useState<IssuerDocumentProfile>(() => historical && savedDocument.issuer ? {
+    businessName: textValue(savedDocument.issuer.businessName) || null, businessAddress: textValue(savedDocument.issuer.businessAddress) || null,
+    contactEmail: textValue(savedDocument.issuer.contactEmail) || null, contactPhone: textValue(savedDocument.issuer.contactPhone) || null,
+    taxIdentifier: textValue(savedDocument.issuer.taxIdentifier) || null,
+  } : { businessName: documentSources.issuer.businessName, businessAddress: documentSources.issuer.businessAddress, contactEmail: documentSources.issuer.contactEmail, contactPhone: documentSources.issuer.contactPhone, taxIdentifier: documentSources.issuer.taxIdentifier });
+  const [issuerMessage, setIssuerMessage] = useState("");
+  const [serverReadiness, setServerReadiness] = useState<DocumentReadiness | null>(null);
+  const [issuerDirty, setIssuerDirty] = useState(false);
+  const issuerDirtyRef = useRef(false);
   const [lines, setLines] = useState<EditorLine[]>(() => {
     const raw = seed?.line_items_snapshot;
     if (!Array.isArray(raw)) return [];
@@ -47,7 +74,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<StandaloneQuotationResult<{ quotation_id: string; revision_id: string; revision_number: number; revision_created: boolean; totals_snapshot: Record<string, unknown> }>>({ ok: false, code: "INTERNAL", error: "" });
   const [catalogMessage, setCatalogMessage] = useState("");
-  const baseline = useRef(JSON.stringify({ name: initialName ?? "", lines }));
+  const baseline = useRef(JSON.stringify({ name: initialName ?? "", lines, document: savedDocument.draft }));
   const recoveryKey = quotationRecoveryKey(userId, organizationId, "standalone", quotationId);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const [recovery, setRecovery] = useState<{ value: QuotationRecovery; current: boolean } | null>(null);
@@ -56,13 +83,20 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const latestUrl = `/ajanlatok/${quotationId}?organization=${organizationId}`;
 
   const setDirtyState = (value: boolean) => { dirtyRef.current = value; setDirty(value); };
-  const syncDirty = (nextName = name, nextLines = lines) => setDirtyState(JSON.stringify({ name: nextName, lines: nextLines }) !== baseline.current);
+  const syncDirty = (nextName = name, nextLines = lines, nextDocument = document) => setDirtyState(JSON.stringify({ name: nextName, lines: nextLines, document: nextDocument }) !== baseline.current);
+  const setDocumentField = <K extends keyof QuotationDocumentDraft>(key: K, value: QuotationDocumentDraft[K]) => {
+    const next = { ...document, [key]: value };
+    setDocument(next); setServerReadiness(null); syncDirty(name, lines, next); setResult({ ok: false, code: "INTERNAL", error: "" });
+  };
+  const changeIssuerProfile = <K extends keyof IssuerDocumentProfile>(key: K, value: IssuerDocumentProfile[K]) => {
+    setIssuerProfile((current) => ({ ...current, [key]: value })); issuerDirtyRef.current = true; setIssuerDirty(true); setIssuerMessage("");
+  };
   const update = (index: number, patch: Partial<Line>) => {
     const next = lines.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line);
     setLines(next); syncDirty(name, next); setResult({ ok: false, code: "INTERNAL", error: "" });
   };
   useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => warnBeforeUnloadIfDirty(dirtyRef.current, event);
+    const handler = (event: BeforeUnloadEvent) => warnBeforeUnloadIfDirty(dirtyRef.current || issuerDirtyRef.current, event);
     window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler);
   }, []);
   useEffect(() => {
@@ -76,14 +110,21 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   useEffect(() => {
     if (!recoveryReady || historical) return;
     try {
-      if (dirty) writeQuotationRecovery(window.sessionStorage, recoveryKey, { sourceVersion: version, sourceRevisionId: currentRevisionId, values: { name, clientId: "", lines: lines.map(toPersistedLine) } });
+      if (dirty) writeQuotationRecovery(window.sessionStorage, recoveryKey, { sourceVersion: version, sourceRevisionId: currentRevisionId, values: { name, clientId: document.recipientSource === "client" ? document.recipientClientId : "", document, lines: lines.map(toPersistedLine) } });
       else if (!recovery) window.sessionStorage.removeItem(recoveryKey);
     } catch { /* A privát mód vagy kvóta nem blokkolja a használatot. */ }
-  }, [currentRevisionId, dirty, historical, lines, name, recovery, recoveryKey, recoveryReady, version]);
+  }, [currentRevisionId, dirty, document, historical, lines, name, recovery, recoveryKey, recoveryReady, version]);
 
   const localEstimate = useMemo(() => lines.reduce((sum, line) => {
     try { return sum + lineTotal(line.quantity || "0", line.unitPrice || "0").minor; } catch { return sum; }
   }, BigInt(0)), [lines]);
+  const selectedClient = documentSources.clients.find((client) => client.id === document.recipientClientId);
+  const readinessDocument = !historical && document.recipientSource === "client" && selectedClient ? {
+    ...document, recipientName: selectedClient.name, recipientAddress: selectedClient.address ?? "", recipientEmail: selectedClient.email ?? "", recipientPhone: selectedClient.phone ?? "",
+  } : document;
+  const issuerForReadiness: IssuerDocumentProfile = historical && savedDocument.issuer ? issuerProfile : documentSources.issuer;
+  const readiness = validateQuotationDocumentReadiness(issuerForReadiness, readinessDocument);
+  const displayedReadiness = serverReadiness ?? readiness;
 
   const addLine = (type: Line["type"]) => { const next = [...lines, { ...empty(type), localId: makeLocalId() }]; setLines(next); syncDirty(name, next); };
   const moveLine = (index: number, offset: -1 | 1) => {
@@ -96,8 +137,9 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const restoreRecovery = () => {
     if (!recovery?.current || historical) return;
     const recovered = recovery.value.values.lines.map((line) => ({ ...line, localId: makeLocalId() }));
-    const values = { name: recovery.value.values.name, lines: recovered };
-    setName(values.name); setLines(values.lines); setDirtyState(JSON.stringify(values) !== baseline.current); setRecovery(null);
+    const nextDocument = recovery.value.values.document ?? document;
+    const values = { name: recovery.value.values.name, lines: recovered, document: nextDocument };
+    setName(values.name); setLines(values.lines); setDocument(nextDocument); setDirtyState(JSON.stringify(values) !== baseline.current); setRecovery(null);
   };
   const catalogVariant = (variantId: string) => products.flatMap((product) => product.variants.map((variant) => ({ product, variant }))).find((entry) => entry.variant.id === variantId);
   const resolvePrice = async (lineIndex: number, variantId: string, priceId: string) => {
@@ -115,16 +157,18 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   };
   const save = () => {
     if (historical || pending) return;
+    if (issuerDirty) { setResult({ ok: false, code: "VALIDATION", error: "Előbb mentsd a kibocsátói profilt, hogy az ajánlati revízió a friss adatokat rögzítse." }); return; }
     const savedLines = lines.map((line) => ({ ...toPersistedLine(line), priceClass: "net" as const }));
-    const payload = JSON.stringify({ quotationId, version, name: name.trim(), lines: savedLines });
+    const payload = JSON.stringify({ quotationId, version, name: name.trim(), lines: savedLines, document });
     try {
       operation.current = getStandaloneSaveOperation(operation.current, payload, generateSecureUuid);
     } catch { setResult({ ok: false, code: "INTERNAL", error: "A biztonságos mentési azonosító nem hozható létre ezen a böngészőn." }); return; }
     const form = new FormData();
     form.set("organizationId", organizationId); form.set("operationId", operation.current.id); form.set("version", String(version));
     if (quotationId) form.set("quotationId", quotationId);
-    form.set("name", name.trim() || "Belső ajánlati piszkozat"); form.set("clientId", "");
+    form.set("name", name.trim() || "Belső ajánlati piszkozat"); form.set("clientId", document.recipientSource === "client" ? document.recipientClientId : "");
     form.set("lines", JSON.stringify(savedLines));
+    form.set("document", JSON.stringify(document));
     setResult({ ok: false, code: "INTERNAL", error: "" });
     startTransition(async () => {
       let saved: Awaited<ReturnType<typeof saveStandaloneQuotationDraftAction>>;
@@ -134,24 +178,85 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
       if (saved.ok) {
         try { window.sessionStorage.removeItem(recoveryKey); } catch { /* Best effort. */ }
         setRecovery(null); setDirtyState(false); operation.current = null;
-        baseline.current = JSON.stringify({ name, lines });
+        baseline.current = JSON.stringify({ name, lines, document });
         router.push(`/ajanlatok/${saved.data.quotation_id}?organization=${organizationId}`);
       }
     });
   };
+  const saveIssuerProfile = () => {
+    if (!documentSources.canEditIssuer || pending) return;
+    startTransition(async () => {
+      const saved = await updateStandaloneIssuerProfileAction(organizationId, {
+        businessName: issuerProfile.businessName ?? "", businessAddress: issuerProfile.businessAddress ?? "",
+        contactEmail: issuerProfile.contactEmail ?? "", contactPhone: issuerProfile.contactPhone ?? "", taxIdentifier: issuerProfile.taxIdentifier ?? "",
+      });
+      if (!saved.ok) { setIssuerMessage(saved.error); return; }
+      setIssuerProfile(saved.data); issuerDirtyRef.current = false; setIssuerDirty(false); setIssuerMessage("A kibocsátói adatok mentve."); setServerReadiness(null); router.refresh();
+    });
+  };
+  const checkReadiness = () => {
+    startTransition(async () => {
+      const checked = await validateStandaloneQuotationDocumentAction(organizationId, document);
+      if (!checked.ok) { setResult(checked); return; }
+      setServerReadiness(checked.data);
+    });
+  };
 
   return <section className="quotation-editor detail-surface standalone-quotation-editor">
-    <Link className="back-link" href={`/ajanlatok?organization=${organizationId}`} onNavigate={(event) => guardUnsavedNavigation(event, { dirty: dirty && !historical, pending, confirmDiscard: () => window.confirm("A mentetlen ajánlati módosítások elvesznek. Elveted őket és visszatérsz az ajánlatokhoz?"), onDiscard: () => { setDirtyState(false); discardRecovery(); } })}>← Vissza az ajánlatokhoz</Link>
+    <Link className="back-link" href={`/ajanlatok?organization=${organizationId}`} onNavigate={(event) => guardUnsavedNavigation(event, { dirty: (dirty || issuerDirty) && !historical, pending, confirmDiscard: () => window.confirm("A mentetlen ajánlati vagy kibocsátói módosítások elvesznek. Elveted őket és visszatérsz az ajánlatokhoz?"), onDiscard: () => { setDirtyState(false); issuerDirtyRef.current = false; setIssuerDirty(false); discardRecovery(); } })}>← Vissza az ajánlatokhoz</Link>
     <div className="section-heading"><div><p className="section-eyebrow">Önálló · csak piszkozat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2></div><span className="status-pill status-draft">Piszkozat</span></div>
     <p className="missing-data">Projekt és ügyfél nélkül is használható. Nettó HUF összegeket kezel; véglegesítés, ÁFA és hivatalos PDF még nem támogatott.</p>
     <div className="standalone-revision-bar" aria-label="Ajánlati revíziók">
-      {revisions.map((revision) => <Link key={revision.id} className={`secondary-button ${revision.id === (selectedRevisionId ?? currentRevisionId) ? "is-current" : ""}`} href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`} aria-current={revision.id === (selectedRevisionId ?? currentRevisionId) ? "page" : undefined} onNavigate={(event) => guardUnsavedNavigation(event, { dirty: dirty && !historical, pending, confirmDiscard: () => window.confirm("A mentetlen módosítások elvesznek. Elveted őket és megnyitod a kiválasztott immutable revíziót?"), onDiscard: () => { setDirtyState(false); discardRecovery(); } })}>v{revision.revisionNumber} · {money(revision.subtotal)}</Link>)}
+      {revisions.map((revision) => <Link key={revision.id} className={`secondary-button ${revision.id === (selectedRevisionId ?? currentRevisionId) ? "is-current" : ""}`} href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`} aria-current={revision.id === (selectedRevisionId ?? currentRevisionId) ? "page" : undefined} onNavigate={(event) => guardUnsavedNavigation(event, { dirty: (dirty || issuerDirty) && !historical, pending, confirmDiscard: () => window.confirm("A mentetlen módosítások elvesznek. Elveted őket és megnyitod a kiválasztott immutable revíziót?"), onDiscard: () => { setDirtyState(false); issuerDirtyRef.current = false; setIssuerDirty(false); discardRecovery(); } })}>v{revision.revisionNumber} · {money(revision.subtotal)}</Link>)}
       {historical && <Link className="primary-button" href={latestUrl}>Legfrissebb revízió megnyitása (v{version})</Link>}
       {historical && <span className="form-message" role="status">Történeti, változtathatatlan revízió megtekintése.</span>}
     </div>
     {recovery && !historical && <section className="form-message" role="status"><p>{recovery.current ? "Korábban nem mentett módosítás található ebben a munkamenetben." : "A helyi változat régebbi szerverrevízióból készült, ezért nem állítható vissza automatikusan."}</p>{recovery.current && <button className="secondary-button" type="button" onClick={restoreRecovery}>Változat visszaállítása</button>}<button className="text-button" type="button" onClick={discardRecovery}>Helyi változat elvetése</button></section>}
     <fieldset className="quotation-editor-fields" disabled={historical || pending || !recoveryReady} aria-busy={pending || !recoveryReady}>
       <div className="quotation-meta"><label htmlFor="standalone-name">Ajánlat neve<input id="standalone-name" value={name} onChange={(event) => { setName(event.target.value); syncDirty(event.target.value); setResult({ ok: false, code: "INTERNAL", error: "" }); }} aria-describedby="standalone-name-hint" /></label><small id="standalone-name-hint">Ha üresen hagyod, mentéskor „Belső ajánlati piszkozat” néven mentjük.</small></div>
+      <section className="standalone-document-details" aria-labelledby="standalone-document-heading">
+        <div className="section-heading"><div><p className="section-eyebrow">Dokumentumadatok</p><h3 id="standalone-document-heading">Ajánlat adatai</h3></div><span className="status-pill status-draft">{displayedReadiness.status === "valid_draft" ? "Adatok rendben" : displayedReadiness.status === "invalid_document_data" ? "Hibás adat" : "Hiányos kiállítási adatok"}</span></div>
+        <p className="missing-data">Ez a piszkozat menthető. Az adókezelés és a véglegesítés még nincs támogatva; ez az összegzés nem jelent kiállíthatóságot.</p>
+        <div className="quotation-line-grid">
+          <label htmlFor="document-recipient-source">Címzett adatforrása<select id="document-recipient-source" value={document.recipientSource} onChange={(event) => {
+            const source = event.target.value as QuotationDocumentDraft["recipientSource"];
+            const next = source === "client" ? { ...document, recipientSource: source, recipientClientId: "" } : { ...document, recipientSource: source, recipientClientId: "" };
+            setDocument(next); setServerReadiness(null); syncDirty(name, lines, next);
+          }}><option value="manual">Kézi címzett</option><option value="client">Műhely ügyfele</option></select></label>
+          {document.recipientSource === "client" && <label htmlFor="document-recipient-client">Ügyfél<select id="document-recipient-client" value={document.recipientClientId} onChange={(event) => {
+            const next = { ...document, recipientClientId: event.target.value };
+            setDocument(next); setServerReadiness(null); syncDirty(name, lines, next);
+          }}><option value="">Válassz ügyfelet</option>{documentSources.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select><small>Mentéskor a szerver az ügyfél engedélyezett adataiból immutable címzett-pillanatképet készít.</small></label>}
+          {document.recipientSource === "manual" && <>
+            <label htmlFor="document-recipient-name">Címzett neve<input id="document-recipient-name" value={document.recipientName} onChange={(event) => setDocumentField("recipientName", event.target.value)} /></label>
+            <label htmlFor="document-recipient-address">Címzett címe<input id="document-recipient-address" value={document.recipientAddress} onChange={(event) => setDocumentField("recipientAddress", event.target.value)} /></label>
+            <label htmlFor="document-recipient-email">Címzett e-mail-címe<input id="document-recipient-email" type="email" value={document.recipientEmail} onChange={(event) => setDocumentField("recipientEmail", event.target.value)} /></label>
+            <label htmlFor="document-recipient-phone">Címzett telefonszáma<input id="document-recipient-phone" value={document.recipientPhone} onChange={(event) => setDocumentField("recipientPhone", event.target.value)} /></label>
+            <label htmlFor="document-recipient-tax">Címzett adóazonosító adata<input id="document-recipient-tax" value={document.recipientTaxIdentifier} onChange={(event) => setDocumentField("recipientTaxIdentifier", event.target.value)} /></label>
+          </>}
+          {document.recipientSource === "client" && <div className="missing-data"><strong>Mentéskor rögzítendő címzett-pillanatkép</strong><br />{readinessDocument.recipientName || "Név nincs megadva"} · {readinessDocument.recipientAddress || "cím nincs megadva"}{readinessDocument.recipientEmail ? ` · ${readinessDocument.recipientEmail}` : ""}</div>}
+          <label htmlFor="document-reference">Belső hivatkozás<input id="document-reference" value={document.reference} onChange={(event) => setDocumentField("reference", event.target.value)} /></label>
+          <label htmlFor="document-valid-until">Érvényesség dátuma<input id="document-valid-until" type="date" value={document.validUntil} onChange={(event) => setDocumentField("validUntil", event.target.value)} /></label>
+          <label htmlFor="document-notes">Ajánlati megjegyzés<textarea id="document-notes" rows={3} value={document.notes} onChange={(event) => setDocumentField("notes", event.target.value)} /></label>
+          <label htmlFor="document-terms">Feltételek<textarea id="document-terms" rows={4} value={document.terms} onChange={(event) => setDocumentField("terms", event.target.value)} /></label>
+        </div>
+        <div className="issuer-profile"><div><p className="section-eyebrow">Kibocsátó</p><strong>{historical ? textValue(savedDocument.issuer?.organizationName) || documentSources.issuer.organizationName : documentSources.issuer.organizationName}</strong></div>
+          <div className="quotation-line-grid">
+            <label htmlFor="issuer-business-name">Vállalkozás neve<input id="issuer-business-name" value={issuerProfile.businessName ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("businessName", event.target.value || null)} /></label>
+            <label htmlFor="issuer-business-address">Vállalkozás címe<input id="issuer-business-address" value={issuerProfile.businessAddress ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("businessAddress", event.target.value || null)} /></label>
+            <label htmlFor="issuer-contact-email">Kapcsolati e-mail<input id="issuer-contact-email" type="email" value={issuerProfile.contactEmail ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("contactEmail", event.target.value || null)} /></label>
+            <label htmlFor="issuer-contact-phone">Kapcsolati telefon<input id="issuer-contact-phone" value={issuerProfile.contactPhone ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("contactPhone", event.target.value || null)} /></label>
+            <label htmlFor="issuer-tax-id">Adóazonosító adat<input id="issuer-tax-id" value={issuerProfile.taxIdentifier ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("taxIdentifier", event.target.value || null)} /><small>Tájékoztató profiladat; nem adószámítási beállítás.</small></label>
+          </div>
+          {documentSources.canEditIssuer && !historical && <button className="secondary-button" type="button" disabled={pending} onClick={saveIssuerProfile}>Kibocsátói profil mentése</button>}
+          {issuerDirty && <small role="status">Mentetlen kibocsátói profil módosítás.</small>}
+          {!documentSources.canEditIssuer && <small>A kibocsátói adatokat csak műhelytulajdonos vagy admin módosíthatja.</small>}
+          {issuerMessage && <p className="form-message" role="status">{issuerMessage}</p>}
+        </div>
+        <ul className="document-readiness" aria-label="Kiállítási hiányosságok">{displayedReadiness.blockers.map((blocker) => <li key={blocker.code}>{blocker.message}</li>)}</ul>
+        {!historical && <button className="secondary-button" type="button" disabled={pending} onClick={checkReadiness}>{pending ? "Ellenőrzés folyamatban…" : "Dokumentumadatok szerveroldali ellenőrzése"}</button>}
+        {serverReadiness && <small role="status">Az ellenőrzés hitelesített szerveroldali adatokkal lefutott.</small>}
+      </section>
       <div className="quotation-lines"><div className="section-heading"><div><p className="section-eyebrow">Tételek</p><h3>Ártételek</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("MATERIAL")}>+ Kézi anyag</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
         {lines.length === 0 && <p className="empty-state">Még nincs tétel. Üres piszkozatot is elmenthetsz.</p>}
         {lines.map((line, index) => <article className="quotation-line" key={line.localId}><div className="quotation-line-grid">

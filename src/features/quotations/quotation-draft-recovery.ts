@@ -1,6 +1,9 @@
+import type { QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
+
 export type QuotationDraftValues = {
   name: string;
   clientId: string;
+  document?: QuotationDocumentDraft;
   lines: Array<{ type: "MATERIAL" | "LABOR" | "OTHER"; description: string; quantity: string; unit: string; unitPrice: string; priceClass: "net" | "gross"; variantId: string; priceId: string; takeoffItemId: string; notes: string }>;
 };
 

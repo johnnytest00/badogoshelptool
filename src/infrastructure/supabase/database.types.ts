@@ -527,14 +527,14 @@ isOneToOne: false
                   ]
                 },"organizations": {
                   Row: {
-                    "created_at": string,"id": string,"name": string,"updated_at": string
+                    "business_address": string | null,"business_name": string | null,"contact_email": string | null,"contact_phone": string | null,"created_at": string,"id": string,"name": string,"tax_identifier": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"name": string,"updated_at"?: string
+                    "business_address"?: string | null,"business_name"?: string | null,"contact_email"?: string | null,"contact_phone"?: string | null,"created_at"?: string,"id"?: string,"name": string,"tax_identifier"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"name"?: string,"updated_at"?: string
+                    "business_address"?: string | null,"business_name"?: string | null,"contact_email"?: string | null,"contact_phone"?: string | null,"created_at"?: string,"id"?: string,"name"?: string,"tax_identifier"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     
@@ -585,6 +585,12 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"quotation_document_sequences": {
+                  Row: { "created_at": string,"last_issued_number": number,"organization_id": string,"updated_at": string }
+                  ComputedFields: never
+                  Insert: { "created_at"?: string,"last_issued_number"?: number,"organization_id": string,"updated_at"?: string }
+                  Update: { "created_at"?: string,"last_issued_number"?: number,"organization_id"?: string,"updated_at"?: string }
+                  Relationships: [{ foreignKeyName: "quotation_document_sequences_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: true; referencedRelation: "organizations"; referencedColumns: ["id"] }]
                 },"quotation_revisions": {
                   Row: {
                     "created_at": string,"created_by": string,"currency": string,"id": string,"input_snapshot": NonNullable<Json>,"line_items_snapshot": NonNullable<Json>,"organization_id": string,"price_class": Database["public"]['Enums']["quotation_price_class"] | null,"quotation_id": string,"revision_number": number,"subtotal": number | null,"totals_snapshot": NonNullable<Json>
@@ -831,6 +837,7 @@ isOneToOne: false
               "calculation_id": string,"calculation_revision_id": string,"revision_created": boolean,"revision_number": number
             }[]
                            },
+"save_standalone_quotation_draft_with_document": { Args: { "p_client_id": string | null,"p_document": Json,"p_expected_version": number,"p_lines": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_quotation_id": string | null }; Returns: { "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number,"totals_snapshot": Json }[] },
 "save_quotation_draft":
 { Args: { "p_client_id": string,"p_currency": string,"p_expected_version": number,"p_input_snapshot": Json,"p_line_items_snapshot": Json,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_quotation_id": string,"p_subtotal": number,"p_totals_snapshot": Json }; Returns: {
               "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number

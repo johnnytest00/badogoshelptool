@@ -203,3 +203,29 @@ issuer/recipient/validity/line/tax adat konkrét okkal blokkol; szerverösszegek
 PDF csak authorized snapshotból jön; projekt-ajánlat PDF/layout és lifecycle
 regresszió változatlan. Böngészős COMPLETE csak az összes kritikus pont tényleges
 igazolása után adható.
+
+## F9.7.6.6.3.2a — dokumentumadat-alap
+
+Állapot: **COMPLETE (DOCUMENT FOUNDATION)**. A dokumentum-metaadat az immutable
+quotation revision `input_snapshot.document` mezőjében, `schemaVersion: 1`
+formában él. Minden mentés a jelenlegi organization issuer-profilt szerveroldali
+snapshotként rögzíti; a kézi címzett mezői vagy az azonos szervezetből kiolvasott
+ügyfél `name/billing_address/email/phone` adatai ugyanitt kapnak forrásjelölt
+pillanatképet. Ügyféladat módosítása vagy az issuer profil frissítése nem írja át
+a korábbi revíziót. A `validUntil` `YYYY-MM-DD` dátumként kerül a JSON-ba,
+timezone-konverzió nélkül; a referencia, megjegyzés és feltételek opcionális.
+Hiányos adatokkal is menthető a piszkozat.
+
+Az organization issuer mezők: `business_name`, `business_address`,
+`contact_email`, `contact_phone`, `tax_identifier`. Olvasás aktív tagként
+lehetséges; írás a meglévő owner/admin RLS policy és az oszlop-grant alapján
+történik. Az adóazonosító szabad szöveges profiladat, nem adókonfiguráció.
+A `quotation_document_sequences` szervezetenként tárol monoton
+`last_issued_number` állapotot, de draft nem hoz létre számlálósort és számot
+sem. Későbbi kiállítási tranzakciónak kell zárolva növelnie és az issuance
+rekorddal együtt commitolnia.
+
+A `validateQuotationDocumentReadiness` domain-validátor a dátumot,
+e-mail-formátumot és hiányzó kibocsátói/címzett mezőket ellenőrzi; a hitelesített
+Server Action a címzettet azonos szervezetből oldja fel. Az eredmény soha nem
+állít kiállíthatóságot: tax, kiosztott szám és véglegesítés blokkolóként marad.

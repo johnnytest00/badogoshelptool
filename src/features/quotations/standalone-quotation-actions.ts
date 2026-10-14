@@ -5,6 +5,8 @@ import { getAuthContext } from "@/features/auth/auth.server";
 import { quotationDraftSchema, type QuotationLine } from "@/domain/quotations/contracts";
 import { validateStandaloneLines } from "@/domain/quotations/standalone";
 import { userFacingActionError } from "@/lib/user-facing-action-error";
+import { z } from "zod";
+import { validateQuotationDocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
 
 export type StandaloneQuotationResult<T = undefined> =
   | { ok: true; data: T }
@@ -13,6 +15,18 @@ export type StandaloneQuotationResult<T = undefined> =
 type SavedDraft = { quotation_id: string; revision_id: string; revision_number: number; revision_created: boolean; totals_snapshot: Record<string, unknown> };
 type RevisionRow = { id: string; quotation_id: string; revision_number: number; currency: string; price_class: "net" | "gross" | null; input_snapshot: unknown; line_items_snapshot: unknown; subtotal: string | number | null; totals_snapshot: Record<string, unknown>; created_at: string; created_by: string };
 const formText = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
+const nullableText = (value: string) => value.trim() || null;
+const documentSchema = z.object({
+  recipientSource: z.enum(["manual", "client"]), recipientClientId: z.string().max(36),
+  recipientName: z.string().max(200), recipientAddress: z.string().max(500), recipientEmail: z.string().max(320),
+  recipientPhone: z.string().max(80), recipientTaxIdentifier: z.string().max(120), reference: z.string().max(120),
+  validUntil: z.string().max(10), notes: z.string().max(2000), terms: z.string().max(5000),
+});
+const issuerProfileSchema = z.object({
+  businessName: z.string().trim().max(200), businessAddress: z.string().trim().max(500),
+  contactEmail: z.string().trim().max(320).refine((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), "A kapcsolati e-mail-cím formátuma érvénytelen."),
+  contactPhone: z.string().trim().max(80), taxIdentifier: z.string().trim().max(120),
+});
 const failure = <T>(code: Extract<StandaloneQuotationResult<T>, { ok: false }>["code"], error: string): StandaloneQuotationResult<T> => ({ ok: false, code, error });
 const classify = (error: { code?: string; message?: string } | null, fallback: string) => {
   if (error?.code === "42501") return { code: "FORBIDDEN" as const, error: "Nincs jogosultságod ehhez az önálló ajánlathoz." };
@@ -45,6 +59,15 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
   }
   let rawLines: unknown;
   try { rawLines = JSON.parse(formText(form, "lines") || "[]"); } catch { return failure("VALIDATION", "Az ajánlati tételek formátuma érvénytelen."); }
+  let rawDocument: unknown;
+  try { rawDocument = JSON.parse(formText(form, "document") || "{}"); } catch { return failure("VALIDATION", "Az ajánlat dokumentumadatai érvénytelenek."); }
+  const documentResult = documentSchema.safeParse(rawDocument);
+  if (!documentResult.success) return failure("VALIDATION", documentResult.error.issues[0]?.message ?? "Ellenőrizd az ajánlati dokumentum adatait.");
+  const document = documentResult.data;
+  if (document.recipientSource === "client" && (!document.recipientClientId || document.recipientClientId !== formText(form, "clientId"))) {
+    return failure("VALIDATION", "Válassz egy műhelyhez tartozó címzettet.");
+  }
+  if (document.recipientSource === "manual" && formText(form, "clientId")) return failure("VALIDATION", "Kézi címzetthez ne válassz ügyfélrekordot.");
   const parsed = quotationDraftSchema.safeParse({ name: formText(form, "name"), clientId: formText(form, "clientId"), currency: "HUF", lines: rawLines });
   if (!parsed.success) return failure("VALIDATION", parsed.error.issues[0]?.message ?? "Ellenőrizd az ajánlati adatokat.");
   const validation = validateStandaloneLines(parsed.data.lines);
@@ -53,10 +76,11 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
 
   const supabase = await createClient();
   const db = supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: SavedDraft[] | null; error: { code?: string; message?: string } | null }> };
-  const { data, error } = await db.rpc("save_standalone_quotation_draft", {
+  const { data, error } = await db.rpc("save_standalone_quotation_draft_with_document", {
     p_organization_id: organizationId, p_operation_id: operationId, p_quotation_id: quotationId,
-    p_name: parsed.data.name, p_client_id: parsed.data.clientId || null,
+    p_name: parsed.data.name, p_client_id: document.recipientSource === "client" ? document.recipientClientId : null,
     p_lines: lines, p_expected_version: expectedVersion,
+    p_document: { ...document, recipientClientId: undefined },
   });
   if (error || !data?.[0]) {
     const issue = error?.code === "23503" && lines.some((line) => line.variantId || line.priceId)
@@ -65,6 +89,73 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
     return failure(issue.code, issue.error);
   }
   return { ok: true, data: data[0] };
+}
+
+export type StandaloneDocumentSources = {
+  issuer: IssuerDocumentProfile & { organizationName: string };
+  clients: Array<{ id: string; name: string; address: string | null; email: string | null; phone: string | null }>;
+  canEditIssuer: boolean;
+};
+
+export async function getStandaloneDocumentSourcesAction(organizationId: string): Promise<StandaloneQuotationResult<StandaloneDocumentSources>> {
+  const access = await authorizeOrganization(organizationId);
+  if (!access.auth) return failure("UNAUTHENTICATED", "Jelentkezz be az ajánlat adataihoz.");
+  const membership = access.auth.organizations.find((organization) => organization.id === organizationId);
+  if (!membership) return failure("FORBIDDEN", "Nincs jogosultságod ehhez a műhelyhöz.");
+  const supabase = await createClient();
+  const { data: organization, error: organizationError } = await supabase.from("organizations")
+    .select("name, business_name, business_address, contact_email, contact_phone, tax_identifier")
+    .eq("id", organizationId).maybeSingle();
+  if (organizationError || !organization) return failure("INTERNAL", "A kibocsátói adatok nem tölthetők be.");
+  const { data: clients, error: clientsError } = await supabase.from("clients")
+    .select("id, name, billing_address, email, phone").eq("organization_id", organizationId).order("name").limit(100);
+  if (clientsError) return failure("INTERNAL", "A műhely címzettjei nem tölthetők be.");
+  return { ok: true, data: {
+    issuer: { organizationName: organization.name, businessName: organization.business_name, businessAddress: organization.business_address, contactEmail: organization.contact_email, contactPhone: organization.contact_phone, taxIdentifier: organization.tax_identifier },
+    clients: (clients ?? []).map((client) => ({ id: client.id, name: client.name, address: client.billing_address, email: client.email, phone: client.phone })),
+    canEditIssuer: membership.role === "owner" || membership.role === "admin",
+  } };
+}
+
+export async function updateStandaloneIssuerProfileAction(organizationId: string, rawProfile: unknown): Promise<StandaloneQuotationResult<IssuerDocumentProfile>> {
+  const access = await authorizeOrganization(organizationId);
+  if (!access.auth) return failure("UNAUTHENTICATED", "Jelentkezz be a kibocsátói adatok mentéséhez.");
+  const membership = access.auth.organizations.find((organization) => organization.id === organizationId);
+  if (!membership || (membership.role !== "owner" && membership.role !== "admin")) return failure("FORBIDDEN", "A kibocsátói adatokat csak műhelytulajdonos vagy admin módosíthatja.");
+  const parsed = issuerProfileSchema.safeParse(rawProfile);
+  if (!parsed.success) return failure("VALIDATION", parsed.error.issues[0]?.message ?? "Ellenőrizd a kibocsátói adatokat.");
+  const profile = parsed.data;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("organizations").update({
+    business_name: nullableText(profile.businessName), business_address: nullableText(profile.businessAddress),
+    contact_email: nullableText(profile.contactEmail), contact_phone: nullableText(profile.contactPhone), tax_identifier: nullableText(profile.taxIdentifier),
+  }).eq("id", organizationId).select("business_name, business_address, contact_email, contact_phone, tax_identifier").maybeSingle();
+  if (error || !data) return failure(error?.code === "42501" ? "FORBIDDEN" : "INTERNAL", error?.code === "42501" ? "A kibocsátói adatokat csak műhelytulajdonos vagy admin módosíthatja." : "A kibocsátói adatok mentése nem sikerült.");
+  return { ok: true, data: { businessName: data.business_name, businessAddress: data.business_address, contactEmail: data.contact_email, contactPhone: data.contact_phone, taxIdentifier: data.tax_identifier } };
+}
+
+export async function validateStandaloneQuotationDocumentAction(organizationId: string, rawDocument: unknown): Promise<StandaloneQuotationResult<ReturnType<typeof validateQuotationDocumentReadiness>>> {
+  const access = await authorizeOrganization(organizationId);
+  if (!access.auth) return failure("UNAUTHENTICATED", "Jelentkezz be az ajánlati adatok ellenőrzéséhez.");
+  if (!access.allowed) return failure("FORBIDDEN", "Nincs jogosultságod ehhez a műhelyhöz.");
+  const parsed = documentSchema.safeParse(rawDocument);
+  if (!parsed.success) return failure("VALIDATION", parsed.error.issues[0]?.message ?? "Ellenőrizd az ajánlati dokumentum adatait.");
+  const supabase = await createClient();
+  const { data: organization, error: organizationError } = await supabase.from("organizations")
+    .select("business_name, business_address, contact_email, contact_phone, tax_identifier")
+    .eq("id", organizationId).maybeSingle();
+  if (organizationError || !organization) return failure("INTERNAL", "A kibocsátói adatok nem tölthetők be.");
+  const issuer: IssuerDocumentProfile = { businessName: organization.business_name, businessAddress: organization.business_address, contactEmail: organization.contact_email, contactPhone: organization.contact_phone, taxIdentifier: organization.tax_identifier };
+  const document: QuotationDocumentDraft = parsed.data;
+  if (document.recipientSource === "client" && document.recipientClientId) {
+    const { data: client, error } = await supabase.from("clients").select("name, billing_address, email, phone")
+      .eq("id", document.recipientClientId).eq("organization_id", organizationId).maybeSingle();
+    if (error) return failure("INTERNAL", "A címzett adatainak ellenőrzése nem sikerült.");
+    if (!client) return failure("NOT_FOUND", "A kiválasztott címzett nem található ebben a műhelyben.");
+    document.recipientName = client.name; document.recipientAddress = client.billing_address ?? "";
+    document.recipientEmail = client.email ?? ""; document.recipientPhone = client.phone ?? "";
+  }
+  return { ok: true, data: validateQuotationDocumentReadiness(issuer, document) };
 }
 
 export async function listStandaloneQuotationsAction(organizationId: string): Promise<StandaloneQuotationResult<{ items: Array<Record<string, unknown>>; hasMore: boolean }>> {

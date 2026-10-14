@@ -886,3 +886,17 @@ Javasolt commit: `feat(F9.7.6.2): add global roof geometry preview`.
 | Böngésző / teljes regresszió | Nem futott | Backend milestone, frontend UX későbbi `.4`; célzott pgTAP és TS nem teljes történeti regresszió. Hosted DB/Auth és backup/restore nem ellenőrzött. |
 
 Javasolt commit: `feat(F9.7.6.3): persist standalone calculations`.
+
+## F9.7.6.6.3.2a — quotation dokumentumadat-alap
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Lokális migráció | PASS | `supabase migration up --local`; 040000 adat-alap, 040100 RPC-kompatibilitás és 040200 kibocsátói e-mail constraint alkalmazva, reset nélkül. |
+| Standalone quotation + dokumentum pgTAP | PASS | `018_standalone_quotations.sql` + `019_quotation_document_data.sql`: 62/62. Issuer oszlopok, owner/member RLS, email constraint, manual/linked recipient snapshot, V1/V2, date-only metadata, sequence RLS és nulla draft-allokáció. |
+| Valódi local Auth | PASS | `RUN_LOCAL_QUOTATION_DOCUMENT_VALIDATION=1 node scripts/verify-quotation-document-auth.mjs`: 9/9 valódi JWT ellenőrzés, helyi DEMO fixture-ekkel. |
+| Dokumentum readiness Vitest | PASS | Invalid date/issuer-email/recipient-email, issuer/recipient hiány, valid draft státusz és `canIssue: false`. |
+| Érintett Vitest | PASS | 6 fájl / 25 teszt: readiness, standalone UI state, draft recovery, standalone domain, HUF money és secure UUID. |
+| Typecheck / lint | PASS | `npm run typecheck`, `npm run lint`. |
+| Production build | PASS | `npm run build`, Next.js 16.4 webpack; standalone quotation route-ok bekerültek. |
+| Diff ellenőrzés | PASS | `git diff --check`. |
+| Authenticated browser smoke | PASS, fókuszált | `/ajanlatok/uj`: DEMO kézi címzett + megjegyzés V1 mentés; visszaadott quotation ID: `ea895051-f0b0-4e21-a833-f40c8a001703`; reload után mezők visszatöltve; global list entry látható; existing project quotation editor megnyílt; server readiness action visszajelzett. Issuer profile böngészős módosítása, V2/history és mobil QA nem történt. |
