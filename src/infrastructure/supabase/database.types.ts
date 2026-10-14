@@ -593,14 +593,14 @@ isOneToOne: false
                   Relationships: [{ foreignKeyName: "quotation_document_sequences_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: true; referencedRelation: "organizations"; referencedColumns: ["id"] }]
                 },"quotation_revisions": {
                   Row: {
-                    "created_at": string,"created_by": string,"currency": string,"id": string,"input_snapshot": NonNullable<Json>,"line_items_snapshot": NonNullable<Json>,"organization_id": string,"price_class": Database["public"]['Enums']["quotation_price_class"] | null,"quotation_id": string,"revision_number": number,"subtotal": number | null,"totals_snapshot": NonNullable<Json>
+                    "created_at": string,"created_by": string,"currency": string,"financial_contract": Json | null,"id": string,"input_snapshot": NonNullable<Json>,"line_items_snapshot": NonNullable<Json>,"organization_id": string,"price_class": Database["public"]['Enums']["quotation_price_class"] | null,"quotation_id": string,"revision_number": number,"subtotal": number | null,"totals_snapshot": NonNullable<Json>
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"created_by": string,"currency": string,"id"?: string,"input_snapshot": NonNullable<Json>,"line_items_snapshot": NonNullable<Json>,"organization_id": string,"price_class"?: Database["public"]['Enums']["quotation_price_class"] | null,"quotation_id": string,"revision_number": number,"subtotal"?: number | null,"totals_snapshot": NonNullable<Json>
+                    "created_at"?: string,"created_by": string,"currency": string,"financial_contract"?: Json | null,"id"?: string,"input_snapshot": NonNullable<Json>,"line_items_snapshot": NonNullable<Json>,"organization_id": string,"price_class"?: Database["public"]['Enums']["quotation_price_class"] | null,"quotation_id": string,"revision_number": number,"subtotal"?: number | null,"totals_snapshot": NonNullable<Json>
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string,"currency"?: string,"id"?: string,"input_snapshot"?: NonNullable<Json>,"line_items_snapshot"?: NonNullable<Json>,"organization_id"?: string,"price_class"?: Database["public"]['Enums']["quotation_price_class"] | null,"quotation_id"?: string,"revision_number"?: number,"subtotal"?: number | null,"totals_snapshot"?: NonNullable<Json>
+                    "created_at"?: string,"created_by"?: string,"currency"?: string,"financial_contract"?: Json | null,"id"?: string,"input_snapshot"?: NonNullable<Json>,"line_items_snapshot"?: NonNullable<Json>,"organization_id"?: string,"price_class"?: Database["public"]['Enums']["quotation_price_class"] | null,"quotation_id"?: string,"revision_number"?: number,"subtotal"?: number | null,"totals_snapshot"?: NonNullable<Json>
                   }
                   Relationships: [
                     {
@@ -639,14 +639,14 @@ isOneToOne: false
                   ]
                 },"quotations": {
                   Row: {
-                    "client_id": string | null,"created_at": string,"created_by": string,"currency": string,"current_revision_id": string | null,"finalized_at": string | null,"finalized_by": string | null,"finalized_revision_id": string | null,"id": string,"name": string,"organization_id": string,"project_id": string,"status": Database["public"]['Enums']["quotation_status"],"updated_at": string,"version": number
+                    "client_id": string | null,"created_at": string,"created_by": string,"currency": string,"current_revision_id": string | null,"finalized_at": string | null,"finalized_by": string | null,"finalized_revision_id": string | null,"id": string,"name": string,"organization_id": string,"ownership_scope": "project" | "standalone","project_id": string | null,"status": Database["public"]['Enums']["quotation_status"],"updated_at": string,"version": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "client_id"?: string | null,"created_at"?: string,"created_by": string,"currency"?: string,"current_revision_id"?: string | null,"finalized_at"?: string | null,"finalized_by"?: string | null,"finalized_revision_id"?: string | null,"id"?: string,"name": string,"organization_id": string,"project_id": string,"status"?: Database["public"]['Enums']["quotation_status"],"updated_at"?: string,"version"?: number
+                    "client_id"?: string | null,"created_at"?: string,"created_by": string,"currency"?: string,"current_revision_id"?: string | null,"finalized_at"?: string | null,"finalized_by"?: string | null,"finalized_revision_id"?: string | null,"id"?: string,"name": string,"organization_id": string,"ownership_scope"?: "project" | "standalone","project_id"?: string | null,"status"?: Database["public"]['Enums']["quotation_status"],"updated_at"?: string,"version"?: number
                   }
                   Update: {
-                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string,"currency"?: string,"current_revision_id"?: string | null,"finalized_at"?: string | null,"finalized_by"?: string | null,"finalized_revision_id"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"project_id"?: string,"status"?: Database["public"]['Enums']["quotation_status"],"updated_at"?: string,"version"?: number
+                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string,"currency"?: string,"current_revision_id"?: string | null,"finalized_at"?: string | null,"finalized_by"?: string | null,"finalized_revision_id"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"ownership_scope"?: "project" | "standalone","project_id"?: string | null,"status"?: Database["public"]['Enums']["quotation_status"],"updated_at"?: string,"version"?: number
                   }
                   Relationships: [
                     {

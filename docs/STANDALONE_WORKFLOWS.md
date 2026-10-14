@@ -199,3 +199,26 @@ Ellenőrzés: célzottan ellenőriztük a F8.1/F8.3.1/F8.3.2 adatbázis-szerződ
 quotation migrációkat és a schema/org/client mezőket. Ebben a milestone-ban
 csak dokumentáció módosult; nincs új kód, DB, teszt vagy browser futtatás.
 
+## F9.7.6.6.3.2b — pénzügyi/adó contract
+
+Az additív `20261014040300` migráció a `quotation_revisions` táblán új
+`financial_contract` JSONB pillanatképet állít elő INSERT-kor. A trigger a
+DB-ben kiszámított HUF részösszegből és a meglévő `price_class` mezőből veszi
+az input price basis-t; a régi sorokat nem backfill-eli. A sorsnapshotok továbbra
+is tartalmazzák a konkrét sorértékeket, ezért nincs második, eltérhetőséget okozó
+line-total másolat.
+
+A tax-treatment mező `unresolved`; tax amount és fizetendő összeg `null` marad.
+NET inputnál csak a nettó összeg jelenik meg, GROSS inputnál csak a rögzített
+bruttó árbesorolás összege. Egyikből sem következtetünk a másikra. Approved
+tax rule nincs; adóazonosító nem működő konfiguráció, org default nincs,
+szabad tax label nem executálható. Issuance readiness a creator + org-scope
+ellenőrzés után a jelenlegi revíziót, complete line-okat, HUF-ot és DB/domain
+összegegyezést validálja; adókezelés, számkiosztás és finalize továbbra is
+blokkoló. A readiness nem allokál dokumentumszámot.
+
+Lokális pgTAP: a bővített `018_standalone_quotations.sql` 38/38 PASS és a
+`019_quotation_document_data.sql` 29/29 PASS; valós local Auth 9/9 PASS. Egy
+fókuszált editor/readiness browser smoke PASS. Teljes tesztkészlet és projekt-PDF
+regresszió nem futott; részletek a [TEST_MATRIX](TEST_MATRIX.md) 6.3.2b sorain.
+

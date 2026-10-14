@@ -900,3 +900,20 @@ Javasolt commit: `feat(F9.7.6.3): persist standalone calculations`.
 | Production build | PASS | `npm run build`, Next.js 16.4 webpack; standalone quotation route-ok bekerültek. |
 | Diff ellenőrzés | PASS | `git diff --check`. |
 | Authenticated browser smoke | PASS, fókuszált | `/ajanlatok/uj`: DEMO kézi címzett + megjegyzés V1 mentés; visszaadott quotation ID: `ea895051-f0b0-4e21-a833-f40c8a001703`; reload után mezők visszatöltve; global list entry látható; existing project quotation editor megnyílt; server readiness action visszajelzett. Issuer profile böngészős módosítása, V2/history és mobil QA nem történt. |
+
+## F9.7.6.6.3.2b — pénzügyi contract és tax-neutral readiness
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Specifikáció és árbesorolás | PASS | Célzottan `QUOTATION_FINALIZATION_DESIGN.md`, `STANDALONE_WORKFLOWS.md`, `DATABASE.md`, `PROGRESS.md`, `TEST_MATRIX.md`; `money.ts`, standalone action/editor, issuer snapshot, numbering/RLS és revision szerződés olvasva. Nem találtunk jóváhagyott adókezelési esetet. |
+| Helyi migration állapot | PASS | Előtte 20261014040200 volt utolsó alkalmazott migráció; `20261014040300_quotation_financial_contract.sql` `migration up --local`-lal felkerült reset nélkül. Hosted DB nem érintett. |
+| Financial/quotation pgTAP | PASS | `supabase test db supabase/tests/database/018_standalone_quotations.sql`: 38/38; `019_quotation_document_data.sql`: 29/29. NET amount, no invented GROSS/tax, HUF/half-up metadata, creator/immutable document/numbering invariánsok. |
+| Project quotation compatibility pgTAP | PASS | `003_quotation_finalization.sql`: 8/8 és `004_quotation_lifecycle.sql`: 11/11; a közös revíziós contract mellett a projekt finalization és lifecycle változatlanul teljesül. |
+| Local Auth / RLS | PASS | `RUN_LOCAL_QUOTATION_DOCUMENT_VALIDATION=1 node scripts/verify-quotation-document-auth.mjs`: 9/9 valódi JWT ellenőrzés, owner issuer update, member denial, creator-scope, történeti issuer/recipient snapshot, számláló direct-read denial. A szkript DEMO fixture-jei a lokális DB-ben maradtak. |
+| Érintett Vitest | PASS | `npx vitest run src/domain/quotations/financial-contract.test.ts src/domain/quotations/document-readiness.test.ts src/domain/quotations/standalone.test.ts src/domain/quotations/money.test.ts`: 4 fájl, 21/21. Decimal, half-up, maximumösszeg, NET/GROSS elkülönítés, unresolved/unsupported tax, readiness blocker és canIssue=false. |
+| Typecheck / lint / build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack). |
+| Browser | PASS, egy fókuszált smoke | Helyi standalone editor: magyar unresolved tax/current revision/financial blockers, draft save elérhető; server readiness action lefutott és unsaved snapshot blockerrel tért vissza. Nem mentettünk új ajánlatot. Project PDF, V2 history és mobil regressziót nem futtattuk. |
+| Teljes regression / concurrency | Nem futott | Nem változott finalize/write concurrency contract; a célzott suites nem teljes regressziók. |
+| Diff | PASS | `git diff --check`. |
+
+Nyitott: accounting jóváhagyott treatment/rate/formula/rounding, issuer status/joghatóság, NET/GROSS jelentése, kötelező dokumentumadatok, expiry és ajánlatszám-formátum. Issuance továbbra sincs: nincs finalization RPC, szám-allokáció, immutable issue snapshot vagy issued PDF.

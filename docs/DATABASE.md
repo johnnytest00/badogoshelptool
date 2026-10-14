@@ -515,3 +515,31 @@ de readiness hibát mutat.
 Bizonyíték: lokális Supabase migráció reset nélkül; 018 + 019 pgTAP 62/62 PASS;
 valódi local Auth JWT-s issuer/profile, manual/linked snapshot, creator-scope,
 V1 immutable és draft-szám nélküli teszt 9/9 PASS. Nincs hosted migráció.
+
+## F9.7.6.6.3.2b — revízió pénzügyi contract
+
+`20261014040300_quotation_financial_contract.sql` `financial_contract JSONB`
+mezőt és BEFORE INSERT triggerelemet ad a `quotation_revisions` táblához.
+A trigger a kiszámított `price_class` és `subtotal` értékekből hozza létre a
+contractot; kliens által küldött JSON-t nem fogad el. Ugyanaz a SECURITY DEFINER
+draft RPC hívja, a trigger fix `search_path`-et használ, és újraírásnál minden
+mezőt szerveroldalról felülír. A már meglévő revízió sorok értéke NULL marad;
+nincs UPDATE/backfill. A revision immutable UPDATE/DELETE trigger változatlan.
+
+A JSON explicit HUF, source/schema version, `net|gross` price basis, csak az
+adott besorolás szerinti összeg, `unresolved` treatment, null tax és null
+payable, továbbá 6 mennyiségi tizedes / 2 HUF tizedes / line-scope half-up
+szabály. A line amount továbbra is az eredeti `line_items_snapshot`/subtotal
+forrásból olvasható. Nincs tax registry, szervezeti default vagy írható
+quotation treatment: jóváhagyott executable tax policy nélkül ezek választéka
+hamis biztonságérzetet adna. Új unsupported tax-id a domainben nem végrehajtható;
+a draft adatbázis-szerződés nem fogad tetszőleges adóparamétereket.
+
+Migráció a helyi DB-n reset nélkül alkalmazva; korábbi migrációk állapota
+20261014040200-ig egyezett, az új 20261014040300 felkerült. Célzott
+`018_standalone_quotations.sql`: 38/38, `019_quotation_document_data.sql`:
+29/29, projekt `003_quotation_finalization.sql`: 8/8 és
+`004_quotation_lifecycle.sql`: 11/11 PASS. Ezek ellenőrzik snapshot mezőt, hiányzó tax/total értéket,
+NET↔GROSS elkülönítést, rounding metadata-t, meglévő creator/RLS/snapshot és
+draft-number invariánsokat. A valós local Auth scripted integráció 9/9 PASS;
+nem változott új grants/policy/auth szerződés.

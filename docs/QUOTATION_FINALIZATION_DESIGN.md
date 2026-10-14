@@ -152,10 +152,11 @@ Storage-terv és hash szükséges, accountant/legal döntés után.
 
 ## F9.7.6.6.3.2 — végrehajtási sorrend
 
-**Belépési feltétel (döntés):** könyvelő/adótanácsadó által jóváhagyott
-kiállítói mezők, recipient minimum, tax treatment/összegzési szabály, emberi
-ajánlatszám-igény/formátum és érvényességi policy. Addig a draft és design
-maradhat, kiállítás kódja nem készül.
+**Issuance belépési feltétel (döntés):** könyvelő/adótanácsadó által
+jóváhagyott kiállítói mezők, recipient minimum, tax treatment/összegzési
+szabály, emberi ajánlatszám-igény/formátum és érvényességi policy. A
+tax-semleges domain/DB contract és readiness megvalósítható ezek nélkül; adó
+számítása, tax configuration és kiállítás nem.
 
 1. Véglegesítsük és verziózzuk a TS/Zod document/tax adatkontraktot, a review
    hibakódokat és a snapshot JSON shape-et; rögzítsük, mely mező kézi vagy
@@ -164,8 +165,9 @@ maradhat, kiállítás kódja nem készül.
    immutable `quotation_issuances`, szükség esetén emberi szám-számláló,
    idempotency record, összetett FK/check/index, RLS/grant/revoke és immutable
    triggerek. Existing project rows and RPCs untouched.
-3. Domain/DB validáció és pénzügyi/tax contract: server-owned snapshotból
-   ellenőrzött sorösszeg, subtotal/adó/total; tax treatment nélkül fail closed.
+3. Domain/DB validáció és pénzügyi contract: server-owned snapshotból
+   ellenőrzött HUF sorösszeg és részösszeg; az adó, bruttó és fizetendő csak
+   jóváhagyott treatment után számolható. Enélkül tax unresolved és fail closed.
 4. SECURITY INVOKER `finalize_standalone_quotation` RPC + append-only
    idempotency; tranzakcióban validálás, issue insert, quote finalize pointer
    és timestamp; project RPC marad változatlan.
@@ -229,3 +231,41 @@ A `validateQuotationDocumentReadiness` domain-validátor a dátumot,
 e-mail-formátumot és hiányzó kibocsátói/címzett mezőket ellenőrzi; a hitelesített
 Server Action a címzettet azonos szervezetből oldja fel. Az eredmény soha nem
 állít kiállíthatóságot: tax, kiosztott szám és véglegesítés blokkolóként marad.
+
+## F9.7.6.6.3.2b — pénzügyi contract és adósemleges readiness
+
+Állapot: **COMPLETE (FINANCIAL FOUNDATION)** a domain, migráció és helyi
+automatizált ellenőrzések körében. Jóváhagyott adókezelés nem szerepel az
+ellenőrzött projekt-specifikációban. Nincs supported tax treatment; az issuer
+`tax_identifier` leíró profilmező marad, nem konfiguráció, és nincs org-default.
+
+Az új `quotation_revisions.financial_contract` csak új revíziókhoz töltődik
+triggerből. A DB a már számított `price_class`, HUF `subtotal` és meglévő
+sorsnapshotok szemantikáját rögzíti: forrásverzió, NET/GROSS input basis,
+NET amount csak NET alapnál, GROSS amount csak GROSS alapnál, `taxTreatment`
+unresolved, `taxAmount` és `totalPayable` null, valamint a meglévő 6/2 skálájú,
+soronkénti half-up kerekítés. A meglévő soradatok maradnak az egyedi
+line amountok forrásai. A korábbi revíziók oszlopa null marad; nincs backfill,
+adatmódosítás vagy régi snapshot-átírás.
+
+A domain decimal-safe bigint szerződése ugyanazt a sortotal-szabályt modellezi.
+Az önálló szerkesztő nettó HUF összegeket mutat; readiness ellenőrzi a saját
+creator aktuális revízióját, a tételsorokat és a szerverről olvasott pénzügyi
+összeg konzisztenciáját. Hiányzó/eltérő összegek strukturált magyar blokkolók.
+Minden esetben false marad `canIssue`, a tax, a sorszám és a finalize hiánya
+miatt. A readiness nem változtat számlálót, draft továbbra is menthető.
+
+Szervezeti adókonfigurációs mező/tábla és quotation treatment-választó nem
+került be: üresen konfigurálható vagy tetszőleges szövegként elfogadható
+tax-mode önmagában veszélyes lenne; új defaultot sem szabad a régi ajánlatokra
+alkalmazni. Ismeretlen treatment ID domain-szinten unsupported, és a draft RPC
+nem fogad klienstől pénzügyi/tax snapshotot. Következő lépés előtt a könyvelő
+erősítse meg a joghatóságot, issuer státuszt, támogatott eseteket, rate/formulát,
+NET/GROSS megjelenítést, kerekítést, kötelező adatokat és az alkalmazandó
+időbeli érvényességet. Csak ezután készülhet admin-konfiguráció, explicit quote
+választás és executable rule.
+
+Hiányzó issuance prerequisites: atomikus expected-revision finalize RPC,
+idempotencia és concurrency teszt, issue snapshot és számlálótranzakció,
+jóváhagyott tax-rule-mátrix, valamint standalone issued PDF. E milestone ezekhez
+nem allokál számot és nem hoz létre issuance-t.

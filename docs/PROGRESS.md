@@ -906,3 +906,43 @@ kiállítási művelet, egyedi issuance-szám és stabil issuance rekord még ni
 Az adókezelés, jogilag kötelező mezők és végleges PDF továbbra is nyitott.
 
 Javasolt commit: `feat(F9.7.6.6.3.2a): persist quotation document snapshots`.
+
+## F9.7.6.6.3.2b — pénzügyi contract, adóalap és kiállítási readiness
+
+Állapot: **COMPLETE (FINANCIAL FOUNDATION)**. A blueprinthez és a designhoz
+ellenőrzött dokumentációban nincs könyvelő/adótanácsadó által jóváhagyott
+tax-treatment. Ezért nincs kulcs, AAM, fordított adózás vagy mentességszámítás;
+az adókezelés explicit unresolved, ismeretlen treatment ID unsupported.
+
+Új lokális `20261014040300` migráció adta a `quotation_revisions` új
+`financial_contract` JSONB oszlopát. INSERT trigger a szerveroldali HUF
+`price_class`/subtotal alapján rögzíti a source versiont, NET/GROSS input
+árbesorolást, besorolástól függő összeget, null tax/null payable mezőt és a
+meglévő 6 quantity / 2 HUF scale, line half-up szabályt. Nincs történeti
+backfill; meglévő immutability és standalone/project lifecycle RPC-k változatlanok.
+Issuer adóazonosító mező továbbra is leíró; nincs tax-default vagy UI-ban
+választható, nem végrehajtható mód.
+
+A domain bigint contract megtartja a NET összeget, GROSS inputból nem származtat
+NET-et/adót; readiness hitelesített creator + org + standalone quote current
+revision, mentett dokumentumsnapshot, line completeness és subtotal egyezést
+ellenőriz. Mindenképp `canIssue: false`; tax, sorszám és finalization blocker.
+Draft mentés működik, draft/readiness nem incrementál számlálót. Nincs új issuer
+adókonfigurációs írható útvonal, SECURITY DEFINER finalize vagy kiadott PDF.
+
+Bizonyíték: lokális migráció `20261014040300` reset nélkül; 018 pgTAP 38/38,
+019 pgTAP 29/29 és projekt lifecycle 003+004 pgTAP 19/19 PASS; local Auth JWT issuer owner/member, creator scope,
+immutable revisions, no-number checks 9/9 PASS; érintett Vitest 4 fájl/21 teszt
+PASS; typecheck, lint, Next 16.4 webpack production build, diff-check PASS. Egy
+browser smoke új standalone editoron magyar readiness blokkolókat mutatott, majd
+server readiness action elvégezte az ellenőrzést és mentetlen snapshot blockerrel
+zárult; piszkozat mentés látható volt. Teljes regresszió és korábbi project PDF
+workflow nem futott újra. A Auth szkript kilenc `DEMO` fixture-t hagy a lokális
+DB-ben; hosted DB, reset, commit, push, deploy nem történt.
+
+Nyitott accounting döntések: joghatóság és issuer státusz; támogatott tax
+treatment ID-k, paraméterek, kulcs/formula, nettó/bruttó árértelmezés és
+kerekítés; kötelező issuer/recipient mezők; treatment időbeli hatálya; emberi
+ajánlatszám-formátum és érvényességi szabály. F9.7.6.6.3.2c előtt ezek és
+atomikus/idempotens issuance + immutable issue snapshot + number allocation
+teszt szükséges. Javasolt commit: `feat(F9.7.6.6.3.2b): add tax-neutral quotation financial contract`.

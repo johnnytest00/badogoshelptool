@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { lineTotal, scaledToDecimal } from "@/domain/quotations/money";
+import { decimalToScaled, lineTotal, scaledToDecimal } from "@/domain/quotations/money";
+import { validateStandaloneLines } from "@/domain/quotations/standalone";
 import { guardUnsavedNavigation, warnBeforeUnloadIfDirty } from "@/lib/unsaved-changes";
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneNetLabels, type StandaloneSaveOperation } from "./standalone-quotation-ui-state";
@@ -15,7 +16,7 @@ import { emptyQuotationDocumentDraft, validateQuotationDocumentReadiness, type D
 type Line = QuotationDraftValues["lines"][number];
 type EditorLine = Line & { localId: string };
 type Revision = { id: string; revisionNumber: number; createdAt: string; subtotal: string | null };
-type CurrentRevision = { id: string; revision_number: number; input_snapshot: unknown; line_items_snapshot: unknown; subtotal: string | number | null };
+type CurrentRevision = { id: string; revision_number: number; input_snapshot: unknown; line_items_snapshot: unknown; subtotal: string | number | null; currency: string; price_class: "net" | "gross" | null };
 const empty = (type: Line["type"]): Line => ({ type, description: "", quantity: "", unit: "", unitPrice: "", priceClass: "net", variantId: "", priceId: "", takeoffItemId: "", notes: "" });
 const toPersistedLine = (line: EditorLine): Line => {
   const { localId, ...persisted } = line;
@@ -80,6 +81,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const [recovery, setRecovery] = useState<{ value: QuotationRecovery; current: boolean } | null>(null);
   const operation = useRef<StandaloneSaveOperation | null>(null);
   const savedSubtotal = currentRevision?.subtotal ?? null;
+  const savedAmountLabel = currentRevision?.price_class === "gross" ? "Bruttó árbesorolás összege" : currentRevision?.price_class === "net" ? "Nettó árbesorolás összege" : "Árbesorolás nélküli összeg";
   const latestUrl = `/ajanlatok/${quotationId}?organization=${organizationId}`;
 
   const setDirtyState = (value: boolean) => { dirtyRef.current = value; setDirty(value); };
@@ -122,8 +124,28 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const readinessDocument = !historical && document.recipientSource === "client" && selectedClient ? {
     ...document, recipientName: selectedClient.name, recipientAddress: selectedClient.address ?? "", recipientEmail: selectedClient.email ?? "", recipientPhone: selectedClient.phone ?? "",
   } : document;
-  const issuerForReadiness: IssuerDocumentProfile = historical && savedDocument.issuer ? issuerProfile : documentSources.issuer;
-  const readiness = validateQuotationDocumentReadiness(issuerForReadiness, readinessDocument);
+  const savedIssuerForReadiness: IssuerDocumentProfile | null = savedDocument.issuer ? {
+    businessName: textValue(savedDocument.issuer.businessName) || null,
+    businessAddress: textValue(savedDocument.issuer.businessAddress) || null,
+    contactEmail: textValue(savedDocument.issuer.contactEmail) || null,
+    contactPhone: textValue(savedDocument.issuer.contactPhone) || null,
+    taxIdentifier: textValue(savedDocument.issuer.taxIdentifier) || null,
+  } : null;
+  const issuerForReadiness: IssuerDocumentProfile = currentRevision && savedIssuerForReadiness ? savedIssuerForReadiness : documentSources.issuer;
+  const savedLines = Array.isArray(currentRevision?.line_items_snapshot) ? currentRevision.line_items_snapshot : [];
+  const savedLineValidation = validateStandaloneLines(savedLines);
+  let savedTotalsConsistent = false;
+  if (savedLineValidation.ok && currentRevision?.subtotal !== null && currentRevision?.subtotal !== undefined) {
+    try { savedTotalsConsistent = decimalToScaled(String(currentRevision.subtotal), 2) === decimalToScaled(savedLineValidation.totals.subtotal, 2) && savedLineValidation.totals.priceClass === currentRevision.price_class; } catch { savedTotalsConsistent = false; }
+  }
+  const readiness = validateQuotationDocumentReadiness(issuerForReadiness, readinessDocument, undefined, {
+    hasCurrentRevision: Boolean(currentRevisionId && currentRevision?.id === currentRevisionId),
+    hasCompleteLines: savedLineValidation.ok && savedLines.length > 0 && currentRevision?.price_class !== null,
+    monetaryValuesConsistent: savedTotalsConsistent,
+    currency: currentRevision?.currency ?? null,
+    priceBasis: currentRevision?.price_class ?? null,
+    taxTreatment: "unresolved",
+  });
   const displayedReadiness = serverReadiness ?? readiness;
 
   const addLine = (type: Line["type"]) => { const next = [...lines, { ...empty(type), localId: makeLocalId() }]; setLines(next); syncDirty(name, next); };
@@ -196,7 +218,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   };
   const checkReadiness = () => {
     startTransition(async () => {
-      const checked = await validateStandaloneQuotationDocumentAction(organizationId, document);
+      const checked = await validateStandaloneQuotationDocumentAction(organizationId, document, quotationId);
       if (!checked.ok) { setResult(checked); return; }
       setServerReadiness(checked.data);
     });
@@ -272,7 +294,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
         </div><p id={`line-${index}-error`} className="missing-data">Leírás, pozitív mennyiség, egység és nemnegatív nettó egységár szükséges a kitöltött sor mentéséhez.</p></article>)}
       </div>
       {catalogMessage && <p className="form-message" role="status">{catalogMessage}</p>}
-      <div className="quotation-summary"><div><span>{historical ? "Revízió nettó összege (Ft)" : standaloneNetLabels.subtotal}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "A változtathatatlan szerver-pillanatkép összege." : "Nem mentett becslés; a szerver számítja és adja vissza az irányadó összeget."}</small></div>{!historical && <div><span>Legutóbbi mentett nettó összeg</span><strong>{money(savedSubtotal === null ? null : String(savedSubtotal))}</strong></div>}</div>
+      <div className="quotation-summary"><div><span>{historical ? `${savedAmountLabel} (Ft)` : standaloneNetLabels.subtotal}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "A változtathatatlan szerver-pillanatkép összege." : "Nem mentett becslés; a szerver számítja és adja vissza az irányadó összeget."}</small></div>{!historical && <div><span>Legutóbbi mentett árbesorolási összeg</span><strong>{money(savedSubtotal === null ? null : String(savedSubtotal))}</strong></div>}</div>
     </fieldset>
     {!historical && dirty && <p className="form-message" role="status">Mentetlen módosításaid vannak.</p>}
     {!historical && !result.ok && result.error && <div className="form-message is-error" role="alert">{result.error}{result.code === "CONFLICT" && quotationId && <button type="button" className="secondary-button" onClick={() => { if (window.confirm("A legfrissebb revízió betöltése elveti ezt a helyi módosításcsomagot. Megnyitod a szerver legfrissebb változatát?")) { discardRecovery(); window.location.assign(latestUrl); } }}>Legfrissebb revízió megnyitása</button>}</div>}

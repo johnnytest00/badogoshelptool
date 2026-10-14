@@ -1,5 +1,5 @@
 begin;
-select plan(33);
+select plan(38);
 
 select has_column('public','quotations','ownership_scope','quotation ownership scope is explicit');
 select ok((select is_nullable = 'YES' from information_schema.columns where table_schema='public' and table_name='quotations' and column_name='project_id'), 'project link is nullable for standalone only');
@@ -27,13 +27,18 @@ select lives_ok($$select * from public.save_standalone_quotation_draft(
  '00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000901',null,'DEMO önálló ajánlat',null,
  '[{"type":"LABOR","description":"DEMO kézi munkadíj","quantity":"2","unit":"óra","unitPrice":"5.25","priceClass":"net"},{"type":"OTHER","description":"DEMO üres sor","quantity":"1","unit":"db","unitPrice":"0.00","priceClass":"net"}]'::jsonb,0
 )$$,'authenticated creator can persist a draft without project or client');
+select set_config('test.standalone_quote_id',(select quotation_id::text from public.quotation_revisions where revision_number=1 order by created_at desc limit 1),true);
 select is((select ownership_scope from public.quotations where id=(select quotation_id from public.quotation_revisions where revision_number=1 order by created_at desc limit 1)), 'standalone', 'new quotation is explicitly standalone');
 select is((select project_id from public.quotations where id=(select quotation_id from public.quotation_revisions where revision_number=1 order by created_at desc limit 1)), null::uuid, 'standalone quotation has no dummy project');
 select is((select client_id from public.quotations where id=(select quotation_id from public.quotation_revisions where revision_number=1 order by created_at desc limit 1)), null::uuid, 'draft may have no customer');
 select is((select subtotal from public.quotation_revisions where quotation_id=(select quotation_id from public.quotation_revisions where revision_number=1 order by created_at desc limit 1)), 10.50::numeric, 'database computes authoritative HUF subtotal');
 select is((select totals_snapshot->>'currency' from public.quotation_revisions where quotation_id=(select quotation_id from public.quotation_revisions where revision_number=1 order by created_at desc limit 1)), 'HUF', 'saved totals explicitly retain HUF semantics');
+select is((select financial_contract->>'sourceVersion' from public.quotation_revisions where quotation_id=current_setting('test.standalone_quote_id')::uuid and revision_number=1), 'F9.7.6.6.3.2b', 'new revision carries the financial contract source version');
+select is((select financial_contract->>'netAmount' from public.quotation_revisions where quotation_id=current_setting('test.standalone_quote_id')::uuid and revision_number=1), '10.50', 'NET amount is retained as the authoritative HUF net subtotal');
+select is((select financial_contract->>'grossAmount' from public.quotation_revisions where quotation_id=current_setting('test.standalone_quote_id')::uuid and revision_number=1), null, 'NET input does not invent a gross amount');
+select is((select financial_contract->>'taxAmount' from public.quotation_revisions where quotation_id=current_setting('test.standalone_quote_id')::uuid and revision_number=1), null, 'unapproved tax amount remains null');
+select is((select financial_contract #>> '{rounding,mode}' from public.quotation_revisions where quotation_id=current_setting('test.standalone_quote_id')::uuid and revision_number=1), 'half_up', 'financial contract records existing per-line half-up rounding');
 select is((select count(*)::int from public.quotation_revisions where quotation_id=(select quotation_id from public.quotation_revisions where revision_number=1 order by created_at desc limit 1)), 1, 'initial request produces one immutable revision');
-select set_config('test.standalone_quote_id',(select quotation_id::text from public.quotation_revisions where revision_number=1 order by created_at desc limit 1),true);
 -- A custom GUC is client-settable, so spoof the marker and prove RLS/grants still
 -- prevent all direct standalone writes.
 select set_config('app.standalone_quotation_writer','00000000-0000-4000-8000-000000000001',true);

@@ -4,6 +4,8 @@ import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { quotationDraftSchema, type QuotationLine } from "@/domain/quotations/contracts";
 import { validateStandaloneLines } from "@/domain/quotations/standalone";
+import { decimalToScaled } from "@/domain/quotations/money";
+import { calculateQuotationFinancialContract } from "@/domain/quotations/financial-contract";
 import { userFacingActionError } from "@/lib/user-facing-action-error";
 import { z } from "zod";
 import { validateQuotationDocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
@@ -134,18 +136,74 @@ export async function updateStandaloneIssuerProfileAction(organizationId: string
   return { ok: true, data: { businessName: data.business_name, businessAddress: data.business_address, contactEmail: data.contact_email, contactPhone: data.contact_phone, taxIdentifier: data.tax_identifier } };
 }
 
-export async function validateStandaloneQuotationDocumentAction(organizationId: string, rawDocument: unknown): Promise<StandaloneQuotationResult<ReturnType<typeof validateQuotationDocumentReadiness>>> {
+export async function validateStandaloneQuotationDocumentAction(organizationId: string, rawDocument: unknown, quotationId: string | null = null): Promise<StandaloneQuotationResult<ReturnType<typeof validateQuotationDocumentReadiness>>> {
   const access = await authorizeOrganization(organizationId);
   if (!access.auth) return failure("UNAUTHENTICATED", "Jelentkezz be az ajánlati adatok ellenőrzéséhez.");
   if (!access.allowed) return failure("FORBIDDEN", "Nincs jogosultságod ehhez a műhelyhöz.");
   const parsed = documentSchema.safeParse(rawDocument);
   if (!parsed.success) return failure("VALIDATION", parsed.error.issues[0]?.message ?? "Ellenőrizd az ajánlati dokumentum adatait.");
   const supabase = await createClient();
+  let financial: Parameters<typeof validateQuotationDocumentReadiness>[3];
+  let persistedDocumentSnapshot: Record<string, unknown> | null = null;
+  let issuerSnapshot: Record<string, unknown> | null = null;
+  if (quotationId) {
+    const { data: quotation, error } = await supabase.from("quotations")
+      .select("id, created_by, ownership_scope, current_revision_id, currency")
+      .eq("id", quotationId).eq("organization_id", organizationId).maybeSingle();
+    if (error) return failure("INTERNAL", "Az ajánlat revíziójának ellenőrzése nem sikerült.");
+    if (!quotation || quotation.ownership_scope !== "standalone" || quotation.created_by !== access.auth.userId) {
+      return failure("FORBIDDEN", "Az ajánlat ellenőrzéséhez a saját önálló piszkozatod szükséges.");
+    }
+    let hasCompleteLines = false;
+    let monetaryValuesConsistent = false;
+    let priceBasis: "net" | "gross" | null = null;
+    let revisionCurrency: string | null = quotation.currency;
+    if (quotation.current_revision_id) {
+      const { data: revision, error: revisionError } = await supabase.from("quotation_revisions")
+        .select("id, revision_number, currency, price_class, subtotal, line_items_snapshot, quotation_id, input_snapshot")
+        .eq("id", quotation.current_revision_id).eq("quotation_id", quotation.id).eq("organization_id", organizationId).maybeSingle();
+      if (revisionError) return failure("INTERNAL", "Az ajánlat pénzügyi pillanatképe nem tölthető be.");
+      if (revision) {
+        const inputSnapshot = revision.input_snapshot && typeof revision.input_snapshot === "object" && !Array.isArray(revision.input_snapshot)
+          ? revision.input_snapshot as Record<string, unknown> : {};
+        const savedDocument = inputSnapshot.document && typeof inputSnapshot.document === "object" && !Array.isArray(inputSnapshot.document)
+          ? inputSnapshot.document as Record<string, unknown> : null;
+        persistedDocumentSnapshot = savedDocument;
+        issuerSnapshot = savedDocument?.issuer && typeof savedDocument.issuer === "object" && !Array.isArray(savedDocument.issuer)
+          ? savedDocument.issuer as Record<string, unknown> : null;
+        revisionCurrency = revision.currency;
+        priceBasis = revision.price_class;
+        const lines = Array.isArray(revision.line_items_snapshot) ? revision.line_items_snapshot : [];
+        const validated = validateStandaloneLines(lines);
+        hasCompleteLines = validated.ok && lines.length > 0 && revision.price_class !== null;
+        if (validated.ok && revision.subtotal !== null && revision.price_class === validated.totals.priceClass) {
+          try {
+            const expected = decimalToScaled(String(revision.subtotal), 2);
+            const actual = decimalToScaled(validated.totals.subtotal, 2);
+            const contract = calculateQuotationFinancialContract(validated.lines);
+            monetaryValuesConsistent = expected === actual && contract.priceBasis === revision.price_class;
+          } catch { monetaryValuesConsistent = false; }
+        }
+      }
+    }
+    financial = {
+      hasCurrentRevision: Boolean(quotation.current_revision_id), hasCompleteLines, monetaryValuesConsistent,
+      currency: revisionCurrency, priceBasis, taxTreatment: "unresolved",
+    };
+  } else {
+    financial = { hasCurrentRevision: false, hasCompleteLines: false, monetaryValuesConsistent: false, currency: null, priceBasis: null, taxTreatment: "unresolved" };
+  }
   const { data: organization, error: organizationError } = await supabase.from("organizations")
     .select("business_name, business_address, contact_email, contact_phone, tax_identifier")
     .eq("id", organizationId).maybeSingle();
   if (organizationError || !organization) return failure("INTERNAL", "A kibocsátói adatok nem tölthetők be.");
-  const issuer: IssuerDocumentProfile = { businessName: organization.business_name, businessAddress: organization.business_address, contactEmail: organization.contact_email, contactPhone: organization.contact_phone, taxIdentifier: organization.tax_identifier };
+  const issuer: IssuerDocumentProfile = {
+    businessName: issuerSnapshot ? (typeof issuerSnapshot.businessName === "string" ? issuerSnapshot.businessName : null) : organization.business_name,
+    businessAddress: issuerSnapshot ? (typeof issuerSnapshot.businessAddress === "string" ? issuerSnapshot.businessAddress : null) : organization.business_address,
+    contactEmail: issuerSnapshot ? (typeof issuerSnapshot.contactEmail === "string" ? issuerSnapshot.contactEmail : null) : organization.contact_email,
+    contactPhone: issuerSnapshot ? (typeof issuerSnapshot.contactPhone === "string" ? issuerSnapshot.contactPhone : null) : organization.contact_phone,
+    taxIdentifier: issuerSnapshot ? (typeof issuerSnapshot.taxIdentifier === "string" ? issuerSnapshot.taxIdentifier : null) : organization.tax_identifier,
+  };
   const document: QuotationDocumentDraft = parsed.data;
   if (document.recipientSource === "client" && document.recipientClientId) {
     const { data: client, error } = await supabase.from("clients").select("name, billing_address, email, phone")
@@ -155,7 +213,34 @@ export async function validateStandaloneQuotationDocumentAction(organizationId: 
     document.recipientName = client.name; document.recipientAddress = client.billing_address ?? "";
     document.recipientEmail = client.email ?? ""; document.recipientPhone = client.phone ?? "";
   }
-  return { ok: true, data: validateQuotationDocumentReadiness(issuer, document) };
+  let documentSnapshotMatches = false;
+  let validationDocument = document;
+  if (persistedDocumentSnapshot) {
+    const recipient = persistedDocumentSnapshot.recipient && typeof persistedDocumentSnapshot.recipient === "object" && !Array.isArray(persistedDocumentSnapshot.recipient)
+      ? persistedDocumentSnapshot.recipient as Record<string, unknown> : {};
+    const saved = {
+      recipientSource: recipient.source === "linked_client" ? "client" : "manual",
+      recipientClientId: typeof recipient.clientId === "string" ? recipient.clientId : "",
+      recipientName: typeof recipient.name === "string" ? recipient.name : "",
+      recipientAddress: typeof recipient.address === "string" ? recipient.address : "",
+      recipientEmail: typeof recipient.email === "string" ? recipient.email : "",
+      recipientPhone: typeof recipient.phone === "string" ? recipient.phone : "",
+      recipientTaxIdentifier: typeof recipient.taxIdentifier === "string" ? recipient.taxIdentifier : "",
+      reference: typeof persistedDocumentSnapshot.reference === "string" ? persistedDocumentSnapshot.reference : "",
+      validUntil: typeof persistedDocumentSnapshot.validUntil === "string" ? persistedDocumentSnapshot.validUntil : "",
+      notes: typeof persistedDocumentSnapshot.notes === "string" ? persistedDocumentSnapshot.notes : "",
+      terms: typeof persistedDocumentSnapshot.terms === "string" ? persistedDocumentSnapshot.terms : "",
+    };
+    const snapshotKeys: Array<keyof typeof saved> = saved.recipientSource === "client"
+      ? ["recipientSource", "recipientClientId", "reference", "validUntil", "notes", "terms"]
+      : Object.keys(saved) as Array<keyof typeof saved>;
+    documentSnapshotMatches = snapshotKeys.every((key) => String(document[key]).trim() === saved[key]);
+    if (saved.recipientSource === "client") {
+      validationDocument = { ...document, recipientName: saved.recipientName, recipientAddress: saved.recipientAddress, recipientEmail: saved.recipientEmail, recipientPhone: saved.recipientPhone, recipientTaxIdentifier: saved.recipientTaxIdentifier };
+    }
+  }
+  financial = { ...financial, documentSnapshotMatches };
+  return { ok: true, data: validateQuotationDocumentReadiness(issuer, validationDocument, undefined, financial) };
 }
 
 export async function listStandaloneQuotationsAction(organizationId: string): Promise<StandaloneQuotationResult<{ items: Array<Record<string, unknown>>; hasMore: boolean }>> {

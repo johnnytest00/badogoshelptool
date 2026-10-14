@@ -24,12 +24,12 @@ export async function getGlobalProjectQuotations(organizationId: string) {
   const clientNames = new Map((clientsResult.data ?? []).map((client) => [client.id, client.name]));
   const totals = new Map((revisionsResult.data ?? []).map((revision) => [revision.id, revision.subtotal === null ? null : String(revision.subtotal)]));
   return {
-    items: visibleRows.map((row) => ({
+    items: visibleRows.flatMap((row) => row.project_id ? [{
       id: row.id, name: row.name, projectId: row.project_id, projectName: projectNames.get(row.project_id) ?? "Projekt",
       clientName: row.client_id ? clientNames.get(row.client_id) ?? null : null, version: row.version,
       status: row.status, updatedAt: row.updated_at,
       subtotal: row.current_revision_id ? totals.get(row.current_revision_id) ?? null : null,
-    })),
+    }] : []),
     hasMore: rows.length > 100,
   };
 }
