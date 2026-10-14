@@ -4,7 +4,7 @@ import { getMaterialProductsForOrganization, type MaterialVariantRecord } from "
 import { materialPurchasingUnitLabels, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
 
 export type SavedGableCalculation = { id: string; revisionId: string; displayName: string; revisionNumber: number; current: boolean; output: ReturnType<typeof gableRoofCalculator.calculate> };
-export type TakeoffRecord = { id: string; projectId: string; name: string; status: "draft" | "approved"; version: number; sourceCalculationId: string; sourceRevisionId: string; sourceDisplayName: string; sourceCurrentRevisionId: string | null; items: Array<{ id: string; variantName: string; sku: string | null; productName: string | null; productCategory: string | null; provenance: string; technicalDetails: string | null; priceDetails: string | null; quantity: number; unit: string; method: string; source: string; warning: string | null }> };
+export type TakeoffRecord = { id: string; projectId: string; name: string; status: "draft" | "approved"; version: number; sourceCalculationId: string; sourceRevisionId: string; sourceDisplayName: string; sourceCurrentRevisionId: string | null; sourceRoofModelId: string | null; sourceRoofRevisionId: string | null; staleRoofSource: boolean; items: Array<{ id: string; variantName: string; sku: string | null; productName: string | null; productCategory: string | null; provenance: string; technicalDetails: string | null; priceDetails: string | null; quantity: number; unit: string; method: string; source: string; warning: string | null }> };
 
 const profileStateLabels: Record<string, string> = {
   INCOMPLETE: "Hiányos terítékadat", PARAMETER_BASED_ESTIMATE: "Paraméteralapú becslés", GEOMETRICALLY_DETERMINED: "Geometriai eredmény", UNSUPPORTED: "Nem támogatott",
@@ -28,6 +28,25 @@ function profileTransferDetails(snapshot: Record<string, unknown>): string | nul
     `számítás ${profileStateLabel(snapshot.calculationClassification)}`,
     `katalógus ${profileStateLabel(snapshot.compatibility)}`,
     ...sources].join(" · ");
+}
+
+function coveringTransferDetails(snapshot: Record<string, unknown>): string | null {
+  if (snapshot.transferKind !== "gable_trapezoidal_covering_piece_count") return null;
+  const roofArea = Number(snapshot.roofSurfaceAreaMm2);
+  const nominalArea = Number(snapshot.nominalPurchasedSheetAreaMm2);
+  const catalog = snapshot.catalogSnapshot && typeof snapshot.catalogSnapshot === "object"
+    ? snapshot.catalogSnapshot as Record<string, unknown> : {};
+  return [
+    `Fedés V${String(snapshot.sourceCalculationRevisionNumber ?? "?")}`,
+    `${String(snapshot.columnsPerPlane ?? "?")} oszlop/sík × ${String(snapshot.rowsPerPlane ?? "?")} sor/sík`,
+    `${String(snapshot.sheetCount ?? "?")} lemez · ${String(snapshot.sheetLengthMm ?? "?")} mm hossz`,
+    `névleges/hasznos szélesség ${String(snapshot.nominalWidthMm ?? "?")} / ${String(snapshot.effectiveWidthMm ?? "?")} mm`,
+    Number.isFinite(roofArea) ? `tetőfelület ${(roofArea / 1_000_000).toLocaleString("hu-HU")} m²` : null,
+    Number.isFinite(nominalArea) ? `névleges beszerzett lemezterület ${(nominalArea / 1_000_000).toLocaleString("hu-HU")} m²; nem igazolt vágási veszteség` : null,
+    `tetőmodell ${String(snapshot.sourceRoofModelId ?? "?")} · V${String(snapshot.sourceRoofModelRevisionNumber ?? "?")} (${String(snapshot.sourceRoofModelRevisionId ?? "?")})`,
+    `katalóguskapcsolat: ${String(snapshot.catalogCompatibility ?? "nem ellenőrzött")}`,
+    `anyagváltozat: ${String(catalog.variantId ?? "?")}`,
+  ].filter(Boolean).join(" · ");
 }
 
 export async function getSavedGableCalculations(organizationId: string, projectId: string): Promise<SavedGableCalculation[]> {
@@ -55,14 +74,19 @@ export async function getTakeoffVariants(organizationId: string): Promise<Materi
 
 export async function getMaterialTakeoffs(organizationId: string, projectId: string): Promise<TakeoffRecord[]> {
   const supabase = await createClient();
-  const { data: takeoffs, error } = await supabase.from("material_takeoffs").select("id, project_id, name, status, version, source_calculation_id, source_calculation_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).order("updated_at", { ascending: false });
+  const { data: takeoffs, error } = await supabase.from("material_takeoffs").select("id, project_id, name, status, version, source_calculation_id, source_calculation_revision_id, source_roof_model_id, source_roof_model_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).order("updated_at", { ascending: false });
   if (error) throw new Error("Az anyagkimutatások betöltése nem sikerült.");
   if (!takeoffs?.length) return [];
   const calcIds = takeoffs.map((item) => item.source_calculation_id);
+  const roofModelIds = takeoffs.flatMap((item) => item.source_roof_model_id ? [item.source_roof_model_id] : []);
   const { data: calculations, error: calculationsError } = await supabase.from("calculations").select("id, display_name, current_revision_id").in("id", calcIds).eq("organization_id", organizationId);
   if (calculationsError) throw new Error("Az anyagkimutatások forrásszámításai nem tölthetők be.");
+  const { data: roofModels, error: roofModelsError } = roofModelIds.length
+    ? await supabase.from("roof_models").select("id, current_revision_id").in("id", roofModelIds).eq("organization_id", organizationId)
+    : { data: [], error: null };
+  if (roofModelsError) throw new Error("Az anyagkimutatások tetőforrásai nem tölthetők be.");
   const { data: items, error: itemsError } = await supabase.from("material_takeoff_items").select("id, takeoff_id, variant_id, final_quantity, quantity_unit, estimation_method, measurement_source, warnings, material_snapshot, price_snapshot, data_provenance").in("takeoff_id", takeoffs.map((item) => item.id)).eq("organization_id", organizationId);
   if (itemsError) throw new Error("Az anyagkimutatás tételei nem tölthetők be.");
   const variants = await getTakeoffVariants(organizationId); const variantMap = new Map(variants.map((item) => [item.id, item]));
-  return takeoffs.map((takeoff) => { const calc = (calculations ?? []).find((item) => item.id === takeoff.source_calculation_id); return { id: takeoff.id, projectId: takeoff.project_id, name: takeoff.name, status: takeoff.status, version: takeoff.version, sourceCalculationId: takeoff.source_calculation_id, sourceRevisionId: takeoff.source_calculation_revision_id, sourceDisplayName: calc?.display_name ?? "Ismeretlen kalkuláció", sourceCurrentRevisionId: calc?.current_revision_id ?? null, items: (items ?? []).filter((item) => item.takeoff_id === takeoff.id).map((item) => { const snapshot = item.material_snapshot as Record<string, unknown>; const price = item.price_snapshot as Record<string, unknown> | null; const details = [profileTransferDetails(snapshot), snapshot.lengthMm ? `hossz ${snapshot.lengthMm} mm` : null, snapshot.nominalWidthMm ? `névleges szélesség ${snapshot.nominalWidthMm} mm` : null, snapshot.effectiveWidthMm ? `hasznos szélesség ${snapshot.effectiveWidthMm} mm` : null, snapshot.thicknessMm ? `vastagság ${snapshot.thicknessMm} mm` : null, snapshot.technicalSpecs && typeof snapshot.technicalSpecs === "object" ? Object.entries(snapshot.technicalSpecs as Record<string, unknown>).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") : null].filter(Boolean).join(" · "); const priceDetails = price ? `${String(price.amount)} ${String(price.currency)}/${materialPurchasingUnitLabels[String(price.purchasingUnit) as MaterialPurchasingUnit] ?? String(price.purchasingUnit)} · ${String(price.sourceName ?? price.provenance ?? "forrás nincs megadva")} · ${String(price.effectiveDate)}` : null; const firstWarning = Array.isArray(item.warnings) && typeof item.warnings[0] === "string" ? item.warnings[0] : null; return { id: item.id, variantName: String(snapshot.variantName ?? variantMap.get(item.variant_id)?.name ?? "Ismeretlen változat"), sku: typeof snapshot.sku === "string" ? snapshot.sku : variantMap.get(item.variant_id)?.sku ?? null, productName: typeof snapshot.productName === "string" ? snapshot.productName : null, productCategory: typeof snapshot.productCategory === "string" ? snapshot.productCategory : null, provenance: item.data_provenance, technicalDetails: details || null, priceDetails, quantity: Number(item.final_quantity), unit: item.quantity_unit, method: item.estimation_method, source: item.measurement_source, warning: firstWarning }; }) }; });
+  return takeoffs.map((takeoff) => { const calc = (calculations ?? []).find((item) => item.id === takeoff.source_calculation_id); const roofModel = (roofModels ?? []).find((item) => item.id === takeoff.source_roof_model_id); return { id: takeoff.id, projectId: takeoff.project_id, name: takeoff.name, status: takeoff.status, version: takeoff.version, sourceCalculationId: takeoff.source_calculation_id, sourceRevisionId: takeoff.source_calculation_revision_id, sourceDisplayName: calc?.display_name ?? "Ismeretlen kalkuláció", sourceCurrentRevisionId: calc?.current_revision_id ?? null, sourceRoofModelId: takeoff.source_roof_model_id, sourceRoofRevisionId: takeoff.source_roof_model_revision_id, staleRoofSource: Boolean(takeoff.source_roof_model_revision_id && roofModel && takeoff.source_roof_model_revision_id !== roofModel.current_revision_id), items: (items ?? []).filter((item) => item.takeoff_id === takeoff.id).map((item) => { const snapshot = item.material_snapshot as Record<string, unknown>; const price = item.price_snapshot as Record<string, unknown> | null; const details = [coveringTransferDetails(snapshot), profileTransferDetails(snapshot), snapshot.lengthMm ? `hossz ${snapshot.lengthMm} mm` : null, snapshot.nominalWidthMm ? `névleges szélesség ${snapshot.nominalWidthMm} mm` : null, snapshot.effectiveWidthMm ? `hasznos szélesség ${snapshot.effectiveWidthMm} mm` : null, snapshot.thicknessMm ? `vastagság ${snapshot.thicknessMm} mm` : null, snapshot.technicalSpecs && typeof snapshot.technicalSpecs === "object" ? Object.entries(snapshot.technicalSpecs as Record<string, unknown>).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") : null].filter(Boolean).join(" · "); const priceDetails = price ? `${String(price.amount)} ${String(price.currency)}/${materialPurchasingUnitLabels[String(price.purchasingUnit) as MaterialPurchasingUnit] ?? String(price.purchasingUnit)} · ${String(price.sourceName ?? price.provenance ?? "forrás nincs megadva")} · ${String(price.effectiveDate)}` : null; const firstWarning = Array.isArray(item.warnings) && typeof item.warnings[0] === "string" ? item.warnings[0] : null; return { id: item.id, variantName: String(snapshot.variantName ?? variantMap.get(item.variant_id)?.name ?? "Ismeretlen változat"), sku: typeof snapshot.sku === "string" ? snapshot.sku : variantMap.get(item.variant_id)?.sku ?? null, productName: typeof snapshot.productName === "string" ? snapshot.productName : null, productCategory: typeof snapshot.productCategory === "string" ? snapshot.productCategory : null, provenance: item.data_provenance, technicalDetails: details || null, priceDetails, quantity: Number(item.final_quantity), unit: item.quantity_unit, method: item.estimation_method, source: item.measurement_source, warning: firstWarning }; }) }; });
 }

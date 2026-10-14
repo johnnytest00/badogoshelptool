@@ -794,6 +794,11 @@ isOneToOne: false
               "draft_created": boolean,"takeoff_id": string
             }[]
                            },
+"create_gable_covering_takeoff_draft":
+{ Args: { "p_actor_id": string,"p_calculation_id": string,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_request_key": string,"p_revision_id": string,"p_variant_id": string }; Returns: {
+              "draft_created": boolean,"stale_source": boolean,"takeoff_id": string,"takeoff_item_id": string
+            }[]
+                           },
 "create_gutter_takeoff_draft":
 { Args: { "p_calculation_id": string,"p_mappings": Json,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_request_key": string,"p_revision_id": string }; Returns: {
               "draft_created": boolean,"takeoff_id": string
@@ -878,7 +883,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "execution_journal_category": "general"|"work_done"|"problem"|"next_step","execution_task_priority": "low"|"normal"|"high","execution_task_status": "todo"|"in_progress"|"done","material_category": "roof_covering"|"sheet_metal"|"gutter"|"flashing"|"insulation"|"timber"|"accessory"|"other","material_data_provenance": "verified"|"user_provided"|"estimated"|"demo"|"missing","material_price_kind": "net"|"gross","material_product_status": "active"|"archived","material_purchasing_unit": "piece"|"linear_meter"|"square_meter"|"cubic_meter"|"kilogram"|"package","material_takeoff_method": "area"|"linear"|"manual","material_takeoff_status": "draft"|"approved","organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other","quotation_line_type": "MATERIAL"|"LABOR"|"OTHER","quotation_price_class": "net"|"gross","quotation_status": "draft"|"finalized"|"sent"|"accepted"|"rejected"
+            "execution_journal_category": "general"|"work_done"|"problem"|"next_step","execution_task_priority": "low"|"normal"|"high","execution_task_status": "todo"|"in_progress"|"done","material_category": "roof_covering"|"sheet_metal"|"gutter"|"flashing"|"insulation"|"timber"|"accessory"|"other","material_data_provenance": "verified"|"user_provided"|"estimated"|"demo"|"missing","material_price_kind": "net"|"gross","material_product_status": "active"|"archived","material_purchasing_unit": "piece"|"linear_meter"|"square_meter"|"cubic_meter"|"kilogram"|"package","material_takeoff_method": "area"|"linear"|"manual"|"calculated","material_takeoff_status": "draft"|"approved","organization_role": "owner"|"admin"|"member","project_status": "draft"|"in_progress"|"quoted"|"accepted"|"completed"|"archived","project_type": "roof_renovation"|"roof_construction"|"gutter_work"|"other","quotation_line_type": "MATERIAL"|"LABOR"|"OTHER","quotation_price_class": "net"|"gross","quotation_status": "draft"|"finalized"|"sent"|"accepted"|"rejected"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -998,7 +1003,7 @@ export const Constants = {
           }
         },"public": {
           Enums: {
-            "execution_journal_category": ["general", "work_done", "problem", "next_step"],"execution_task_priority": ["low", "normal", "high"],"execution_task_status": ["todo", "in_progress", "done"],"material_category": ["roof_covering", "sheet_metal", "gutter", "flashing", "insulation", "timber", "accessory", "other"],"material_data_provenance": ["verified", "user_provided", "estimated", "demo", "missing"],"material_price_kind": ["net", "gross"],"material_product_status": ["active", "archived"],"material_purchasing_unit": ["piece", "linear_meter", "square_meter", "cubic_meter", "kilogram", "package"],"material_takeoff_method": ["area", "linear", "manual"],"material_takeoff_status": ["draft", "approved"],"organization_role": ["owner", "admin", "member"],"project_status": ["draft", "in_progress", "quoted", "accepted", "completed", "archived"],"project_type": ["roof_renovation", "roof_construction", "gutter_work", "other"],"quotation_line_type": ["MATERIAL", "LABOR", "OTHER"],"quotation_price_class": ["net", "gross"],"quotation_status": ["draft", "finalized", "sent", "accepted", "rejected"]
+            "execution_journal_category": ["general", "work_done", "problem", "next_step"],"execution_task_priority": ["low", "normal", "high"],"execution_task_status": ["todo", "in_progress", "done"],"material_category": ["roof_covering", "sheet_metal", "gutter", "flashing", "insulation", "timber", "accessory", "other"],"material_data_provenance": ["verified", "user_provided", "estimated", "demo", "missing"],"material_price_kind": ["net", "gross"],"material_product_status": ["active", "archived"],"material_purchasing_unit": ["piece", "linear_meter", "square_meter", "cubic_meter", "kilogram", "package"],"material_takeoff_method": ["area", "linear", "manual", "calculated"],"material_takeoff_status": ["draft", "approved"],"organization_role": ["owner", "admin", "member"],"project_status": ["draft", "in_progress", "quoted", "accepted", "completed", "archived"],"project_type": ["roof_renovation", "roof_construction", "gutter_work", "other"],"quotation_line_type": ["MATERIAL", "LABOR", "OTHER"],"quotation_price_class": ["net", "gross"],"quotation_status": ["draft", "finalized", "sent", "accepted", "rejected"]
           }
         }
 } as const

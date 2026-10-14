@@ -1029,3 +1029,22 @@ Frontend mentés/újranyitás és böngészős ellenőrzés nem futott; F9.7.7.2
 | Browser: projekt | PASS helyi Brave | Meglévő DEMO tetőmodell V4-ből V1 fedés mentve és újratöltve; a UI pontos forrásrevíziót mutat. Helyi read-only DB: input roof revision = dependency upstream roof revision `d11e0843-91bb-4089-b245-ad0879fbfb4b`, kapcsolt `roof.gable` calculation revision `60a1ba98-b291-4ee5-a831-0233e4a626bb`. |
 | Browser: nem mentett módosítás | PASS helyi Brave | Revízióválasztás figyelmeztetést adott; Mégse megtartotta a szerkesztett 900 mm-t, OK visszatöltötte a mentett 1000 mm-t. |
 | Más készülék / hálózat / több kliens | UNVERIFIED | iPad/iPhone Safari, hálózati válasz megszakadása és két böngésző egyidejű mentése nem futott; operation ID és expected revision szerződés automatizált és korábbi backend tesztekben igazolt. |
+
+## F9.7.7.3a — projekt fedésből takeoff piszkozat
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Új pgTAP szerződés | PASS | `npx supabase test db --local supabase/tests/database/021_gable_covering_takeoff.sql`: 1 fájl, 33/33. Mennyiség/egység, snapshot, stale forrás, unit/dimensions, org/project, immutable tétel, actor execution grant, explicit approval utáni retry és jóváhagyott takeoff védelme. |
+| Valós local Auth/RLS és action | PASS | `RUN_LOCAL_COVERING_TESTS=1 npx vitest run src/features/roof-models/gable-trapezoidal-covering.local.integration.test.ts`: 1 fájl, 3/3. Helyi Supabase Auth JWT kliensek, projektforrás, exact historical V1, read model, authenticated direct RPC-denial és idegen műhely elutasítás. DEMO rekordok helyben maradnak. |
+| Valódi kétkapcsolatos retry | PASS | Ugyanazon operation ID-val két külön writer PostgreSQL session egyszerre várt advisory lockra (`pg_stat_activity`); feloldás után ugyanaz a draft/item ID érkezett, egy új sort tárolt. `created` értékek: true/false. |
+| Mennyiségi / action tesztek | PASS | Célzott Vitest a 20 db-os példára, `piece` egységre, 5000 mm hosszra, area/db különbségre, forged output elutasításra, unsupported többsoros layout-ra, pontos revízióra és auth hibákra. (Az összesített futás alább.) |
+| Korábbi takeoff DB regresszió | PASS | `npx supabase test db --local supabase/tests/database/010_gutter_takeoff_hardening.sql supabase/tests/database/012_flashing_takeoff_integration.sql supabase/tests/database/015_profile_takeoff_integration.sql`: 3 fájl / 94/94. |
+| Célzott Vitest | PASS | 12 megadott domain, covering, takeoff action/read-model/UI contract fájl: 11 fájl PASS, 1 opt-in local integráció SKIP; 34 PASS, 3 SKIP. Az opt-in integráció külön futtatva 3/3 PASS. Ez célzott, nem teljes regresszió. |
+| Typecheck / lint / production build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) sorban PASS. |
+| Diff ellenőrzés | PASS | `git diff --check` sikeres a végleges diffen. |
+| Böngésző / frontend | NEM RÉSZE | Ez backend mérföldkő; nincs takeoff-választó UI. F9.7.7.3b követelménye marad. |
+| Hosted DB, reset, commit, push, deploy | NEM FUTOTT | A lokális új migráció reset nélkül alkalmazva; hosted állapot nem módosult. |
+
+Állapot: **COMPLETE (TAKEOFF BACKEND)** a teljes hosszú, egy sor/sík támogatott
+fedési kiosztásra. Az opt-in Auth teszt valós helyi Auth/RLS, DB writer és két
+PostgreSQL kapcsolat segítségével futott; ezek nem hosted környezetek.

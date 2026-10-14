@@ -551,4 +551,33 @@ A `20261014050000_gable_trapezoidal_covering_persistence.sql` additív, forward-
 
 Helyi állapot: a `20261014050000` migráció alkalmazva. A migráció `tetopro_covering_writer` LOGIN szerepet hoz létre jelszó nélkül; üzembe helyezéskor külön, erős jelszót és kizárólag szerveroldali `COVERING_WRITER_DATABASE_URL` secretet kell adni. Helyben ez a gitignore-olt `.env.local` fájlban van; a `setup-local-auth.mjs` megőrzi. Az író csak a mentő RPC-t hívhatja, közvetlen táblaírási grant nélkül. Az RPC `SECURITY DEFINER`, üres `search_path`-tal és auditált grantokkal; a hitelesített Server Action actor ID-ját a DB tagsági zárral és projekt/forrás-ellenőrzéssel validálja. A szokásos `authenticated` szerep nem hívhatja az RPC-t, és célzott restrictive RLS policy tiltja a közvetlen covering számítás-, revízió- és dependency írást. A hamis numerikus outputot tartalmazó közvetlen RPC-próba `42501` hibával zárult, mentett hamis rekord nélkül. A közös revízió-immutable trigger változatlan. A pontos projektforrás a roof-model revision, az ahhoz kötött `roof.gable` calculation revision és a hozzájuk tartozó input; standalone forrás a kézi geometria. Várt revízió és operation ID tranzakciós lockok alatt érvényesül. Hosted adatbázist nem módosítottunk.
 
-Jövőbeli takeoff szerződés: egy konkrét calculation/revision párból induljon; csak explicit egységű darabszámot vagy területet adjon át, egységkompatibilis katalógusmappinggel; gyártói szélesség/hossz/átfedési adatok kapjanak mezőnkénti forrást; az átadott anyagrekord őrizze az immutable revision és teljes paraméter-snapshot hivatkozását; projektorg jogosultságot a takeoff RPC ellenőrizze. E fázisban takeoff nem készül és jóváhagyott takeoff nem módosul.
+Korábbi állapotfeljegyzés: az alábbi F9.7.7.3a szakasz felváltja a jövőbeli takeoff szerződésre vonatkozó tervet.
+
+## F9.7.7.3a — projekt fedésből takeoff piszkozat
+
+A `20261014060000_gable_covering_takeoff_draft.sql` egyetlen új draftot és egy
+`calculated` tételt hoz létre a meglévő `material_takeoffs` és
+`material_takeoff_items` táblákban. A `material_takeoffs` sémában nincs külön
+append-only takeoff revision tábla: az új átadás saját takeoff ID-t kap;
+jóváhagyáskor a meglévő státusz/`version` életciklus fut. Az átadási tétel
+forrássnapshotja immutable, a piszkozat nem ír át meglévő vagy jóváhagyott sort.
+
+A tétel `final_quantity` és `calculated_quantity` értéke a mentett teljes hosszú
+lemezszám, `quantity_unit='piece'`. A névleges terület, szükséges hossz,
+méretek, síkazonosítók és teljes forrás input/output a `material_snapshot`-ban
+maradnak. A termék és variáns snapshotja megőrzi a katalógusmezőket és eredetet.
+Aktív, azonos szervezeti `roof_covering`/`sheet_metal`, `piece` variáns szükséges;
+a kitöltött méreteknek egyezniük kell. Hiányos méretadat esetén a társítás
+kézi/`user_provided`; ez nem gyártói igazolás. `price_snapshot` NULL.
+
+A SECURITY DEFINER RPC-t csak a `tetopro_covering_writer` hívhatja; a szerepnek
+nincs közvetlen táblabetoldási grantja. Az authenticated action hitelesített
+felhasználója, aktív orgtagsága, projektje, calculation/revision párosa, exact
+roof revisionje és `roof.gable` dependency-lánca tranzakción belül ellenőrzött.
+Stale tetőforrás esetén az exact kiválasztott történeti forrás marad meg, és a
+snapshot/figyelmeztetés jelzi az elavultságot. Műveletkulcs azonos payloaddal
+ugyanazt a takeoffot/tételt adja; módosított payload elutasított.
+
+Csak síkonként egy teljes hosszú sor támogatható. Toldott/többsoros, átlapolt,
+nem reprodukálható vagy dimenziókonfliktusos variáns elutasított. Helyi migráció
+reset nélkül alkalmazva; hosted DB érintetlen.

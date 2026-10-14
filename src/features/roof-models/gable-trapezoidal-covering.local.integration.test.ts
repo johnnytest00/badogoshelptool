@@ -18,6 +18,8 @@ import { saveGableRoofAction } from "./roof-model-actions";
 import { saveGableTrapezoidalCovering } from "./gable-trapezoidal-covering-actions";
 import { getGableTrapezoidalCovering, listGableTrapezoidalCoverings } from "./gable-trapezoidal-covering-data";
 import { persistGableCovering } from "@/infrastructure/supabase/covering-writer";
+import { createGableCoveringTakeoffAction } from "./gable-trapezoidal-covering-takeoff-actions";
+import { getMaterialTakeoffs } from "@/features/material-takeoffs/takeoff-data";
 
 const localDescribe = process.env.RUN_LOCAL_COVERING_TESTS === "1" ? describe : describe.skip;
 const geometryInput = { inputMode: "height" as const, buildingLengthMm: 10_000, buildingWidthMm: 6_000, roofRiseMm: 4_000, eaveOverhangMm: 0, frontGableOverhangMm: 0, rearGableOverhangMm: 0 };
@@ -66,6 +68,19 @@ async function writerCall(write: Parameters<typeof persistGableCovering>[0]) {
       write.projectId, write.roofModelId, write.sourceRoofRevisionId, JSON.stringify(write.input),
       JSON.stringify(write.output), JSON.stringify(write.provenance), write.actorId]);
     return result.rows[0];
+  } finally { await client.end(); }
+}
+
+type TakeoffWriterRequest = { organizationId: string; projectId: string; calculationId: string; revisionId: string; variantId: string; name: string; operationId: string; actorId: string };
+async function takeoffWriterCall(write: TakeoffWriterRequest) {
+  const client = new Client({ connectionString: process.env.COVERING_WRITER_DATABASE_URL, application_name: "covering-takeoff-concurrency-test" });
+  await client.connect();
+  try {
+    const result = await client.query(`select * from public.create_gable_covering_takeoff_draft(
+      $1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6::text,$7::uuid,$8::uuid)`,
+    [write.organizationId, write.projectId, write.calculationId, write.revisionId, write.variantId,
+      write.name, write.operationId, write.actorId]);
+    return result.rows[0] as { takeoff_id: string; takeoff_item_id: string; draft_created: boolean; stale_source: boolean };
   } finally { await client.end(); }
 }
 
@@ -253,6 +268,80 @@ localDescribe("F9.7.7.2a.1 local authenticated covering persistence", () => {
       expect(new Set(retryResults.map((result) => result.calculation_revision_id)).size).toBe(1);
       const all = await owner.client.from("calculation_revisions").select("revision_number").eq("calculation_id", id).order("revision_number");
       expect(all.data?.map((row) => row.revision_number)).toEqual([1, 2, 3]);
+    } finally { await blocker.end(); }
+  });
+
+  it("transfers an exact saved project revision and serializes identical retries", async () => {
+    asActor(owner, [org]);
+    const transferCalculationId = randomUUID();
+    const first = await saveGableTrapezoidalCovering(saveRequest({ kind: "project", projectId: project, roofModelId, roofModelRevisionId: roofRevisionId }, transferCalculationId, 0));
+    expect(first).toMatchObject({ ok: true, revisionNumber: 1 });
+    const v2Input = { ...coveringInput, effectiveCoveringWidthMm: 500 };
+    const second = await saveGableTrapezoidalCovering({ ...saveRequest({ kind: "project", projectId: project, roofModelId, roofModelRevisionId: roofRevisionId }, transferCalculationId, 1), operationId: randomUUID(), coveringInput: v2Input });
+    expect(second).toMatchObject({ ok: true, revisionNumber: 2 });
+    const history = await getGableTrapezoidalCovering(org, transferCalculationId);
+    const v1 = history?.revisions.find((revision) => revision.revisionNumber === 1);
+    if (!v1) throw new Error("project covering V1 was not readable");
+
+    const productId = randomUUID(); const variantId = randomUUID();
+    const product = await admin.from("material_products").insert({ id: productId, organization_id: org,
+      name: `DEMO fedés termék ${fixture}`, category: "roof_covering", status: "active", data_provenance: "demo" });
+    if (product.error) throw product.error;
+    const variant = await admin.from("material_variants").insert({ id: variantId, organization_id: org,
+      product_id: productId, name: `DEMO 1100×1000×5000 ${fixture}`, purchasing_unit: "piece",
+      nominal_width_mm: 1100, effective_width_mm: 1000, length_mm: 5000,
+      technical_specs: {}, data_provenance: "demo", source_name: "DEMO explicit user mapping" });
+    if (variant.error) throw variant.error;
+
+    const operationId = randomUUID();
+    const request = { organizationId: org, projectId: project, calculationId: transferCalculationId,
+      revisionId: v1.revisionId, variantId, operationId, name: `DEMO fedési takeoff ${fixture}` };
+    const converted = await createGableCoveringTakeoffAction(request);
+    expect(converted).toMatchObject({ ok: true, created: true, source: { revisionId: v1.revisionId, roofModelRevisionId: roofRevisionId }, staleSource: false });
+    const read = await getMaterialTakeoffs(org, project);
+    const takeoff = read.find((record) => record.id === converted.takeoffId);
+    expect(takeoff).toMatchObject({ status: "draft", sourceCalculationId: transferCalculationId, sourceRevisionId: v1.revisionId,
+      sourceRoofRevisionId: roofRevisionId, staleRoofSource: false, items: [{ quantity: 20, unit: "piece", provenance: "user_provided" }] });
+    expect(takeoff?.items[0]?.technicalDetails).toContain("5000 mm hossz");
+    expect(takeoff?.items[0]?.technicalDetails).toContain("nem igazolt vágási veszteség");
+    expect(takeoff?.items[0]?.priceDetails).toBeNull();
+
+    const directRpc = await owner.client.rpc("create_gable_covering_takeoff_draft", {
+      p_organization_id: org, p_project_id: project, p_calculation_id: transferCalculationId,
+      p_revision_id: v1.revisionId, p_variant_id: variantId, p_name: "DEMO direct RPC",
+      p_request_key: randomUUID(), p_actor_id: owner.id,
+    });
+    expect(directRpc.error?.code).toBe("42501");
+    asActor(outsider, [otherOrg]);
+    expect(await createGableCoveringTakeoffAction(request)).toMatchObject({ ok: false, code: "UNAUTHORIZED" });
+    asActor(owner, [org]);
+
+    const concurrentOperationId = randomUUID();
+    const concurrentRequest = { organizationId: org, projectId: project, calculationId: transferCalculationId,
+      revisionId: v1.revisionId, variantId, name: `DEMO concurrent takeoff ${fixture}`,
+      operationId: concurrentOperationId, actorId: owner.id };
+    const lockKey = `${org}:gable-covering-takeoff:${concurrentOperationId}`;
+    const blocker = new Client({ connectionString: process.env.COVERING_WRITER_DATABASE_URL, application_name: "covering-takeoff-lock-coordinator" });
+    await blocker.connect();
+    try {
+      await blocker.query("select pg_advisory_lock(hashtextextended($1,0))", [lockKey]);
+      const attempts = [takeoffWriterCall(concurrentRequest), takeoffWriterCall(concurrentRequest)];
+      let waiters = 0;
+      for (let index = 0; index < 30 && waiters < 2; index++) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const waiting = await blocker.query<{ count: string }>("select count(*) from pg_stat_activity where application_name='covering-takeoff-concurrency-test' and wait_event_type='Lock'");
+        waiters = Number(waiting.rows[0].count);
+      }
+      expect(waiters).toBe(2);
+      await blocker.query("select pg_advisory_unlock(hashtextextended($1,0))", [lockKey]);
+      const [left, right] = await Promise.all(attempts);
+      expect([left.draft_created, right.draft_created].sort()).toEqual([false, true]);
+      expect(left.takeoff_id).toBe(right.takeoff_id);
+      expect(left.takeoff_item_id).toBe(right.takeoff_item_id);
+      const duplicates = await admin.from("material_takeoffs").select("id").eq("organization_id", org).eq("project_id", project).eq("transfer_request_key", concurrentOperationId);
+      expect(duplicates.data).toHaveLength(1);
+      const duplicateItems = await admin.from("material_takeoff_items").select("id").eq("organization_id", org).eq("takeoff_id", left.takeoff_id);
+      expect(duplicateItems.data).toHaveLength(1);
     } finally { await blocker.end(); }
   });
 });

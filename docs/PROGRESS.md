@@ -1084,3 +1084,40 @@ Javasolt commit: `fix(F9.7.7.2a.1): secure covering persistence and verify revis
 Helyi, hitelesített Brave smoke: standalone DEMO V1 mentés, oldalfrissítés, V2 mentés, V1 input/20 db/SVG és V2/40 db visszaváltás, lista/szűrő; projekt DEMO V1 mentés és újratöltés, pontos V4 tetőforrás; nem mentett módosítás figyelmeztetésének megszakítása és visszatöltése PASS. Helyi DB read-only vizsgálat: a projekt snapshot roof revision, dependency upstream roof revision és `roof.gable` calculation revision azonos forrásláncot alkot. iPad/iPhone Safari, valódi hálózati megszakítás és konkurens böngészőmunkamenet UI-ellenőrzése nem futott. Hosted Supabase, migráció, reset, commit, push és deploy nem történt. A fedési anyagkimutatás-átadás és gyártói igazolás későbbi fázis.
 
 Javasolt commit: `feat(F9.7.7.2b): add trapezoidal covering save and revision UX`.
+
+## F9.7.7.3a — projekt fedésből takeoff piszkozat
+
+Állapot: **COMPLETE (TAKEOFF BACKEND)** a támogatott egyszerű kiosztásra. A
+hitelesített szerver action a felhasználó által megadott pontos projekt,
+fedési calculation/revision és katalógusvariáns alapján a szerver által mentett
+snapshotból képez egy új draft takeoffot. A kliens nem ad mennyiséget vagy
+snapshotot; a DB transaction ellenőrzi a tagságot, projektet, revisiont,
+roof modelt és `roof.gable` függőséget. Az operation ID retry ugyanazt a draftot
+és sort adja; payload-eltérés elutasított. Nincs automatikus jóváhagyás vagy
+ajánlatkészítés. A source item snapshotja immutable.
+
+Mennyiség: `piece` (db), a mentett teljes lemezszám. Teljes hosszú, egy sor/sík
+kiosztás támogatott. A 110 m² példa névleges lemezterülete csak technikai adat,
+nem rendelési mennyiség/veszteség. Csak aktív orgbeli `roof_covering` vagy
+`sheet_metal` darabárus variáns fogadható; ismert méretek egyeznek, hiányos
+variánsméret kézi felhasználói társításként jelölt. Ár nincs hozzárendelve.
+Többsoros, toldott/átlapolt vagy kétértelmű darabjegyzék nem támogatott.
+
+Az exact fedési revízió, tetőmodell/revízió, geometry calculation revision,
+input/output és katalógussnapshot eltárolódik. Elavult tetőnél a történeti forrás
+megmarad, stale állapot látható. Nincs külön takeoff revision tábla a meglévő
+sémában; az új átadás új draft takeoff ID, a meglévő approval/version életciklus
+használatával.
+
+Helyi additív migráció `20261014060000` reset nélkül alkalmazva. 021 pgTAP
+33/33 PASS, beleértve explicit approval utáni idempotens retryt és annak
+ellenőrzését, hogy külön átadás új piszkozatot hoz létre, az approved takeoffot
+pedig érintetlenül hagyja. Valós helyi Auth/RLS action teszt 3/3 PASS; az unauthorized org,
+direct authenticated RPC és historical V1 transfer eseteit ellenőrizte.
+Két writer kapcsolat ugyanazon operation key lockjára egyszerre várt; az
+eredmény egy takeoff ID és egy item ID, create/reuse `true/false`. Domain,
+action, read model és korábbi takeoff regression, typecheck/lint/build/diff
+ellenőrzések eredménye a TEST_MATRIX-ben. Frontend választó UI nincs ebben a
+feladatban. Hosted DB, reset, commit, push és deploy nem történt.
+
+Javasolt commit: `feat(F9.7.7.3a): create takeoff drafts from saved roof covering`.

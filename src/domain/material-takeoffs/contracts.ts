@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { MaterialPurchasingUnit } from "@/domain/materials/contracts";
 
-export const takeoffMethods = ["area", "linear", "manual"] as const;
+export const takeoffMethods = ["area", "linear", "manual", "calculated"] as const;
 export type TakeoffMethod = (typeof takeoffMethods)[number];
 export const takeoffStatuses = ["draft", "approved"] as const;
 export type TakeoffStatus = (typeof takeoffStatuses)[number];

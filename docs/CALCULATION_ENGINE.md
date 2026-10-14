@@ -265,6 +265,26 @@ emelkedés, túlnyúlás nélkül, 1 100 mm névleges / 1 000 mm hasznos széles
 síkonként 10 oszlop, összesen 20 lemez, 100 m² tetőterület és 110 m² névleges
 lemezterület. Az elvárt értékeket a teszt a gyártási képlettől külön rögzíti.
 
+## F9.7.7.3a — projekt takeoff átadás
+
+Csak elmentett, `project` scope-ú, érvényes trapézlemez-fedési revízió adható át.
+Az első támogatott kiosztás két szimmetrikus sík, síkonként egy teljes hosszú
+sor és egész lemezszám. A takeoff mennyisége a tényleges lemezszám `piece` (db)
+egységben; a hossz, névleges és hasznos szélesség, síkonkénti oszlopszám, tetőfelület
+és névleges lemezterület kiegészítő műszaki snapshot. A 110 m² névleges terület
+nem lesz mennyiség és nem minősül igazolt veszteségnek.
+
+A szerver az exact calculation/revision inputot és outputot olvassa, a mentett
+számított darabszámot használja. A variánsnak aktív `roof_covering` vagy
+`sheet_metal` termékhez és `piece` egységhez kell tartoznia. Ismert variánsméretek
+nem térhetnek el a mentett szélességtől/hossztól; hiányos méretű variáns csak
+kézi, `user_provided` hozzárendelésként jelenik meg, gyártói megfelelőség állítása
+nélkül. Árat a művelet nem rendel.
+
+Többsoros, toldott vagy átlapolt kiosztás, nem egész/hiányos lemezszám és nem
+`piece` katalógusegység nem támogatható. Nincs hossz szerinti darabcsoportosítás,
+vágásveszteség, anyagoptimalizálás vagy implicit méretátváltás.
+
 
 ## F9.7.7.2a — trapézlemez-fedés persistencia
 
