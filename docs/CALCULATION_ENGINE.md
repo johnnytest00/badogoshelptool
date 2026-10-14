@@ -264,3 +264,10 @@ emelkedés, túlnyúlás nélkül, 1 100 mm névleges / 1 000 mm hasznos széles
 5 000 mm kiválasztott hossz esetén a `roof.gable` ferde hossza 5 000 mm,
 síkonként 10 oszlop, összesen 20 lemez, 100 m² tetőterület és 110 m² névleges
 lemezterület. Az elvárt értékeket a teszt a gyártási képlettől külön rögzíti.
+
+
+## F9.7.7.2a — trapézlemez-fedés persistencia
+
+A `roof.gable.trapezoidal-covering` mentési adapter a meglévő `calculations`, `calculation_revisions` és `calculation_dependencies` modellt használja. Az action a `gableRoofInputSchema`, a `calculateGableRoof` és a `calculateGableTrapezoidalCovering` motorokkal újraszámol; `INVALID` és `UNSUPPORTED` kimenet nem menthető. A hiányos eredmény `user_provided` státuszú, az ismert paraméterekkel kapott előzetes mennyiségi becslés `estimated`.
+
+A revision inputban megmarad a calculator ID, scope, exact geometry input, fedési paraméter és forrásazonosság; outputban a geometria és a fedési mennyiségek. A mentés nem termékmegfelelőség, rendelési specifikáció vagy igazolt veszteség. A numerikus eredményt a szerveroldali TypeScript motor számolja; a DB író RPC-t kizárólag a külön `tetopro_covering_writer` login hívhatja. Ez a szerep csak az RPC végrehajtási jogát kapja, közvetlen számítás/revízió táblaírási jogot nem. Az `authenticated` szerep RPC és célzott táblaszintű RLS írása tiltott. A DB a szerver által átadott, hitelesített actor tagságát és projekt esetén a pontos `roof.gable` forrásláncot tranzakción belül újra ellenőrzi. A szerver credentialt kizárólag `COVERING_WRITER_DATABASE_URL` tartalmazza; kliensbe nem kerülhet.

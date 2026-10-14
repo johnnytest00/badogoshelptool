@@ -1057,3 +1057,22 @@ Nem készült mentés, gyártói adatmapping, vágási/rendelési terv vagy stat
 funkció. Célzott domain teszt, typecheck, lint, build és diff check sikeres.
 UI-komponens teszt és böngészős smoke nem futott, ezért az acceptance nincs teljesen
 bizonyítva. Részletes állapot a TEST_MATRIX-ben.
+
+
+## F9.7.7.2a — trapézlemez-fedés mentési backend
+
+Állapot: **PARTIAL**. Elkészült a project/standalone save action, current/historical read és authorized list backend; a közös immutable calculation revision modellhez és `calculation_dependencies` táblához csatlakozik. A standalone forrás a normalizált kézi geometria; projektforrás egy konkrét ellenőrzött roof-model revision és hozzárendelt `roof.gable` calculation revision. A TypeScript szerver action újraszámol, a read model pedig visszaolvasáskor ellenőrzi a tárolt outputot. `INVALID` és `UNSUPPORTED` nem menthető, `INCOMPLETE` megkülönböztetett `user_provided` státuszt kap.
+
+Új additív migráció tartalmaz expected-version RPC-t és operation-ID idempotencia-ledgert; a konkurencia és RLS Auth-integráció azonban nincs adatbázisban bizonyítva. További kritikus korlát, hogy a DB RPC nem reprodukálja a covering numerikus képleteket: authenticated direkt RPC hívással az output meghamisítható, ezért a kért DB-határ még nem szerverautoritatív. A migrációlista és local Supabase állapot egyszeri vizsgálata Docker socket permission hibát adott; nem próbáltam resetet vagy ismételt Docker-hozzáférést. Frontend mentés, takeoff, hosted DB, böngésző, valódi kétkapcsolatos concurrency ellenőrzés nem futott.
+
+Célzott Vitest: 2 fájl / 9 teszt PASS (domain és mentési szerződés); `npm run typecheck`, `npm run lint`, `npm run build` és célzott ESLint PASS. Ez nem DB/Auth/regressziós bizonyíték. Következő technikai kapu: formula-duplikáció nélküli authenticated DB boundary megoldás és valódi local pgTAP/Auth/two-connection tesztek; ezt követheti F9.7.7.2b UI.
+
+Javasolt commit: `feat(F9.7.7.2a): persist trapezoidal roof covering revisions`.
+
+## F9.7.7.2a.1 — secure persistence completion
+
+Állapot: **COMPLETE (BACKEND)** a helyi környezetben. A még nem alkalmazott `20261014050000` migrációt a biztonságos írási határral javítottuk, majd helyben alkalmaztuk. A szerveroldali TypeScript számolás után csak a külön DB login hívhatja az író RPC-t; az `authenticated` direkt RPC és covering táblamutáció tiltott. A DB actor tagságot, standalone creatort, projekt orgot és pontos roof revision + roof.gable dependencyt ellenőriz. A meglévő immutable calculation revision modell, expected revision és operation ledger újrahasznosítva.
+
+Bizonyíték: célzott pgTAP 1 fájl / 9 teszt PASS; valós helyi Supabase Auth/RLS integráció 2 teszt PASS, benne szerver action projekt- és standalone mentés, közvetlen hamis numerikus RPC `42501` és nulla hamis rekord, cross-org/creator/revoked tag elutasítás, V1/V2 történet, history mutáció elutasítás, idempotencia. Két külön bejelentkezett DB kapcsolat lock alatt ténylegesen átfedett: egyik V2 mentés sikeres, másik `40001`; azonos operation ID két párhuzamos hívása egy V3-at adott (`reused=false/true`). Domain és érintett workflow Vitest: 6 fájl / 20 teszt PASS. Typecheck, lint, production build és diff-check PASS; a célzott tesztek nem teljes regressziók. Hosted migráció és frontend UI nem része ennek a mérföldkőnek. A helyi teszt DEMO fixture-eket hagyott a helyi DB-ben.
+
+Javasolt commit: `fix(F9.7.7.2a.1): secure covering persistence and verify revisions`.

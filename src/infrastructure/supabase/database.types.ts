@@ -827,6 +827,11 @@ isOneToOne: false
               "calculation_id": string,"calculation_revision_id": string,"revision_number": number,"roof_model_id": string,"roof_model_revision_id": string
             }[]
                            },
+"save_gable_trapezoidal_covering_calculation":
+{ Args: { "p_actor_id": string,"p_calculation_id": string,"p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string | null,"p_roof_model_id": string | null,"p_source_roof_revision_id": string | null }; Returns: {
+              "calculation_id": string,"calculation_revision_id": string,"revision_number": number,"reused": boolean
+            }[]
+                           },
 "save_gutter_material_calculation":
 { Args: { "p_data_provenance": Json,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json,"p_project_id": string,"p_source_roof_revision_id": string,"p_warnings": Json }; Returns: {
               "calculation_id": string,"calculation_revision_id": string,"revision_number": number

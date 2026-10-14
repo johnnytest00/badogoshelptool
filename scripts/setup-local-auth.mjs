@@ -1,7 +1,7 @@
 /* global console, process */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { createClient } from "@supabase/supabase-js";
@@ -19,7 +19,8 @@ const publishableKey = values.PUBLISHABLE_KEY;
 const serviceRoleKey = values.SERVICE_ROLE_KEY;
 if (!url?.startsWith("http://127.0.0.1:") || !publishableKey || !serviceRoleKey) throw new Error("A Supabase CLI nem helyi vagy hiányos státuszt adott vissza.");
 
-writeFileSync(".env.local", `NEXT_PUBLIC_SUPABASE_URL=${url}\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${publishableKey}\n`);
+const writerLine = existsSync(".env.local") ? readFileSync(".env.local", "utf8").split("\n").find((line) => line.startsWith("COVERING_WRITER_DATABASE_URL=")) : undefined;
+writeFileSync(".env.local", `NEXT_PUBLIC_SUPABASE_URL=${url}\nNEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${publishableKey}\n${writerLine ? `${writerLine}\n` : ""}`);
 console.log(".env.local létrehozva kizárólag a helyi Supabase URL-lel és publishable kulccsal.");
 
 if (process.argv.includes("--env-only")) process.exit(0);

@@ -543,3 +543,12 @@ Migráció a helyi DB-n reset nélkül alkalmazva; korábbi migrációk állapot
 NET↔GROSS elkülönítést, rounding metadata-t, meglévő creator/RLS/snapshot és
 draft-number invariánsokat. A valós local Auth scripted integráció 9/9 PASS;
 nem változott új grants/policy/auth szerződés.
+
+
+## F9.7.7.2a — trapézlemez-fedés persistencia
+
+A `20261014050000_gable_trapezoidal_covering_persistence.sql` additív, forward-only migráció. Nem hoz létre külön számítás-revízió táblát: a közös `calculations` / `calculation_revisions` / `calculation_dependencies` láncot használja, és egy szűk, nem közvetlenül olvasható művelet-ledger tárolja az idempotens operation ID, kérés-payload és létrehozott revízió kapcsolatát. Az RPC rögzíti a projekt exact roof-model revision dependencyt, vagy standalone esetben a creator/org scope-ot. Expected revisionnel tranzakciós lock védi a konkurens frissítést; ugyanazon operation ID eltérő payloadja elutasított.
+
+Helyi állapot: a `20261014050000` migráció alkalmazva. A migráció `tetopro_covering_writer` LOGIN szerepet hoz létre jelszó nélkül; üzembe helyezéskor külön, erős jelszót és kizárólag szerveroldali `COVERING_WRITER_DATABASE_URL` secretet kell adni. Helyben ez a gitignore-olt `.env.local` fájlban van; a `setup-local-auth.mjs` megőrzi. Az író csak a mentő RPC-t hívhatja, közvetlen táblaírási grant nélkül. Az RPC `SECURITY DEFINER`, üres `search_path`-tal és auditált grantokkal; a hitelesített Server Action actor ID-ját a DB tagsági zárral és projekt/forrás-ellenőrzéssel validálja. A szokásos `authenticated` szerep nem hívhatja az RPC-t, és célzott restrictive RLS policy tiltja a közvetlen covering számítás-, revízió- és dependency írást. A hamis numerikus outputot tartalmazó közvetlen RPC-próba `42501` hibával zárult, mentett hamis rekord nélkül. A közös revízió-immutable trigger változatlan. A pontos projektforrás a roof-model revision, az ahhoz kötött `roof.gable` calculation revision és a hozzájuk tartozó input; standalone forrás a kézi geometria. Várt revízió és operation ID tranzakciós lockok alatt érvényesül. Hosted adatbázist nem módosítottunk.
+
+Jövőbeli takeoff szerződés: egy konkrét calculation/revision párból induljon; csak explicit egységű darabszámot vagy területet adjon át, egységkompatibilis katalógusmappinggel; gyártói szélesség/hossz/átfedési adatok kapjanak mezőnkénti forrást; az átadott anyagrekord őrizze az immutable revision és teljes paraméter-snapshot hivatkozását; projektorg jogosultságot a takeoff RPC ellenőrizze. E fázisban takeoff nem készül és jóváhagyott takeoff nem módosul.

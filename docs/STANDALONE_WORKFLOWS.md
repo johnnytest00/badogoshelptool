@@ -265,3 +265,10 @@ Mindkét út csak két szimmetrikus, téglalap alakú nyeregtető-síkot támoga
 Ismeretlen adatoknál a panel nem mutat kiosztási rajzot vagy sikeres darabszámot.
 Az eredmény előzetes becslés, nem rendelési vagy gyártási terv.
 
+
+
+## F9.7.7.2a — standalone és projektmentés (backend)
+
+A standalone mentés kizárólag kézi `roof.gable` bemenetből készül; nem hoz létre projektet vagy roof modelt. A mentett snapshot együtt tartalmazza a normalizált geometriát, a fedési inputokat, a szerver által újraszámolt outputot és a kézi forrás-provenance-t. A projektmentés egy szervezethez és projekthez tartozó nyeregtető-modell egy pontos, `verified` roof-model revisionjét, valamint annak `roof.gable` számítási revízióját kapcsolja. Későbbi geometriamódosítás nem írja át a korábbi covering revíziót.
+
+A save action és read model backend API, UI mentés/újranyitás még nincs. A frontend a szervezetet, számításazonosítót, új operation ID-t, várt revíziószámot, nevet, scope-ot és felhasználói geometriát/fedési paramétereket adja át; numerikus outputot vagy actor ID-t nem. A szerver ellenőrzi a hitelesített tagságot, számol, majd a külön DB író szereppel ment. A standalone snapshot kézi mérésként marad jelölve, szakmai jóváhagyás nélkül. A helyi Auth/RLS, V1/V2, idempotencia és két független PostgreSQL kapcsolat átfedő mentése ellenőrzött; a UI következő fázis.

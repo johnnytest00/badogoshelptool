@@ -984,3 +984,37 @@ Javasolt commit: `test(F9.7.6.6.3.2d.1): verify standalone PDF HTTP security`.
 
 Állapot: **PARTIAL**. A domain és UI integráció létezik; UI automatizáció és
 böngészős acceptance bizonyíték hiányzik, ezért a mérföldkő nem COMPLETE.
+
+
+## F9.7.7.2a — trapézlemez-fedés persistence backend
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Domain + persistence contract | PASS | `npx vitest run src/domain/calculations/gable-trapezoidal-covering.test.ts src/features/roof-models/gable-trapezoidal-covering-persistence.test.ts`: 2 fájl / 9 teszt. |
+| Typecheck | PASS | A build után külön futtatott `npm run typecheck` sikeres. |
+| Lint | PASS | `npm run lint` és célzott ESLint sikeres. |
+| Production build | PASS | `npm run build` — Next.js 16.4.0 webpack; teljes route build sikeres. |
+| Célzott lint | PASS | `npx eslint src/features/roof-models/gable-trapezoidal-covering-actions.ts src/features/roof-models/gable-trapezoidal-covering-data.ts src/features/roof-models/gable-trapezoidal-covering-persistence.ts src/features/roof-models/gable-trapezoidal-covering-persistence.test.ts src/infrastructure/supabase/database.types.ts` sikeres. |
+| Projekt exact source / historical snapshot | Kódszinten implementálva; DB UNVERIFIED | Action egy verified roof-model revisionhöz tartozó roof.gable dependencyt keres, és inputból számol; RLS/RPC nem futott. |
+| Standalone ownership / org izoláció | Kódszinten implementálva; Auth UNVERIFIED | Meglévő owner-scoped calculations RLS + authenticated save RPC újrahasznosítva; valós Auth integráció nem futott. |
+| V1/V2, immutability, expected revision | Kódszinten implementálva; pgTAP UNVERIFIED | Közös immutable revision táblák és operation-ID ledger; DB még nem alkalmazott/futtatott. |
+| Kétkapcsolatos concurrency / retry | UNVERIFIED | Docker socket permission denied; két független DB kapcsolat nem indult el. |
+| pgTAP contract | UNVERIFIED | A `supabase/tests/database/020_gable_trapezoidal_covering.sql` teszt elkészült; helyi Supabase Docker nem volt elérhető, ezért nem futott. |
+| DB autoritatív numerikus output | FAIL / elfogadási gap | Az RPC státuszt és source-szerkezetet ellenőrzi, de nem számolja újra a domain outputot; authenticated direkt RPC megkerülheti a Server Action számítását. |
+| Böngésző / UI | Nem futott | Backend-only feladat; teljes regresszió és UI elfogadás nincs állítva. |
+
+Státusz: **PARTIAL**; COMPLETE (BACKEND) nem adható.
+
+## F9.7.7.2a.1 — secure persistence completion
+
+| Ellenőrzés | Tényleges eredmény |
+|---|---|
+| Helyi migráció | `npx supabase migration up --local`: `20261014050000` alkalmazva; reset és hosted DB művelet nélkül. |
+| pgTAP | `npx supabase test db --local supabase/tests/database/020_gable_trapezoidal_covering.sql`: 1 fájl, 9/9 PASS. RPC grant és író tábla-jogosultság ellenőrizve. |
+| Valós Auth/RLS + action integráció | `RUN_LOCAL_COVERING_TESTS=1 npx vitest run src/features/roof-models/gable-trapezoidal-covering.local.integration.test.ts` valós helyi Auth felhasználókkal és JWT-s Supabase kliensekkel: 2/2 PASS. Az action auth context tesztharness-injektált, a DB kliens és az RLS valós. Projekt és standalone mentés, creator/cross-org/revoked izoláció, hamis source/creator/org, közvetlen táblaírás, V1/V2 és history védelem lefedett. |
+| Direkt RPC támadás | Authenticated kliens hamis `totalSheetCount=999999` outputtal: `42501`, a hamis számításhoz nulla eltárolt sor. |
+| Valódi konkurencia | Két külön, jelszóval hitelesített író PostgreSQL kapcsolat lockra várását `pg_stat_activity` igazolta. Azonos expected revisionből egy V2, egy `40001`; azonos operation ID-nál egy V3, ugyanaz a revision ID, `reused=false/true`. |
+| Domain/érintett regresszió | `npx vitest run src/domain/calculations/gable-roof.test.ts src/domain/calculations/gable-trapezoidal-covering.test.ts src/features/roof-models/gable-trapezoidal-covering-persistence.test.ts src/features/roof-models/standalone-gable-preview.test.ts src/features/calculations/standalone-persistence.test.ts src/features/roof-models/project-roof-drawings.test.ts`: 6 fájl, 20/20 PASS. Nem teljes regresszió. |
+| Typecheck / lint / build / diff | `npm run typecheck` PASS; `npm run lint` PASS; `npm run build` PASS (Next.js 16.4.0 webpack); `git diff --check` PASS. A typecheck/build első futásának tesztfixture típushibáját javítottuk és mindkettőt újrafuttattuk. |
+
+Frontend mentés/újranyitás és böngészős ellenőrzés nem futott; F9.7.7.2b feladata. A helyi tesztek DEMO fixture-eket hagynak a helyi adatbázisban.
