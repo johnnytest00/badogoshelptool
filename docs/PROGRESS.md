@@ -771,3 +771,46 @@ az ideiglenes action fixture-re történt. VAT engine, standalone finalize és
 implicit project handoff nincs implementálva.
 
 Javasolt commit: `fix(F9.7.6.6.1b): verify standalone quotation actions`.
+
+## F9.7.6.6.2 — standalone quotation frontend
+
+Állapot: **PARTIAL — a standalone áttekintő és szerkesztő implementálva; a
+hitelesített end-to-end browser workflow még nincs igazolva.** A globális
+`/ajanlatok` oldal új önálló ajánlat gombot, creator-scoped standalone draft
+listát és RLS-szel látható projektajánlat listát ad. Az overview mindkét scope
+esetén jelzi a 100 soros határt. Az `/ajanlatok/uj` önálló szerkesztőt nyit,
+az `/ajanlatok/[quotationId]` pedig aktuális vagy immutable történeti
+revíziót jelenít meg.
+
+Újrahasznosított architektúra: F9.7.6.6.1 standalone Server Actionök, trusted
+katalógus-feloldás, auth/org helper, owner-szűrt RPC/RLS, expected-version és
+idempotency contract; a projektajánlat route/action/editor/PDF útvonal
+változatlan. A session recovery meglévő quotation helperére épül. Kézi
+MATERIAL, LABOR és OTHER tételek, katalógusvariáns, ellenőrzött nettó HUF ár,
+kézi ár-felülírás, stabil kliensoldali sor-azonosító és sorrendmódosítás
+támogatott. Történeti revízió kiválasztása olvasási művelet; standalone
+véglegesítés/elfogadás/ÁFA/hivatalos PDF/kivitelezési terv vezérlő nincs.
+
+Adatkonzisztencia/jogosultság: a UI nem küld creator vagy projektadatot;
+standalone mentés a meglévő auth és aktív szervezeti tagság ellenőrzésű
+action/RPC-n át fut. A katalógusárat a meglévő trusted action validálja, a
+mentett pénzügyi eredmény szerver oldali HUF nettó subtotal. A kliensbecslés
+explicit nem mentett becslésként szerepel. Revízió snapshotja nem módosítható.
+
+Ellenőrzés: `npx vitest run
+src/features/quotations/standalone-quotation-ui-state.test.ts
+src/features/quotations/quotation-draft-recovery.test.ts
+src/domain/quotations/standalone.test.ts src/domain/quotations/money.test.ts
+src/lib/secure-uuid.test.ts` — 5 fájl / 18 PASS. `npm run typecheck` és
+`npm run lint` PASS. Végső `npm run build` és `git diff --check` PASS.
+DB/pgTAP/concurrency nem futott újra, quotation backend contract nem
+változott. A történetlista csak igazolt standalone quotation azonosítóhoz ad
+revíziót. Browser create/reopen/V1–V2/history és project regresszió
+**UNVERIFIED**.
+
+Korlát: overview scope-onként maximum 100 sort mutat és a korlátot közli;
+további lapozás nincs bekötve. Böngészőn ellenőrizendő a catalog picker,
+HTTP-LAN secure UUID runtime, mobil billentyűzet és a teljes Server Action
+workflow.
+
+Javasolt commit: `feat(F9.7.6.6.2): add standalone quotation editor`.

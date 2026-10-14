@@ -49,6 +49,18 @@ Státusz: **PARTIAL**. A harness a PostgREST RPC-ket hívta valós Auth JWT-kkel
 - **NOT YET IMPLEMENTED IN FRONTEND:** standalone quotation editor/UI és önálló PDF nincs; ezek F9.7.6.6.2 scope-jába tartoznak.
 - **NOT YET BROWSER VERIFIED:** csak az átmeneti acceptance oldalt használtuk az actionök indítására; termék quotation editor nincs, ezért annak böngészős workflow-ja nem volt tesztelhető vagy ellenőrizhető.
 
+## F9.7.6.6.2 — standalone quotation frontend
+
+Útvonalak: a globális `/ajanlatok` oldal külön listázza az önálló piszkozatokat és a szervezeti hozzáféréssel látható projektajánlatokat. Az `/ajanlatok/uj` projekttől és ügyféltől független új piszkozatot nyit; az `/ajanlatok/[quotationId]` a saját standalone ajánlat mentett aktuális vagy `?revision=<id>` szerinti immutable revízióját tölti be. Projektajánlatok továbbra is a meglévő `/projektek/[projectId]/ajanlatok` útvonalon nyílnak.
+
+A szerkesztő kézi MATERIAL, LABOR és OTHER sorokat kezel; MATERIAL sorhoz választható a műhely aktív katalógusa. A katalógus- és HUF nettó árforrást a meglévő `resolveStandaloneQuotationCatalogItemAction` újraellenőrzi, ár nélküli sor kézi nettó felülírásként menthető. A sorok helyi stabil UI-azonosítót kapnak, az nem kerül a szerver payloadba. Sorok hozzáadhatók, szerkeszthetők, átrendezhetők és törölhetők. A mentési action meglévő owner/org ellenőrzését, `operationId` idempotenciáját és expected-version konfliktusvédelmét használja; a retry ugyanazon payloadhoz megtartja a műveletazonosítót.
+
+A pénzügyi UI minden sort nettó HUF-ként jelöl. A szerkesztés alatti sor- és összeg-előnézet „nem mentett becslés”; mentés után a szerveres subtotal jelenik meg. A session recovery a meglévő quotation recovery helperrel user/szervezet/quotation szerint határolt, stale szerverrevízió esetén nem állítható vissza. A régi revízió megtekintése nem ment, csak olvasható; az aktuális revízióhoz külön vissza lehet lépni.
+
+Az overview legfeljebb 100 sort mutat standalone és projekt scope-onként, és jelzi a további találatokat; a további lista-lapozás nincs bekötve. Standalone véglegesítés, elfogadás, ÁFA, hivatalos PDF és kivitelezési terv továbbra sem támogatott. A globális projektlista meglévő organization-szintű RLS lekérdezést használ; a standalone lista/read/catalog/save actionök owner- és aktív tagságvédelme változatlan. A project quotation editor/action/PDF útvonal nem módosult.
+
+Frontend acceptance állapot: az automatizált UI-state/domain tesztek és statikus ellenőrzések eredményeit a `docs/TEST_MATRIX.md` rögzíti. A hitelesített böngészős end-to-end mentés/reload/V1–V2 workflow külön browser ellenőrzéséig **UNVERIFIED**.
+
 1b checks: a három Vitest fájl 10/10; `npm run typecheck`, `npm run lint`, `npm run build` és `git diff --check` PASS. A local DB-be írt, egyértelmű DEMO felhasználók, katalógusok és teszt-ajánlat/revízió adatok megmaradnak. Hosted DB/migráció, reset és commit nem történt.
 
 A manuális munkadíj/egyéb tétel adatmodellje már létezik, a takeoff nem kötelező. Katalógusanyaghoz továbbra is műhelyen belüli variáns és opcionálisan rögzített ár-pillanatkép szükséges. A hiányos draft új validációs állapotot és tesztelt PDF/finalizálási tiltást igényel. Pénzskála, HUF, nettó/bruttó egységesség, történeti árak és immutable revíziók változatlanul megőrzendők; ÁFA-kulcs nem következtethető.

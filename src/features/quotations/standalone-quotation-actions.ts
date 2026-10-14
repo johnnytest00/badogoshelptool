@@ -67,15 +67,53 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
   return { ok: true, data: data[0] };
 }
 
-export async function listStandaloneQuotationsAction(organizationId: string): Promise<StandaloneQuotationResult<Array<Record<string, unknown>>>> {
+export async function listStandaloneQuotationsAction(organizationId: string): Promise<StandaloneQuotationResult<{ items: Array<Record<string, unknown>>; hasMore: boolean }>> {
   const access = await authorizeOrganization(organizationId);
   if (!access.auth) return failure("UNAUTHENTICATED", "Jelentkezz be az ajánlatok megtekintéséhez.");
   if (!access.allowed) return failure("FORBIDDEN", "Nincs jogosultságod ehhez a műhelyhez.");
   const supabase = await createClient();
   const { data, error } = await supabase.from("quotations").select("id, name, client_id, current_revision_id, version, status, currency, created_by, created_at, updated_at")
-    .eq("organization_id", organizationId).eq("ownership_scope" as never, "standalone" as never).order("updated_at", { ascending: false }).limit(100);
+    .eq("organization_id", organizationId).eq("ownership_scope" as never, "standalone" as never).order("updated_at", { ascending: false }).limit(101);
   if (error) return failure("INTERNAL", "Az önálló ajánlatok listája nem tölthető be.");
-  return { ok: true, data: (data ?? []) as unknown as Array<Record<string, unknown>> };
+  const rows = data ?? [];
+  const visibleRows = rows.slice(0, 100);
+  const revisionIds = visibleRows.flatMap((row) => row.current_revision_id ? [row.current_revision_id] : []);
+  const { data: revisions, error: revisionsError } = revisionIds.length
+    ? await supabase.from("quotation_revisions").select("id, subtotal").eq("organization_id", organizationId).in("id", revisionIds)
+    : { data: [], error: null };
+  if (revisionsError) return failure("INTERNAL", "Az önálló ajánlatok összege nem tölthető be.");
+  const totals = new Map((revisions ?? []).map((revision) => [revision.id, revision.subtotal === null ? null : String(revision.subtotal)]));
+  return { ok: true, data: { items: visibleRows.map((row) => ({ ...row, subtotal: row.current_revision_id ? totals.get(row.current_revision_id) ?? null : null })) as unknown as Array<Record<string, unknown>>, hasMore: rows.length > 100 } };
+}
+
+export async function listStandaloneQuotationRevisionsAction(organizationId: string, quotationId: string): Promise<StandaloneQuotationResult<Array<{ id: string; revisionNumber: number; createdAt: string; subtotal: string | null }>>> {
+  const access = await authorizeOrganization(organizationId);
+  if (!access.auth) return failure("UNAUTHENTICATED", "Jelentkezz be az ajánlat megtekintéséhez.");
+  if (!access.allowed) return failure("FORBIDDEN", "Nincs jogosultságod ehhez a műhelyhez.");
+  const supabase = await createClient();
+  const { data: quotation, error: quotationError } = await supabase.from("quotations")
+    .select("id").eq("organization_id", organizationId).eq("id", quotationId).eq("ownership_scope" as never, "standalone" as never).maybeSingle();
+  if (quotationError) return failure("INTERNAL", "Az ajánlat előzményei nem tölthetők be.");
+  if (!quotation) return failure("NOT_FOUND", "Az önálló ajánlat nem található.");
+  const { data, error } = await supabase.from("quotation_revisions")
+    .select("id, revision_number, created_at, subtotal")
+    .eq("organization_id", organizationId).eq("quotation_id", quotationId)
+    .order("revision_number", { ascending: false }).limit(100);
+  if (error) return failure("INTERNAL", "Az ajánlati előzmények nem tölthetők be.");
+  return { ok: true, data: (data ?? []).map((row) => ({ id: row.id, revisionNumber: row.revision_number, createdAt: row.created_at, subtotal: row.subtotal === null ? null : String(row.subtotal) })) };
+}
+
+export async function getStandaloneQuotationHeaderAction(organizationId: string, quotationId: string): Promise<StandaloneQuotationResult<{ id: string; name: string; clientId: string | null; currentRevisionId: string | null; version: number; status: string; updatedAt: string }>> {
+  const access = await authorizeOrganization(organizationId);
+  if (!access.auth) return failure("UNAUTHENTICATED", "Jelentkezz be az ajánlat megtekintéséhez.");
+  if (!access.allowed) return failure("FORBIDDEN", "Nincs jogosultságod ehhez a műhelyhez.");
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("quotations")
+    .select("id, name, client_id, current_revision_id, version, status, updated_at")
+    .eq("organization_id", organizationId).eq("id", quotationId).eq("ownership_scope" as never, "standalone" as never).maybeSingle();
+  if (error) return failure("INTERNAL", "Az ajánlat nem tölthető be.");
+  if (!data) return failure("NOT_FOUND", "Az ajánlat nem található.");
+  return { ok: true, data: { id: data.id, name: data.name, clientId: data.client_id, currentRevisionId: data.current_revision_id, version: data.version, status: data.status, updatedAt: data.updated_at } };
 }
 
 export async function readStandaloneQuotationAction(organizationId: string, quotationId: string, revisionId?: string): Promise<StandaloneQuotationResult<RevisionRow[]>> {

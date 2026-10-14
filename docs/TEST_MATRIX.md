@@ -26,6 +26,19 @@
 | Projekt-quotation alkalmazás-regresszió | PASS | Meglévő approved takeoff itemmel project `saveQuotationDraftAction` V1/V2 sikerült; meglévő accepted quote piszkozatként nem volt módosítható. |
 | Frontend / böngészős szerkesztő | Nincs implementálva / nem ellenőrzött | Csak az ideiglenes local acceptance fixture oldalt használtuk az action hívásához; a fixture-t eltávolítottuk. Quote editor UI F9.7.6.6.2 feladata. |
 
+## F9.7.6.6.2 — standalone quotation frontend
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Állapotfüggvények: nettó címkék, revision nézet, idempotens retry | PASS | `npx vitest run src/features/quotations/standalone-quotation-ui-state.test.ts`: 3/3. |
+| Standalone domain-validáció és fixed-point pénz | PASS | `src/domain/quotations/standalone.test.ts`, `money.test.ts`: LABOR/OTHER, üres draft, pontosság és vegyes net/gross ellenőrzés. |
+| Draft recovery és secure UUID regresszió | PASS | A fókuszált futásban `quotation-draft-recovery.test.ts` és `secure-uuid.test.ts` is lefutott; mind az 5 fájl együtt 18/18 PASS. |
+| Typecheck / lint | PASS | `npm run typecheck`, `npm run lint` ténylegesen lefutott a frontend változtatások után. |
+| Production build | PASS | `npm run build` Next.js 16.4.0 webpack; mindhárom globális standalone quotation route bekerült a build route listájába. |
+| Diff ellenőrzés | PASS | `git diff --check` a módosítások és dokumentáció után. |
+| Authenticated browser workflow, create/reopen/V1–V2/history/project regression | PARTIAL / UNVERIFIED | Authenticated local DEMO overview és új szerkesztő megnyílt; kézi/labor mezők és nettó becslés megjelent, katalogusváltozat-feloldás elindult. Draft save, reload, V2, history és project regression végig nem lett ellenőrizve; nincs browser PASS. |
+| DB / pgTAP / concurrency | Nincs újrafuttatva, változatlan szerződés | Nem volt backend-contract vagy migration változás; F9.7.6.6.1b történeti bizonyítékait nem ismételtük. |
+
 ## F9.1.1 ellenőrzések
 
 | Ellenőrzés | Állapot | Megjegyzés |
