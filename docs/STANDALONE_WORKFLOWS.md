@@ -32,14 +32,31 @@ Az új `save_standalone_quotation_draft` RPC atomikusan ment draftot és immutab
 
 Server Action fájl: `src/features/quotations/standalone-quotation-actions.ts`; create/update, owner current/history read, bounded list, catalog resolution és manual-line validation contractot ad. `operationId`-t a következő frontend logikai mentésenként generálja és retry során újrahasználja. Nincs UI, standalone PDF vagy project-association flow a milestone-ban.
 
-Ellenőrzési státusz: SQL/pgTAP és valós Auth/concurrency teszt jelen környezetben még nem futott. Telemetry-off mellett a migration-lista `127.0.0.1:54322 ECONNREFUSED`, a `supabase start` Docker socket `permission denied` hibával állt meg. A migration tesztfájl `018_standalone_quotations.sql` 29 pgTAP assertiont tartalmaz, de nincs lefuttatva; PARTIAL-igény marad, amíg local migration, pgTAP, authenticated isolation és két külön DB session konkurencia futás nincs végrehajtva.
+Ellenőrzés: a helyi Supabase diagnosztikához szűkített Docker socket-hozzáférés után `docker info` Docker 29.8.0-t jelzett; `supabase status` igazolta a helyi DB/API futását és `linked_project=null` értéket. `supabase migration list --local` szerint a 030000 még nem volt alkalmazva; az adatbázisban 2 quotation és 3 revision volt, az authenticated/anon szerepkörnek nincs `public CREATE` joga. A 030000 migráció reset nélkül sikeresen alkalmazva. `018_standalone_quotations.sql`: **33/33 pgTAP PASS**; meglévő `002_quotations`, `003_quotation_finalization`, `004_quotation_lifecycle`: **27/27 pgTAP PASS**.
+
+A kliens által beállítható `app.standalone_quotation_writer` GUC nem jogosultsági határ. Mivel a migráció bizonyítottan még nem futott, a javítás közvetlenül a 030000-ba került: a standalone save RPC SECURITY DEFINER, rögzített `pg_catalog, public` search_path-szel; authenticated direct parent/revision insert/update csak project scope-ra engedett, ledger INSERT-jog visszavonva. A `018` hamis GUC-vel is próbál közvetlenül írni. A lokális, valós Supabase Auth kliensekkel futó harness **43/43 ellenőrzést** adott: owner/list/history, két identitású és cross-org RLS, manual/catalog/LABOR/OTHER, ár-snapshot, net/gross és validáció, project create/V2/visibility, meglévő accepted history tiltott módosítása. Két backend session párhuzamos zárolási várakozását mértük; azonos operation retry egy quotation/revisiont adott, azonos V1-ről párhuzamos V2-ből egy sikerült és a másik `40001`-et kapott; V1 változatlan. A harness által létrehozott, egyértelmű DEMO Auth userek/szervezetek/katalógus/revíziók a helyi DB-ben maradnak.
+
+Státusz: **PARTIAL**. A harness a PostgREST RPC-ket hívta valós Auth JWT-kkel; maga a Next Server Action/cookie útvonal és böngészős workflow nem futott. Project quotation PDF-előkészítés és takeoff association, valamint a teljes releváns regressziós kör nincs végigfuttatva; a pgTAP 003/004 fájlok ebben a körben szerkezeti ellenőrzést fednek. ÁFA-motor nincs és nem került be.
+
+## F9.7.6.6.1b — végső backend-elfogadás
+
+**Állapot: COMPLETE (DRAFT BACKEND).**
+
+- **VERIFIED DATABASE:** az 1a migráció/pgTAP/Auth/concurrency eredményeit újrahasználtuk, mert a DB-szerződés nem változott: 33/33 standalone pgTAP, 27/27 projekt quotation pgTAP és 43/43 helyi Auth/concurrency harness assertion.
+- **VERIFIED APPLICATION INTEGRATION:** ideiglenes local acceptance oldalon Next Server Actionből, `createClient()` SSR cookie-kkal, három valódi helyi Supabase Auth identitás alatt futott a produkciós action kód. 15 tulajdonosi ellenőrzés fedte a katalogusfeloldást, MATERIAL/LABOR mentést, saját listát, V1/V2/history, stale conflict, érvénytelen ID-t, szervezetazonosító hamisítását, safe errort, nettó HUF összeget és finalize-tiltást. Másik aktív tag quote-olvasása `NOT_FOUND`; visszavont tagságú user listája és mentése `FORBIDDEN` lett. Az ideiglenes tesztoldal és a fixture-belépési segéd eltávolítva.
+- **PROJECT REGRESSION:** a meglévő project `saveQuotationDraftAction` approved takeoff forrással új draftot és V2-t mentett; accepted quotation módosítását elutasította.
+- **FINANCIAL/LIFECYCLE:** a válasz explicit `HUF` + `net` subtotalt adott `vatAmount` nélkül; kevert net/gross input `VALIDATION`. Standalone draft project-finalize actionből nem véglegesíthető. Nincs VAT engine vagy implicit handoff.
+- **NOT YET IMPLEMENTED IN FRONTEND:** standalone quotation editor/UI és önálló PDF nincs; ezek F9.7.6.6.2 scope-jába tartoznak.
+- **NOT YET BROWSER VERIFIED:** csak az átmeneti acceptance oldalt használtuk az actionök indítására; termék quotation editor nincs, ezért annak böngészős workflow-ja nem volt tesztelhető vagy ellenőrizhető.
+
+1b checks: a három Vitest fájl 10/10; `npm run typecheck`, `npm run lint`, `npm run build` és `git diff --check` PASS. A local DB-be írt, egyértelmű DEMO felhasználók, katalógusok és teszt-ajánlat/revízió adatok megmaradnak. Hosted DB/migráció, reset és commit nem történt.
 
 A manuális munkadíj/egyéb tétel adatmodellje már létezik, a takeoff nem kötelező. Katalógusanyaghoz továbbra is műhelyen belüli variáns és opcionálisan rögzített ár-pillanatkép szükséges. A hiányos draft új validációs állapotot és tesztelt PDF/finalizálási tiltást igényel. Pénzskála, HUF, nettó/bruttó egységesség, történeti árak és immutable revíziók változatlanul megőrzendők; ÁFA-kulcs nem következtethető.
 
 ## Biztonsági és integritási követelmények
 
 - Szerveroldali auth contextből kiválasztott szervezet; böngészőből érkező szervezet- vagy projekt-azonosító önmagában nem jogosít.
-- RLS minden standalone üzleti táblán, `private.is_org_member(organization_id)` vagy pontosabb szerepkör-szabállyal. RPC `SECURITY INVOKER`, szűkített `search_path`, explicit authenticated EXECUTE.
+- RLS minden standalone üzleti táblán, `private.is_org_member(organization_id)` vagy pontosabb szerepkör-szabállyal. A standalone save RPC `SECURITY DEFINER`, rögzített `search_path`-szel, explicit actor/org membership checkkel és authenticated EXECUTE granttal; a közvetlen authenticated standalone write tiltott.
 - Composite FK és RPC-validáció akadályozza meg az idegen szervezet projekt-, katalógus-, takeoff- és forrásrevízió-hivatkozását.
 - Revízió-snapshot append-only; expected version/revision és tranzakciós zárolás véd stale és konkurens mentés ellen.
 - Forrásprovenance a konkrét bemeneti revízióhoz kötve; projektkapcsolás nem módosíthat történeti snapshotot és nem másolhat csendben rekordot.

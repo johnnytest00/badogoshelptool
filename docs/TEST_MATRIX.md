@@ -4,14 +4,27 @@
 
 | Ellenőrzés | Állapot | Megjegyzés |
 | --- | --- | --- |
-| Standalone ownership/schema migration | Implementálva, nem futtatva | `20261014030000_standalone_quotations.sql`; nullable project FK scope CHECK-kel, creator/org RLS. |
-| Draft/revision, kézi sorok és HUF totals | Teszt definiálva, nem futtatva | `018_standalone_quotations.sql`: project/client nélküli draft, manual LABOR/OTHER, DB subtotal, idempotent replay és payload mismatch. |
-| Catalog validation/snapshot | Implementálva, DB teszt blokkolt | RPC ellenőrzi org, aktív termék, price ID, HUF, egység, amount és `price_kind`; történeti snapshot revízióban. |
-| Creator isolation / forged IDs | Teszt definiálva, nem futtatva | pgTAP owner/nonowner read/write, historical read, forged quotation ID. Valós local Auth action teszt még hiányzik. |
-| Expected revision / actual concurrency | Nincs runtime bizonyíték | SQL expected-version + advisory idempotency lock implementálva; két külön authenticated DB sessionnel még nem ellenőrzött. |
-| Project quotation regression | Nincs runtime bizonyíték ebben a futásban | Project schema legacy sorai scope=`project`, projekt RPC/finalize/status/PDF fájl változatlan. Érintett 002–004 pgTAP nem futott. |
-| Local migration history/apply | Blokkolt | Telemetry-off `migration list` → `127.0.0.1:54322 ECONNREFUSED`; `supabase start` → Docker socket permission denied. Migration apply/reset nem történt. |
-| Typecheck/lint/build/Vitest/diff | Sikeres, célzott | Standalone quotation + money + lifecycle Vitest 3 fájl/10 PASS; `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check` mind PASS. Nem teljes regresszió. |
+| Standalone ownership/schema migration | Sikeres helyi alkalmazás | History 20261014020200-nál állt; `20261014030000` unapplied volt. Incremental `supabase migration up --local` sikeres, reset nélkül. |
+| GUC-megkerülés / RLS | pgTAP + Auth PASS | SECURITY DEFINER save RPC, direct standalone parent/revision INSERT/UPDATE denied, ledger INSERT denied; hamis GUC-es pgTAP is PASS. Public CREATE nincs authenticated/anon számára. |
+| Draft/revision, kézi sorok és HUF totals | Sikeres | `018_standalone_quotations.sql`: 33/33 pgTAP; Auth harnessben LABOR/OTHER, 2.5 × 5.25 → HUF 13.13, zero, precision/negative/large rejection. |
+| Catalog validation/snapshot | Sikeres | Auth harness 43/43: authorized MATERIAL, manual override, catalog snapshot megmarad későbbi árváltozás után, másik org variáns denied. |
+| Creator isolation / forged IDs | Sikeres, helyi Auth | Harness 43/43: két Auth-issued JWT; creator list/current/history, same-org noncreator és cross-org read/write denial; direct parent/revision/ledger és forged creator elutasítva. |
+| Next Server Action / browser cookie útvonal | F9.7.6.6.1b-ben PASS | Host Brave smoke alatt valós helyi Auth session-cookie után a produkciós quotation action függvények Next Server Action runtime-ból futottak. Részletek az 1b acceptance szekcióban. |
+| Expected version / real concurrency | Sikeres, két backend | Két párhuzamos authenticated RPC-t két waitelő PostgreSQL backend-sessionnel figyeltünk. Create retry: egy quote+revision; same-V1 V2: egy success + egy `40001`, V1 változatlan. |
+| Project quotation regression | PASS, célzott | pgTAP 002–004: 27/27 PASS; 1b alkalmazásellenőrzés: authorized draft/V2, létező approved takeoff kapcsolat és accepted quotation módosításának tiltása. PDF nem backend acceptance feltétel; standalone PDF nincs implementálva. |
+| Docker/Supabase/migration history | Sikeres helyi diagnosztika | Socket-jogot szűkítve Docker 29.8.0; local DB/API elérhető, `linked_project=null`; 030000 apply sikeres. Opcionális imgproxy/edge/analytics/vector/pooler szolgáltatások leálltak. |
+| Vitest/typecheck/lint/build/diff/DB lint | PASS | 1b: Vitest 3 fájl/10 teszt, typecheck, lint, production build és diff check mind ténylegesen lefutott és sikeres. `db lint --local` korábbi futás: exit 0, csak korábbi standalone calculation/flashing warnings. |
+
+## F9.7.6.6.1b — alkalmazás-elfogadás
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Next Server Action + SSR cookie/session | PASS | Helyi valós Auth user a Next actionben jelentkezett be; az SSR kliens által írt session cookie a következő action requestekben hitelesítette a műveleteket. Nincs mock Auth. |
+| Standalone create/read/list/V2/history | PASS | 15 owner assertion: manual MATERIAL és LABOR mentés, katalógus-feloldás, saját lista, read, expected V1-es V2, immutable V1, stale V1 `CONFLICT`, érvénytelen ID és hamisított org azonosító elutasítva. |
+| Negatív felhasználói hozzáférés | PASS | Külön aktív tag JWT-je saját creator-idegen quote-ot `NOT_FOUND`-ként kapott; visszavont tagságú user lista és mentése `FORBIDDEN`. Hibaüzenet nem szivárogtatott SQL részletet. |
+| Pénzügy / lifecycle | PASS | Action-válasz HUF nettó összeget és `priceClass`-t ad `vatAmount` nélkül; kevert nettó/bruttó validációs hiba. Projekt-finalize action standalone quote-ra elutasít. VAT engine/finalize nem került be. |
+| Projekt-quotation alkalmazás-regresszió | PASS | Meglévő approved takeoff itemmel project `saveQuotationDraftAction` V1/V2 sikerült; meglévő accepted quote piszkozatként nem volt módosítható. |
+| Frontend / böngészős szerkesztő | Nincs implementálva / nem ellenőrzött | Csak az ideiglenes local acceptance fixture oldalt használtuk az action hívásához; a fixture-t eltávolítottuk. Quote editor UI F9.7.6.6.2 feladata. |
 
 ## F9.1.1 ellenőrzések
 

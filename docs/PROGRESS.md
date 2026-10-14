@@ -698,3 +698,76 @@ Bizonyíték: `npx vitest run src/domain/quotations/standalone.test.ts src/domai
 Ismert korlát: egységek jelenlegi sémája szabad szöveg, elfogadott egység-registry nincs, így csak hiányzó/túl hosszú egységet lehet elutasítani, szakmailag támogatott unit-listát nem lehet kitalálni. Standalone finalization, PDF, UI és project-association nincs ebben a fázisban.
 
 Javasolt commit: `feat(F9.7.6.6.1): add standalone quotation backend`.
+
+## F9.7.6.6.1a — backend-validációs kör
+
+Állapot: **PARTIAL**. A kezdeti sandboxos Docker diagnosztika socket permission
+hibát adott; a szűkített, csak helyi státusz/migráció olvasásra és local DB
+tesztekre kért Docker-hozzáférés után `docker info` Docker 29.8.0-t,
+`supabase status` helyi DB/API-t és `linked_project=null` állapotot mutatott.
+`supabase migration list --local`: DB 20261014020200-nál állt, 030000 unapplied;
+quotations/revisions sorok: 2/3, a teszt DEMO termékazonosítója nem ütközött,
+authenticated/anon nem kapott `public CREATE` jogot.
+
+Statikus vizsgálat talált egy jogosultsági hibát: a kliens saját maga is
+beállíthatja a `app.standalone_quotation_writer` custom GUC-t, és az eredeti
+authenticated write policy / ledger INSERT grant mellett megkerülhette a
+triggert, illetve hamis ledger sort készíthetett. Mivel a 030000 bizonyítottan
+unapplied volt, a javítás közvetlenül a migrációba került: standalone save
+SECURITY DEFINER, explicit actor/org ellenőrzés, rögzített `pg_catalog, public`
+search_path; authenticated közvetlen parent/revision insert/update project
+scope-ra korlátozva; ledger INSERT visszavonva. A 030000 migráció reset nélkül
+sikeresen alkalmazva. A pgTAP terv 33 assertion, hamis GUC-s közvetlen
+íráspróbákkal; a teszt 33/33 PASS.
+
+`RUN_LOCAL_STANDALONE_QUOTATION_VALIDATION=1 SUPABASE_TELEMETRY_DISABLED=1 node
+scripts/verify-standalone-quotation-backend.mjs`: 43/43 PASS, két valós helyi
+Supabase Auth user JWT-vel. Két backend session egyidejű lock-waitjét mértük:
+retry egy quote+revision, párhuzamos V2-ből egy siker + egy `40001`, V1 snapshot
+változatlan. Tulajdonos/lista/történeti olvasás, same-org és cross-org deny,
+hamis creator/direct write/ledger tiltás, catalog ár snapshot/manual override,
+HUF kerekítés/negative/missing unit/precision/large input, project create/V2,
+tag-láthatóság és egy létező accepted project quotation/revízió tiltott
+módosítási próbája futott, snapshot változatlan maradt. `supabase test db --local`
+002–004: 27/27 PASS. Fókuszált Vitest ezen körben 3 fájl/10 PASS; a SQL/UI
+rétegén kívüli typecheck/build korábbi körből reused, a lint és
+`git diff --check` ebben a körben PASS. A teljes project PDF/takeoff/finalize/status
+transition és minden RLS életciklus regresszió még nem lefedett; a harness
+által létrehozott DEMO userek/adatok a local DB-ben maradnak.
+Javasolt commit: `fix(F9.7.6.6.1a): secure standalone quotation writes`.
+
+## F9.7.6.6.1b — final standalone quotation backend acceptance
+
+Állapot: **COMPLETE (DRAFT BACKEND)**. A korábban bizonyított DB/RLS/concurrency
+szerződés változatlan; az 1a kör 33/33 pgTAP, 27/27 project pgTAP és 43/43
+valós local Auth/concurrency eredményét nem ismételtem.
+
+Valós Next.js Server Action runtime-ot ellenőriztem helyi, valódi Supabase Auth
+sessionnel. Az ideiglenes acceptance actionön keresztül a produkciós standalone
+create/read/list/catalog/save action függvények a Next SSR cookie-kból kapott
+identitással futottak: 15 tulajdonosi assertion PASS, köztük manual MATERIAL és
+LABOR mentés, saját lista, immutable V1/V2, stale `CONFLICT`, invalid ID,
+hamisított organization ID, safe error, HUF nettó subtotal `vatAmount` nélkül,
+kevert net/gross `VALIDATION` és standalone finalize elutasítása. Külön aktív
+tag JWT-je más creator ajánlatára `NOT_FOUND`; visszavont tagságú Auth user
+list/mentés kísérlete `FORBIDDEN` lett.
+
+Meglévő project action regressziója: approved takeoff-forrással draft és V2
+mentés PASS; accepted project quotation módosítása tiltott. A produkciós action
+utak SSR sessiont használtak; privileged client csak a lokális DEMO Auth és
+katalógus-fixtúrák létrehozásához kellett. Az ideiglenes acceptance route és
+fixture script eltávolítva. A tesztadatok a helyi DB-ben maradnak.
+
+Ellenőrzések: fókuszált Vitest 3 fájl/10 teszt, `npm run typecheck`,
+`npm run lint`, `npm run build` (Next.js 16.4.0 webpack) és `git diff --check`
+PASS. A build által generált `next-env.d.ts` útvonalváltást visszaállítottam az
+e kör előtti, már módosított tartalomra; az előzetes munkafa-eltérést megőriztem.
+
+**VERIFIED DATABASE:** a fenti 1a eredmények. **VERIFIED APPLICATION:** a
+Server Action/Auth/session és projekt regressziók fent. **NOT YET IMPLEMENTED
+IN FRONTEND:** standalone ajánlatszerkesztő és PDF. **NOT YET BROWSER VERIFIED:**
+termék quotation UI nincs, ezért azt nem lehetett tesztelni; browser smoke csak
+az ideiglenes action fixture-re történt. VAT engine, standalone finalize és
+implicit project handoff nincs implementálva.
+
+Javasolt commit: `fix(F9.7.6.6.1b): verify standalone quotation actions`.

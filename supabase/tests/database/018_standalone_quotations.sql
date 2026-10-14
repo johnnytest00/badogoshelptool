@@ -1,10 +1,12 @@
 begin;
-select plan(29);
+select plan(33);
 
 select has_column('public','quotations','ownership_scope','quotation ownership scope is explicit');
 select ok((select is_nullable = 'YES' from information_schema.columns where table_schema='public' and table_name='quotations' and column_name='project_id'), 'project link is nullable for standalone only');
-select has_function('public','save_standalone_quotation_draft','uuid,uuid,uuid,text,uuid,jsonb,integer','standalone draft save RPC exists');
-select has_function('public','get_standalone_quotation_revision','uuid,uuid,uuid','owner-scoped current and history read RPC exists');
+select has_function('public','save_standalone_quotation_draft','standalone draft save RPC exists');
+select has_function('public','get_standalone_quotation_revision','owner-scoped current and history read RPC exists');
+select ok((select p.prosecdef from pg_proc p where p.oid='public.save_standalone_quotation_draft(uuid,uuid,uuid,text,uuid,jsonb,integer)'::regprocedure), 'standalone writer is SECURITY DEFINER');
+select ok((select 'search_path=pg_catalog, public'=any(p.proconfig) from pg_proc p where p.oid='public.save_standalone_quotation_draft(uuid,uuid,uuid,text,uuid,jsonb,integer)'::regprocedure), 'standalone writer pins a safe search_path');
 select ok((select relrowsecurity from pg_class where oid='public.standalone_quotation_operations'::regclass), 'idempotency ledger has RLS');
 select ok(has_function_privilege('authenticated','public.save_standalone_quotation_draft(uuid,uuid,uuid,text,uuid,jsonb,integer)','EXECUTE'), 'authenticated role can call save RPC');
 
@@ -32,13 +34,22 @@ select is((select subtotal from public.quotation_revisions where quotation_id=(s
 select is((select totals_snapshot->>'currency' from public.quotation_revisions where quotation_id=(select quotation_id from public.quotation_revisions where revision_number=1 order by created_at desc limit 1)), 'HUF', 'saved totals explicitly retain HUF semantics');
 select is((select count(*)::int from public.quotation_revisions where quotation_id=(select quotation_id from public.quotation_revisions where revision_number=1 order by created_at desc limit 1)), 1, 'initial request produces one immutable revision');
 select set_config('test.standalone_quote_id',(select quotation_id::text from public.quotation_revisions where revision_number=1 order by created_at desc limit 1),true);
-select set_config('app.standalone_quotation_writer','',true);
+-- A custom GUC is client-settable, so spoof the marker and prove RLS/grants still
+-- prevent all direct standalone writes.
+select set_config('app.standalone_quotation_writer','00000000-0000-4000-8000-000000000001',true);
 select throws_ok($$insert into public.quotations (organization_id,project_id,ownership_scope,name,created_by)
  values ('00000000-0000-4000-8000-000000000010',null,'standalone','Forged direct insert','00000000-0000-4000-8000-000000000001')$$,
  '42501',null,'standalone parent writes require the audited RPC');
-select throws_ok($$update public.quotations set status='finalized'
- where id=(select quotation_id from public.quotation_revisions where revision_number=1 order by created_at desc limit 1)$$,
- '42501',null,'standalone status cannot bypass the final-document RPC');
+update public.quotations set name='Forged direct update'
+ where id=current_setting('test.standalone_quote_id')::uuid;
+select is((select count(*)::int from public.quotations where id=current_setting('test.standalone_quote_id')::uuid and name='DEMO önálló ajánlat'),
+ 1,'client-set marker cannot update standalone parent');
+select throws_ok($$insert into public.quotation_revisions (organization_id,quotation_id,revision_number,currency,price_class,input_snapshot,line_items_snapshot,subtotal,totals_snapshot,created_by)
+ values ('00000000-0000-4000-8000-000000000010',current_setting('test.standalone_quote_id')::uuid,2,'HUF','net','{}','[]',0,'{}','00000000-0000-4000-8000-000000000001')$$,
+ '42501',null,'client-set marker cannot insert standalone revision');
+select throws_ok($$insert into public.standalone_quotation_operations (organization_id,operation_id,created_by,request_snapshot,quotation_id,revision_id)
+ values ('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000915','00000000-0000-4000-8000-000000000001','{}',current_setting('test.standalone_quote_id')::uuid,(select current_revision_id from public.quotations where id=current_setting('test.standalone_quote_id')::uuid))$$,
+ '42501',null,'authenticated cannot forge an idempotency ledger row');
 select lives_ok($$select * from public.save_standalone_quotation_draft(
  '00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000904',null,'DEMO katalógusajánlat',null,
  '[{"type":"MATERIAL","description":"DEMO tesztváltozat","quantity":"2","unit":"piece","unitPrice":"12.50","priceClass":"net","variantId":"00000000-0000-4000-8000-000000000912","priceId":"00000000-0000-4000-8000-000000000913"}]'::jsonb,0

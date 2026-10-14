@@ -24,17 +24,14 @@ create policy quotations_scoped_read on public.quotations for select to authenti
 create policy quotations_scoped_insert on public.quotations for insert to authenticated
   with check (
     created_by = (select auth.uid()) and private.is_org_member(organization_id)
-    and ((ownership_scope = 'project' and project_id is not null)
-      or (ownership_scope = 'standalone' and project_id is null))
+    and ownership_scope = 'project' and project_id is not null
   );
 create policy quotations_scoped_update on public.quotations for update to authenticated
   using (
-    (ownership_scope = 'project' and private.is_org_member(organization_id))
-    or (ownership_scope = 'standalone' and created_by = (select auth.uid()) and private.is_org_member(organization_id))
+    ownership_scope = 'project' and private.is_org_member(organization_id)
   ) with check (
     private.is_org_member(organization_id)
-    and ((ownership_scope = 'project' and project_id is not null)
-      or (ownership_scope = 'standalone' and project_id is null and created_by = (select auth.uid())))
+    and ownership_scope = 'project' and project_id is not null
   );
 
 create or replace function private.prevent_quotation_owner_mutation() returns trigger
@@ -83,7 +80,7 @@ create policy quotation_revisions_scoped_insert on public.quotation_revisions fo
     created_by = (select auth.uid()) and exists (
       select 1 from public.quotations q where q.id = public.quotation_revisions.quotation_id
         and q.organization_id = public.quotation_revisions.organization_id
-        and q.status = 'draft' and q.version + 1 = revision_number
+        and q.ownership_scope = 'project' and q.status = 'draft' and q.version + 1 = revision_number
     )
   );
 
@@ -107,15 +104,8 @@ create policy standalone_quotation_operations_owner_read on public.standalone_qu
   for select to authenticated using (
     created_by = (select auth.uid()) and private.is_org_member(organization_id)
   );
-create policy standalone_quotation_operations_owner_insert on public.standalone_quotation_operations
-  for insert to authenticated with check (
-    created_by = (select auth.uid()) and private.is_org_member(organization_id)
-    and exists (select 1 from public.quotations q where q.id = public.standalone_quotation_operations.quotation_id
-      and q.organization_id = public.standalone_quotation_operations.organization_id and q.ownership_scope = 'standalone'
-      and q.created_by = (select auth.uid()))
-  );
 revoke all on public.standalone_quotation_operations from anon, authenticated;
-grant select, insert on public.standalone_quotation_operations to authenticated;
+grant select on public.standalone_quotation_operations to authenticated;
 
 create or replace function public.save_standalone_quotation_draft(
   p_organization_id uuid,
@@ -126,7 +116,7 @@ create or replace function public.save_standalone_quotation_draft(
   p_lines jsonb,
   p_expected_version integer
 ) returns table (quotation_id uuid, revision_id uuid, revision_number integer, revision_created boolean, totals_snapshot jsonb)
-language plpgsql security invoker set search_path = public, pg_catalog as $$
+language plpgsql security definer set search_path = pg_catalog, public as $$
 declare
   v_actor uuid := auth.uid();
   v_quote public.quotations%rowtype;

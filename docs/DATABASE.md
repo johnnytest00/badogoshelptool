@@ -8,7 +8,13 @@ projekt FK-ja nullable, de CHECK tiltja a projekt nélküli project rekordot és
 projektes standalone rekordot. A korábbi rekordok projekt scope-ban maradnak.
 Standalone tulajdonos a DB által `auth.uid()`-ból beállított `created_by`, aktív
 szervezeti tagsággal. Az RLS a standalone parentet és revíziót csak a creatornek
-mutatja; projekt ajánlatnál a korábbi tag-szintű láthatóság él tovább.
+mutatja; projekt ajánlatnál a korábbi tag-szintű láthatóság él tovább. A
+030000-as migráció első alkalmazása előtt talált GUC-megkerülést ugyanebbe a
+migrációba javítottuk: a közvetlen authenticated parent/revision írás csak
+project scope-ra engedett, a ledger közvetlen INSERT-joga visszavont. A
+standalone save SECURITY DEFINER RPC explicit actor/org ellenőrzésekkel,
+rögzített `pg_catalog, public` search_path-szel ír; a kliens által
+beállítható custom GUC önmagában nem jogosultsági határ.
 
 `save_standalone_quotation_draft` új és frissítő műveletként egy tranzakcióban
 menti a jelenlegi draftot és immutable revisiont. Az expected version a stale
@@ -25,13 +31,16 @@ recordnál a DB újraellenőrzi HUF-ot, árat, egységet és ár-besorolást; k�
 felülírás provenance-ja egyértelmű. Az `input_snapshot` és `line_items_snapshot`
 megőrzi a mentéskori ár/adat eredetet.
 
-Migrációs és futásidejű bizonyíték: **nem ellenőrzött** ebben a végrehajtásban.
-Telemetry kikapcsolása után a `supabase migration list --local` a
-`127.0.0.1:54322 ECONNREFUSED` hibát adta; `supabase start` a Docker socket
-hozzáférés `permission denied` hibáján megállt. Reset, migration apply és pgTAP
-nem futott. A célzott teszt:
-`supabase/tests/database/018_standalone_quotations.sql`; authenticated local
-integráció és két külön DB-kapcsolatos concurrency ellenőrzés még hiányzik.
+Ellenőrzés: a nem linkelt helyi Supabase futott; a migration history a 030000
+előtti állapotot mutatta. A migráció reset nélkül sikeresen lefutott. A
+`018_standalone_quotations.sql` 33/33 pgTAP, releváns `002`–`004` projektajánlat
+pgTAP 27/27 PASS. A `scripts/verify-standalone-quotation-backend.mjs` helyi Auth
+tesztje 43/43 PASS, valós JWT-kkel és két várakozó PostgreSQL backend-sessionnel
+mérve az idempotens létrehozást és az expected-version konkurenciát. Auth/RLS,
+pénzügyi, revision snapshot, accepted project history immutability és project
+draft/V2 RLS-regresszió futott. A PostgREST Auth RPC-n kívül a Next Server
+Action/cookie útvonal nem futott. Teljes project PDF/takeoff/status regresszió
+nem történt; DB reset/remote művelet nem volt.
 
 ## F8.1 — belső ajánlati piszkozatok
 
