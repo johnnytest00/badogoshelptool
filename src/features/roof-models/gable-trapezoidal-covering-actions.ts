@@ -6,8 +6,13 @@ import { GABLE_CALCULATOR_VERSION, GABLE_INPUT_SCHEMA_VERSION, gableRoofInputSch
 import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
 import { persistGableCovering } from "@/infrastructure/supabase/covering-writer";
+import { getGableTrapezoidalCovering } from "./gable-trapezoidal-covering-data";
 
 export type CoveringSaveResult = { ok: boolean; error?: string; calculationId?: string; revisionId?: string; revisionNumber?: number; reused?: boolean };
+
+export async function readGableTrapezoidalCovering(organizationId: string, calculationId: string) {
+  return getGableTrapezoidalCovering(organizationId, calculationId);
+}
 
 export async function saveGableTrapezoidalCovering(input: unknown): Promise<CoveringSaveResult> {
   const parsed = gableTrapezoidalCoveringSaveSchema.safeParse(input);
@@ -29,12 +34,16 @@ export async function saveGableTrapezoidalCovering(input: unknown): Promise<Cove
     const { data: dependencies } = await supabase.from("calculation_dependencies").select("downstream_calculation_revision_id").eq("organization_id", request.organizationId).eq("upstream_roof_model_revision_id", request.scope.roofModelRevisionId).eq("dependency_type", "roof_model_input");
     const revisionIds = (dependencies ?? []).map((item) => item.downstream_calculation_revision_id);
     const { data: linked } = revisionIds.length ? await supabase.from("calculation_revisions").select("id, calculation_id, calculator_implementation_version, input_schema_version, validation_status").in("id", revisionIds).eq("organization_id", request.organizationId).eq("calculator_implementation_version", GABLE_CALCULATOR_VERSION).eq("input_schema_version", GABLE_INPUT_SCHEMA_VERSION).eq("validation_status", "verified") : { data: [] };
-    const selected = linked?.[0];
-    const { data: calculation } = selected ? await supabase.from("calculations").select("id, project_id, roof_model_id, calculator_type").eq("id", selected.calculation_id).eq("organization_id", request.organizationId).eq("project_id", request.scope.projectId).eq("roof_model_id", request.scope.roofModelId).eq("calculator_type", "roof.gable").maybeSingle() : { data: null };
-    if (!calculation) return { ok: false, error: "A tetőrevízióhoz nem található ellenőrzött, pontos roof.gable forrás." };
+    const linkedCalculationIds = (linked ?? []).map((item) => item.calculation_id);
+    const { data: roofCalculations } = linkedCalculationIds.length ? await supabase.from("calculations").select("id, project_id, roof_model_id, calculator_type")
+      .in("id", linkedCalculationIds).eq("organization_id", request.organizationId).eq("project_id", request.scope.projectId)
+      .eq("roof_model_id", request.scope.roofModelId).eq("calculator_type", "roof.gable") : { data: [] };
+    const calculation = roofCalculations?.[0];
+    const selected = linked?.find((item) => item.calculation_id === calculation?.id);
+    if (!calculation || !selected) return { ok: false, error: "A tetőrevízióhoz nem található ellenőrzött, pontos roof.gable forrás." };
     const result = calculateCoveringSnapshot(geometryInput.data, request.coveringInput);
     if (!result) return { ok: false, error: "A fedési bemenet hibás vagy nem támogatott, ezért nem menthető." };
-    source = { mode: "project", projectId: request.scope.projectId, roofModelId: request.scope.roofModelId, roofModelRevisionId: request.scope.roofModelRevisionId, geometryCalculationId: calculation.id, geometryCalculationRevisionId: selected!.id, geometryInput: result.geometryInput };
+    source = { mode: "project", projectId: request.scope.projectId, roofModelId: request.scope.roofModelId, roofModelRevisionId: request.scope.roofModelRevisionId, geometryCalculationId: calculation.id, geometryCalculationRevisionId: selected.id, geometryInput: result.geometryInput };
     provenance = { geometry: "saved_verified_roof_model_revision", coveringParameters: "user_provided", calculation: "server_recomputed", professionalApproval: false };
   } else {
     const result = calculateCoveringSnapshot(request.geometryInput, request.coveringInput);

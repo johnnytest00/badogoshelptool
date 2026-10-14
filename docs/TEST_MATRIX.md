@@ -1018,3 +1018,14 @@ Státusz: **PARTIAL**; COMPLETE (BACKEND) nem adható.
 | Typecheck / lint / build / diff | `npm run typecheck` PASS; `npm run lint` PASS; `npm run build` PASS (Next.js 16.4.0 webpack); `git diff --check` PASS. A typecheck/build első futásának tesztfixture típushibáját javítottuk és mindkettőt újrafuttattuk. |
 
 Frontend mentés/újranyitás és böngészős ellenőrzés nem futott; F9.7.7.2b feladata. A helyi tesztek DEMO fixture-eket hagynak a helyi adatbázisban.
+
+## F9.7.7.2b — trapézlemez-fedés frontend mentés és revízió
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Célzott Vitest | PASS | `npx vitest run src/features/roof-models/gable-trapezoidal-covering-ux.test.ts src/features/roof-models/gable-trapezoidal-covering-actions.test.ts src/features/calculations/covering-listing.test.ts src/features/roof-models/standalone-gable-preview.test.ts src/features/roof-models/gable-trapezoidal-covering-persistence.test.ts src/features/calculations/standalone-persistence.test.ts src/features/gutters/gutter-calculator-ux.test.ts src/features/flashings/calculator-ux.test.ts src/features/roof-models/project-roof-drawings.test.ts`: 9 fájl / 25 teszt PASS. Nem teljes regresszió. |
+| Typecheck, lint, build, diff | PASS | `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check` PASS; a builddel párhuzamos `npm run typecheck` a `.next/types` átmeneti fájltörlésébe ütközött, ezért a build befejezése után sorosan újrafuttatva PASS. |
+| Browser: standalone | PASS helyi Brave | Hitelesített DEMO műhely: V1 mentés, URL újratöltés, V2 mentés, V1 input/20 db/SVG, vissza V2/40 db, listázás és típusfilter. |
+| Browser: projekt | PASS helyi Brave | Meglévő DEMO tetőmodell V4-ből V1 fedés mentve és újratöltve; a UI pontos forrásrevíziót mutat. Helyi read-only DB: input roof revision = dependency upstream roof revision `d11e0843-91bb-4089-b245-ad0879fbfb4b`, kapcsolt `roof.gable` calculation revision `60a1ba98-b291-4ee5-a831-0233e4a626bb`. |
+| Browser: nem mentett módosítás | PASS helyi Brave | Revízióválasztás figyelmeztetést adott; Mégse megtartotta a szerkesztett 900 mm-t, OK visszatöltötte a mentett 1000 mm-t. |
+| Más készülék / hálózat / több kliens | UNVERIFIED | iPad/iPhone Safari, hálózati válasz megszakadása és két böngésző egyidejű mentése nem futott; operation ID és expected revision szerződés automatizált és korábbi backend tesztekben igazolt. |

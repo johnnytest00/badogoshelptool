@@ -4,9 +4,9 @@ import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getProjectForOrganization } from "@/features/projects/project-data";
 import { GableRoofCalculatorForm } from "@/features/roof-models/gable-roof-form";
-import { BackNavigation } from "@/components/navigation/back-navigation";
 import { getRoofModelForProject } from "@/features/roof-models/roof-model-data";
 import { getSavedSheetLayout, getSheetLayoutMaterials } from "@/features/roof-models/sheet-layout-data";
+import { listGableTrapezoidalCoverings } from "@/features/roof-models/gable-trapezoidal-covering-data";
 
 export default async function RoofModelPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string; roofModelId: string }>; searchParams: Promise<{ organization?: string }> }>) {
   const { projectId, roofModelId } = await params;
@@ -17,6 +17,6 @@ export default async function RoofModelPage({ params, searchParams }: Readonly<{
   const project = await getProjectForOrganization(selected.organization.id, projectId);
   const model = await getRoofModelForProject(selected.organization.id, projectId, roofModelId);
   if (!project || !model) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A tetőmodell nem található.</h1><Link className="login-secondary-link" href={`/projektek/${projectId}?organization=${selected.organization.id}`}>Vissza a projekthez</Link></section></main>;
-  const [sheetLayoutMaterials, savedSheetLayout] = await Promise.all([getSheetLayoutMaterials(selected.organization.id), getSavedSheetLayout(selected.organization.id, projectId, roofModelId, model.currentRevisionId)]);
-  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${selected.organization.id}`} label="Vissza a projekthez" /><GableRoofCalculatorForm organizationId={selected.organization.id} projectId={projectId} model={model} sheetLayoutMaterials={sheetLayoutMaterials} savedSheetLayout={savedSheetLayout} /></div></main>;
+  const [sheetLayoutMaterials, savedSheetLayout, coveringCalculations] = await Promise.all([getSheetLayoutMaterials(selected.organization.id), getSavedSheetLayout(selected.organization.id, projectId, roofModelId, model.currentRevisionId), listGableTrapezoidalCoverings(selected.organization.id, projectId)]);
+  return <main className="dashboard-shell"><div className="dashboard-container"><GableRoofCalculatorForm organizationId={selected.organization.id} projectId={projectId} model={model} sheetLayoutMaterials={sheetLayoutMaterials} savedSheetLayout={savedSheetLayout} savedCoverings={coveringCalculations.filter((item) => item.roofModelId === roofModelId)} /></div></main>;
 }

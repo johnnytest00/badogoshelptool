@@ -522,6 +522,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 600px) { .project-module-actions { justify-content: flex-start; } .association-confirmation dl div { grid-template-columns: 1fr; gap: .15rem; } .association-dialog { border-radius: 1rem; } }
 
 .trapezoidal-covering { display: grid; gap: 1rem; }
+.trapezoidal-covering .roof-help-note { overflow-wrap: anywhere; }
 .roof-covering-confirm { margin-top: 1rem; }
 .roof-covering-confirm > span { justify-content: flex-start; align-items: flex-start; }
 .roof-covering-confirm input { width: 1.15rem; min-width: 1.15rem; min-height: 1.15rem; margin: .1rem .4rem 0 0; accent-color: var(--brand); }
