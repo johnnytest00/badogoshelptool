@@ -71,6 +71,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     });
   });
   const [dirty, setDirty] = useState(false);
+  const [pdfPromptOpen, setPdfPromptOpen] = useState(false);
   const dirtyRef = useRef(false);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<StandaloneQuotationResult<{ quotation_id: string; revision_id: string; revision_number: number; revision_created: boolean; totals_snapshot: Record<string, unknown> }>>({ ok: false, code: "INTERNAL", error: "" });
@@ -83,6 +84,8 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const savedSubtotal = currentRevision?.subtotal ?? null;
   const savedAmountLabel = currentRevision?.price_class === "gross" ? "Bruttó árbesorolás összege" : currentRevision?.price_class === "net" ? "Nettó árbesorolás összege" : "Árbesorolás nélküli összeg";
   const latestUrl = `/ajanlatok/${quotationId}?organization=${organizationId}`;
+  const pdfRevisionId = selectedRevisionId ?? currentRevisionId;
+  const pdfUrl = quotationId && pdfRevisionId ? `/api/ajanlatok/${quotationId}/pdf?revision=${encodeURIComponent(pdfRevisionId)}` : null;
 
   const setDirtyState = (value: boolean) => { dirtyRef.current = value; setDirty(value); };
   const syncDirty = (nextName = name, nextLines = lines, nextDocument = document) => setDirtyState(JSON.stringify({ name: nextName, lines: nextLines, document: nextDocument }) !== baseline.current);
@@ -177,9 +180,9 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     update(lineIndex, { variantId, priceId, description: `${selected.product.name} · ${selected.variant.name}`, unit: selected.variant.purchasingUnit, unitPrice: price?.amount ?? (previous?.variantId === variantId ? previous.unitPrice : ""), priceClass: "net" });
     setCatalogMessage(price ? `Katalógusár ellenőrizve · ${String(price.provenance ?? "forrás megadva")} · ${price.effectiveDate}` : "Katalógustermék kiválasztva; kézi nettó árat adj meg.");
   };
-  const save = () => {
+  const save = (saveIssuerProfileFirst = false) => {
     if (historical || pending) return;
-    if (issuerDirty) { setResult({ ok: false, code: "VALIDATION", error: "Előbb mentsd a kibocsátói profilt, hogy az ajánlati revízió a friss adatokat rögzítse." }); return; }
+    if (issuerDirty && !saveIssuerProfileFirst) { setResult({ ok: false, code: "VALIDATION", error: "Előbb mentsd a kibocsátói profilt, hogy az ajánlati revízió a friss adatokat rögzítse." }); return; }
     const savedLines = lines.map((line) => ({ ...toPersistedLine(line), priceClass: "net" as const }));
     const payload = JSON.stringify({ quotationId, version, name: name.trim(), lines: savedLines, document });
     try {
@@ -193,6 +196,17 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     form.set("document", JSON.stringify(document));
     setResult({ ok: false, code: "INTERNAL", error: "" });
     startTransition(async () => {
+      if (issuerDirty && saveIssuerProfileFirst) {
+        let profile: Awaited<ReturnType<typeof updateStandaloneIssuerProfileAction>>;
+        try {
+          profile = await updateStandaloneIssuerProfileAction(organizationId, {
+            businessName: issuerProfile.businessName ?? "", businessAddress: issuerProfile.businessAddress ?? "",
+            contactEmail: issuerProfile.contactEmail ?? "", contactPhone: issuerProfile.contactPhone ?? "", taxIdentifier: issuerProfile.taxIdentifier ?? "",
+          });
+        } catch { setIssuerMessage("A kibocsátói profil hálózati mentése nem sikerült; az ajánlati revízió nem készült el."); return; }
+        if (!profile.ok) { setIssuerMessage(profile.error); setResult({ ok: false, code: "INTERNAL", error: "A kibocsátói profil mentése nem sikerült; az ajánlati revízió nem készült el." }); return; }
+        setIssuerProfile(profile.data); issuerDirtyRef.current = false; setIssuerDirty(false); setIssuerMessage("A kibocsátói profil mentve; az ajánlati revízió mentése folyamatban.");
+      }
       let saved: Awaited<ReturnType<typeof saveStandaloneQuotationDraftAction>>;
       try { saved = await saveStandaloneQuotationDraftAction(form); }
       catch { setResult({ ok: false, code: "INTERNAL", error: "A hálózati mentés eredménye nem érkezett meg. Ugyanennek a módosításnak az újrapróbálásakor azonos műveletazonosítót használunk." }); return; }
@@ -233,6 +247,20 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
       {historical && <Link className="primary-button" href={latestUrl}>Legfrissebb revízió megnyitása (v{version})</Link>}
       {historical && <span className="form-message" role="status">Történeti, változtathatatlan revízió megtekintése.</span>}
     </div>
+    {pdfUrl && <div className="standalone-pdf-actions">
+      {dirty || issuerDirty ? <button className="secondary-button" type="button" disabled={pending} onClick={() => setPdfPromptOpen(true)}>PDF-előnézet</button>
+        : <a className="secondary-button" href={pdfUrl} target="_blank" rel="noreferrer">PDF-előnézet</a>}
+      {pdfPromptOpen && <section className="form-message" aria-labelledby="standalone-pdf-unsaved-title">
+        <strong id="standalone-pdf-unsaved-title">Mentetlen módosítások</strong>
+        <p>Az előnézet a mentett v{revisions.find((revision) => revision.id === pdfRevisionId)?.revisionNumber ?? currentRevision?.revision_number ?? version} revízióból készül. A helyi módosításokat nem tartalmazza.</p>
+        {issuerDirty && <p>Módosult a kibocsátói profil is; azt külön mentsd, majd mentsd új ajánlati revízióként, ha az adatoknak szerepelniük kell az előnézetben.</p>}
+        <div className="quotation-add-actions">
+          <button className="secondary-button" type="button" disabled={pending} onClick={() => { setPdfPromptOpen(false); save(true); }}>Mentés előbb</button>
+          <a className="primary-button" href={pdfUrl} target="_blank" rel="noreferrer" onClick={() => setPdfPromptOpen(false)}>Utolsó mentett előnézet megnyitása</a>
+          <button className="text-button" type="button" onClick={() => setPdfPromptOpen(false)}>Mégse</button>
+        </div>
+      </section>}
+    </div>}
     {recovery && !historical && <section className="form-message" role="status"><p>{recovery.current ? "Korábban nem mentett módosítás található ebben a munkamenetben." : "A helyi változat régebbi szerverrevízióból készült, ezért nem állítható vissza automatikusan."}</p>{recovery.current && <button className="secondary-button" type="button" onClick={restoreRecovery}>Változat visszaállítása</button>}<button className="text-button" type="button" onClick={discardRecovery}>Helyi változat elvetése</button></section>}
     <fieldset className="quotation-editor-fields" disabled={historical || pending || !recoveryReady} aria-busy={pending || !recoveryReady}>
       <div className="quotation-meta"><label htmlFor="standalone-name">Ajánlat neve<input id="standalone-name" value={name} onChange={(event) => { setName(event.target.value); syncDirty(event.target.value); setResult({ ok: false, code: "INTERNAL", error: "" }); }} aria-describedby="standalone-name-hint" /></label><small id="standalone-name-hint">Ha üresen hagyod, mentéskor „Belső ajánlati piszkozat” néven mentjük.</small></div>
@@ -299,6 +327,6 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     {!historical && dirty && <p className="form-message" role="status">Mentetlen módosításaid vannak.</p>}
     {!historical && !result.ok && result.error && <div className="form-message is-error" role="alert">{result.error}{result.code === "CONFLICT" && quotationId && <button type="button" className="secondary-button" onClick={() => { if (window.confirm("A legfrissebb revízió betöltése elveti ezt a helyi módosításcsomagot. Megnyitod a szerver legfrissebb változatát?")) { discardRecovery(); window.location.assign(latestUrl); } }}>Legfrissebb revízió megnyitása</button>}</div>}
     {!historical && result.ok && <p className="form-message is-success" role="status">A piszkozat v{result.data.revision_number} revíziója mentve.</p>}
-    {!historical && <button className="primary-button standalone-save" type="button" disabled={pending || !recoveryReady} onClick={save}>{pending ? "Mentés folyamatban…" : "Piszkozat mentése"}</button>}
+    {!historical && <button className="primary-button standalone-save" type="button" disabled={pending || !recoveryReady} onClick={() => save()}>{pending ? "Mentés folyamatban…" : "Piszkozat mentése"}</button>}
   </section>;
 }

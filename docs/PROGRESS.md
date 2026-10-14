@@ -946,3 +946,42 @@ kerekítés; kötelező issuer/recipient mezők; treatment időbeli hatálya; em
 ajánlatszám-formátum és érvényességi szabály. F9.7.6.6.3.2c előtt ezek és
 atomikus/idempotens issuance + immutable issue snapshot + number allocation
 teszt szükséges. Javasolt commit: `feat(F9.7.6.6.3.2b): add tax-neutral quotation financial contract`.
+
+## F9.7.6.6.3.2c — authenticated standalone draft PDF preview
+
+Állapot: **COMPLETE (DRAFT PDF)**. Új, dinamikus `GET
+/api/ajanlatok/[quotationId]/pdf?revision=...` route készít on-demand preview-t
+az explicit mentett standalone revisionből. Az auth session, aktív org-tagság,
+`created_by` és exact revision read ellenőrzött; owner/org/scope mismatch nem
+árulja el a quote létezését. `private, no-store`; nincs service role, storage,
+migráció, státusz-/revision-/számlálóírás.
+
+A meglévő `renderQuotationPdf` adapter és Noto Sans/A4/React-PDF infrastruktúra
+új standalone-draft ágat kapott. Project `QuotationPdfDocument` és route
+változatlan. Saved issuer/recipient/document snapshot, exact revision number,
+line `unitPrice`/`lineTotal` és DB subtotal jelenik meg; régi customer/catalog
+adat nincs olvasva. Csak HUF/net, financial contract/totals/line összegegyezéssel
+renderelhető. Minden oldalon látható draft jelölés és rövid tájékoztatás; nincs
+VAT, gross/payable, issue date vagy number. Történeti revízió ID explicit.
+
+Bizonyíték: fókuszált Vitest 2 fájl / 9 teszt PASS (PDF contract/render, route
+creator/session/org/revision/cache/hiba esetei); 70 soros tényleges PDF 5 A4
+oldal, `pdfinfo` és `pdftotext` igazolta a draft notice-t mind az öt oldalon,
+a net labels/tételek/összesen tartalmat, valamint a VAT/gross/payable feliratok
+hiányát. Authenticated Brave smoke-ban egy fictional DEMO V1 25 000 HUF net
+LABOR sort mentettünk, PDF megnyílt, issuer/recipient/item/totals látszott,
+szerkesztőhöz visszatérve továbbra is v1/draft. Editor readiness panelje ezen a
+DEMO adaton financial completeness/consistency blokkolót mutatott; PDF backend
+ugyanakkor a mentett snapshotot elfogadta és renderelte. Ez eltérő readiness
+útvonal korlát; `canIssue` mindenképp false. iPad/iPhone és valós Supabase Auth
+route integration nem futott (security route mock + authenticated UI smoke).
+
+Futott: `npx vitest run src/features/quotations/standalone-quotation-pdf.test.ts src/app/api/ajanlatok/standalone-pdf-route.test.ts` 8/8; `npm run lint`,
+`npm run typecheck`, `npm run build` (Next.js 16.4 webpack). DB/Auth/pgTAP nem
+futott, séma nem változott. `git diff --check` dokumentációval együtt fut még.
+Hosted Supabase, reset, commit, push, deploy nem történt.
+
+Fennmarad: issuance `canIssue=false`; adójóváhagyás/engine, atomikus finalize,
+hivatalos szám és issued PDF nincs. Readiness/UI összegellenőrzés eltérését
+külön vizsgálni kell, mielőtt kiállítási feladat indul. Javasolt commit:
+`feat(F9.7.6.6.3.2c): preview saved standalone quotation PDFs`.

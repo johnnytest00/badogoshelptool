@@ -222,3 +222,35 @@ Lokális pgTAP: a bővített `018_standalone_quotations.sql` 38/38 PASS és a
 fókuszált editor/readiness browser smoke PASS. Teljes tesztkészlet és projekt-PDF
 regresszió nem futott; részletek a [TEST_MATRIX](TEST_MATRIX.md) 6.3.2b sorain.
 
+## F9.7.6.6.3.2c — mentett standalone PDF piszkozat-előnézet
+
+Az editor csak mentett revízió mellett mutatja a `PDF-előnézet` műveletet. Ha a
+helyi ajánlati vagy kibocsátói profil módosult, a felhasználó külön választhatja
+a mentést, az utolsó mentett revízió előnézetét vagy a megszakítást. Az előnézet
+explicit revízióazonosítót ad át, így történeti revízió is a saját immutable
+snapshotját jeleníti meg.
+
+A `/api/ajanlatok/[quotationId]/pdf` route sessiont és aktív tagságot kér,
+creator-owned standalone ajánlatot ellenőriz, majd a meglévő
+`get_standalone_quotation_revision` RPC-vel olvas. Nem fogad organization ID-t
+a böngészőtől. A project PDF React-PDF dokumentuma változatlan; a közös adapter
+standalone-draft ága az A4/font/stílus elemeket újrahasználja. A mentett issuer,
+recipient, dokumentumszöveg, sorár, `lineTotal`, subtotal, pénznem és revision
+ID a forrás; aktuális ügyfél- vagy katalógusadatot nem olvas.
+
+Pénzügy: csak konzisztens HUF/net revision renderelhető, a feliratok
+`Nettó egységár`, `Nettó tételösszeg`, `Összesen nettó`. Minden PDF-oldal jelöli
+a `PISZKOZAT` és `NEM VÉGLEGES AJÁNLAT` állapotot, plusz a rövid tájékoztatást.
+Nincs adó, bruttó/fizetendő összeg, kiállítási dátum vagy szám; invalid snapshot
+422 hibával áll le. A route csak olvas és `private, no-store` választ ad.
+
+Lokális ellenőrzés: fókuszált PDF/adatvalidáció és route authorization tesztek,
+React-PDF bytes és ötoldalas PDF szövegkivonat (minden oldalon draft-jelölés),
+HUF/net címkék és hiányzó VAT/fizetendő/bruttó címkék; authenticated DEMO V1
+mentés → PDF megnyitás → editorba visszatérés. A PDF után a szerkesztő V1 maradt.
+Részletes teszteredmény a `TEST_MATRIX.md` F9.7.6.6.3.2c blokkjában.
+
+Korlát: standalone preview nem issuance. `canIssue = false`; adójóváhagyás,
+kiállíthatósághoz szükséges adatok, atomikus finalize, hivatalos dokumentumszám
+és hivatalos PDF továbbra sincs. iPad/iPhone QA külön nem futott.
+

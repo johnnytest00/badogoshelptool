@@ -1,8 +1,9 @@
 # Standalone ajánlat véglegesítése és PDF — architektúra
 
-Állapot: **DESIGN, implementálható a nyitott üzleti/adózási döntések lezárása után.**
-Ez a dokumentum az F9.7.6.6.3.1 terv; nem vezet be migrációt, adószámítást,
-véglegesítő RPC-t vagy PDF-route-ot.
+Állapot: **A véglegesítés továbbra is DESIGN; az F9.7.6.6.3.2c draft PDF előnézet implementálva.**
+Ez a dokumentum az F9.7.6.6.3.1 issuance-tervét és a lentebb rögzített, külön
+piszkozat-előnézeti implementációt tartalmazza. A preview nem vezet be
+adószámítást, véglegesítő RPC-t vagy kiállított PDF-et.
 
 ## Bizonyított jelenlegi szerződés
 
@@ -269,3 +270,35 @@ Hiányzó issuance prerequisites: atomikus expected-revision finalize RPC,
 idempotencia és concurrency teszt, issue snapshot és számlálótranzakció,
 jóváhagyott tax-rule-mátrix, valamint standalone issued PDF. E milestone ezekhez
 nem allokál számot és nem hoz létre issuance-t.
+
+## F9.7.6.6.3.2c — mentett standalone piszkozat PDF előnézet
+
+Az on-demand `GET /api/ajanlatok/{quotationId}/pdf?revision={revisionId}` route
+a `getAuthContext()` sessiont, az aktív szervezeti tagságot és a quote
+`created_by = auth.userId` tulajdonosát ellenőrzi. Az organization ID csak a
+hitelesített quote rekordból származik; a revíziót a meglévő
+`get_standalone_quotation_revision` RPC-vel, explicit revision ID-val olvassa.
+Hiányzó, más creator/szervezet által birtokolt quote vagy revízió azonos 404-et
+ad. A válasz `private, no-store`, nem használ service role-t és nem ír storage-ba.
+
+A `renderQuotationPdf` meglévő adapter kapott standalone-draft ágat; a meglévő
+`QuotationPdfDocument`, projekt route és project adatszemantika változatlan.
+Az önálló oldal ugyanazt az A4, font, fejléc/táblázat és formázási alapot használja,
+de mentett issuer/recipient snapshotból, dokumentumszövegből, kiválasztott
+revízióból és annak tételsnapshotjaiból épül. Minden oldalon rögzített,
+színfüggetlen `PISZKOZAT` / `NEM VÉGLEGES AJÁNLAT` címke és a
+„Tájékoztató piszkozat. Nem véglegesített ajánlat.” pontosítás jelenik meg.
+Kiállítási dátum/szám nincs.
+
+Csak HUF/net és a financial contracttal, totals snapshot-tal, mentett sorárakkal,
+soronkénti line totalokkal és subtotal-lal konzisztens revision renderelhető. A
+PDF az eltárolt sorösszegeket jeleníti meg; a szerver kizárólag ellenőrzéshez
+számol újra. Gross, hiányos, régi financial contract nélküli vagy ellentmondó
+adat actionable 422 hibával elutasított. ÁFA, bruttó/fizetendő vagy 0% adósor
+nincs. Az editor a mentett aktuális vagy explicit történeti revízió PDF-jét
+nyitja meg; mentetlen módosításnál mentés / utolsó mentett előnézet / mégse
+választást mutat.
+
+**Fennmaradó issuance határ:** `canIssue = false`; jóváhagyott adókezelés,
+kötelező kiállítási adatok, atomikus/idempotens véglegesítés, hivatalos szám és
+kiállított dokumentum továbbra sincs.

@@ -917,3 +917,17 @@ Javasolt commit: `feat(F9.7.6.3): persist standalone calculations`.
 | Diff | PASS | `git diff --check`. |
 
 Nyitott: accounting jóváhagyott treatment/rate/formula/rounding, issuer status/joghatóság, NET/GROSS jelentése, kötelező dokumentumadatok, expiry és ajánlatszám-formátum. Issuance továbbra sincs: nincs finalization RPC, szám-allokáció, immutable issue snapshot vagy issued PDF.
+
+## F9.7.6.6.3.2c — standalone draft PDF preview
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| PDF snapshot validation / render | PASS | `npx vitest run src/features/quotations/standalone-quotation-pdf.test.ts`: manual, LABOR, catalog price snapshot preservation; gross/contradictory contract denial; rendered PDF bytes and multipage page tree; shared project quotation document remains renderable. |
+| Auth route | PASS, mocked boundaries | 9 focused tests total across PDF and route suites. Route tests cover authorized creator/exact revision, anonymous 401, other creator/cross-org/expired membership/forged quote/revision denial, private/no-store and safe filename. No direct Auth integration test was added. |
+| Generated PDF content | PASS | Local 70-line PDF generated as 5 A4 pages; bundled Poppler `pdfinfo` + `pdftotext` verified repeated `PISZKOZAT`, `NEM VÉGLEGES AJÁNLAT` and clarification on each page, NET HUF labels/saved item content, and absence of VAT/gross/payable labels. |
+| Authenticated browser | PASS, one focused local DEMO workflow | New standalone DEMO V1, one LABOR line at 25,000 HUF net; PDF viewer showed saved issuer/recipient, description, price and net subtotal. Returned to editor; v1 and draft unchanged. The editor readiness panel separately displayed financial completeness/consistency blockers for this demo revision; that path needs follow-up before issuance. No historical V1-from-V2 or mobile viewport run. |
+| Typecheck / lint / build | PASS | `npm run typecheck`; `npm run lint`; `npm run build` (Next.js 16.4.0 webpack), rerun after the final PDF revision-label correction. |
+| DB / Auth integration / lifecycle | Not run | No schema or write contract changed. Route-level auth is covered with mocked auth/session boundaries plus local authenticated browser access; no real Auth-route integration or pgTAP was run. No revision/status/number mutations in the route. |
+| Diff check | PASS | `git diff --check` after code and documentation updates. |
+
+Issuance remains blocked; `canIssue = false`. Tax treatment, atomic finalization, official number and issued PDF are outside this milestone.

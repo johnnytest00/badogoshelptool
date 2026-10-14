@@ -10,6 +10,21 @@ export type QuotationDocumentData = {
   documentSnapshot: { project?: { name?: string; location?: string | null; description?: string | null }; client?: { name?: string; email?: string | null; phone?: string | null; billingAddress?: string | null } | null } | null;
 };
 
+export type StandaloneDraftQuotationDocumentData = {
+  mode: "standalone-draft";
+  organizationName: string;
+  quotation: { id: string; name: string; currency: "HUF" };
+  revision: { id: string; number: number; lines: Array<Record<string, unknown>>; subtotal: string; currency: "HUF" };
+  issuer: Record<string, unknown>;
+  recipient: Record<string, unknown>;
+  reference: string | null;
+  validUntil: string | null;
+  notes: string | null;
+  terms: string | null;
+};
+
+export type QuotationPdfData = QuotationDocumentData | StandaloneDraftQuotationDocumentData;
+
 const styles = StyleSheet.create({
   page: { fontFamily: "Noto Sans", fontSize: 9, color: "#1b2833", paddingTop: 42, paddingBottom: 44, paddingHorizontal: 46, backgroundColor: "#ffffff" },
   header: { borderBottomWidth: 1, borderBottomColor: "#d9e1e5", paddingBottom: 16, marginBottom: 22, flexDirection: "row", justifyContent: "space-between" },
@@ -37,6 +52,9 @@ const styles = StyleSheet.create({
   total: { fontSize: 14, fontWeight: 700, color: "#173d4a", borderTopWidth: 1, borderTopColor: "#d9e1e5", paddingTop: 8, marginTop: 4 },
   warning: { backgroundColor: "#fff6df", color: "#704e00", padding: 8, marginTop: 14, borderLeftWidth: 3, borderLeftColor: "#d4a72c", fontSize: 8 },
   footer: { position: "absolute", bottom: 20, left: 46, right: 46, borderTopWidth: 1, borderTopColor: "#e8edef", paddingTop: 6, flexDirection: "row", justifyContent: "space-between", fontSize: 7, color: "#80909a" },
+  draftNotice: { borderWidth: 2, borderColor: "#8b2d20", paddingVertical: 7, paddingHorizontal: 9, marginBottom: 12, color: "#7c261c", fontSize: 11, fontWeight: 700, textAlign: "center", letterSpacing: 0.5 },
+  draftClarification: { position: "absolute", bottom: 7, left: 46, right: 46, textAlign: "center", fontSize: 7.5, fontWeight: 700, color: "#7c261c" },
+  standaloneTitle: { fontSize: 19, fontWeight: 700, color: "#173d4a", marginBottom: 4 },
 });
 
 const asText = (value: unknown) => typeof value === "string" ? value : value == null ? "" : String(value);
@@ -91,6 +109,56 @@ export function QuotationPdfDocument({ data }: Readonly<{ data: QuotationDocumen
       <View style={styles.summaryWrap}><View style={styles.summary}><Text style={styles.label}>Pénzügyi összesítés</Text>{categoryTotals.map(([label, value]) => value != null ? <View style={styles.summaryRow} key={label}><Text style={styles.summaryLabel}>{label}</Text><Text>{money(value, data.quotation.currency)}</Text></View> : null)}<View style={[styles.summaryRow, styles.total]}><Text>Ajánlati összeg</Text><Text>{money(data.revision.subtotal, data.quotation.currency)}</Text></View><Text style={styles.note}>{data.revision.priceClass === "net" ? "Nettó összeg" : data.revision.priceClass === "gross" ? "Bruttó összeg" : "Az árbesorolás nincs megadva"}</Text></View></View>
       {!complete || data.revision.priceClass == null ? <Text style={styles.warning}>FIGYELMEZTETÉS: Ez a dokumentum hiányos ajánlati piszkozat. Az itt nem szereplő ár- vagy adóinformációt a rendszer nem pótolja, és a dokumentum nem minősül számlának.</Text> : null}
       <View style={styles.footer} fixed><Text>{data.organizationName} · {data.quotation.name} · v{revisionLabel}</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages} oldal`} /></View>
+    </Page>
+  </Document>;
+}
+
+function optionalSnapshotText(snapshot: Record<string, unknown>, key: string) {
+  const value = snapshot[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+export function StandaloneDraftQuotationPdfDocument({ data }: Readonly<{ data: StandaloneDraftQuotationDocumentData }>) {
+  const revisionLabel = String(data.revision.number);
+  return <Document title={`Piszkozat - ${data.quotation.name}`} author={data.organizationName}>
+    <Page size="A4" style={styles.page} wrap>
+      <View style={styles.header} fixed>
+        <View><Text style={styles.eyebrow}>Önálló ajánlati piszkozat</Text><Text style={styles.org}>{data.organizationName || "Kibocsátó nincs megadva"}</Text></View>
+        <View><Text style={styles.title}>PISZKOZAT</Text><Text style={styles.reference}>{`NEM VÉGLEGES AJÁNLAT · v${revisionLabel}`}</Text></View>
+      </View>
+      <View style={styles.draftNotice} fixed><Text>PISZKOZAT</Text><Text>NEM VÉGLEGES AJÁNLAT</Text></View>
+      <Text style={styles.standaloneTitle}>{data.quotation.name}</Text>
+      <Text style={styles.reference}>{`Mentett revízió: v${revisionLabel}`}</Text>
+      {data.reference ? <Text style={styles.reference}>Belső hivatkozás: {data.reference}</Text> : null}
+      {data.validUntil ? <Text style={styles.reference}>Tervezett érvényesség: {data.validUntil}</Text> : null}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Dokumentumadatok</Text>
+        <View style={styles.infoGrid}>
+          <View style={styles.infoBlock}><Text style={styles.label}>Kibocsátó · mentett pillanatkép</Text>
+            <Text style={styles.value}>{optionalSnapshotText(data.issuer, "businessName") ?? optionalSnapshotText(data.issuer, "organizationName") ?? "Nincs megadva"}</Text>
+            {(["businessAddress", "contactEmail", "contactPhone", "taxIdentifier"] as const).map((key) => optionalSnapshotText(data.issuer, key) ? <Text key={key} style={styles.value}>{optionalSnapshotText(data.issuer, key)}</Text> : null)}
+          </View>
+          <View style={styles.infoBlock}><Text style={styles.label}>Címzett · mentett pillanatkép</Text>
+            <Text style={styles.value}>{optionalSnapshotText(data.recipient, "name") ?? "Nincs megadva"}</Text>
+            {(["address", "email", "phone", "taxIdentifier"] as const).map((key) => optionalSnapshotText(data.recipient, key) ? <Text key={key} style={styles.value}>{optionalSnapshotText(data.recipient, key)}</Text> : null)}
+          </View>
+        </View>
+      </View>
+      {data.notes ? <View style={styles.section}><Text style={styles.sectionTitle}>Megjegyzés</Text><Text>{data.notes}</Text></View> : null}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Tételek</Text>
+        <View style={styles.table}>
+          <View style={styles.tableHeader}><Text style={styles.colNo}>#</Text><Text style={styles.colDescription}>Megnevezés</Text><Text style={styles.colQty}>Menny.</Text><Text style={styles.colUnit}>Egység</Text><Text style={styles.colPrice}>Nettó egységár</Text><Text style={styles.colTotal}>Nettó tételösszeg</Text></View>
+          {data.revision.lines.map((line, index) => <View style={styles.row} key={`${data.revision.id}-${index}`} wrap={false}>
+            <Text style={styles.colNo}>{index + 1}</Text><View style={styles.colDescription}><Text>{asText(line.description) || "Nincs megadva"}</Text>{line.notes ? <Text style={styles.note}>{asText(line.notes)}</Text> : null}<Text style={styles.note}>{asText(line.type) === "LABOR" ? "Munkadíj" : asText(line.type) === "MATERIAL" ? "Anyag" : "Egyéb"}</Text></View>
+            <Text style={styles.colQty}>{asText(line.quantity)}</Text><Text style={styles.colUnit}>{asText(line.unit)}</Text><Text style={styles.colPrice}>{money(line.unitPrice, "HUF")}</Text><Text style={styles.colTotal}>{money(line.lineTotal, "HUF")}</Text>
+          </View>)}
+        </View>
+      </View>
+      {data.terms ? <View style={styles.section}><Text style={styles.sectionTitle}>Feltételek</Text><Text>{data.terms}</Text></View> : null}
+      <View style={styles.summaryWrap}><View style={styles.summary}><Text style={styles.total}>Összesen nettó<Text>  {money(data.revision.subtotal, "HUF")}</Text></Text></View></View>
+      <Text style={styles.draftClarification} fixed>Tájékoztató piszkozat. Nem véglegesített ajánlat.</Text>
+      <View style={styles.footer} fixed><Text>{`${data.quotation.name} · v${revisionLabel} · PISZKOZAT`}</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages} oldal`} /></View>
     </Page>
   </Document>;
 }
