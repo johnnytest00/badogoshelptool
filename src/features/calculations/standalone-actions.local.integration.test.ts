@@ -10,11 +10,11 @@ vi.mock("@/infrastructure/supabase/server", () => ({ createClient: async () => s
 vi.mock("@/features/auth/auth.server", () => ({ getAuthContext: async () => serverState.auth }));
 
 import { getStandaloneCalculation, listStandaloneCalculations } from "./standalone-data";
-import { saveStandaloneCalculationAction } from "./standalone-actions";
+import { associateStandaloneCalculationAction, saveStandaloneCalculationAction } from "./standalone-actions";
 
 const runLocal = process.env.RUN_LOCAL_SUPABASE_ACTION_TESTS === "1";
 const localDescribe = runLocal ? describe : describe.skip;
-const ids = { organization: randomUUID(), owner: "" as string, other: "" as string };
+const ids = { organization: randomUUID(), project: randomUUID(), owner: "" as string, other: "" as string };
 const password = `Local-${randomUUID()}-Aa1`;
 const email = (label: string) => `f9763-standalone-${label}-${randomUUID()}@local.test`;
 let admin: SupabaseClient<Database>;
@@ -59,6 +59,11 @@ localDescribe("F9.7.6.3 local authenticated standalone actions", () => {
       { organization_id: ids.organization, user_id: otherUser.id, role: "member" },
     ]);
     if (membershipError) throw membershipError;
+    const { error: projectError } = await admin.from("projects").insert({
+      id: ids.project, organization_id: ids.organization, name: "DEMO F9.7.6.5 association",
+      project_type: "roof_renovation", status: "draft", created_by: ownerUser.id,
+    });
+    if (projectError) throw projectError;
     ownerClient = createSupabaseClient<Database>(status.url, status.publishableKey, { auth: { autoRefreshToken: false, persistSession: false } });
     otherClient = createSupabaseClient<Database>(status.url, status.publishableKey, { auth: { autoRefreshToken: false, persistSession: false } });
     const ownerSignIn = await ownerClient.auth.signInWithPassword({ email: ownerUser.email!, password });
@@ -71,10 +76,14 @@ localDescribe("F9.7.6.3 local authenticated standalone actions", () => {
   afterAll(async () => {
     if (!admin) return;
     execFileSync("supabase", ["db", "query", "--local", `do $$ begin
+      alter table public.calculation_project_associations disable trigger calculation_project_associations_immutable;
+      delete from public.calculation_project_associations where organization_id='${ids.organization}';
+      alter table public.calculation_project_associations enable trigger calculation_project_associations_immutable;
       update public.calculations set current_revision_id=null where organization_id='${ids.organization}';
       alter table public.calculation_revisions disable trigger calculation_revisions_immutable;
       delete from public.calculation_revisions where organization_id='${ids.organization}';
       delete from public.calculations where organization_id='${ids.organization}';
+      delete from public.projects where organization_id='${ids.organization}';
       delete from public.organization_members where organization_id='${ids.organization}';
       delete from public.organizations where id='${ids.organization}';
       alter table public.calculation_revisions enable trigger calculation_revisions_immutable;
@@ -100,6 +109,22 @@ localDescribe("F9.7.6.3 local authenticated standalone actions", () => {
     expect((await listStandaloneCalculations(ids.organization)).some((item) => item.calculationId === gutterId)).toBe(true);
     expect(await getStandaloneCalculation(ids.organization, gutterId, 1)).toMatchObject({ currentRevisionNumber: 2, revisions: [{ revisionNumber: 1 }] });
 
+    const currentGutter = await getStandaloneCalculation(ids.organization, gutterId);
+    const associationRequest = form({
+      organizationId: ids.organization, projectId: ids.project, sourceCalculationId: gutterId,
+      sourceRevisionId: currentGutter!.currentRevisionId!, operationId: randomUUID(), name: "DEMO projekt eresz",
+      expectedProjectRevisionNumber: "0",
+    });
+    const firstAssociation = await associateStandaloneCalculationAction(associationRequest);
+    expect(firstAssociation).toMatchObject({ ok: true, revisionNumber: 1, reused: false });
+    expect(await associateStandaloneCalculationAction(associationRequest)).toMatchObject({ ok: true, revisionNumber: 1, reused: true });
+    const mismatchRequest = form({
+      organizationId: ids.organization, projectId: ids.project, sourceCalculationId: gutterId,
+      sourceRevisionId: currentGutter!.currentRevisionId!, operationId: (associationRequest.get("operationId") as string),
+      name: "DEMO másik név", expectedProjectRevisionNumber: "0",
+    });
+    expect(await associateStandaloneCalculationAction(mismatchRequest)).toMatchObject({ ok: false });
+
     const flashingId = randomUUID();
     expect(await save("sheet_metal.flashings.material-estimate", flashingId, "DEMO szegély", flashingInput, 0)).toMatchObject({ ok: true, revisionNumber: 1 });
     const flashing = await getStandaloneCalculation(ids.organization, flashingId);
@@ -114,5 +139,6 @@ localDescribe("F9.7.6.3 local authenticated standalone actions", () => {
     serverState.auth = context(otherUser.id);
     expect(await listStandaloneCalculations(ids.organization)).toEqual([]);
     expect(await getStandaloneCalculation(ids.organization, gutterId)).toBeNull();
+    expect(await associateStandaloneCalculationAction(associationRequest)).toMatchObject({ ok: false });
   });
 });

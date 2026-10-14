@@ -788,6 +788,20 @@ Javasolt commit: `feat(F9.7.6.2): add global roof geometry preview`.
 
 Állapot PARTIAL, amíg az autentikált böngészős V1/V2 acceptance nem bizonyított. Javasolt commit: `feat(F9.7.6.4): integrate standalone calculator frontend`.
 
+## F9.7.6.5.1 — standalone calculation project association (backend)
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Local migration history / apply | PASS | `SUPABASE_TELEMETRY_DISABLED=1 supabase migration list --local`; new `20261014020000` ledger/RPC, `20261014020100` profile signature correction, and `20261014020200` append-only trigger applied with `supabase migration up --local`. Local only, incremental, no reset. |
+| Local pgTAP authorization / provenance / regression | PASS | `SUPABASE_TELEMETRY_DISABLED=1 supabase test db --local supabase/tests/database/009_gutter_calculation.sql supabase/tests/database/011_flashing_calculation.sql supabase/tests/database/013_sheet_metal_profile.sql supabase/tests/database/016_standalone_calculations.sql supabase/tests/database/017_standalone_project_association.sql`: 5 files / 118 assertions. Covers exact revision and full source snapshot, org/creator/type, source immutability, privileged ledger UPDATE/DELETE rejection, cross-org destination, same-org noncreator, historical source, gutter/flashing/profile target contracts, same-key reuse and payload mismatch; existing project and standalone RPC regression. |
+| Downstream project takeoff regression | PASS | `SUPABASE_TELEMETRY_DISABLED=1 supabase test db --local supabase/tests/database/010_gutter_takeoff_hardening.sql supabase/tests/database/012_flashing_takeoff_integration.sql supabase/tests/database/015_profile_takeoff_integration.sql`: 3 files / 94 assertions. Existing gutter/flashing/profile takeoff paths and approved record immutability remain intact; association itself creates no takeoff. |
+| Authenticated Server Action | PASS | `RUN_LOCAL_SUPABASE_ACTION_TESTS=1 SUPABASE_TELEMETRY_DISABLED=1 npx vitest run src/features/calculations/standalone-actions.local.integration.test.ts`: 2 real local Auth users, 1/1 test. Owner associates; retry reuses; changed payload and nonowner source reject. Admin is limited to fixture/auth setup and cleanup. |
+| Independent-connection idempotency | PASS | `SUPABASE_TELEMETRY_DISABLED=1 node scripts/verify-standalone-association-concurrency.mjs`: two authenticated PostgreSQL connections enter together with same operation/payload; one association row, one project revision, same target IDs, `reused=false/true`. Temporary DEMO project/source and helper objects are removed. |
+| Focused TypeScript / typecheck / lint / build | PASS | Targeted standalone/domain Vitest: 4 files / 41 passed; default run skips the opt-in local Auth test, separately passed above. `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) passed. |
+| Browser / hosted / full historical suite | Not run | Backend-only milestone; no project picker yet. No hosted Supabase changes and no database reset. |
+
+Állapot: **COMPLETE (BACKEND)**; F9.7.6.5.2 frontend integration remains next. Javasolt commit: `feat(F9.7.6.5.1): associate standalone calculations with projects`.
+
 ## F9.7.6.3 — standalone calculation persistence
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

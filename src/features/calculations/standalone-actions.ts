@@ -10,6 +10,7 @@ import type { Json } from "@/infrastructure/supabase/database.types";
 import { prepareStandaloneRevision, standaloneCalculatorTypes, type StandaloneCalculatorType } from "./standalone-persistence";
 
 export type StandaloneSaveResult = { ok: true; calculationId: string; revisionId: string; revisionNumber: number } | { ok: false; error: string };
+export type StandaloneAssociationResult = { ok: true; associationId: string; calculationId: string; revisionId: string; revisionNumber: number; reused: boolean } | { ok: false; error: string };
 const read = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
@@ -72,5 +73,95 @@ export async function saveStandaloneCalculationAction(data: FormData): Promise<S
         : error?.code === "22023" ? "A számítás adatai nem felelnek meg a mentési feltételeknek. Ellenőrizd a megadott értékeket."
       : "A számítás mentése nem sikerült." };
   return { ok: true, calculationId: saved[0].calculation_id, revisionId: saved[0].calculation_revision_id, revisionNumber: saved[0].revision_number };
+}
+
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item)
+    ? Object.fromEntries(Object.entries(item as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : item);
+}
+
+/** Copies a current standalone snapshot into the existing project revision workflow. */
+export async function associateStandaloneCalculationAction(data: FormData): Promise<StandaloneAssociationResult> {
+  const organizationId = read(data, "organizationId"), projectId = read(data, "projectId");
+  const sourceCalculationId = read(data, "sourceCalculationId"), sourceRevisionId = read(data, "sourceRevisionId");
+  const operationId = read(data, "operationId"), projectCalculationId = read(data, "projectCalculationId");
+  const nameInput = read(data, "name");
+  const expectedProjectRevisionNumber = Number(read(data, "expectedProjectRevisionNumber"));
+  if (![organizationId, projectId, sourceCalculationId, sourceRevisionId, operationId].every(isUuid)) {
+    return { ok: false, error: "A projektkapcsolás azonosítója érvénytelen." };
+  }
+  if (!Number.isSafeInteger(expectedProjectRevisionNumber) || expectedProjectRevisionNumber < 0
+    || (projectCalculationId && !isUuid(projectCalculationId))) {
+    return { ok: false, error: "A célprojekt revízióadata érvénytelen." };
+  }
+  const auth = await getAuthContext();
+  if (!auth?.organizations.some((organization) => organization.id === organizationId)) {
+    return { ok: false, error: "Ehhez a műhelyhez nincs hozzáférésed." };
+  }
+
+  const supabase = await createClient();
+  const { data: source, error: sourceError } = await supabase.from("calculations")
+    .select("id, organization_id, ownership_scope, created_by, calculator_type, display_name, current_revision_id")
+    .eq("id", sourceCalculationId).eq("organization_id", organizationId).eq("ownership_scope", "standalone").maybeSingle();
+  if (sourceError || !source || source.created_by !== auth.userId) {
+    return { ok: false, error: "A forrásszámítás nem érhető el a fiókod számára." };
+  }
+  if (!standaloneCalculatorTypes.includes(source.calculator_type as StandaloneCalculatorType)) {
+    return { ok: false, error: "Ez a kalkulátortípus nem kapcsolható projekthez." };
+  }
+  if (source.current_revision_id !== sourceRevisionId) {
+    return { ok: false, error: "Csak a forrásszámítás aktuális revíziója kapcsolható projekthez." };
+  }
+  const [{ data: project }, { data: revision, error: revisionError }] = await Promise.all([
+    supabase.from("projects").select("id").eq("id", projectId).eq("organization_id", organizationId).maybeSingle(),
+    supabase.from("calculation_revisions")
+      .select("id, calculation_id, input_snapshot, output_snapshot, data_provenance, validation_status, input_schema_version, calculator_implementation_version, warnings")
+      .eq("id", sourceRevisionId).eq("calculation_id", sourceCalculationId).eq("organization_id", organizationId).maybeSingle(),
+  ]);
+  if (!project) return { ok: false, error: "A projekt nem található a kiválasztott műhelyben." };
+  if (revisionError || !revision || !["estimated", "user_provided", "demo"].includes(revision.validation_status)
+    || revision.input_schema_version !== "1.0.0" || revision.calculator_implementation_version !== "1.0.0") {
+    return { ok: false, error: "A kiválasztott forrásrevízió hiányzik vagy nem támogatott." };
+  }
+
+  const targetProfileId = source.calculator_type === "sheet_metal.profiles.flat-pattern" ? projectCalculationId : sourceCalculationId;
+  if (source.calculator_type === "sheet_metal.profiles.flat-pattern" && !projectCalculationId) {
+    return { ok: false, error: "A lemezprofil új projektazonosítója hiányzik." };
+  }
+  const name = nameInput || source.display_name;
+  const rawInput = source.calculator_type === "sheet_metal.profiles.flat-pattern" && revision.input_snapshot
+    && typeof revision.input_snapshot === "object" && !Array.isArray(revision.input_snapshot)
+    ? { ...revision.input_snapshot, profileId: targetProfileId }
+    : revision.input_snapshot;
+  const prepared = prepareStandaloneRevision(source.calculator_type, rawInput, targetProfileId, name);
+  if (!prepared.ok) return prepared;
+  const sameSourceInputs = source.calculator_type === "sheet_metal.profiles.flat-pattern"
+    ? stableJson({ ...(prepared.value.input as Record<string, unknown>), profileId: (revision.input_snapshot as Record<string, unknown>).profileId }) === stableJson(revision.input_snapshot)
+    : stableJson(prepared.value.input) === stableJson(revision.input_snapshot);
+  if (!sameSourceInputs || stableJson(prepared.value.output) !== stableJson(revision.output_snapshot)) {
+    return { ok: false, error: "A forrássnapshot és az újraszámított eredmény nem egyezik." };
+  }
+
+  const rpcArgs = {
+    p_organization_id: organizationId,
+    p_project_id: projectId,
+    p_source_calculation_id: sourceCalculationId,
+    p_source_revision_id: sourceRevisionId,
+    p_operation_id: operationId,
+    p_name: name,
+    p_expected_project_revision_number: expectedProjectRevisionNumber,
+    p_project_calculation_id: source.calculator_type === "sheet_metal.profiles.flat-pattern" ? projectCalculationId : null,
+    p_input_data: prepared.value.input as unknown as Json,
+    p_output_data: prepared.value.output as Json,
+  };
+  const { data: associated, error } = await supabase.rpc("associate_standalone_calculation_to_project", rpcArgs);
+  if (error || !associated?.[0]) return { ok: false, error: error?.code === "40001"
+    ? "A forrás vagy a projekt számítása időközben megváltozott. Töltsd be az aktuális adatokat, majd indíts új műveletet."
+    : error?.code === "42501" ? "A forrás vagy a projekt nem érhető el a fiókod számára."
+      : error?.code === "P0002" ? "A kiválasztott forrásrevízió hiányzik vagy nem használható."
+        : error?.code === "22023" ? "A projektkapcsolás adatai érvénytelenek, vagy a műveletazonosító más adatokhoz tartozik."
+          : "A projektkapcsolás nem sikerült." };
+  return { ok: true, associationId: associated[0].association_id, calculationId: associated[0].project_calculation_id,
+    revisionId: associated[0].project_revision_id, revisionNumber: associated[0].revision_number, reused: associated[0].reused };
 }
 

@@ -23,6 +23,44 @@ export type Database = {
           }
         },"public": {
           Tables: {
+            "calculation_project_associations": {
+                  Row: { "calculator_type": string,"created_at": string,"created_by": string,"id": string,"operation_id": string,"organization_id": string,"project_calculation_id": string,"project_id": string,"project_revision_id": string,"request_payload": NonNullable<Json>,"source_calculation_id": string,"source_creator_id": string,"source_revision_id": string,"source_revision_snapshot": NonNullable<Json> }
+                  Insert: { "calculator_type": string,"created_at"?: string,"created_by": string,"id"?: string,"operation_id": string,"organization_id": string,"project_calculation_id": string,"project_id": string,"project_revision_id": string,"request_payload": NonNullable<Json>,"source_calculation_id": string,"source_creator_id": string,"source_revision_id": string,"source_revision_snapshot": NonNullable<Json> }
+                  Update: { "calculator_type"?: string,"created_at"?: string,"created_by"?: string,"id"?: string,"operation_id"?: string,"organization_id"?: string,"project_calculation_id"?: string,"project_id"?: string,"project_revision_id"?: string,"request_payload"?: NonNullable<Json>,"source_calculation_id"?: string,"source_creator_id"?: string,"source_revision_id"?: string,"source_revision_snapshot"?: NonNullable<Json> }
+                  Relationships: [
+                    {
+      foreignKeyName: "calculation_project_associations_project_fk"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "calculation_project_associations_source_fk"
+      columns: ["source_calculation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "calculations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "calculation_project_associations_source_revision_fk"
+      columns: ["source_revision_id","source_calculation_id"]
+isOneToOne: false
+      referencedRelation: "calculation_revisions"
+      referencedColumns: ["id","calculation_id"]
+    },{
+      foreignKeyName: "calculation_project_associations_target_fk"
+      columns: ["project_calculation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "calculations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "calculation_project_associations_target_revision_fk"
+      columns: ["project_revision_id","project_calculation_id"]
+isOneToOne: false
+      referencedRelation: "calculation_revisions"
+      referencedColumns: ["id","calculation_id"]
+    }
+                  ]
+                },
             "calculation_dependencies": {
                   Row: {
                     "created_at": string,"dependency_type": string,"downstream_calculation_revision_id": string,"id": string,"organization_id": string,"upstream_calculation_revision_id": string | null,"upstream_roof_model_revision_id": string | null
@@ -695,6 +733,15 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
+            "associate_standalone_calculation_to_project":
+{ Args: { "p_expected_project_revision_number": number,"p_input_data": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_output_data": Json,"p_project_calculation_id": string | null,"p_project_id": string,"p_source_calculation_id": string,"p_source_revision_id": string }; Returns: {
+              "association_id": string,
+              "project_calculation_id": string,
+              "project_revision_id": string,
+              "revision_number": number,
+              "reused": boolean
+            }[]
+                           },
             "approve_material_takeoff":
 { Args: { "p_expected_version": number,"p_organization_id": string,"p_takeoff_id": string }; Returns: {
               "approved_at": string | null,
