@@ -1,5 +1,38 @@
 # F2.1 adatbázis-alap
 
+## F9.7.6.6.1 — standalone quotation backend
+
+`20261014030000_standalone_quotations.sql` a meglévő quotation/revision táblákat
+bővíti. A `quotations.ownership_scope` értéke `project` vagy `standalone`; a
+projekt FK-ja nullable, de CHECK tiltja a projekt nélküli project rekordot és a
+projektes standalone rekordot. A korábbi rekordok projekt scope-ban maradnak.
+Standalone tulajdonos a DB által `auth.uid()`-ból beállított `created_by`, aktív
+szervezeti tagsággal. Az RLS a standalone parentet és revíziót csak a creatornek
+mutatja; projekt ajánlatnál a korábbi tag-szintű láthatóság él tovább.
+
+`save_standalone_quotation_draft` új és frissítő műveletként egy tranzakcióban
+menti a jelenlegi draftot és immutable revisiont. Az expected version a stale
+írást utasítja el. A szervezet + creator + operation UUID egyedi idempotencia
+kulcs; a ledger ugyanahhoz a revisionhöz kötődik, azonos payload retry
+újrahasználja a mentést, payload eltérés hibát ad. `get_standalone_quotation_revision`
+ellenőrzi az org tagságot és tulajdonost, majd current vagy történeti revíziót ad.
+
+A HUF sorösszeg és részösszeg PostgreSQL `numeric` műveletből, soronként `round`
+fél-felfelé szabállyal készül; egységár max. 2, mennyiség max. 6 tizedes. A
+nettó/bruttó osztály vegyesen tiltott; ÁFA-kulcsot nem számítunk. Anyagvariáns
+csak azonos org aktív katalógustermékéből jöhet. Kiválasztott material price
+recordnál a DB újraellenőrzi HUF-ot, árat, egységet és ár-besorolást; kézi
+felülírás provenance-ja egyértelmű. Az `input_snapshot` és `line_items_snapshot`
+megőrzi a mentéskori ár/adat eredetet.
+
+Migrációs és futásidejű bizonyíték: **nem ellenőrzött** ebben a végrehajtásban.
+Telemetry kikapcsolása után a `supabase migration list --local` a
+`127.0.0.1:54322 ECONNREFUSED` hibát adta; `supabase start` a Docker socket
+hozzáférés `permission denied` hibáján megállt. Reset, migration apply és pgTAP
+nem futott. A célzott teszt:
+`supabase/tests/database/018_standalone_quotations.sql`; authenticated local
+integráció és két külön DB-kapcsolatos concurrency ellenőrzés még hiányzik.
+
 ## F8.1 — belső ajánlati piszkozatok
 
 A `quotations` projekt- és szervezetkapcsolt fejlécet, az aktuális revízió

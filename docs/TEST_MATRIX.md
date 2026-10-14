@@ -1,5 +1,18 @@
 # Tesztmátrix
 
+## F9.7.6.6.1 — standalone quotation backend
+
+| Ellenőrzés | Állapot | Megjegyzés |
+| --- | --- | --- |
+| Standalone ownership/schema migration | Implementálva, nem futtatva | `20261014030000_standalone_quotations.sql`; nullable project FK scope CHECK-kel, creator/org RLS. |
+| Draft/revision, kézi sorok és HUF totals | Teszt definiálva, nem futtatva | `018_standalone_quotations.sql`: project/client nélküli draft, manual LABOR/OTHER, DB subtotal, idempotent replay és payload mismatch. |
+| Catalog validation/snapshot | Implementálva, DB teszt blokkolt | RPC ellenőrzi org, aktív termék, price ID, HUF, egység, amount és `price_kind`; történeti snapshot revízióban. |
+| Creator isolation / forged IDs | Teszt definiálva, nem futtatva | pgTAP owner/nonowner read/write, historical read, forged quotation ID. Valós local Auth action teszt még hiányzik. |
+| Expected revision / actual concurrency | Nincs runtime bizonyíték | SQL expected-version + advisory idempotency lock implementálva; két külön authenticated DB sessionnel még nem ellenőrzött. |
+| Project quotation regression | Nincs runtime bizonyíték ebben a futásban | Project schema legacy sorai scope=`project`, projekt RPC/finalize/status/PDF fájl változatlan. Érintett 002–004 pgTAP nem futott. |
+| Local migration history/apply | Blokkolt | Telemetry-off `migration list` → `127.0.0.1:54322 ECONNREFUSED`; `supabase start` → Docker socket permission denied. Migration apply/reset nem történt. |
+| Typecheck/lint/build/Vitest/diff | Sikeres, célzott | Standalone quotation + money + lifecycle Vitest 3 fájl/10 PASS; `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check` mind PASS. Nem teljes regresszió. |
+
 ## F9.1.1 ellenőrzések
 
 | Ellenőrzés | Állapot | Megjegyzés |
