@@ -21,13 +21,14 @@ describe("ereszcsatorna-kalkulátor felülete", () => {
     expect(html).not.toContain("F9.6.1.1.1");
   });
 
-  it("projekt nélkül számol, de nem mutat mentési vagy kimutatás-átadási műveletet", () => {
+  it("projekt nélkül számol és standalone mentést kínál, takeoff nélkül", () => {
     const html = renderToStaticMarkup(createElement(GutterCalculator, {
       organizationId: "org", suggestions: [], saved: null, catalogVariants: [],
     }));
     expect(html).toContain("Ereszcsatorna-kalkulátor");
-    expect(html).toContain("Önálló számítás");
-    expect(html).not.toContain("Mentés új változatként");
+    expect(html).toContain("Új, még nem mentett számítás");
+    expect(html).toContain("Számítás mentése");
+    expect(html).toContain("Mentett számításaim");
     expect(html).not.toContain("Anyagkimutatás-piszkozat");
   });
 

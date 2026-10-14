@@ -1,5 +1,15 @@
 # F7.3.2 állapot
 
+## F9.7.6.4 — standalone calculator frontend
+
+Állapot: **PARTIAL**. A három meglévő eresz-, szegély- és profil-editor standalone módban is az eredeti domainmotort használja, a meglévő authenticated standalone save actionnel. Az új számítások neve opcionális; mentéskor semleges editornevet kapnak. A mentett calculation ID a route-ban marad, a szerveroldali read model visszaállítja a kiválasztott kalkulációt, a standalone lista pedig típus szerint szűrhető és legfeljebb 100 rekordot ad vissza. A történeti revízió külön választható; kiválasztás nem ment, későbbi módosítás új revízióként, expected revisionnel menthető.
+
+Újrahasznosított architektúra: `saveStandaloneCalculationAction`, `listStandaloneCalculations`, `getStandaloneCalculation`, és a három meglévő kalkulátoreditor. A szervezet ID-t a route aktív tagság ellenőrzi; a mentő RPC a tényleges létrehozót az auth sessionből veszi. Listing és olvasás a meglévő owner RLS mellett történik. Standalone módban nincs projekt tetőgeometria; a preview nem menthető, projektkapcsolás nincs.
+
+Ellenőrzés: fókuszált Vitest 5 fájl / 23 PASS; `npm run lint`, `npm run build`, build után külön `npm run typecheck`, `git diff --check` és `git diff --cached --check` PASS. Az opt-in `RUN_LOCAL_SUPABASE_ACTION_TESTS=1 ...vitest run src/features/calculations/standalone-actions.local.integration.test.ts` Docker socket permission denied miatt nem futott (`supabase status --output env` nem éri el a Docker API-t). pgTAP/backend tesztet nem futtattam, backend szerződés nem változott. Hitelesített böngészős teszt UNVERIFIED: a CUA inventoryban nem volt tab vagy elérhető browser auth session. iPhone/iPad fizikai QA sincs.
+
+Korlát: ugyanazon user folyamatában a route-frissítés és editorkomponens állapotát helyi Auth böngészőben még nem bizonyítottam, ezért mérföldkő nem tekinthető COMPLETE-nek. Következő: F9.7.6.5 csak append-only projektkapcsolásra készíthet tervet/implementációt; ez a milestone nem tette lehetővé a társítást. Javasolt commit: `feat(F9.7.6.4): integrate standalone calculator frontend`.
+
 ## F9.7.6.3 — standalone calculation persistence
 
 Állapot: **COMPLETE (BACKEND)**. A lokális `20261014010000` migráció a meglévő `calculations` / `calculation_revisions` láncot bővíti explicit `ownership_scope` és `created_by` mezővel; a standalone rekord projekt- és tetőmodell nélkül, a hitelesített létrehozójához és szervezetéhez kötött. A kliens közvetlen standalone parent/revision INSERT/UPDATE/DELETE műveletei tiltottak. A három külön save RPC az eresz, szegély és lemezprofil tényleges registry ID-jét használja; a Server Action meglévő TypeScript kalkulátormotorokkal újraszámol, őrzi az elfogadott normalizált inputot/provenance-t és incomplete BA/K, illetve ismeretlen szegélykapcsolat esetén nem talál ki eredményt. A lista és aktuális/történeti revízió lekérése owner RLS alatt fut. Projektforrású bemenet standalone mentését a route és SQL is tiltja; takeoff nem jön létre.

@@ -775,6 +775,19 @@ Javasolt commit: `feat(F9.7.6.1): add global workflow navigation`.
 
 Javasolt commit: `feat(F9.7.6.2): add global roof geometry preview`.
 
+## F9.7.6.4 — standalone calculator frontend
+
+| Terület | Eredmény | Bizonyíték / korlát |
+|---|---|---|
+| Standalone save/read/list UI | Kódszinten megvalósítva | A három meglévő editor az `saveStandaloneCalculationAction`-t hívja; a három route típushelyesen olvas; `/kalkulatorok/mentett` creator-scoped read modelből listáz és típus szerint szűr. |
+| Célzott Vitest | PASS, 5 fájl / 23 teszt; 1 skip | `npx vitest run src/features/calculations/standalone-persistence.test.ts src/features/calculations/standalone-actions.local.integration.test.ts src/features/gutters/gutter-calculator-ux.test.ts src/features/flashings/calculator-ux.test.ts src/features/sheet-metal/profile-editor.test.ts src/features/roof-models/standalone-gable-preview.test.ts`. Az első együttfutásban az opt-in Auth teszt SKIP; explicit bekapcsolva a Supabase CLI `docker.sock` permission denied miatt futása meghiúsult. |
+| Typecheck | PASS | `npm run typecheck` külön, sikeres build után futott. Egy korábbi párhuzamos futás `.next/types` fájlgenerálási verseny miatt hibázott. |
+| Lint / build / diff | PASS | `npm run lint`, `npm run build` (a `/kalkulatorok/mentett` route szerepel), `git diff --check`, `git diff --cached --check`. |
+| Böngésző / fizikai mobil | UNVERIFIED | A CUA inventory nem tartalmazott tabot; hitelesített V1/V2 workflow, viewport és iPhone/iPad ellenőrzés nem történt. |
+| Projektmód / roof preview | Kódszinten megőrizve | Projektmentési actionek elágazásai megmaradnak; roof preview-n nincs save action; pgTAP/backend nem változott és ebben a milestone-ban nem futott. |
+
+Állapot PARTIAL, amíg az autentikált böngészős V1/V2 acceptance nem bizonyított. Javasolt commit: `feat(F9.7.6.4): integrate standalone calculator frontend`.
+
 ## F9.7.6.3 — standalone calculation persistence
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

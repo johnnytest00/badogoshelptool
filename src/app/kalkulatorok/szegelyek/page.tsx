@@ -4,12 +4,20 @@ import { BackNavigation } from "@/components/navigation/back-navigation";
 import { FlashingCalculator } from "@/features/flashings/flashing-calculator";
 import { getFlashingCatalogVariants } from "@/features/flashings/flashing-data";
 import { getProjectOrganization } from "@/features/projects/organization";
+import { getStandaloneCalculation } from "@/features/calculations/standalone-data";
+import type { FlashingCalculationRecord } from "@/features/flashings/flashing-data";
+import { flashingMaterialCalculator } from "@/domain/calculations/flashing-material";
 
-export default async function StandaloneFlashingPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string }> }>) {
-  const selected = await getProjectOrganization((await searchParams).organization);
+export default async function StandaloneFlashingPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string; calculation?: string }> }>) {
+  const params = await searchParams;
+  const selected = await getProjectOrganization(params.organization);
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
   if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt a kalkulátorhoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const catalogVariants = await getFlashingCatalogVariants(selected.organization.id);
-  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/kalkulatorok?organization=${selected.organization.id}`} label="Vissza a kalkulátorokhoz" /><FlashingCalculator organizationId={selected.organization.id} suggestions={[]} saved={null} catalogVariants={catalogVariants} /></div></main>;
+  const candidate = params.calculation ? await getStandaloneCalculation(selected.organization.id, params.calculation) : null;
+  const record = candidate?.calculatorType === flashingMaterialCalculator.id ? candidate : null;
+  const current = record?.revisions.find((revision) => revision.revisionId === record.currentRevisionId);
+  const saved = record && current ? { calculationId: record.calculationId, revisionId: current.revisionId, revisionNumber: current.revisionNumber, displayName: record.displayName, input: current.input, output: current.output, createdAt: current.createdAt, stale: false, revisions: record.revisions.map((revision) => ({ ...revision, displayName: record.displayName, stale: false })) } as unknown as FlashingCalculationRecord : null;
+  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/kalkulatorok?organization=${selected.organization.id}`} label="Vissza a kalkulátorokhoz" /><FlashingCalculator organizationId={selected.organization.id} suggestions={[]} saved={saved} catalogVariants={catalogVariants} /></div></main>;
 }

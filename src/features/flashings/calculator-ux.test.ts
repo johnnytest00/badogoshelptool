@@ -27,14 +27,14 @@ describe("szegély- és profilkalkulátor szakmai feliratai", () => {
     expect(html).toContain("Új, még nem mentett számítás");
     expect(html).not.toContain("F9.6.2");
   });
-  it("projekt nélkül is megnyílik, tartós mentési és takeoff művelet nélkül", () => {
+  it("projekt nélkül is menthető, és nem mutat takeoff műveletet", () => {
     const html = renderToStaticMarkup(createElement(FlashingCalculator, {
       organizationId: "org", suggestions: [], saved: null, catalogVariants: [],
     }));
     expect(html).toContain("Bádogos szegélyek kalkulátora");
-    expect(html).toContain("Önálló, nem mentett számítás");
-    expect(html).toContain("az eredmény csak ezen az oldalon marad");
-    expect(html).not.toContain("Mentés új revízióként");
+    expect(html).toContain("Új, még nem mentett számítás");
+    expect(html).toContain("Számítás mentése");
+    expect(html).toContain("Önálló módban nincs projekt tetőgeometria");
     expect(html).not.toContain("Anyagkimutatás előkészítése");
   });
   it("a profilnál a tangensméretet, irányt és a BA/K forrásigényét mutatja", () => {
@@ -46,14 +46,15 @@ describe("szegély- és profilkalkulátor szakmai feliratai", () => {
     expect(html).toContain("A rendszer nem állít be gyártási alapértéket");
     expect(html).not.toContain("F9.6.3.4.1");
   });
-  it("a profil önálló módban számít, és elrejti a mentési/anyagkimutatási vezérlőket", () => {
+  it("a profil önálló módban számít és standalone menthető", () => {
     const html = renderToStaticMarkup(createElement(ProfileEditor, {
       organizationId: "org", profiles: [], catalogCandidates: [],
     }));
     expect(html).toContain("Önálló számítás · lemezprofilok");
     expect(html).toContain("Önálló, helyi előnézet");
-    expect(html).toContain("csak ezen az oldalon marad");
-    expect(html).not.toContain("Mentés új revízióként");
+    expect(html).toContain("Számítás mentése");
+    expect(html).toContain("Mentett számításaim");
+    expect(html).not.toContain("csak ezen az oldalon marad");
     expect(html).not.toContain("Anyagkimutatás előkészítése");
   });
 

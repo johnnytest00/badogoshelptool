@@ -6,8 +6,10 @@ import { AlertTriangle, FilePlus2, LoaderCircle, Plus, Save, Trash2 } from "luci
 import { ProfileDrawing } from "@/features/sheet-metal/profile-drawing";
 import { addBend, calculateDraft, createTemplate, editBend, editStraight, fromDomainInput, removeBend, reverseAngle, selectionMatches, toDomainInput, type ProfileDraft, type Selection, type Template } from "@/features/sheet-metal/profile-editor-model";
 import { createProfileTakeoffDraftAction, saveSheetMetalProfileAction } from "@/features/sheet-metal/profile-actions";
+import { saveStandaloneCalculationAction } from "@/features/calculations/standalone-actions";
 import type { ProfileCatalogPreviewCandidate, SavedProfile } from "@/features/sheet-metal/profile-data";
 import { matchProfileMaterial } from "@/domain/calculations/profile-material-compatibility";
+import { sheetMetalProfileCalculator } from "@/domain/calculations/sheet-metal-profile";
 import { materialProvenanceLabels, type MaterialProvenance } from "@/domain/materials/contracts";
 import { createIdempotencyKey, generateSecureUuid } from "@/lib/secure-uuid";
 
@@ -94,14 +96,23 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
     pendingProfileId.current = null; transferRequestKey.renew(); setDraft(createTemplate("l")); setActiveCalculationId(null); setExpectedRevision(0); setSelectedRevisionId(""); setFeedback("Új profil munkavázlat."); setSelection(null);
   }
   function saveProfile() {
-    if (!projectId || !result.ok || isPending || (draft.catalogVariantId && catalogMatch !== "TECHNICALLY_MATCHED_PARAMETERS")) return;
+    if (!result.ok || isPending || (draft.catalogVariantId && catalogMatch !== "TECHNICALLY_MATCHED_PARAMETERS")) return;
     const calculationId = activeCalculationId ?? (pendingProfileId.current ??= generateSecureUuid());
     const input = { ...toDomainInput(draft), profileId: calculationId };
+    if (!projectId) {
+      const data = new FormData(); data.set("organizationId", organizationId); data.set("calculationId", calculationId);
+      data.set("calculatorType", sheetMetalProfileCalculator.id); data.set("name", draft.label.trim() || "Lemezprofil");
+      data.set("expectedRevisionNumber", String(expectedRevision)); data.set("input", JSON.stringify(input)); setFeedback("");
+      startTransition(async () => { let response; try { response = await saveStandaloneCalculationAction(data); } catch { setFeedback("A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."); return; } if (!response.ok) { setFeedback(response.error); return; }
+        pendingProfileId.current = null; setActiveCalculationId(response.calculationId); setExpectedRevision(response.revisionNumber);
+        setSelectedRevisionId(response.revisionId); setDraft((current) => ({ ...current, profileId: response.calculationId, dirty: false }));
+        setFeedback(`Mentve: V${response.revisionNumber}.`); router.replace(`/kalkulatorok/lemezprofilok?organization=${organizationId}&calculation=${response.calculationId}`); router.refresh(); }); return;
+    }
     const data = new FormData(); data.set("organizationId", organizationId); data.set("projectId", projectId);
     data.set("calculationId", calculationId); data.set("expectedRevisionNumber", String(expectedRevision)); data.set("input", JSON.stringify(input));
     setFeedback("");
     startTransition(async () => {
-      const saved = await saveSheetMetalProfileAction(data);
+      let saved; try { saved = await saveSheetMetalProfileAction(data); } catch { setFeedback("A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."); return; }
       if (!saved.ok) { setFeedback(saved.error ?? "A profil mentése nem sikerült."); return; }
       pendingProfileId.current = null;
       setActiveCalculationId(saved.calculationId ?? calculationId); setExpectedRevision(saved.revisionNumber ?? expectedRevision + 1);
@@ -118,7 +129,7 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
   }) : [];
   return <div className="profile-workspace">
     <header className="profile-header"><div><p className="section-eyebrow">{projectId ? "Projekt · lemezprofilok" : "Önálló számítás · lemezprofilok"}</p><h1>Lemezprofilok és hajtások</h1><p>Nyitott 2D lemezprofil szerkesztése és paraméteralapú terítékellenőrzés.</p></div><span className="phase-pill">{draft.dirty ? "Nem mentett módosítás" : activeCalculationId ? `Mentett profil · V${expectedRevision}` : "Új profil munkavázlat"}</span></header>
-    {projectId && <section className="detail-surface profile-persistence" aria-label="Profil mentése és betöltése"><div className="profile-section-heading"><h2>Mentett profilok</h2><span>{profiles.length} profil · {activeCalculationId ? `aktuális revízió V${expectedRevision}` : "még nincs mentve"}</span></div><div className="profile-persistence-controls"><label>Profil<select value={activeCalculationId ?? ""} onChange={(event) => switchProfile(event.target.value)}><option value="">Új / nem mentett profil</option>{profiles.map((profile) => <option key={profile.calculationId} value={profile.calculationId}>{profile.displayName} · V{profile.currentRevisionNumber}</option>)}</select></label><label>Revízió<select value={selectedRevisionId} disabled={!activeCalculationId} onChange={(event) => switchRevision(event.target.value)}><option value="">Válassz revíziót</option>{profiles.find((item) => item.calculationId === activeCalculationId)?.revisions.map((revision) => <option key={revision.revisionId} value={revision.revisionId}>V{revision.revisionNumber} · {new Date(revision.createdAt).toLocaleString("hu-HU")}</option>)}</select></label><button type="button" className="secondary-button" onClick={newProfile}><FilePlus2 size={17} /> Új profil</button><button type="button" className="primary-button" disabled={isPending || !draft.dirty || !result.ok || !!draft.catalogVariantId && catalogMatch !== "TECHNICALLY_MATCHED_PARAMETERS"} onClick={saveProfile}>{isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Save size={17} />} {isPending ? "Mentés…" : `Mentés új revízióként${expectedRevision ? ` · V${expectedRevision + 1}` : " · V1"}`}</button></div>{feedback && <p className={`form-message ${feedback.startsWith("Mentve") || feedback.includes("betöltve") ? "is-success" : "is-error"}`} role="status">{feedback}</p>}</section>}
+    <section className="detail-surface profile-persistence" aria-label="Profil mentése és betöltése"><div className="profile-section-heading"><h2>Mentett profilok</h2><span>{profiles.length} profil · {activeCalculationId ? `aktuális revízió V${expectedRevision}` : "még nincs mentve"}</span></div><div className="profile-persistence-controls">{projectId && <label>Profil<select value={activeCalculationId ?? ""} onChange={(event) => switchProfile(event.target.value)}><option value="">Új / nem mentett profil</option>{profiles.map((profile) => <option key={profile.calculationId} value={profile.calculationId}>{profile.displayName} · V{profile.currentRevisionNumber}</option>)}</select></label>}<label>Revízió<select value={selectedRevisionId} disabled={!activeCalculationId} onChange={(event) => switchRevision(event.target.value)}><option value="">Válassz revíziót</option>{profiles.find((item) => item.calculationId === activeCalculationId)?.revisions.map((revision) => <option key={revision.revisionId} value={revision.revisionId}>V{revision.revisionNumber} · {new Date(revision.createdAt).toLocaleString("hu-HU")}</option>)}</select></label><button type="button" className="secondary-button" onClick={newProfile}><FilePlus2 size={17} /> Új számítás</button><button type="button" className="primary-button" disabled={isPending || !draft.dirty || !result.ok || !!draft.catalogVariantId && catalogMatch !== "TECHNICALLY_MATCHED_PARAMETERS"} onClick={saveProfile}>{isPending ? <LoaderCircle className="size-4 animate-spin" /> : <Save size={17} />} {isPending ? "Mentés…" : projectId ? `Mentés új revízióként · V${expectedRevision + 1}` : activeCalculationId ? `Új változat mentése · V${expectedRevision + 1}` : "Számítás mentése"}</button></div>{!projectId && <a className="secondary-button" href={`/kalkulatorok/mentett?organization=${organizationId}`}>Mentett számításaim</a>}{feedback && <p className={`form-message ${feedback.startsWith("Mentve") || feedback.includes("betöltve") ? "is-success" : "is-error"}`} role="status">{feedback}</p>}</section>
     <div className="profile-grid"><section className="detail-surface profile-controls" aria-label="Profil paraméterei">
       <div className="profile-section-heading"><h2>Profil</h2><span>{draft.straights.some((straight) => straight.dimensionSource.kind === "demo") ? "DEMO sablonméretek" : "Saját méretek"}</span></div>
       <div className="profile-template-list" role="group" aria-label="Profilsablon">
@@ -168,7 +179,7 @@ export function ProfileEditor({ organizationId, projectId, profiles, catalogCand
       {transferFeedback && <p className={`form-message ${createdTakeoffId ? "is-success" : "is-error"}`} role="status">{transferFeedback}</p>}
       {createdTakeoffId && <a className="secondary-button" href={`/projektek/${projectId}/anyagkimutatas?organization=${organizationId}&takeoff=${createdTakeoffId}`}>Piszkozat megnyitása</a>}
     </section>}
-    {!projectId && <p className="form-message">Önálló számítás: az eredmény csak ezen az oldalon marad; frissítéskor elveszik. Mentés és anyagkimutatás-átadás projektben érhető el.</p>}
+    {!projectId && <p className="form-message">Önálló számítás: menthető és újranyitható. Anyagkimutatás-átadás csak projektmódban érhető el.</p>}
 
   </div>;
 }

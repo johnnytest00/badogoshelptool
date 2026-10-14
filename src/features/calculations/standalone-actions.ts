@@ -68,6 +68,8 @@ export async function saveStandaloneCalculationAction(data: FormData): Promise<S
   if (error || !saved?.[0]) return { ok: false, error: error?.code === "40001"
     ? "A számítás időközben új revíziót kapott. Töltsd be az aktuális változatot, majd ments újra."
     : error?.code === "42501" ? "A számítás vagy a műhely nem érhető el a fiókod számára."
+      : error?.code === "P0002" ? "A mentéshez szükséges forrásadat hiányzik vagy már nem érhető el."
+        : error?.code === "22023" ? "A számítás adatai nem felelnek meg a mentési feltételeknek. Ellenőrizd a megadott értékeket."
       : "A számítás mentése nem sikerült." };
   return { ok: true, calculationId: saved[0].calculation_id, revisionId: saved[0].calculation_revision_id, revisionNumber: saved[0].revision_number };
 }
