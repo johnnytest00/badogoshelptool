@@ -1070,3 +1070,18 @@ PostgreSQL kapcsolat segítségével futott; ezek nem hosted környezetek.
 | Adatbázis / perzisztencia | NEM ALKALMAZHATÓ | Nincs DB-kontraktus, migráció, mentés, RLS vagy takeoff. |
 | Böngészős smoke | UNVERIFIED | A CUA böngészőleltárban nem volt nyitott tab/session; authenticated workflow nem volt elérhető. |
 | Hosted DB / reset / commit / push / deploy | NEM FUTOTT | A scope tiltja, és nem szükséges a motor/előnézet mérföldkőhöz. |
+
+## F9.7.7.4b.1 — cserepeslemez backend perzisztencia
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Persistence Vitest | PASS | A célzott négyfájlos futás lefedte a `roof.gable` újraszámolást, standalone/project input contractot, katalógus/metaadat nélküli kézi mentést, hibás moduladat és toldás elutasítását. |
+| Standalone V1/V2 és történeti olvasás | PASS | Valós helyi Auth/RLS: V1 mentés + azonos operation ID retry új revision nélkül; V2 20→40 db; aktuális és V1 olvasásban a 20 db-os V1 snapshot változatlan. A forged kliens-output figyelmen kívül maradt, a tárolt output szerveroldali 20 db. |
+| Projekt exact forrásrevision | PASS | Valós local Auth/RLS: a request 12 345 mm-es eltérő kliensgeometriát adott, de a revision az exact mentett tetőrevízió 10 000 mm inputját, linked `roof.gable` calculation revisiont és `roof_geometry_input` dependencyt rögzítette. |
+| Auth/RLS és hamisított RPC | PASS | Local Auth felhasználók (owner, peer, idegen org): standalone creator-scoped read/list, projekthez azonos org tagság, cross-org denial; authenticated közvetlen save RPC `42501`, direct type-specifikus calculation insert tiltva; a restricted writer RPC-t idegen org actorral és visszavont tagságú actorral is `42501` elutasította. A pgTAP EXECUTE/grant/policy tesztje 12/12 PASS. |
+| Revízió immutable | PASS | V2 után V1 változatlan; authenticated update `RETURNING` üres sort adott és a snapshot olvasás változatlan maradt; service-role update-et a committed-revision trigger `immutable` hibával elutasítja. |
+| Modularitás és validáció | PASS | Érvénytelen modulkompatibilitás Server Action mentését elutasította; a mentési contract csak VALID engine outputot enged tovább. Pure persistence tesztek 4 esetben. |
+| Idempotencia és konkurencia | PASS | Két külön PostgreSQL writer kapcsolat ugyanazon expected V1-re várt a calculation advisory lockon; pontosan egy V2 nyert, a másik `40001`. Két egyidejű azonos operation retry egy V3 revisiont hozott; `reused` false/true és azonos revision ID. |
+| Teljes célzott Vitest | PASS | 4 fájl / 18 teszt: engine, preview regresszió, persistence contract és valós local Auth/RLS/concurrency. Az első run egy tesztelvárás-hibát jelzett; javítás után célzott suite 18/18 PASS. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| DB állapot és hosted művelet | PASS / NEM FUTOTT | Migráció `20261015050000` helyi adatbázison reset nélkül alkalmazva. Hosted Supabase, reset, commit, push, deploy nem történt; a teszt DEMO rekordjai helyben maradtak. |

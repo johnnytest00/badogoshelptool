@@ -581,3 +581,11 @@ ugyanazt a takeoffot/tételt adja; módosított payload elutasított.
 Csak síkonként egy teljes hosszú sor támogatható. Toldott/többsoros, átlapolt,
 nem reprodukálható vagy dimenziókonfliktusos variáns elutasított. Helyi migráció
 reset nélkül alkalmazva; hosted DB érintetlen.
+
+## F9.7.7.4b.1 — cserepeslemez számítás-revíziók
+
+A `20261015050000_gable_metal_tile_covering_persistence.sql` forward-only, helyi migráció a közös `calculations`, `calculation_revisions` és `calculation_dependencies` táblákat használja, valamint a cserepeslemez saját, RLS-védett `gable_metal_tile_save_operations` idempotencia-ledgerét hozza létre. A meglévő `tetopro_covering_writer` szerepet és szerveroldali `COVERING_WRITER_DATABASE_URL` kapcsolatot használja új credential vagy közvetlen táblaírási grant nélkül. A SECURITY DEFINER `save_gable_metal_tile_covering_calculation` RPC-re a `PUBLIC`, `anon` és `authenticated` nem kap EXECUTE-t; az `authenticated` restrictive policyval sem írhat ilyen típusú calculationt, revisiont vagy dependencyt.
+
+A szerveraction aktív szervezeti tagságot követel és a `roof.gable` motort, valamint a cserepeslemez-motort újrafuttatja. Csak `VALID` eredmény lép az írószerephez. Standalone snapshot `created_by` tulajdonost rögzít; project snapshot az adott verified roof-model revisiont, annak ellenőrzött `roof.gable` calculation/revision párját és exact inputját menti dependencyként. Az RPC tranzakcióban újra ellenőrzi az actor tagságát és a pontos project/source kapcsolatot. Expected revision és műveletazonosító advisory lock alatt érvényesül; egyező retry ugyanazt a revisiont adja vissza, eltérő payload vagy stale expected revision elutasított. A shared immutable revision trigger változatlan.
+
+A migráció lokálisan, reset nélkül alkalmazva (`20261015050000`); hosted DB nem érintett. A `022_gable_metal_tile_covering.sql` pgTAP ellenőrzés 12/12 PASS. A valós local Auth/RLS Vitest 3/3 PASS (creator/peer/idegen szervezet, direct forged RPC/table write, project exact source, V1/V2 és history, két külön PostgreSQL kapcsolatú konfliktus és azonos operation retry). A helyi teszt létrehozott, DEMO jelölésű Auth/felhasználó/szervezet/projekt/revízió adatokat hagy; resetet és takarítást nem futtattunk.
