@@ -11,7 +11,9 @@ import type { FieldSurveyRecord, FieldSurveyRevisionRecord } from "./field-surve
 import { FieldSurveyPhotos } from "./field-survey-photos";
 import { WorkspaceSummary } from "./workspace-summary";
 import { WorkspaceCalculator } from "./workspace-calculator";
-import { loadSurveyCalculator } from "./workspace-actions";
+import { createSurveyFollowups, loadSurveyCalculator } from "./workspace-actions";
+import { SurveyRoofWorkspace } from "./survey-roof-workspace";
+import type { VerifiedSurveyRoof } from "./survey-roof-actions";
 
 type MeasurementDraft = { id: string; label: string; value: string; unit: FieldSurveyUnit; semanticType: FieldSurveySemanticType };
 type SectionDraft = Omit<SurveySection, "measurements"> & { measurements: MeasurementDraft[] };
@@ -19,8 +21,9 @@ const emptyMeasurement = (workType: FieldSurveyWorkType, id: string): Measuremen
 const draftSections = (sections: SurveySection[]): SectionDraft[] => sections.map((section) => ({ ...section, measurements: section.measurements.map((measurement) => ({ ...measurement, value: measurement.value === null ? "" : String(measurement.value), semanticType: measurement.semanticType ?? "custom" })) }));
 const initialSections = (survey?: FieldSurveyRecord | null): SectionDraft[] => survey ? draftSections(surveySections(survey)) : [{ id: "00000000-0000-4000-8000-000000000002", name: "Tető", workType: "roof", notes: "", photoIds: [], measurements: [emptyMeasurement("roof", "00000000-0000-4000-8000-000000000001")] }];
 const serialize = (sections: SectionDraft[]): SurveySection[] => sections.map((section) => ({ ...section, measurements: section.measurements.map((measurement) => ({ ...measurement, value: measurement.value.trim() === "" ? null : Number(measurement.value.trim().replace(",", ".")) })) }));
+const emptyRelationships: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[] } = { calculations: [], followups: [] };
 
-export function FieldSurveyEditor({ organizationId, userId, projects, survey, initialProjectId = null, initialSectionId = null, revisionVersions = [], historicalRevision = null, relationships = { calculations: [], followups: [] } }: Readonly<{
+export function FieldSurveyEditor({ organizationId, userId, projects, survey, initialProjectId = null, initialSectionId = null, revisionVersions = [], historicalRevision = null, relationships = emptyRelationships }: Readonly<{
   organizationId: string; userId?: string; projects: readonly { id: string; name: string }[]; survey?: FieldSurveyRecord | null; initialProjectId?: string | null;
   initialSectionId?: string | null;
   revisionVersions?: readonly number[]; historicalRevision?: FieldSurveyRevisionRecord | null;
@@ -38,6 +41,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [followupPending, setFollowupPending] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("Tetőfelújítás");
   const [summary, setSummary] = useState(false);
   const [photoState, setPhotoState] = useState({ busy: false, queued: false });
   const [photos, setPhotos] = useState<{ id: string; filename: string }[]>([]);
@@ -49,6 +53,8 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   const dirty = baseline !== fingerprint;
   const blocked = saving || photoState.busy || calculatorState.pending || followupPending;
   const active = sections.find((section) => section.id === activeId) ?? sections[0];
+  const effectiveProjectId = projectId || relationships.followups.find((followup) => followup.kind === "project")?.projectId || "";
+  const missingRoofTemplates = active.workType === "roof" ? fieldSurveyTemplates.roof.filter((template) => template.semanticType !== "roof_pitch" && !active.measurements.some((measurement) => measurement.semanticType === template.semanticType) && !(template.semanticType === "roof_rise" && active.measurements.some((measurement) => measurement.semanticType === "roof_pitch"))) : [];
   const onPhotos = useCallback((next: { id: string; filename: string }[]) => {
     setPhotos(next);
     setBaseline((current) => {
@@ -116,11 +122,11 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     setPhotoAssociationPending(true);
     setSummary(false);
   }
-  async function persistCurrent() {
+  async function persistCurrent(nextSections: SectionDraft[] = sections) {
     if (saveLock.current) return null;
     saveLock.current = true; setSaving(true); setError("");
     try {
-      const parsed = surveySectionsSchema.safeParse(serialize(sections));
+      const parsed = surveySectionsSchema.safeParse(serialize(nextSections));
       if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Ellenőrizd a munkaszakaszokat."); return null; }
       const data = new FormData();
       data.set("organizationId", organizationId); data.set("surveyId", surveyId ?? (createIdRef.current ??= crypto.randomUUID()));
@@ -129,7 +135,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
       const result = await saveFieldSurveyAction(data);
       if (!result.ok || !result.surveyId || !result.version) { setError(result.error ?? "A mentés nem sikerült."); return null; }
       if (recoveryKey) { try { sessionStorage.removeItem(recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } }
-      setWorkspacePersisted(true); setBaseline(fingerprint); setSurveyId(result.surveyId); setVersion(result.version); setPhotoAssociationPending(false);
+      setWorkspacePersisted(true); setSections(nextSections); setBaseline(JSON.stringify({ sections: nextSections, projectId })); setSurveyId(result.surveyId); setVersion(result.version); setPhotoAssociationPending(false);
       if (!surveyId) { window.history.replaceState(null, "", `/felmeresek/${result.surveyId}?organization=${organizationId}&section=${active.id}`); }
       return { surveyId: result.surveyId, version: result.version };
     } catch { setError("A mentés válasza bizonytalan. Azonos adatokkal biztonságosan újrapróbálható."); return null; }
@@ -144,6 +150,32 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     try { const context = await loadSurveyCalculator({ organizationId, surveyId: saved.surveyId, version: saved.version, sectionId: active.id }); setCalculator({ sectionId: active.id, version: saved.version, context }); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "A kalkulátor nem tölthető be."); }
     finally { setSaving(false); }
+  }
+  async function openGeometryWork(kind: "gutter" | "flashing", source: VerifiedSurveyRoof, edgeIds: string[]) {
+    if (calculator || blocked || photoState.queued || !effectiveProjectId || !edgeIds.length) return;
+    const existing = sections.find((section) => section.workType === kind);
+    const target = existing ?? { id: crypto.randomUUID(), name: fieldSurveyWorkTypeLabels[kind], workType: kind, notes: "", photoIds: [], measurements: [emptyMeasurement(kind, crypto.randomUUID())] };
+    const nextSections = existing ? sections : [...sections, target];
+    setSaving(true); setError("");
+    try {
+      setActiveId(target.id);
+      const saved = existing ? await ensureSaved() : await persistCurrent(nextSections);
+      if (!saved) return;
+      const context = await loadSurveyCalculator({ organizationId, surveyId: saved.surveyId, version: saved.version, sectionId: target.id, selectedRoof: { roofModelId: source.roofModelId, roofModelRevisionId: source.roofModelRevisionId, edgeIds } });
+      setCalculator({ sectionId: target.id, version: saved.version, context });
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "A geometriai átadás nem sikerült."); }
+    finally { setSaving(false); }
+  }
+  async function createGeometryProject() {
+    if (blocked || !newProjectName.trim()) return;
+    const saved = await ensureSaved(); if (!saved) return;
+    setFollowupPending(true); setError("");
+    try {
+      const result = await createSurveyFollowups({ organizationId, surveyId: saved.surveyId, version: saved.version, project: true, quotation: false, projectId: null, name: newProjectName.trim() });
+      if (!result.ok) { setError(result.error ?? "A projekt nem jött létre."); return; }
+      router.refresh();
+    } catch { setError("A projekt létrehozásának válasza bizonytalan. Frissítsd a felmérést, mielőtt újrapróbálod."); }
+    finally { setFollowupPending(false); }
   }
   function navigate(href: string) {
     if (blocked) return;
@@ -165,7 +197,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
         <details className="survey-section-settings"><summary>Név, munkatípus és sorrend</summary><label className="field-survey-field"><span>Munkaszakasz neve</span><input value={active.name} maxLength={120} onChange={(event) => patchSection({ name: event.target.value })} /></label><label className="field-survey-field"><span>Munkatípus</span><select value={active.workType} onChange={(event) => changeType(event.target.value as FieldSurveyWorkType)}>{Object.entries(fieldSurveyWorkTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><div className="survey-section-settings-actions"><button type="button" className="secondary-button" disabled={sections[0].id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setSections(next); }}>Előrébb</button><button type="button" className="secondary-button" disabled={sections.at(-1)?.id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index], next[index + 1]] = [next[index + 1], next[index]]; setSections(next); }}>Hátrébb</button><button type="button" className="secondary-button" disabled={sections.length === 1} onClick={() => { if (!window.confirm("Eltávolítod ezt a munkaszakaszt? A mentett történeti változatok, fotók és számításkapcsolatok megmaradnak.")) return; const next = sections.filter((section) => section.id !== active.id); setSections(next); setActiveId(next[0].id); }}>Munkaszakasz eltávolítása</button></div></details>
         {!surveyId && <details><summary>Projekt · opcionális</summary><label className="field-survey-field"><span>Projekt</span><select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">Önálló felmérés</option>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label></details>}
         {projectId && <p>Kapcsolt projekt: {projects.find((project) => project.id === projectId)?.name ?? projectId}</p>}
-        <section className="field-survey-measurements"><h2>Mérések</h2><p>Az üres érték hiányzó mérésként menthető. A kalkulátorhoz csak kitöltött, megfelelő egységű adat kerül.</p>
+        <section className="field-survey-measurements"><h2>Mérések</h2><p>Az üres érték hiányzó mérésként menthető. A kalkulátorhoz csak kitöltött, megfelelő egységű adat kerül. A túlnyúlásnál 0 csak ténylegesen ellenőrzött hiányt jelent.</p>{missingRoofTemplates.length > 0 && <button type="button" className="secondary-button" onClick={() => patchSection({ measurements: [...active.measurements, ...missingRoofTemplates.map((template) => ({ ...template, id: crypto.randomUUID(), value: "" }))] })}>Nyeregtető alapmérései · {missingRoofTemplates.length} mező hozzáadása</button>}
           {active.measurements.map((measurement, index) => <div className="field-survey-measurement" key={measurement.id}>
             <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
             <details className="field-survey-measurement-settings"><summary>Mérés beállításai</summary><label className="field-survey-field"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} onChange={(event) => patchMeasurement(measurement.id, { label: event.target.value })} /></label><label className="field-survey-field"><span>Egység</span><select aria-label={`Mérés ${index + 1} egysége`} value={measurement.unit} onChange={(event) => patchMeasurement(measurement.id, { unit: event.target.value as FieldSurveyUnit })}>{Object.entries(fieldSurveyUnitLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label className="field-survey-field"><span>Számítási szerep</span><select aria-label={`Mérés ${index + 1} számítási szerepe`} value={measurement.semanticType} onChange={(event) => patchMeasurement(measurement.id, { semanticType: event.target.value as FieldSurveySemanticType })}>{Object.entries(fieldSurveySemanticTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></details>
@@ -178,6 +210,8 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
         <div className="field-survey-save-row"><p role="status">{saving ? "Mentés…" : dirty ? "Nem mentett módosítások" : surveyId ? `Mentve · V${version}` : "Új felmérés"}</p><button type="submit" className="primary-button field-survey-save">{saving ? "Mentés…" : "Felmérés mentése"}</button></div>
       </fieldset>
     </form>
+    {active.workType === "roof" && effectiveProjectId && surveyId && !calculator && !recovery && <SurveyRoofWorkspace organizationId={organizationId} surveyId={surveyId} version={version} sectionId={active.id} sectionName={active.name} projectId={effectiveProjectId} links={relationships.calculations} ensureSaved={ensureSaved} onWork={openGeometryWork} onLinked={() => router.refresh()} />}
+    {active.workType === "roof" && !effectiveProjectId && !calculator && <div className="detail-surface survey-roof-project"><p>Mentett, más munkához átadható tetőmodellhez projekt kell. Az önálló felmérés és a kézi kalkulátorok továbbra is használhatók.</p><label className="field-survey-field"><span>Új projekt neve</span><input value={newProjectName} maxLength={200} onChange={(event) => setNewProjectName(event.target.value)} /></label><button type="button" className="secondary-button" disabled={blocked || !newProjectName.trim()} onClick={() => void createGeometryProject()}>{followupPending ? "Projekt létrehozása…" : "Projekt létrehozása a tetőmodellhez"}</button></div>}
     <div className="survey-workspace-actions"><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || Boolean(calculator) || photoState.queued || active.workType === "other"} onClick={() => void openCalculator()}>Számítás hozzáadása · {active.name}</button><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || Boolean(calculator) || photoState.queued} onClick={() => void showSummary()}>Felmérés összesítése</button></div>
     {error && <p role="alert" className="form-message is-error">{error}</p>}
     {calculator && surveyId && <WorkspaceCalculator key={`${calculator.sectionId}:${calculator.version}`} organizationId={organizationId} surveyId={surveyId} sectionId={calculator.sectionId} version={calculator.version} context={calculator.context} onClose={() => setCalculator(null)} onLinked={() => router.refresh()} onState={setCalculatorState} />}

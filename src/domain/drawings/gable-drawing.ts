@@ -4,8 +4,8 @@ import type { MetalSheetLayoutOutput } from "@/domain/calculations/metal-sheet-l
 export type DrawingView = "top" | "gable" | "cross-section" | "longitudinal";
 export type DrawingLayerId = "planes" | "outlines" | "ridge-eaves" | "dimensions" | "angles" | "guides" | "sheet-layout";
 export type DrawingPoint = Readonly<{ x: number; y: number }>;
-export type DrawingSegment = Readonly<{ start: DrawingPoint; end: DrawingPoint; label?: string; hidden?: boolean }>;
-export type DrawingPolygon = Readonly<{ points: readonly DrawingPoint[]; label: string; side?: "left" | "right" }>;
+export type DrawingSegment = Readonly<{ id?: string; start: DrawingPoint; end: DrawingPoint; label?: string; hidden?: boolean }>;
+export type DrawingPolygon = Readonly<{ id?: string; points: readonly DrawingPoint[]; label: string; side?: "left" | "right" }>;
 export type DrawingDimension = Readonly<{ kind: "horizontal" | "vertical" | "aligned"; start: DrawingPoint; end: DrawingPoint; offset: number; label: string; sourceMm: number; optional?: boolean }>;
 export type DrawingAngle = Readonly<{ vertex: DrawingPoint; start: DrawingPoint; end: DrawingPoint; label: string }>;
 export type DrawingSheetStrip = Readonly<{ id: string; points: readonly DrawingPoint[]; planeSide: "left" | "right"; indexFromStart: number; isPartial: boolean }>;
@@ -90,12 +90,18 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
   if (view === "top") {
     const leftPoints = left.vertices.map(xy);
     const rightPoints = right.vertices.map(xy);
-    polygons = [{ points: leftPoints, label: "Bal oldali tetősík", side: "left" }, { points: rightPoints, label: "Jobb oldali tetősík", side: "right" }];
+    polygons = [{ id: "left-plane", points: leftPoints, label: "Bal oldali tetősík", side: "left" }, { id: "right-plane", points: rightPoints, label: "Jobb oldali tetősík", side: "right" }];
     segments = [...closeSegments(leftPoints, "Tetőkontúr"), ...closeSegments(rightPoints, "Tetőkontúr")];
     const ridge = [point(ridgeStart.xMm, 0), point(ridgeEnd.xMm, 0)];
     const eaveL = [point(leftEave.xMm, leftEave.yMm * -1), point(left.vertices[1].xMm, left.vertices[1].yMm * -1)];
     const eaveR = [point(right.vertices[3].xMm, right.vertices[3].yMm * -1), point(rightEave.xMm, rightEave.yMm * -1)];
-    segments.push({ start: ridge[0], end: ridge[1], label: "Gerinc" }, { start: eaveL[0], end: eaveL[1], label: "Bal eresz" }, { start: eaveR[0], end: eaveR[1], label: "Jobb eresz" });
+    segments.push({ id: "ridge", start: ridge[0], end: ridge[1], label: "Gerinc" }, { id: "left-eave", start: eaveL[0], end: eaveL[1], label: "Bal eresz" }, { id: "right-eave", start: eaveR[0], end: eaveR[1], label: "Jobb eresz" });
+    segments.push(
+      { id: "left-front-gable", start: leftPoints[0], end: leftPoints[3], label: "Bal első ferde oromél" },
+      { id: "left-rear-gable", start: leftPoints[1], end: leftPoints[2], label: "Bal hátsó ferde oromél" },
+      { id: "right-front-gable", start: rightPoints[0], end: rightPoints[3], label: "Jobb első ferde oromél" },
+      { id: "right-rear-gable", start: rightPoints[1], end: rightPoints[2], label: "Jobb hátsó ferde oromél" },
+    );
     dimensions = [dimension("horizontal", point(startX, 0), point(endX, 0), 900, output.dimensions.overallRoofLengthMm), dimension("vertical", point(0, -output.dimensions.horizontalSlopeRunMm), point(0, output.dimensions.horizontalSlopeRunMm), 900, output.dimensions.horizontalRoofWidthMm)];
     angles = [];
     guides = [];

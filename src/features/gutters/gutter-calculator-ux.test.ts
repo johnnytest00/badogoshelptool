@@ -51,9 +51,10 @@ describe("ereszcsatorna-kalkulátor felülete", () => {
     const revision = { revisionId: "revision-1", revisionNumber: 1, input, output, createdAt: "2026-10-13T00:00:00Z" };
     const html = renderToStaticMarkup(createElement(GutterCalculator, {
       organizationId: "org", projectId: "project", suggestions: [], catalogVariants: [],
-      saved: { calculationId: "calculation-1", ...revision, sourceRoofRevisionId: null, revisions: [revision] },
+      saved: { calculationId: "calculation-1", displayName: "DEMO ereszszámítás", ...revision, sourceRoofRevisionId: null, revisions: [revision] },
     }));
     expect(html).toContain("DEMO eresz");
+    expect(html).toContain('value="DEMO ereszszámítás"');
     expect(html).toContain("Mentett aktuális változat · V1");
     expect(html.indexOf("Előzetes mennyiségek")).toBeLessThan(html.indexOf("Ereszcsatorna anyagbecslési séma"));
     expect(html.indexOf("Ereszcsatorna anyagbecslési séma")).toBeLessThan(html.indexOf("Anyagok hozzárendelése"));

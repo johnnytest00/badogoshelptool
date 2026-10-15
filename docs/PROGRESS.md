@@ -1413,3 +1413,109 @@ megszakított mobilhálózat és újrapróbálás; forrás, számítás és ajá
 nem tesztelt. Hosted változás, reset, commit, push, deploy nem történt.
 `.DS_Store` érintetlen. Javasolt commit:
 `feat(F9.8): prepare takeoff materials for quotation drafts`.
+
+## F9.8.1 — beszerzési és műhely-előkészítés
+
+Állapot: **COMPLETE (LOCAL WORKFLOW)**; fizikai iPhone/iPad **UNVERIFIED**.
+
+Hitelesített helyi workflow a meglévő DEMO projektben: jóváhagyott
+„Anyagkimutatás” takeoff kiválasztása, beszerzési tétel ellenőrzése, külön
+kézi DEMO műhelyfeladat felvétele műszaki méretek kitalálása nélkül, lista V1
+mentése. V2-ben a beszerzési állapot „Megrendelésre előkészítve”, a műhely
+„Gyártás alatt” lett; oldalfrissítés után mindkettő és a korábbi V1 is
+megmaradt. A hiányzó hossz/szélesség/vastagság/profil/anyag pontosan
+figyelmeztetésként jelent meg. A CSV valóban letöltődött, BOM/ pontosvessző,
+174,375 m², 1 db, kategória, állapot és kézi eredet adatokkal. A Nyomtatás
+vezérlő elindította a natív nyomtatási folyamatot; a párbeszédablak automation
+oldali blokkolása miatt papírra vagy PDF-be nyomtatás nem történt.
+
+Read-only SQL-ellenőrzés: lista `f4b30050-0c52-4e22-a73b-cc7211f1296e`, V2,
+2 append-only revision; V1 és V2 forrása az `Anyagkimutatás` takeoff
+`5d4b73bc-bf31-4e3b-9c3b-274bc14ee457`, pontos calculation revision
+`948cdda2-cd4f-4ec2-bc4d-9c558a67ca84`. V2: 174.375000 square_meter,
+`prepared`; DEMO műhelytétel 1.000000 piece, `in_progress`. A takeoff
+korábbi kalkulációhoz kötődött; az elavultság látható és a régi snapshot nem
+változott. Helyi DEMO fixture-ek megmaradtak.
+
+Javított, böngészőben reprodukált hibák: a kézi tétel hozzáadása után
+kiürülő `required` mezők blokkolták az egész lista mentését; a tételfelvétel
+helyi ellenőrzése megmaradt, az űrlapszintű kötelezőség megszűnt. A forrásból
+származó sor törlése a forrásválasztás módosítása nélkül hibás payloadot
+eredményezett; eltávolítás csak kézi soron lehetséges. A mentetlen változás
+most reload és belső navigáció előtt is figyelmeztet. Alapmezők egyszerűk,
+műszaki részletek csukhatók, mentés/státusz érintőcéljai legalább 48/44 px.
+
+Adatmodell: új forward-only migráció, szerveroldali Zod + authenticated
+Server Action, RLS-es olvasás, közvetlen írás tiltva, DB RPC idempotens
+kéréskulccsal és expected-version konfliktussal, változatlan revision
+history. Az aggregator csak egyező termék/változat/méret/specifikáció/egység
+tételeket von össze; draft takeoff csak ELŐZETES. Nincs új ár vagy gyártási
+méretlogika.
+
+Bizonyíték: teljes Vitest 88 fájl/337 PASS, 5 fájl skip/18 teszt skip;
+pgTAP `028_material_preparations.sql` 31/31; helyi Auth/RLS és külön
+adatbázis-kapcsolatos konkurencia 4 jogosultsági ellenőrzés, azonos kulcsú
+újrapróba egy revíziót ad, versengő V2-ből egy mentés és egy `40001` konfliktus.
+`npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check` PASS.
+Hitelesített Chromium-emuláció: iPhone 375×812, iPad portré 768×1024,
+tájkép 1024×768, desktop 1365×900; vízszintes overflow nincs. Ez nem Safari
+és nem fizikai eszköz. CSV export ellenőrzött, nyomtatás-párbeszédben
+automatizálási korlát maradt.
+
+Fizikai checklist: Safari portré/tájkép, státusz és mentés érintéssel;
+magyar tizedesbillentyűzet; nyomtatási margók és CSV megnyitása Files-ben;
+elavult forrás figyelmeztetése/új jóváhagyott takeoff frissítése; hálózati
+megszakítás után mentési állapot. Fizikai készülék nincs tesztelve. Reset,
+hosted módosítás, commit, push, deploy nem történt; `.DS_Store` érintetlen.
+Javasolt commit: `feat(F9.8.1): add procurement and workshop preparation`.
+
+## F9.9 — okos tetőgeometria és kapcsolt munkafolyamatok
+
+Állapot: **COMPLETE (SMART ROOF WORKFLOW, LOCAL)**; fizikai készülék **UNVERIFIED**.
+A meglévő `roof.gable` motor, SVG, projekt- és standalone eresz/szegély/fedési
+kalkulátor, felmérési munkaszakasz, mentett revízió és Auth/RLS szerződés
+maradt az alap. Új tetőtípus vagy motor nincs. A kétsíkú nyeregtető külön
+eresz-, gerinc- és oromélei stabil revízión belüli azonosítóval jelennek meg a
+rajzon és a mobilon érinthető listában. Kijelölt élből készül előtöltés; a
+hiányzó túlnyúlás, csatornarendszer, lefolyó, profil vagy toldás nem lesz
+kikövetkeztetve.
+
+Hitelesített helyi DEMO böngészős munka: új felmérés, explicit 10×6 m épület,
+4 m emelkedés, 0 mm túlnyúlások; 100 m² tető, 2×10 m eresz, 10 m gerinc és
+4×5 m oromél. Kapcsolt DEMO projektből mentett tető V1; bal 10 m eresz →
+ereszkalkulátor V1, jobb 10 m eresz hozzáadása → V2, két 5 m oromél →
+szegélykalkulátor V1. A meglévő fedési oldal ugyanazt a tetőrevíziót és 5 m
+ferde hosszt használja; termékadat hiányában fedési darabszám nem készült.
+Felmérés V4-ben a hossz 11 m lett, tető V2 110 m²-t ad. A régi eresz 2×10 m és
+szegély 2×5 m változatlanul megnyílik, mindkettő elavult forrást jelez.
+Az eresz explicit frissítése 2×11 m-es V3-at mentett; a V2 történetileg megmaradt,
+a DEMO név és új forrás oldalfrissítés után is visszatöltődött. Projekt nélküli kézi eresz (8500/4000 mm → 3 szál)
+és szegély előnézet is működött; ismeretlen toldásnál nincs darabszám.
+
+Helyi SQL-visszaolvasás: felmérés `609aa221-2dd2-4d30-ab86-9a2a75de5601`,
+tető V1 felmérés V1-hez, tető V2 felmérés V4-hez kapcsolódik. Az eresz V1/V2
+számításrevíziói a felmérés V2-höz és az eredeti tetőrevízióhoz kötöttek;
+V2-ben `left-eave` és `right-eave` külön 10 000 mm. Szegély V1 a felmérés
+V3-hoz, két külön 5000 mm-es oromélhez és régi tetőrevízióhoz kötött. A
+restricted SQL író elutasítja a nem aktuális, másik szervezeti/projektbeli vagy
+hamisított geometriát; immutable history és expected revision megmaradt.
+
+Böngészőben javított: újonnan mentett tető azonnali, pontos felmérésverziós
+forrásjelzése; a már felvett eresz nem jelenik meg újra hozzáadhatóként;
+mindkét eresz választható a meglévő munkaszakaszban és a projektoldalról indított átadás a régi sorok megőrzésével bővít; újranyitott szálhossznál és mentett számításnévnél
+nincs hamis „hiányzó adat” jelzés; 19 px-es szegély-eltávolítógomb 44 px-es
+mobil érintőcél lett. Chromium/IAB emuláció: 390×844, 768×1024, 1024×768 és
+1440×900; dokumentumszintű vízszintes overflow nincs, mobil numerikus mezők
+és fotógomb 52 px, élgombok 48 px, művelet 44 px. SVG/lista kijelölése
+szinkron. Ez nem fizikai Safari teszt. Fizikai checklist: iPhone/iPad Safari
+portré/tájkép, numerikus billentyűzet, SVG/lista érintés, kamera JPEG,
+mentés/újranyitás és megszakított hálózat utáni újrapróbálás.
+
+Fókuszált Vitest 32 PASS; az opt-in helyi Auth/Storage teszt külön
+3/3 PASS. Helyi pgTAP `029` 9/9, `030` 7/7, módosított `009` 21/21, valamint
+`026`+`023`+`011` 84/84 PASS. Két valódi kapcsolatos eresz- és
+felméréskonkurencia-ellenőrzés PASS. `npm run typecheck`, `npm run lint`,
+`npm run build`, `git diff --check` PASS. Hosted DB, fizikai készülék és
+offline sync nincs ellenőrizve. Reset, commit, push, deploy nem történt;
+`.DS_Store` érintetlen. Javasolt commit:
+`feat(F9.9): reuse verified roof edges across survey workflows`.

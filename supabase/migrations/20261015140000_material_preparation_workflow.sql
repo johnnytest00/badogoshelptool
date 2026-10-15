@@ -127,7 +127,7 @@ begin
     raise exception 'project access denied' using errcode = '42501';
   end if;
   if p_name is null or char_length(btrim(p_name)) not between 1 and 120
-    or p_request_key is null or p_expected_version is null
+    or p_request_key is null or p_expected_version is null or p_items is null
     or jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) not between 1 and 200
     or coalesce(cardinality(p_source_takeoff_ids), 0) > 50
     or cardinality(p_source_takeoff_ids) <> (select count(distinct x) from unnest(coalesce(p_source_takeoff_ids, array[]::uuid[])) x)
@@ -202,16 +202,18 @@ begin
     v_item_id := coalesce(nullif(v_item->>'id', '')::uuid, gen_random_uuid());
     if v_item_id = any(v_all_item_ids) then raise exception 'duplicate preparation item id' using errcode = '22023'; end if;
     v_all_item_ids := array_append(v_all_item_ids, v_item_id);
-    if v_category not in ('purchasing', 'workshop') then raise exception 'invalid preparation category' using errcode = '22023'; end if;
+    if v_category is null or v_category not in ('purchasing', 'workshop') then raise exception 'invalid preparation category' using errcode = '22023'; end if;
     if v_description is null or char_length(v_description) > 240 then raise exception 'preparation item description is required' using errcode = '22023'; end if;
     v_status := v_item->>'status';
-    if v_category = 'purchasing' and v_status not in ('required', 'prepared', 'ordered', 'received') then raise exception 'invalid purchasing status' using errcode = '22023'; end if;
+    if v_status is null or (v_category = 'purchasing' and v_status not in ('required', 'prepared', 'ordered', 'received')) then raise exception 'invalid purchasing status' using errcode = '22023'; end if;
     if v_category = 'workshop' and v_status not in ('prepare', 'in_progress', 'done') then raise exception 'invalid workshop status' using errcode = '22023'; end if;
     v_manual := coalesce(v_item->'manualTechnicalData', '{}'::jsonb);
 
+    if v_item ? 'sourceItemIds' and jsonb_typeof(v_item->'sourceItemIds') <> 'array' then raise exception 'source item ids must be an array' using errcode = '22023'; end if;
     if jsonb_typeof(v_item->'sourceItemIds') = 'array' and jsonb_array_length(v_item->'sourceItemIds') > 0 then
       select array_agg(value::uuid) into v_source_ids from jsonb_array_elements_text(v_item->'sourceItemIds');
       if cardinality(v_source_ids) <> jsonb_array_length(v_item->'sourceItemIds')
+        or cardinality(v_source_ids) <> (select count(distinct x) from unnest(v_source_ids) x)
         or exists (select 1 from unnest(v_source_ids) x where x = any(v_seen_item_ids)) then
         raise exception 'duplicate or invalid takeoff source item' using errcode = '22023';
       end if;
@@ -227,7 +229,7 @@ begin
       ) then raise exception 'unsupported takeoff state' using errcode = '22023'; end if;
 
       select i.* into v_first from public.material_takeoff_items i where i.id = v_source_ids[1] and i.organization_id = p_organization_id;
-      select t.*, c.current_revision_id into v_first_takeoff from public.material_takeoffs t
+      select t.* into v_first_takeoff from public.material_takeoffs t
         join public.calculations c on c.id = t.source_calculation_id and c.organization_id = t.organization_id
         where t.id = v_first.takeoff_id and t.organization_id = p_organization_id;
       if exists (
@@ -253,10 +255,9 @@ begin
       from public.material_takeoff_items i join public.material_takeoffs t on t.id = i.takeoff_id and t.organization_id = i.organization_id
       join public.calculations c on c.id = t.source_calculation_id and c.organization_id = t.organization_id
       where i.id = any(v_source_ids) and i.organization_id = p_organization_id;
-      select coalesce(jsonb_agg(x), '[]'::jsonb) into v_details from (
-        select distinct key, value from jsonb_each(v_first.material_snapshot)
-        where key in ('lengthMm','nominalWidthMm','effectiveWidthMm','thicknessMm','packagingQuantity','technicalSpecs','profileDescription','materialSpec')
-      ) x;
+      select coalesce(jsonb_object_agg(key, value), '{}'::jsonb) into v_details
+        from jsonb_each(v_first.material_snapshot)
+        where key in ('lengthMm','nominalWidthMm','effectiveWidthMm','thicknessMm','packagingQuantity','technicalSpecs','profileDescription','materialSpec');
       select coalesce(p.name, v_first.material_snapshot->>'productName', 'Megnevezés nélkül'),
              coalesce(v.name, v_first.material_snapshot->>'variantName', v_first.material_snapshot->>'name', 'Változat nélkül')
       into v_first_product_name, v_first_variant_name

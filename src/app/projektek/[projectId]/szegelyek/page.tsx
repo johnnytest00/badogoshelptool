@@ -7,7 +7,7 @@ import { getProjectForOrganization } from "@/features/projects/project-data";
 import { FlashingCalculator } from "@/features/flashings/flashing-calculator";
 import { getFlashingCalculation, getFlashingCatalogVariants, getFlashingGeometrySuggestions } from "@/features/flashings/flashing-data";
 
-export default async function FlashingCalculatorPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string }>; searchParams: Promise<{ organization?: string; calculation?: string; revision?: string }> }>) {
+export default async function FlashingCalculatorPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string }>; searchParams: Promise<{ organization?: string; calculation?: string; revision?: string; roof?: string; edges?: string }> }>) {
   const { projectId } = await params;
   const pageQuery = await searchParams;
   const selected = await getProjectOrganization(pageQuery.organization);
@@ -19,5 +19,6 @@ export default async function FlashingCalculatorPage({ params, searchParams }: R
   if (!project) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1><Link className="login-secondary-link" href={`/projektek?organization=${organizationId}`}>Vissza a projektekhez</Link></section></main>;
   const [suggestions, saved, catalogVariants] = await Promise.all([getFlashingGeometrySuggestions(organizationId, projectId), getFlashingCalculation(organizationId, projectId), getFlashingCatalogVariants(organizationId)]);
   if ((pageQuery.calculation && saved?.calculationId !== pageQuery.calculation) || (pageQuery.revision && saved?.revisionId !== pageQuery.revision)) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A projektkalkuláció nem található.</h1><Link className="login-secondary-link" href={`/projektek/${projectId}/szegelyek?organization=${organizationId}`}>Projektkalkuláció megnyitása</Link></section></main>;
-  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${organizationId}`} label="Vissza a projekthez" /><FlashingCalculator organizationId={organizationId} projectId={projectId} suggestions={suggestions} saved={saved} catalogVariants={catalogVariants} /></div></main>;
+  const selectedSuggestions = pageQuery.roof && pageQuery.edges ? [...new Set(pageQuery.edges.split(","))].flatMap((edge) => suggestions.find((suggestion) => suggestion.reference.roofModelId === pageQuery.roof && suggestion.reference.edgeId === edge) ? [suggestions.find((suggestion) => suggestion.reference.roofModelId === pageQuery.roof && suggestion.reference.edgeId === edge)!] : []) : [];
+  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${organizationId}`} label="Vissza a projekthez" /><FlashingCalculator organizationId={organizationId} projectId={projectId} suggestions={suggestions} selectedSuggestions={selectedSuggestions} saved={saved} catalogVariants={catalogVariants} /></div></main>;
 }

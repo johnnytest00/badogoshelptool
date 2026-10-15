@@ -68,9 +68,16 @@ function toDomainInput(draft: Draft): unknown {
   return { sectionSpec: { nominalLengthMm: numeric(draft.nominalLengthMm), nominalLengthSource: source, connection }, runs: draft.runs.map((run) => ({ ...run, lengthMm: numeric(run.lengthMm), startExtensionMm: numeric(run.startExtensionMm), endExtensionMm: numeric(run.endExtensionMm), reserveMm: numeric(run.reserveMm) })), manualComponents: [] };
 }
 
-export function FlashingCalculator({ organizationId, projectId, suggestions, saved, catalogVariants, initialHandoff, handoffSource, onSaved, onWorkspaceState }: Readonly<{ organizationId: string; projectId?: string; suggestions: FlashingGeometrySuggestion[]; saved: FlashingCalculationRecord | null; catalogVariants: FlashingCatalogVariant[]; initialHandoff?: FlashingPrefill; handoffSource?: SurveyHandoffSource; onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void }>) {
+export function FlashingCalculator({ organizationId, projectId, suggestions, selectedSuggestions = [], saved, catalogVariants, initialHandoff, handoffSource, onSaved, onWorkspaceState }: Readonly<{ organizationId: string; projectId?: string; suggestions: FlashingGeometrySuggestion[]; selectedSuggestions?: FlashingGeometrySuggestion[]; saved: FlashingCalculationRecord | null; catalogVariants: FlashingCatalogVariant[]; initialHandoff?: FlashingPrefill; handoffSource?: SurveyHandoffSource; onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void }>) {
   const router = useRouter();
-  const [draft, setDraft] = useState<Draft>(() => saved ? draftFromInput(saved.input, saved.displayName) : initialHandoff ? draftFromSurvey(initialHandoff) : createInitialDraft());
+  const [draft, setDraft] = useState<Draft>(() => {
+    if (saved) {
+      const existing = draftFromInput(saved.input, saved.displayName);
+      return { ...existing, runs: [...existing.runs, ...selectedSuggestions.filter((suggestion) => !existing.runs.some((run) => run.roofEdgeReference?.roofModelId === suggestion.reference.roofModelId && run.roofEdgeReference.edgeId === suggestion.reference.edgeId)).map((suggestion) => ({ id: generateSecureUuid(), category: suggestion.category, name: suggestion.label.split(" · ").slice(1).join(" · "), lengthMm: String(suggestion.lengthMm), lengthSource: "geometry" as const, roofEdgeReference: suggestion.reference, startExtensionMm: "0", endExtensionMm: "0", reserveMm: "0" }))] };
+    }
+    const base = initialHandoff ? draftFromSurvey(initialHandoff) : createInitialDraft();
+    return selectedSuggestions.length ? { ...base, runs: selectedSuggestions.map((suggestion) => ({ id: generateSecureUuid(), category: suggestion.category, name: suggestion.label.split(" · ").slice(1).join(" · "), lengthMm: String(suggestion.lengthMm), lengthSource: "geometry" as const, roofEdgeReference: suggestion.reference, startExtensionMm: "0", endExtensionMm: "0", reserveMm: "0" })) } : base;
+  });
   const handoffBaseline = useRef(initialHandoff ? JSON.stringify(draftFromSurvey(initialHandoff)) : "");
   const handoffModified = Boolean(handoffSource && JSON.stringify(draft) !== handoffBaseline.current);
   const [expectedRevision, setExpectedRevision] = useState(saved?.revisionNumber ?? 0);
@@ -109,6 +116,15 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sav
       ? current
       : { ...current, runs: [...current.runs, { id: generateSecureUuid(), category: suggestion.category, name: suggestion.label.split(" · ").slice(1).join(" · "), lengthMm: String(suggestion.lengthMm), lengthSource: "geometry", roofEdgeReference: suggestion.reference, startExtensionMm: "0", endExtensionMm: "0", reserveMm: "0" }] });
   };
+  const canRefreshRoofEdges = Boolean(saved?.stale && saved.input.runs.some((run) => run.roofEdgeReference && suggestions.some((suggestion) => suggestion.reference.roofModelId === run.roofEdgeReference?.roofModelId && suggestion.reference.edgeId === run.roofEdgeReference?.edgeId)));
+  const refreshRoofEdges = () => update((current) => ({ ...current, runs: current.runs.map((run) => {
+    const reference = run.roofEdgeReference;
+    if (!reference) return run;
+    const suggestion = suggestions.find((item) => item.reference.roofModelId === reference.roofModelId && item.reference.edgeId === reference.edgeId);
+    if (!suggestion) return run;
+    const lengthMm = reference.lengthOverridden ? numeric(run.lengthMm) : suggestion.lengthMm;
+    return { ...run, category: suggestion.category, lengthMm: String(lengthMm), lengthSource: "geometry", roofEdgeReference: { ...suggestion.reference, lengthOverridden: lengthMm !== suggestion.lengthMm } };
+  }) }));
 
   const save = () => {
     if (!parsed.success || !calculated?.ok || !dirty) return;
@@ -127,7 +143,7 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sav
     startTransition(async () => {
       let result; try { result = await saveFlashingCalculationAction(data); } catch { setFeedback("A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."); return; }
       if (!result.ok || !result.revisionNumber) { setFeedback(result.error ?? "A mentés nem sikerült."); return; }
-      setExpectedRevision(result.revisionNumber); setBaseline(currentJson); setBaselineName(draft.name); setFeedback(`Mentve · V${result.revisionNumber}`); router.refresh();
+      setExpectedRevision(result.revisionNumber); setBaseline(currentJson); setBaselineName(draft.name); setFeedback(`Mentve · V${result.revisionNumber}`); if (onSaved && result.calculationId && result.revisionId) await onSaved({ calculationId: result.calculationId, revisionId: result.revisionId, revisionNumber: result.revisionNumber }); else router.refresh();
     });
   };
 
@@ -149,6 +165,7 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sav
   return <div className="materials-workspace flashing-workspace">
     <section className="projects-toolbar material-detail-header"><div><p className="section-eyebrow">Előzetes anyagbecslés</p><h1>Bádogos szegélyek kalkulátora</h1><p>Több, egymástól független szakasz előzetes anyaghossz- és darabszámbecslése.</p></div><div className="flashing-save-state" aria-live="polite"><span className="status-pill">{dirty ? `Nem mentett módosítás · következő változat: V${expectedRevision + 1}` : selectedRevision && saved && selectedRevision.revisionId !== saved.revisionId ? `Történeti változat · V${selectedRevision.revisionNumber}` : expectedRevision ? `Mentett aktuális változat · V${expectedRevision}` : "Új, még nem mentett számítás"}</span></div></section>
     {handoffSource && <div className={`survey-handoff-banner ${handoffModified ? "is-modified" : ""}`} role="status"><strong>{handoffModified ? "A kalkuláció módosított adatokat tartalmaz" : "Adatok átvéve a felmérésből"}</strong><small>Felmérés: {handoffSource.surveyId} · V{handoffSource.version} · revízió: {handoffSource.revisionId}. A forrás változatlan marad.</small></div>}
+    {saved?.stale && <div className="survey-handoff-banner is-modified" role="status"><strong>Elavult tetőgeometriai forrás</strong><p>A mentett szegélyszámítás változatlan. Az aktuális élhossz külön, új revízió mentésével kerülhet bele.</p>{canRefreshRoofEdges ? <button type="button" className="secondary-button" onClick={refreshRoofEdges}>Kijelölt szegélyélek frissítése</button> : <p>Az érintett élek nem feleltethetők meg az aktuális tetőmodellnek; ellenőrizd a szakaszokat.</p>}</div>}
     {!projectId && saved && selectedRevision?.revisionId === saved.revisionId && <StandaloneProjectAssociation organizationId={organizationId} sourceCalculationId={saved.calculationId} sourceRevisionId={saved.revisionId} sourceRevisionNumber={saved.revisionNumber} sourceName={saved.displayName} calculatorType={flashingMaterialCalculator.id} hasUnsavedChanges={dirty} />}
 
     {(!onSaved || Boolean(projectId) || suggestions.length > 0) && <section className="detail-surface flashing-section" aria-labelledby="geometry-title"><div className="section-heading"><div><p className="section-eyebrow">OPCIONÁLIS FORRÁSGEOMETRIA</p><h2 id="geometry-title">Tetőélek javaslatai</h2></div></div><p className="detail-description">{projectId ? "A javaslat csak gombnyomásra kerül be. Kizárólag ellenőrzött projekt nyeregtető-élek érhetők el; vápa és falcsatlakozás nincs kikövetkeztetve." : "Önálló módban nincs projekt tetőgeometria, ezért a javaslatok nem érhetők el. A szakaszok kézzel felvehetők."}</p>{suggestions.length ? <div className="flashing-suggestions">{suggestions.map((suggestion) => { const added = draft.runs.some((run) => run.roofEdgeReference?.roofModelId === suggestion.reference.roofModelId && run.roofEdgeReference.edgeId === suggestion.reference.edgeId); return <article className="flashing-suggestion" key={suggestion.id}><div><strong>{suggestion.label}</strong><small>{suggestion.lengthMm.toLocaleString("hu-HU")} mm · {categoryLabels[suggestion.category]}</small></div><button className="secondary-button" type="button" onClick={() => addSuggestion(suggestion)} disabled={added}>{added ? "Hozzáadva" : "Él hozzáadása"}</button></article>; })}</div> : projectId && <p className="missing-data">Nincs elérhető, ellenőrzött nyeregtető-geometria.</p>}</section>}

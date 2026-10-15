@@ -762,6 +762,23 @@ isOneToOne: false
       referencedColumns: ["id","organization_id"]
     }
                   ]
+                },"material_preparation_lists": {
+                  Row: { "created_at": string,"created_by": string,"creation_request_key": string,"current_revision_id": string | null,"id": string,"name": string,"organization_id": string,"project_id": string,"updated_at": string,"version": number }
+                  ComputedFields: never
+                  Insert: { "created_at"?: string,"created_by": string,"creation_request_key": string,"current_revision_id"?: string | null,"id"?: string,"name": string,"organization_id": string,"project_id": string,"updated_at"?: string,"version"?: number }
+                  Update: { "created_at"?: string,"created_by"?: string,"creation_request_key"?: string,"current_revision_id"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"project_id"?: string,"updated_at"?: string,"version"?: number }
+                  Relationships: [
+                    { foreignKeyName: "material_preparation_lists_project_fk"; columns: ["project_id", "organization_id"]; isOneToOne: false; referencedRelation: "projects"; referencedColumns: ["id", "organization_id"] },
+                    { foreignKeyName: "material_preparation_lists_current_revision_fk"; columns: ["current_revision_id", "id", "organization_id"]; isOneToOne: false; referencedRelation: "material_preparation_revisions"; referencedColumns: ["id", "list_id", "organization_id"] }
+                  ]
+                },"material_preparation_revisions": {
+                  Row: { "created_at": string,"created_by": string,"id": string,"input_snapshot": Json,"items_snapshot": Json,"list_id": string,"organization_id": string,"preparation_state": string,"request_key": string,"revision_number": number,"source_takeoffs_snapshot": Json }
+                  ComputedFields: never
+                  Insert: { "created_at"?: string,"created_by": string,"id"?: string,"input_snapshot": Json,"items_snapshot": Json,"list_id": string,"organization_id": string,"preparation_state": string,"request_key": string,"revision_number": number,"source_takeoffs_snapshot"?: Json }
+                  Update: { "created_at"?: string,"created_by"?: string,"id"?: string,"input_snapshot"?: Json,"items_snapshot"?: Json,"list_id"?: string,"organization_id"?: string,"preparation_state"?: string,"request_key"?: string,"revision_number"?: number,"source_takeoffs_snapshot"?: Json }
+                  Relationships: [
+                    { foreignKeyName: "material_preparation_revisions_list_fk"; columns: ["list_id", "organization_id"]; isOneToOne: false; referencedRelation: "material_preparation_lists"; referencedColumns: ["id", "organization_id"] }
+                  ]
                 },"quotations": {
                   Row: {
                     "client_id": string | null,"created_at": string,"created_by": string,"creation_operation_id": string | null,"currency": string,"current_revision_id": string | null,"finalized_at": string | null,"finalized_by": string | null,"finalized_revision_id": string | null,"id": string,"name": string,"organization_id": string,"ownership_scope": "project" | "standalone","project_id": string | null,"status": Database["public"]['Enums']["quotation_status"],"updated_at": string,"version": number
@@ -936,6 +953,10 @@ isOneToOne: false
               "entry_id": string
             }[]
                            },
+            "save_material_preparation_revision": {
+              Args: { "p_expected_version": number,"p_items": Json,"p_list_id": string | null,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_request_key": string,"p_source_takeoff_ids": string[] }
+              Returns: { "list_id": string,"preparation_state": string,"revision_id": string,"revision_number": number,"version": number }[]
+            },
 "create_execution_photo":
 { Args: { "p_caption": string,"p_display_filename": string,"p_file_size": number,"p_journal_entry_id": string,"p_mime_type": string,"p_object_key": string,"p_organization_id": string,"p_plan_id": string,"p_project_id": string,"p_request_key": string,"p_task_id": string }; Returns: {
               "photo_id": string

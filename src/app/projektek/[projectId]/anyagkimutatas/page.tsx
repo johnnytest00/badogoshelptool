@@ -7,6 +7,7 @@ import { createMaterialTakeoffFormAction } from "@/features/material-takeoffs/ta
 import { TakeoffItemForm, ApproveTakeoffForm } from "@/features/material-takeoffs/takeoff-forms";
 import { MaterialPreparationWorkspace } from "@/features/material-takeoffs/material-preparation-workspace";
 import { getQuotationWorkspace } from "@/features/quotations/quotation-data";
+import { getMaterialPreparationLists } from "@/features/material-takeoffs/material-preparation-data";
 import type { MaterialSourceTakeoff, MaterialPriceSnapshot } from "@/domain/material-takeoffs/aggregation";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { materialCategoryLabels, materialProvenanceLabels, materialPurchasingUnitLabels, type MaterialCategory, type MaterialProvenance, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
@@ -33,11 +34,13 @@ export default async function MaterialTakeoffPage({ params, searchParams }: Read
     sourceCurrentRevisionId: takeoff.sourceCurrentRevisionId,
     items: takeoff.items.map((item) => ({ id: item.id, variantId: item.variantId, quantity: item.quantityExact, unit: item.quantityUnit, productName: item.productName, productCategory: item.productCategory, variantName: item.variantName, materialSnapshot: item.materialSnapshot, priceSnapshot: item.priceSnapshot as MaterialPriceSnapshot | null })),
   }));
+  const currentSourceRevisions = new Map(preparationSources.map((takeoff) => [takeoff.id, takeoff.sourceCurrentRevisionId]));
+  const preparationLists = await getMaterialPreparationLists(organizationId, projectId, currentSourceRevisions);
   const draftQuotations = quotationWorkspace.quotations.filter((quote) => quote.status === "draft").map(({ id, name, version }) => ({ id, name, version }));
   return <main className="dashboard-shell"><div className="dashboard-container">
     <Link className="back-link" href={`/projektek/${projectId}?organization=${organizationId}`}>← Vissza a projekthez</Link>
     <section className="project-detail-header"><div><p className="section-eyebrow">Anyagkimutatás</p><h1>{project.name}</h1><p>Mentett, a rendszer által ellenőrzött számítás alapján; a mennyiségek szakmai jóváhagyása külön feladat.</p></div></section>
-    <MaterialPreparationWorkspace organizationId={organizationId} projectId={projectId} takeoffs={preparationSources} draftQuotations={draftQuotations} />
+    <MaterialPreparationWorkspace organizationId={organizationId} projectId={projectId} projectName={project.name} takeoffs={preparationSources} lists={preparationLists} selectedListId={null} draftQuotations={draftQuotations} />
     <section className="detail-surface"><h2>Új anyagkimutatás</h2><form action={createMaterialTakeoffFormAction} className="stack-form"><input type="hidden" name="organizationId" value={organizationId} /><input type="hidden" name="projectId" value={projectId} /><label>Megnevezés<input name="name" defaultValue="Anyagkimutatás" required /></label><label>Forráskalkuláció<select name="calculationSource" required><option value="">Válassz mentett kalkulációt…</option>{calculations.map((calculation) => <option key={`${calculation.id}-${calculation.revisionId}`} value={`${calculation.id}|${calculation.revisionId}`}>{calculation.displayName} · változat {calculation.revisionNumber}</option>)}</select></label><p className="detail-description">A kiválasztott revízió a szerveren újra ellenőrzésre kerül. Módosítatlan forrás nélkül jóváhagyás nem lehetséges.</p><button className="primary-button" type="submit">Piszkozat létrehozása</button></form></section>
     {takeoffs.map((takeoff) => <section className="detail-surface" key={takeoff.id} id={`takeoff-${takeoff.id}`} data-selected={query.takeoff === takeoff.id ? "true" : undefined}>
       <div className="roof-list-heading"><div><p className="section-eyebrow">{takeoff.status === "approved" ? "Jóváhagyva" : "Piszkozat"}</p><h2>{takeoff.name}</h2></div>{takeoff.sourceRevisionId !== takeoff.sourceCurrentRevisionId && <span className="coming-soon-badge">Elavult számítási alap</span>}{takeoff.staleRoofSource && <span className="coming-soon-badge">Elavult tetőforrás</span>}</div>

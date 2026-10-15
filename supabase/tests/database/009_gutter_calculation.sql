@@ -19,28 +19,51 @@ select is((select count(*)::int from public.organization_members where organizat
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
+-- F9.9: use an exact verified roof source. The seed's historical DEMO roof is not verified geometry.
+select set_config('test.gutter_roof_model',r.roof_model_id::text,true),
+       set_config('test.gutter_roof_revision',r.roof_model_revision_id::text,true),
+       set_config('test.gutter_roof_calculation',r.calculation_id::text,true),
+       set_config('test.gutter_calculation_revision',r.calculation_revision_id::text,true)
+from public.save_gable_roof_calculation('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000030',null,
+ 'DEMO ellenőrzött nyeregtető',
+ '{"inputMode":"height","buildingLengthMm":10000,"buildingWidthMm":6000,"roofRiseMm":4000,"eaveOverhangMm":0,"frontGableOverhangMm":0,"rearGableOverhangMm":0}',
+ '{"lengths":{"eachEaveEdgeMm":10000}}','{"input":"DEMO","output":"verified"}','[]',0) r;
+create function pg_temp.gutter_test_input(p_front integer,p_rear integer default null)
+returns jsonb language sql stable as $$
+ select jsonb_build_object('gutterStockLengthMm',4000,'runs',case when p_rear is null then jsonb_build_array(front) else jsonb_build_array(front,rear) end,
+   'downpipes',case when p_rear is null then '[]'::jsonb else '[{"id":"down-1","name":"Bal lefolyó","lengthMm":5100,"commercialLengthMm":3000,"selectedBends":2,"relatedAccessories":[]}]'::jsonb end,
+   'manualComponents',case when p_rear is null then '[]'::jsonb else '[{"id":"caps","category":"end_cap","quantity":2,"note":"DEMO kézi adat"}]'::jsonb end)
+ from (select jsonb_build_object('id','front','name','Első','lengthMm',p_front,'measurementSource','drawing',
+   'roofEdge',jsonb_build_object('revisionId',current_setting('test.gutter_roof_revision'),'edgeId','left-eave','roofModelId',current_setting('test.gutter_roof_model'),
+     'calculationId',current_setting('test.gutter_roof_calculation'),'calculationRevisionId',current_setting('test.gutter_calculation_revision'),
+     'suggestedLengthMm',10000,'lengthOverridden',p_front<>10000)) front,
+   jsonb_build_object('id','rear','name','Hátsó','lengthMm',p_rear,'measurementSource','drawing',
+   'roofEdge',jsonb_build_object('revisionId',current_setting('test.gutter_roof_revision'),'edgeId','right-eave','roofModelId',current_setting('test.gutter_roof_model'),
+     'calculationId',current_setting('test.gutter_roof_calculation'),'calculationRevisionId',current_setting('test.gutter_calculation_revision'),
+     'suggestedLengthMm',10000,'lengthOverridden',p_rear<>10000)) rear) q;
+$$;
 select lives_ok($$select * from public.save_gutter_material_calculation(
   '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030',
-  'DEMO ereszbecslés', '{"gutterStockLengthMm":4000,"runs":[{"id":"front","name":"Első","lengthMm":8500,"measurementSource":"demo","roofEdge":{"revisionId":"00000000-0000-4000-8000-000000000041","edgeId":"left-eave"}},{"id":"rear","name":"Hátsó","lengthMm":8000,"measurementSource":"demo","roofEdge":{"revisionId":"00000000-0000-4000-8000-000000000041","edgeId":"right-eave"}}],"downpipes":[{"id":"down-1","name":"Bal lefolyó","lengthMm":5100,"commercialLengthMm":3000,"selectedBends":2,"relatedAccessories":[]}],"manualComponents":[{"id":"caps","category":"end_cap","quantity":2,"note":"DEMO kézi adat"}]}',
+  'DEMO ereszbecslés', pg_temp.gutter_test_input(8500,8000),
   '{"totals":{"gutterStockSections":5,"downpipeStockSections":2}}',
-  '{"input":"demo","output":"server_calculation"}', '[]', '00000000-0000-4000-8000-000000000041', 0
+  '{"input":"demo","output":"server_calculation"}', '[]', current_setting('test.gutter_roof_revision')::uuid, 0
 )$$, 'authorized member creates V1 with full input and source');
 select is((select count(*)::int from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.organization_id = '00000000-0000-4000-8000-000000000010' and c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate'), 1, 'V1 revision persisted');
 select is((select input_snapshot #>> '{runs,1,lengthMm}' from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate'), '8000', 'second gutter run persisted');
 select is((select input_snapshot #>> '{downpipes,0,commercialLengthMm}' from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate'), '3000', 'downpipe stock length persisted');
 select is((select input_snapshot #>> '{manualComponents,0,quantity}' from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate'), '2', 'manual accessory quantity persisted');
-select is((select count(*)::int from public.calculation_dependencies d join public.calculation_revisions cr on cr.id = d.downstream_calculation_revision_id join public.calculations c on c.id = cr.calculation_id where c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate' and d.upstream_roof_model_revision_id = '00000000-0000-4000-8000-000000000041'), 1, 'source geometry revision is linked once');
+select is((select count(*)::int from public.calculation_dependencies d join public.calculation_revisions cr on cr.id = d.downstream_calculation_revision_id join public.calculations c on c.id = cr.calculation_id where c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate' and d.upstream_roof_model_revision_id = current_setting('test.gutter_roof_revision')::uuid), 1, 'source geometry revision is linked once');
 select lives_ok($$select * from public.save_gutter_material_calculation(
   '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030',
-  'DEMO ereszbecslés', '{"gutterStockLengthMm":4000,"runs":[{"id":"front","name":"Első","lengthMm":9000,"measurementSource":"demo","roofEdge":{"revisionId":"00000000-0000-4000-8000-000000000041","edgeId":"left-eave"}}],"downpipes":[],"manualComponents":[]}',
+  'DEMO ereszbecslés', pg_temp.gutter_test_input(9000),
   '{"totals":{"gutterStockSections":3}}', '{"input":"demo"}', '[]',
-  '00000000-0000-4000-8000-000000000041', 1
+  current_setting('test.gutter_roof_revision')::uuid, 1
 )$$, 'expected V1 creates a new V2 revision');
 select is((select count(*)::int from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate'), 2, 'V1 and V2 both remain');
 select is((select input_snapshot #>> '{runs,0,lengthMm}' from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate' and cr.revision_number = 1), '8500', 'V1 input remains immutable after V2');
 select is((select output_snapshot #>> '{totals,gutterStockSections}' from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate' and cr.revision_number = 1), '5', 'V1 output remains immutable after V2');
 select throws_ok($$select * from public.save_gutter_material_calculation('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000030','stale','{"runs":[{"id":"a"}]}','{}','{}','[]',null,1)$$, '40001', null, 'stale expected revision is rejected');
-select throws_ok($$select * from public.save_gutter_material_calculation('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000030','cross project','{"runs":[{"id":"a","roofEdge":{"revisionId":"00000000-0000-4000-8000-000000000992","edgeId":"e"}}]}','{}','{}','[]',null,2)$$, 'P0002', null, 'embedded geometry from another project is rejected');
+select throws_ok($$select * from public.save_gutter_material_calculation('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000030','cross project','{"runs":[{"id":"a","roofEdge":{"revisionId":"00000000-0000-4000-8000-000000000992","edgeId":"e"}}]}','{}','{}','[]',null,2)$$, '22023', null, 'incomplete embedded geometry is rejected');
 select throws_ok($$select * from public.save_gutter_material_calculation('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000030','cross project','{"runs":[{"id":"a"}]}','{}','{}','[]','00000000-0000-4000-8000-000000000992',2)$$, 'P0002', null, 'explicit source from another project is rejected');
 
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
@@ -50,7 +73,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001
 set local role postgres;
 select throws_ok($$update public.calculation_revisions set input_snapshot = '{}' where calculation_id = (select id from public.calculations where project_id = '00000000-0000-4000-8000-000000000030' and calculator_type = 'gutters.material-estimate') and revision_number = 1$$, 'P0001', null, 'gutter revisions cannot be updated');
 select throws_ok($$delete from public.calculation_revisions where calculation_id = (select id from public.calculations where project_id = '00000000-0000-4000-8000-000000000030' and calculator_type = 'gutters.material-estimate') and revision_number = 1$$, 'P0001', null, 'gutter revisions cannot be deleted');
-select is((select count(*)::int from public.calculation_dependencies d join public.calculation_revisions cr on cr.id = d.downstream_calculation_revision_id join public.calculations c on c.id = cr.calculation_id where c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate' and cr.revision_number = 2 and d.upstream_roof_model_revision_id = '00000000-0000-4000-8000-000000000041'), 1, 'V2 source dependency is attached to V2');
+select is((select count(*)::int from public.calculation_dependencies d join public.calculation_revisions cr on cr.id = d.downstream_calculation_revision_id join public.calculations c on c.id = cr.calculation_id where c.project_id = '00000000-0000-4000-8000-000000000030' and c.calculator_type = 'gutters.material-estimate' and cr.revision_number = 2 and d.upstream_roof_model_revision_id = current_setting('test.gutter_roof_revision')::uuid), 1, 'V2 source dependency is attached to V2');
 
 select * from finish();
 rollback;

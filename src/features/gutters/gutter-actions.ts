@@ -8,7 +8,7 @@ import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
 import type { Json } from "@/infrastructure/supabase/database.types";
 
-export type GutterSaveResult = { ok: boolean; error?: string; revisionNumber?: number };
+export type GutterSaveResult = { ok: boolean; error?: string; calculationId?: string; revisionId?: string; revisionNumber?: number };
 export type GutterTakeoffResult = { ok: boolean; error?: string; takeoffId?: string };
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const uuid = (value: string) => /^[0-9a-f-]{36}$/i.test(value) ? value : null;
@@ -25,7 +25,7 @@ export async function saveGutterCalculationAction(data: FormData): Promise<Gutte
   const calculated = executeCalculator(gutterMaterialCalculator, parsed.data);
   if (!calculated.ok) return { ok: false, error: calculated.errors[0]?.message ?? "A kalkuláció nem számítható ki." };
   const sourceRoofRevisionId = uuid(text(data, "sourceRoofRevisionId"));
-  if (!sourceRoofRevisionId) return { ok: false, error: "A projektforrásként használt tetőrevízió hiányzik." };
+  if (parsed.data.runs.some((run) => run.roofEdge) && !sourceRoofRevisionId) return { ok: false, error: "A projektforrásként használt tetőrevízió hiányzik." };
   const expectedRevision = Number(text(data, "expectedRevisionNumber") || "0");
   if (!Number.isInteger(expectedRevision) || expectedRevision < 0) return { ok: false, error: "Érvénytelen revíziószám." };
   const supabase = await createClient();
@@ -33,12 +33,12 @@ export async function saveGutterCalculationAction(data: FormData): Promise<Gutte
     p_organization_id: organizationId, p_project_id: projectId, p_name: text(data, "name") || "Ereszcsatorna-becslés",
     p_input_data: parsed.data as unknown as Json, p_output_data: calculated.output as unknown as Json,
     p_data_provenance: { input: "user_provided", output: "server_calculation", calculator: calculated.metadata.calculatorId },
-    p_warnings: calculated.output.warnings as unknown as Json, p_source_roof_revision_id: sourceRoofRevisionId,
+    p_warnings: calculated.output.warnings as unknown as Json, p_source_roof_revision_id: sourceRoofRevisionId as string,
     p_expected_revision_number: expectedRevision,
   });
-  if (error || !result?.[0]) return { ok: false, error: error?.code === "40001" ? "A kalkuláció időközben megváltozott; töltsd újra az oldalt." : "A kalkuláció mentése nem sikerült." };
+  if (error || !result?.[0]) return { ok: false, error: error?.code === "40001" ? "A kalkuláció vagy a forrás tetőgeometriája időközben megváltozott; töltsd újra az oldalt." : error?.code === "22023" ? "A kiválasztott ereszél forrása vagy hossza nem egyezik az ellenőrzött tetőrevízióval." : "A kalkuláció mentése nem sikerült." };
   revalidatePath(`/projektek/${projectId}`); revalidatePath(`/projektek/${projectId}/ereszcsatorna`);
-  return { ok: true, revisionNumber: result[0].revision_number };
+  return { ok: true, calculationId: result[0].calculation_id, revisionId: result[0].calculation_revision_id, revisionNumber: result[0].revision_number };
 }
 
 export async function createGutterTakeoffDraftAction(data: FormData): Promise<GutterTakeoffResult> {

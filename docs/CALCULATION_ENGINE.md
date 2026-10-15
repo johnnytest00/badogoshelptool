@@ -377,3 +377,29 @@ A felmérés régi változata külön, csak olvasható nézetben nyílik meg a s
 méréseivel és fotóival. Az eresz-, nyeregtető- vagy szegélykalkulátor a
 kiválasztott változat azonosítóját kapja. A helyszíni adat továbbra sem válik
 ellenőrzött kalkulátorbemenetté, és az átadás nem ment számítást.
+
+## F9.9 — ellenőrzött nyeregtető-élek átadása
+
+Az egyetlen támogatott modell a meglévő szimmetrikus `roof.gable`. A mentett,
+`verified` tetőrevízió eredményéből két külön tetősík és terület, két külön
+eresz (`left-eave`, `right-eave`), négy ferde oromél, valamint egy gerinc
+származik. Az élazonosítók az adott tetőmodell-revízión belül determinisztikusak;
+nem jelentenek égtájat. A tetőmotor adja a hajlásszöget, ferde hosszt, vetületet,
+területet és összevont hosszakat. A 10 m épülethossz, 6 m épületszélesség,
+4 m emelkedés, explicit 0 mm túlnyúlások példában 5 m ferde hossz,
+100 m² tetőfelület, 2×10 m eresz, 10 m gerinc és 4×5 m oromél adódik.
+
+A rajz és az érinthető lista közös kijelölést használ. Csak a felhasználó által
+kijelölt ereszek kerülnek az ereszcsatorna-kalkulátorba; a szegélykalkulátor
+orom- és gerincélt fogad a meglévő kategóriák szerint. A fedési kalkulátorok
+ugyanazt a mentett tetőrevíziót használják. A felmérés tetőmérései csak teljes,
+egységileg ellenőrzött állapotban menthetők projekt-tetőmodellé; a hiányzó
+túlnyúlás nem válik nullává. A mentett átadás tartalmazza a tetőmodell- és
+számításrevíziót, az élazonosítót, az eredeti mm hosszt és a felhasználói
+felülírás tényét. Új tetőrevízió elavultnak jelöli a régi függő számítást,
+frissítése csak külön művelet és új számításrevízió.
+
+Nem vezethető le csatornaigény, lefolyószám/-hely/-magasság, profilalak,
+toldás, gyártási méret, termékspecifikáció, vápa, falcsatlakozás vagy
+gyártói megfelelőség. A projekt nélküli kézi eresz- és szegélymunka továbbra
+is használható.

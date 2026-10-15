@@ -9,7 +9,7 @@ import { getFlashingCatalogVariants } from "@/features/flashings/flashing-data";
 import { createClient } from "@/infrastructure/supabase/server";
 import type { Json } from "@/infrastructure/supabase/database.types";
 
-export type FlashingSaveResult = { ok: boolean; error?: string; revisionNumber?: number };
+export type FlashingSaveResult = { ok: boolean; error?: string; calculationId?: string; revisionId?: string; revisionNumber?: number };
 export type FlashingTakeoffResult = { ok: boolean; error?: string; takeoffId?: string };
 const read = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -83,7 +83,7 @@ export async function saveFlashingCalculationAction(data: FormData): Promise<Fla
   if (error || !result?.[0]) return { ok: false, error: error?.code === "40001" ? "A kalkuláció vagy a forrás időközben megváltozott; töltsd újra az oldalt." : "A kalkuláció mentése nem sikerült." };
   revalidatePath(`/projektek/${projectId}`);
   revalidatePath(`/projektek/${projectId}/szegelyek`);
-  return { ok: true, revisionNumber: result[0].revision_number };
+  return { ok: true, calculationId: result[0].calculation_id, revisionId: result[0].calculation_revision_id, revisionNumber: result[0].revision_number };
 }
 
 export async function createFlashingTakeoffDraftAction(data: FormData): Promise<FlashingTakeoffResult> {

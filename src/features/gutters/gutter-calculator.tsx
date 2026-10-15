@@ -12,13 +12,14 @@ import { buildGutterTakeoffCandidates, checkGutterMappings, type GutterCatalogVa
 import { createGutterTakeoffDraftAction, saveGutterCalculationAction } from "./gutter-actions";
 import { saveStandaloneCalculationAction } from "@/features/calculations/standalone-actions";
 import type { GutterCalculationRecord, GutterGeometrySuggestion } from "./gutter-data";
+import { mergeSelectedEaves } from "./gutter-handoff";
 import { GutterTechnicalDrawing } from "./gutter-technical-drawing";
 import { createIdempotencyKey } from "@/lib/secure-uuid";
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { StandaloneProjectAssociation } from "@/features/calculations/standalone-project-association";
 import type { SurveyHandoffSource } from "@/domain/field-surveys/calculator-handoff";
 
-type Props = { organizationId: string; projectId?: string; suggestions: GutterGeometrySuggestion[]; saved: GutterCalculationRecord | null; catalogVariants: GutterCatalogVariant[]; standaloneName?: string; initialInput?: GutterMaterialInput; handoffSource?: SurveyHandoffSource; onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void };
+type Props = { organizationId: string; projectId?: string; suggestions: GutterGeometrySuggestion[]; selectedSuggestions?: GutterGeometrySuggestion[]; saved: GutterCalculationRecord | null; catalogVariants: GutterCatalogVariant[]; standaloneName?: string; initialInput?: GutterMaterialInput; handoffSource?: SurveyHandoffSource; onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void };
 const emptyRun = (id: string) => ({ id, name: "Új ereszszakasz", lengthMm: 0, description: "", measurementSource: "site_measurement" as const, roofEdge: null, bracketSpacingMm: null });
 const initial = (saved: GutterCalculationRecord | null): GutterMaterialInput => saved?.input ?? { gutterStockLengthMm: 0, runs: [emptyRun("run-1")], downpipes: [], manualComponents: [] };
 const numberValue = (value: string) => Number(value.replace(",", ".")) || 0;
@@ -27,12 +28,12 @@ function OptionalPanel({ compact, title, count, children }: { compact: boolean; 
   return compact ? <details className="survey-calculator-optional" open={count > 0}><summary>{title} · {count}</summary>{children}</details> : <>{children}</>;
 }
 
-export function GutterCalculator({ organizationId, projectId, suggestions, saved, catalogVariants, standaloneName, initialInput, handoffSource, onSaved, onWorkspaceState }: Props) {
+export function GutterCalculator({ organizationId, projectId, suggestions, selectedSuggestions = [], saved, catalogVariants, standaloneName, initialInput, handoffSource, onSaved, onWorkspaceState }: Props) {
   const router = useRouter();
-  const [input, setInput] = useState<GutterMaterialInput>(() => initialInput ?? initial(saved));
+  const [input, setInput] = useState<GutterMaterialInput>(() => mergeSelectedEaves(initialInput ?? initial(saved), selectedSuggestions));
   const handoffBaseline = useRef(initialInput ? JSON.stringify(initialInput) : "");
-  const [name, setName] = useState(standaloneName ?? "Ereszcsatorna-becslés");
-  const [baselineName, setBaselineName] = useState(standaloneName ?? "Ereszcsatorna-becslés");
+  const [name, setName] = useState(standaloneName ?? saved?.displayName ?? "Ereszcsatorna-becslés");
+  const [baselineName, setBaselineName] = useState(standaloneName ?? saved?.displayName ?? "Ereszcsatorna-becslés");
   const standaloneId = useRef(saved?.calculationId ?? generateSecureUuid());
   const [message, setMessage] = useState("");
   const [takeoffName, setTakeoffName] = useState("Ereszcsatorna anyagkimutatás");
@@ -45,10 +46,20 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
   const candidates = useMemo(() => result ? buildGutterTakeoffCandidates(input, result) : [], [input, result]);
   const mappingChecks = useMemo(() => checkGutterMappings(candidates, mappings, catalogVariants), [candidates, mappings, catalogVariants]);
   const inputChanged = saved ? JSON.stringify(input) !== JSON.stringify(saved.input) : handoffSource ? JSON.stringify(input) !== handoffBaseline.current : true;
+  const staleGeometry = Boolean(saved?.input.runs.some((run) => run.roofEdge && !suggestions.some((suggestion) => suggestion.roofModelId === run.roofEdge?.roofModelId && suggestion.id === run.roofEdge?.edgeId && suggestion.roofModelRevisionId === run.roofEdge?.revisionId && suggestion.calculationRevisionId === run.roofEdge?.calculationRevisionId)));
+  const canRefreshGeometry = Boolean(saved?.input.runs.some((run) => run.roofEdge?.roofModelId && suggestions.some((suggestion) => suggestion.roofModelId === run.roofEdge?.roofModelId && suggestion.id === run.roofEdge?.edgeId)));
   const standaloneChanged = inputChanged || name !== baselineName;
   useEffect(() => { onWorkspaceState?.({ dirty: standaloneChanged, pending }); }, [standaloneChanged, pending, onWorkspaceState]);
   const updateRun = (id: string, patch: Partial<GutterMaterialInput["runs"][number]>) => setInput((current) => ({ ...current, runs: current.runs.map((run) => run.id === id ? { ...run, ...patch } : run) }));
   const updateDownpipe = (id: string, patch: Partial<GutterMaterialInput["downpipes"][number]>) => setInput((current) => ({ ...current, downpipes: current.downpipes.map((run) => run.id === id ? { ...run, ...patch } : run) }));
+  const refreshGeometry = () => setInput((current) => ({ ...current, runs: current.runs.map((run) => {
+    const reference = run.roofEdge;
+    if (!reference?.roofModelId) return run;
+    const suggestion = suggestions.find((item) => item.roofModelId === reference.roofModelId && item.id === reference.edgeId);
+    if (!suggestion) return run;
+    const lengthMm = reference.lengthOverridden ? run.lengthMm : suggestion.lengthMm;
+    return { ...run, lengthMm, roofEdge: { revisionId: suggestion.roofModelRevisionId, edgeId: suggestion.id, roofModelId: suggestion.roofModelId, calculationId: suggestion.calculationId, calculationRevisionId: suggestion.calculationRevisionId, suggestedLengthMm: suggestion.lengthMm, lengthOverridden: lengthMm !== suggestion.lengthMm } };
+  }) }));
   const save = () => {
     if (!projectId) {
       if (!result || pending) return;
@@ -65,7 +76,7 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
     data.set("organizationId", organizationId); data.set("projectId", projectId); data.set("name", name);
     data.set("input", JSON.stringify(input)); data.set("sourceRoofRevisionId", input.runs.find((run) => run.roofEdge)?.roofEdge?.revisionId ?? "");
     data.set("expectedRevisionNumber", String(saved?.revisionNumber ?? 0));
-    startTransition(async () => { let response; try { response = await saveGutterCalculationAction(data); } catch { setMessage("A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."); return; } setMessage(response.ok ? `Mentve: revízió ${response.revisionNumber}` : response.error ?? "A mentés nem sikerült."); if (response.ok) { setViewedRevisionNumber(null); router.refresh(); } });
+    startTransition(async () => { let response; try { response = await saveGutterCalculationAction(data); } catch { setMessage("A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."); return; } setMessage(response.ok ? `Mentve: revízió ${response.revisionNumber}` : response.error ?? "A mentés nem sikerült."); if (response.ok) { setViewedRevisionNumber(null); if (onSaved && response.calculationId && response.revisionId && response.revisionNumber) await onSaved({ calculationId: response.calculationId, revisionId: response.revisionId, revisionNumber: response.revisionNumber }); else router.refresh(); } });
   };
   const addComponent = () => setInput((current) => ({ ...current, manualComponents: [...current.manualComponents, { id: `component-${Date.now()}`, category: "end_cap", quantity: 0, note: "" }] }));
   const updateMapping = (candidateId: string, variantId: string) => {
@@ -83,16 +94,21 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
   const categoryLabels: Record<string, string> = { end_cap: "Végzáró", connector: "Összekötő", bracket: "Konzol", outlet: "Kifolyó", downpipe: "Lefolyó", elbow: "Könyök", accessory: "Egyéb tartozék" };
   return <section className="detail-surface gutter-calculator" aria-labelledby="gutter-title">
     {handoffSource && <div className={`survey-handoff-banner ${inputChanged ? "is-modified" : ""}`} role="status"><strong>{inputChanged ? "A kalkuláció módosított adatokat tartalmaz" : "Adatok átvéve a felmérésből"}</strong><small>Felmérés: {handoffSource.surveyId} · V{handoffSource.version} · revízió: {handoffSource.revisionId}. A forrás változatlan marad.</small></div>}
+    {staleGeometry && <div className="survey-handoff-banner is-modified" role="status"><strong>Elavult tetőgeometriai forrás</strong><p>A mentett ereszszámítás változatlan. Az aktuális tetőhossz csak külön új változat mentésével kerül bele.</p>{canRefreshGeometry ? <button type="button" className="secondary-button" onClick={refreshGeometry}>Kijelölt élek frissítése az aktuális tetőből</button> : <p>A régi élazonosító vagy a jelenlegi tetőforrás nem megfeleltethető. Ellenőrizd és vedd fel újra az érintett szakaszt.</p>}</div>}
     <div className="section-heading"><div><p className="section-eyebrow">Előzetes anyagbecslés</p><h2 id="gutter-title">Ereszcsatorna-kalkulátor</h2></div><span className="status-pill">{viewedRevisionNumber !== null && inputChanged ? `V${viewedRevisionNumber} alapján nem mentett módosítás · következő: V${(saved?.revisionNumber ?? 0) + 1}` : viewedRevisionNumber !== null ? `Történeti változat megtekintése · V${viewedRevisionNumber}` : saved ? inputChanged ? `Nem mentett módosítás · következő: V${saved.revisionNumber + 1}` : `Mentett aktuális változat · V${saved.revisionNumber}` : "Új, még nem mentett számítás"}</span></div>
     {!projectId && saved && viewedRevisionNumber === null && <StandaloneProjectAssociation organizationId={organizationId} sourceCalculationId={saved.calculationId} sourceRevisionId={saved.revisionId} sourceRevisionNumber={saved.revisionNumber} sourceName={standaloneName ?? "Ereszcsatorna-becslés"} calculatorType={gutterMaterialCalculator.id} hasUnsavedChanges={standaloneChanged} />}
     <p className="detail-description">Az egyes szakaszokhoz külön, a választott termék hosszából számított előzetes szálmennyiség. Nem hidraulikai méretezés és nem végleges beszerzési vagy vágási terv.</p>
     {saved && saved.revisions.length > 1 && <div className="gutter-history" aria-label="Mentett kalkulációs revíziók"><strong>Korábbi revíziók</strong>{saved.revisions.map((revision) => <button type="button" className="secondary-button" key={revision.revisionId} onClick={() => { if (inputChanged && !window.confirm("A jelenlegi módosítások nincsenek mentve. Betöltöd ezt a revíziót?")) return; setInput(revision.input); setViewedRevisionNumber(revision.revisionNumber === saved.revisionNumber ? null : revision.revisionNumber); }}>{`Revízió ${revision.revisionNumber}${revision.revisionNumber === saved.revisionNumber ? " · aktuális" : " · történeti"}`}</button>)}</div>}
     <label className="material-field"><span>Megnevezés</span><input value={name} onChange={(event) => setName(event.target.value)} /></label>
     <label className="material-field"><span>Választott ereszcsatorna-szál hossza (mm)</span><input inputMode="decimal" value={input.gutterStockLengthMm || ""} onChange={(event) => setInput({ ...input, gutterStockLengthMm: numberValue(event.target.value) })} /></label>
-    {suggestions.length > 0 && <div className="gutter-suggestions"><strong>Geometriai javaslatok</strong><small>Csak gombnyomásra kerülnek be.</small>{suggestions.map((suggestion) => <button type="button" className="secondary-button" key={suggestion.id} onClick={() => setInput((current) => current.runs.some((run) => run.roofEdge?.edgeId === suggestion.id) ? current : ({ ...current, runs: [...current.runs, { id: `run-${Date.now()}`, name: suggestion.label, lengthMm: suggestion.lengthMm, description: "Geometriából javasolt", measurementSource: "drawing", roofEdge: { revisionId: suggestion.roofModelRevisionId, edgeId: suggestion.id }, bracketSpacingMm: null }] }))}>{suggestion.label} · {suggestion.lengthMm.toLocaleString("hu-HU")} mm hozzáadása</button>)}</div>}
+    {suggestions.length > 0 && <div className="gutter-suggestions"><strong>Geometriai javaslatok</strong><small>Csak a hozzáadott eresz kerül be. A csatornaszál hosszát külön add meg.</small>{suggestions.map((suggestion) => { const added = input.runs.some((run) => run.roofEdge?.roofModelId === suggestion.roofModelId && run.roofEdge.edgeId === suggestion.id); return <button type="button" className="secondary-button" key={`${suggestion.roofModelId}:${suggestion.id}`} disabled={added} onClick={() => setInput((current) => {
+      if (current.runs.some((run) => run.roofEdge?.roofModelId === suggestion.roofModelId && run.roofEdge.edgeId === suggestion.id)) return current;
+      const next = { id: generateSecureUuid(), name: suggestion.label, lengthMm: suggestion.lengthMm, description: "Tetőgeometriából számított", measurementSource: "drawing" as const, roofEdge: { revisionId: suggestion.roofModelRevisionId, edgeId: suggestion.id, roofModelId: suggestion.roofModelId, calculationId: suggestion.calculationId, calculationRevisionId: suggestion.calculationRevisionId, suggestedLengthMm: suggestion.lengthMm, lengthOverridden: false }, bracketSpacingMm: null };
+      return { ...current, runs: current.runs.length === 1 && current.runs[0].lengthMm === 0 && !current.runs[0].roofEdge ? [next] : [...current.runs, next] };
+    })}>{suggestion.label} · {suggestion.lengthMm.toLocaleString("hu-HU")} mm {added ? "hozzáadva" : "hozzáadása"}</button>; })}</div>}
     <div className="gutter-run-list"><div className="section-heading"><h3>Ereszszakaszok</h3><button type="button" className="secondary-button" onClick={() => setInput({ ...input, runs: [...input.runs, emptyRun(`run-${Date.now()}`)] })}>+ Szakasz</button></div>{input.runs.map((run) => <div className="gutter-run" key={run.id}>
       <label className="material-field"><span>Megnevezés</span><input value={run.name} onChange={(event) => updateRun(run.id, { name: event.target.value })} /></label>
-      <label className="material-field"><span>Hossz (mm)</span><input inputMode="decimal" value={run.lengthMm || ""} onChange={(event) => updateRun(run.id, { lengthMm: numberValue(event.target.value) })} /></label>
+      <label className="material-field"><span>Hossz (mm)</span><input inputMode="decimal" value={run.lengthMm || ""} onChange={(event) => { const lengthMm = numberValue(event.target.value); updateRun(run.id, { lengthMm, roofEdge: run.roofEdge?.suggestedLengthMm ? { ...run.roofEdge, lengthOverridden: lengthMm !== run.roofEdge.suggestedLengthMm } : run.roofEdge }); }} />{run.roofEdge?.suggestedLengthMm && <small>{run.roofEdge.lengthOverridden ? "Felhasználó által módosított" : "Tetőgeometriából számított"} · eredeti: {run.roofEdge.suggestedLengthMm.toLocaleString("hu-HU")} mm · forrás: {run.roofEdge.revisionId}</small>}</label>
       <label className="material-field"><span>Mérés forrása</span><select value={run.measurementSource} onChange={(event) => updateRun(run.id, { measurementSource: event.target.value as typeof run.measurementSource })}><option value="site_measurement">Helyszíni mérés</option><option value="drawing">Rajz/geometria</option><option value="user_provided">Felhasználói adat</option><option value="demo">DEMO</option></select></label>
       <label className="material-field"><span>Megadott konzoltávolság (mm, opcionális)</span><input inputMode="decimal" value={run.bracketSpacingMm || ""} onChange={(event) => updateRun(run.id, { bracketSpacingMm: event.target.value ? numberValue(event.target.value) : null })} /></label>
       <button type="button" className="text-button" disabled={input.runs.length <= 1} onClick={() => setInput({ ...input, runs: input.runs.filter((item) => item.id !== run.id) })}>Eltávolítás</button>
