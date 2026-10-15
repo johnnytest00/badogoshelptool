@@ -22,7 +22,7 @@ const survey: FieldSurveyRecord = {
 describe("field survey editor", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("shows the short new-survey flow with a first essential measurement and optional project", () => {
+  it("shows roof selection before any roof measurement on a new survey", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[{ id: "project-1", name: "DEMO projekt" }]} />);
     expect(html).toContain("Új felmérés");
     expect(html).toContain("Munkatípus");
@@ -30,9 +30,10 @@ describe("field survey editor", () => {
     expect(html).toContain("Ereszcsatorna");
     expect(html).toContain("Bádogos szegély");
     expect(html).toContain("Név, munkatípus és sorrend");
-    expect(html).toContain("Mérés beállításai");
     expect(html).toContain("Projekt");
-    expect(html).toContain("Mérés hozzáadása");
+    expect(html).toContain("Felmért tetőforma");
+    expect(html.match(/class="roof-type-illustration"/g)).toHaveLength(7);
+    expect(html).not.toContain('class="field-survey-measurements"');
     expect(html).toContain("Felmérés mentése");
     expect(html).toContain("opcionális");
     expect(html).toContain("value=\"roof\"");
@@ -71,10 +72,9 @@ describe("field survey editor", () => {
     expect(html).toContain("DEMO linked project");
   });
 
-  it("uses touch numeric input, a collapsed optional note and a full-width save action", () => {
+  it("keeps geometry inputs hidden until roof selection and retains survey actions", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} />);
-    expect(html).toContain('inputMode="decimal"');
-    expect(html).toContain('type="text"');
+    expect(html).not.toContain('class="field-survey-measurements"');
     expect(html).toContain('class="field-survey-note-details"');
     expect(html).toContain('class="primary-button field-survey-save"');
   });

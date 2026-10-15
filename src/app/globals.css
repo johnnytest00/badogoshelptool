@@ -641,6 +641,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .field-survey-save-row p { margin: 0; color: var(--muted); font-size: .85rem; }
 .field-survey-save { min-height: 3.3rem; padding-inline: 1.3rem; font-size: 1rem; }
 .field-survey-boundary { margin: 0; color: var(--muted); font-size: .78rem; line-height: 1.5; }
+.survey-roof-type-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: .25rem 0 .75rem; }
+.survey-roof-type-heading > p { margin: 0; }
 .field-survey-open-list { width: fit-content; color: var(--brand-ink); font-size: .85rem; font-weight: 750; }
 .field-survey-list-heading { align-items: center; margin: 1.5rem 0; }
 .field-survey-list-heading .primary-button { min-height: 3rem; }
@@ -799,6 +801,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .roof-type-card span { color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.4; }
 .roof-type-illustration { width: 100%; height: 5.6rem; border-radius: .65rem; background: color-mix(in srgb, var(--brand) 5%, var(--surface)); }
 @media (max-width: 560px) { .roof-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.roof-type-card { min-height: 11rem; padding: .65rem; } }
+@media (max-width: 560px) { .survey-roof-type-heading { align-items: stretch; flex-direction: column; }.survey-roof-type-heading > .secondary-button { justify-content: center; } }
 .survey-roof-workspace { display: grid; gap: .8rem; margin-top: 1rem; }
 .survey-roof-project { display: grid; gap: .7rem; margin-top: 1rem; }
 .survey-roof-project p { margin: 0; }

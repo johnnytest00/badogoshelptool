@@ -1252,3 +1252,32 @@ Csak local DEMO adatot és auth tesztfelhasználót használtunk; hosted DB, res
 | Build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` Next 16.4.0 webpack, `git diff --check` PASS. A legutolsó, csak élazonosító-hosszt érintő változtatás után a célzott teszt PASS; build ismétlése nem történt. |
 | Browser | PARTIAL | DEMO hip standalone save/reopen és élkijelölés; T felmérés/projekt/eresz V1/szegély vápa V1; L projekt 80 m²/113,137 m²/két vápa és V1 reopen. Gable save az írócsere után, félnyereg/sátor/félkonty valós flow, mobil/tablet breakpoint nem ellenőrzött. A végső browser a helyi szerverek közös `.next` kimeneténél elakadt. |
 | Fedés és szakmai adatok | VERIFIED LIMIT | Nem nyeregtetős fedési kiosztás nincs kitéve. Csatorna-lefolyó, szegélyprofil, toldás, gyártó és ár nem következtetett. Fizikai készülék és teljes regresszió UNVERIFIED. |
+
+## F9.10.1 — navigáció és selector-first tetőfolyamat
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Útvonalak és projektelérés | BROWSER VERIFIED / PARTIAL | Hitelesített DEMO: Dashboard → Projektek → meglévő projekt → új tető, valamint új felmérés útvonal. Az org-paraméteres link és route működött; standalone kalkulátor és mentett revízió browser útvonal nem zárult le. Kódvizsgálat nem talált reprodukálható navigációs hibát. |
+| Új projekt-tető választó | BROWSER VERIFIED | Új tető nézetben mind a hét `RoofTypeSelector` kártya látszott, dimenzióűrlap nélkül. Nyeregtető kiválasztás után csak az adott mezők jelentek meg. |
+| Nyeregtető SVG és eredmények | BROWSER VERIFIED | 10 000 × 6 000 mm, 45°: rajz, 84,853 m² tetőfelület, 60 m² vetület, eresz/gerinc és kiválasztható élek. Save/reopen ugyanebben a futásban nem történt. |
+| Survey választó/előnézet | BROWSER + AUTOMATED PARTIAL | Új survey hitelesített böngészős útvonalán mind a hét kártya látszott, méretmező nem; Vitest ellenőrzi ezt és a mentett survey űrlapot. A F9.10 geometriai motor csak érvényes, teljes mérésnél fut; a survey dimenzió- és SVG-előnézet kiválasztás utáni böngészős lépése nem zárult le. |
+| Fókuszált regreszió | PASS | `node_modules/vitest/vitest.mjs run src/features/roof-models/roof-type-selector.test.tsx src/features/field-surveys/field-survey-editor.test.tsx src/features/dashboard/dashboard.test.ts src/domain/field-surveys/roof-geometry.test.ts`: 4 fájl / 20 PASS. Nem teljes regresszió. |
+| Typecheck, lint, production build, diff | PASS | `npm run typecheck`, `npm run lint`, `git diff --check` PASS. `npm run build` Next.js 16.4.0 webpack módban PASS egy friss, izolált forrásmásolaton, saját `.next` könyvtárral; a projekt checkout futó dev szerverei nem lettek leállítva. |
+| Mobil / tablet | UNVERIFIED | 560 px-es töréspontnál a felmérő tetőváltó gomb oszlopos; tényleges méretemuláció és fizikai mobil/tablet nem futott. |
+| Teljes elfogadási lista | PARTIAL | Kalkulátorok áttekintése/önálló selector, mind a hat további típus valódi browser workflow-ja, survey/project mentés és reopen, régi tetőrevízió, eresz/szegély handoff, covering tiltás és teljes Auth/RLS regreszió ezen a feladaton nem ellenőrzött. A böngésző interakciók későbbi kezelése nem adott UI frissülést; Statsig külső kérést Cloudflare blokkolta. Hosted DB-t nem érintettük, reset/commit/push/deploy nem történt. |
+
+## F9.10.2 — professzionális tetőválasztó és teljes integráció
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Közös selector | PASS | A standalone, projekt és új survey ugyanazt a `RoofTypeSelector` komponenst használja. A hét topológiai SVG-kártya, `Válaszd ki a tető típusát`, teljes gombfelület, `aria-pressed`, fókuszállapot és 560 px-es rács megmaradt. |
+| Dashboard → Projektek | BROWSER VERIFIED | Hitelesített DEMO böngészőben a Dashboard linkje szervezeti query-paraméterrel megnyitotta a projektek listáját. |
+| Dashboard → Kalkulátorok → selector | BROWSER VERIFIED | A kalkulátorok áttekintőből az új „Tetőgeometria és tetőfedés” link működött; a selector hét kártyával, dimenziómező nélkül nyílt meg. |
+| Standalone mentés/újranyitás | BROWSER VERIFIED | Félnyeregtető, 10 000 × 6 000 mm, 35°, `DEMO F9.10.2 selector smoke`: mentés, URL-es számításazonosító, reload, selector kihagyása, mentett revízió, SVG és élkijelölés PASS. |
+| Projekt mentés/újranyitás | BROWSER VERIFIED | Meglévő projekt új tetője, ugyanaz a félnyeregtető fixture, `DEMO F9.10.2 projekt smoke`: selector → mezők → mentés → típusos editor URL → reload PASS. |
+| Survey mentés/előnézet | BROWSER VERIFIED | Új survey tetőszakasz: Félnyeregtető, 10 000/6 000/35; 73,246 m² validált előnézet, műszaki SVG; Enteres mentés V1, reload után selector összecsukva és eredmény megmaradt. |
+| Gable és élregresszió | BROWSER VERIFIED / AUTOMATED | 10 000/6 000/3 000 mm: 84,853 m², 60 m², gerinc/eresz és kiválasztható élek. A gable writer, covering, handoff és RLS kódhoz nem nyúltunk. |
+| Minden geometriai típus | AUTOMATED VERIFIED | `roof-geometry.test.ts` fedi a gable, shed, hip, pyramid, halfHip, lShape és tShape validációját, területét, síkjait és él-topológiáját; a fókuszált selector suite 5 fájl / 26 PASS. Külön browser save/reopen mind a hét típusra nem futott. |
+| Auth/RLS és konzisztencia | PASS | `RUN_LOCAL_MULTI_ROOF_TESTS=1 ... multi-roof.local.integration.test.ts`: 4/4 PASS; forrásrevízió, creator-scope, retry, expected revision, közvetlen írástiltás, survey-link és handoff megmaradt. |
+| Typecheck/lint/build/diff | PASS | `npm run typecheck`, `npm run lint`, friss izolált forrásmásolaton `npm run build` Next.js 16.4.0 webpack, `git diff --check`: PASS. |
+| Reszponzív és teljes acceptance | PARTIAL | A CSS desktop/tablet/mobile elrendezése megmaradt, de fizikai eszköz és teljes viewport-emuláció nem futott; a hat további típus külön browser save/reopen, teljes covering browser út és külső handoff acceptance nincs lezárva. Hosted DB, reset, commit, push, deploy nem történt. |

@@ -12,26 +12,26 @@ import { roofTypeOptions } from "./roof-type-selector";
 import type { StandaloneRoofRecord } from "./standalone-roof-data";
 
 type MultiType = Exclude<RoofGeometryType, "gable">;
-type Field = { key: string; label: string; unit: string };
+type Field = { key: string; label: string; unit: string; help: string };
 const names: Record<MultiType, string> = Object.fromEntries(roofTypeOptions.filter((option) => option.type !== "gable").map((option) => [option.type, option.name])) as Record<MultiType, string>;
 const num = (text: string) => text.trim() ? Number(text.trim().replace(",", ".")) : undefined;
 const display = (value: number, unit: string) => `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value)} ${unit}`;
 
 function fieldsFor(type: MultiType): Field[] {
-  if (type === "pyramid") return [{ key: "sideMm", label: "Tető külső oldalhossza", unit: "mm" }, { key: "pitchDegrees", label: "Tetőhajlás", unit: "°" }];
+  if (type === "pyramid") return [{ key: "sideMm", label: "Tető külső oldalhossza", unit: "mm", help: "A négyzet alakú ereszkontúr egyik oldala." }, { key: "pitchDegrees", label: "Tetőhajlás", unit: "°", help: "A vízszintes síkhoz mért szög." }];
   return [
-    { key: "lengthMm", label: "Tető külső hossza", unit: "mm" },
-    { key: "widthMm", label: "Tető külső szélessége", unit: "mm" },
-    { key: "pitchDegrees", label: "Tetőhajlás", unit: "°" },
-    ...(type === "halfHip" ? [{ key: "hipEaveHeightMm", label: "Félkonty alsó élének magassága az ereszhez képest", unit: "mm" }] : []),
+    { key: "lengthMm", label: "Tető külső hossza", unit: "mm", help: "A fő tetőrész hosszmérete a gerinc irányában." },
+    { key: "widthMm", label: "Tető külső szélessége", unit: "mm", help: "A fő tetőrész két szemközti eresze közötti vízszintes méret." },
+    { key: "pitchDegrees", label: "Tetőhajlás", unit: "°", help: "A tetősík vízszinteshez viszonyított szöge." },
+    ...(type === "halfHip" ? [{ key: "hipEaveHeightMm", label: "Félkonty alsó élének magassága az ereszhez képest", unit: "mm", help: "A félkonty alsó élének függőleges szintkülönbsége." }] : []),
     ...(type === "lShape" || type === "tShape" ? [
-      { key: "wingWidthMm", label: "Csatlakozó szárny külső szélessége", unit: "mm" },
-      { key: "wingProjectionMm", label: "Szárny kinyúlása a főtetőből", unit: "mm" },
+      { key: "wingWidthMm", label: "Csatlakozó szárny külső szélessége", unit: "mm", help: "A szárny külső mérete a főtető csatlakozó oldalán." },
+      { key: "wingProjectionMm", label: "Szárny kinyúlása a főtetőből", unit: "mm", help: "A csatlakozó faltól a szárny külső kontúrjáig mért távolság." },
     ] : []),
   ];
 }
 
-export function MultiRoofCalculatorForm({ type, organizationId, projectId, model = null, standalone = null }: Readonly<{ type: MultiType; organizationId?: string; projectId?: string; model?: RoofModelRecord | null; standalone?: StandaloneRoofRecord | null }>) {
+export function MultiRoofCalculatorForm({ type, organizationId, projectId, model = null, standalone = null, onChangeRoofType }: Readonly<{ type: MultiType; organizationId?: string; projectId?: string; model?: RoofModelRecord | null; standalone?: StandaloneRoofRecord | null; onChangeRoofType?: () => void }>) {
   const fields = fieldsFor(type);
   const savedInput = model?.currentMultiRoofInput ?? standalone?.input;
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((field) => [field.key, savedInput && field.key in savedInput ? String(savedInput[field.key as keyof typeof savedInput]) : ""])));
@@ -68,8 +68,8 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
     });
   };
   return <div className="roof-calculator">
-    <header className="roof-calculator-toolbar"><div><p className="section-eyebrow">Paraméteres tetőgeometria</p><h1>{names[type]}</h1><p>A méretek a tető külső kontúrját jelölik. Eltérő túlnyúlásokat ez a modell nem tartalmaz; azokat nem számítja hozzá.</p></div></header>
-    <section className="roof-surface"><div className="roof-form-grid"><label className="roof-field"><span>Tetőmodell neve</span><input value={name} maxLength={200} onChange={(event) => { setName(event.target.value); setMessage(""); }} /></label>{fields.map((field) => <label key={field.key} className="roof-field"><span>{field.label} <small>{field.unit}</small></span><input inputMode="decimal" value={values[field.key] ?? ""} onChange={(event) => update(field.key, event.target.value)} aria-invalid={Boolean(values[field.key] && !parsed.success && parsed.error.issues.some((issue) => issue.path.includes(field.key)))} /></label>)}</div>
+    <header className="roof-calculator-toolbar"><div><p className="section-eyebrow">Paraméteres tetőgeometria</p><h1>{names[type]}</h1><p>A méretek a tető külső kontúrját jelölik. Eltérő túlnyúlásokat ez a modell nem tartalmaz; azokat nem számítja hozzá.</p></div>{onChangeRoofType && <button className="secondary-button" type="button" onClick={onChangeRoofType}>← Tetőtípus kiválasztása</button>}</header>
+    <section className="roof-surface"><div className="roof-form-grid"><label className="roof-field"><span>Tetőmodell neve</span><input value={name} maxLength={200} onChange={(event) => { setName(event.target.value); setMessage(""); }} /></label>{fields.map((field) => <label key={field.key} className="roof-field"><span>{field.label} <small>{field.unit}</small></span><input inputMode="decimal" value={values[field.key] ?? ""} onChange={(event) => update(field.key, event.target.value)} aria-invalid={Boolean(values[field.key] && !parsed.success && parsed.error.issues.some((issue) => issue.path.includes(field.key)))} /><small>{field.help}</small></label>)}</div>
       {(type === "lShape" || type === "tShape") && <p className="roof-help-note">A főtető X irányú, a szárny dél felé nyúlik ki; azonos hajlás és közös ereszszint szükséges. A T szárny középen, az L szárny a bal végen csatlakozik.</p>}
       {!parsed.success && Object.values(values).some(Boolean) && <p className="missing-data" role="status">{parsed.error.issues[0]?.message ?? "Hiányzó vagy érvénytelen méret."}</p>}
       {organizationId && <div className="roof-toolbar-actions"><button className="primary-button" type="button" disabled={!geometry || !name.trim() || pending || !dirty} onClick={save}>{pending ? "Mentés…" : model || standalone ? "Új tetőrevízió mentése" : "Tetőgeometria mentése"}</button></div>}

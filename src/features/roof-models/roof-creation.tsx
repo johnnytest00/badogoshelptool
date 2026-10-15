@@ -14,11 +14,15 @@ export function RoofCreation({ organizationId, projectId, sheetLayoutMaterials =
     if (selected && selected !== type && !window.confirm("A megadott, nem mentett tetőméretek elvesznek. Tetőformát váltasz?")) return;
     setSelected(type);
   };
+  if (!selected) return <div className="roof-calculator"><RoofTypeSelector selected={null} onSelect={choose} /></div>;
+  const changeType = () => {
+    if (!window.confirm("A megadott, nem mentett tetőméretek elvesznek. Visszatérsz a tetőformákhoz?")) return;
+    setSelected(null);
+  };
   return <div className="roof-calculator">
-    <RoofTypeSelector selected={selected} onSelect={choose} />
     {selected === "gable" && (projectId
-      ? <GableRoofCalculatorForm organizationId={organizationId} projectId={projectId} sheetLayoutMaterials={sheetLayoutMaterials} />
-      : <StandaloneGablePreview organizationId={organizationId} />)}
-    {selected && selected !== "gable" && <MultiRoofCalculatorForm key={selected} type={selected} organizationId={organizationId} projectId={projectId} />}
+      ? <><button className="secondary-button" type="button" onClick={changeType}>← Tetőtípus kiválasztása</button><GableRoofCalculatorForm organizationId={organizationId} projectId={projectId} sheetLayoutMaterials={sheetLayoutMaterials} /></>
+      : <StandaloneGablePreview organizationId={organizationId} onChangeRoofType={changeType} />)}
+    {selected !== "gable" && <MultiRoofCalculatorForm key={selected} type={selected} organizationId={organizationId} projectId={projectId} onChangeRoofType={changeType} />}
   </div>;
 }

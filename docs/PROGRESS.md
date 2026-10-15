@@ -1529,3 +1529,72 @@ Az SVG és érinthető lista ugyanazokat az élazonosítókat jelöli. A mentett
 Biztonsági javítás: a korábbi `save_gable_roof_calculation` authenticated RPC-jogát a `20261015160900` lokális migráció visszavonta. A nyeregtető is szerveroldali számítás után, csak a korlátozott íróloginon át, műveletazonosítóval és expected revision ellenőrzéssel menthető. Restriktív RLS tiltja a böngésző közvetlen `roof.gable` modell-, számítás-, revízió- és függőségírását. A hat új forma írója ugyanezt a határt követi. Hosted migráció nem történt.
 
 Bizonyított: hét fájl / 36 célzott Vitest PASS, benne L/T mintavételes hézag- és átfedésellenőrzés; a helyi, opt-in integrációs suite 4/4 PASS, benne direkt RPC- és táblaírás-elutasítás, idempotens retry, stale/konkurens revízió és pontos forrás. `npm run typecheck`, `npm run lint`, `npm run build --webpack` a végső kódhoz közeli állapotban PASS; a legutolsó élazonosító-séma bővítés után a célzott Vitest újra PASS, teljes build nem ismételve. Böngészőben hip standalone mentés/újranyitás, T felmérésből eresz V1 és vápa V1 mentés, valamint L projekt V1 mentés/újranyitás igazolt. A nyeregtető új, lezárt íróútja DB-integrációval PASS, de a végső böngészős save az ugyanazon `.next` könyvtárat használó fejlesztői/production szerver ütközése miatt nem lett megerősítve. Mobil/tablet méretváltás a böngészőben nem volt elérhető; félkonty, sátor és félnyereg valós böngészős mentési flow nem futott. A teljes regresszió és a hosted DB nem ellenőrzött. Emiatt COMPLETE nem adható. Commit, push, deploy, reset nem történt. Javasolt, nem végrehajtott commit: `feat(F9.10): add verified multi-roof geometry workflows`.
+
+## F9.10.1 — navigáció és tetőválasztás UX
+
+Állapot: **PARTIAL**. A route-ok, az org-paramétert megőrző dashboard linkek,
+auth/middleware és a helyi szerverek vizsgálata nem talált reprodukálható
+projektnavigációs hibát. A forrás szerinti szerverek a projekt saját
+checkoutjában futottak; nem állítottam le őket. Külön, `/private/tmp` alatti
+izolált lokális példányon hitelesített böngészőben a Dashboard → Projektek →
+meglévő projekt → új tető útvonal működött.
+
+Új tetőnél a közös hétkártyás `RoofTypeSelector` az első nézet; méretmező csak
+forma kiválasztása után jelenik meg. A projekt- és önálló nyeregtető, valamint a
+hat paraméteres űrlap kapott figyelmeztetett visszalépést tetőforma-választásra;
+az új survey tető is választással indul. Meglévő survey tetőméretek szerkeszthetők,
+de új forma választása összecsukott beállításban marad. A felmérő a már tesztelt
+F9.10 geometriai motort használja az előnézethez, csak teljes és érvényes mérésnél
+mutat eredményt. A F9.10 írói, forrásrevíziói, jogosultságai és adatbázis-sémája
+nem változott.
+
+Valós böngésző: Dashboard, Projects lista, projekt részlete, új projekt-tető
+választó; a hitelesített új survey útvonal hét kártyát és nulla méretmezőt
+mutatott. Projektben nyeregtető kiválasztása után az input, 10 000 × 6 000 mm
+és 45° adatok, SVG, felület, vetület, gerinc/eresz és élkijelölés látható.
+Projektmentés és újranyitás ennél a futásnál nem lett végigpróbálva. A későbbi
+böngésző-tab parancsok az oldal interakciójához nem adtak vissza állapotfrissítést;
+a Statsig hálózati kéréseit Cloudflare blokkolta.
+
+Ellenőrzés: fókuszált Vitest 4 fájl / 20 PASS; `npm run typecheck`,
+`npm run lint`, izolált forrásmásolaton `npm run build` (Next.js 16.4.0 webpack),
+`git diff --check` PASS. A CSS 560 px alatt egyoszlopos visszalépés-gombot ad.
+Fizikai mobil/tablet és böngészőnézet-emuláció nem futott. Standalone kalkulátor,
+survey tetőforma kiválasztás utáni dimenziófolyamat, mentett/revíziós roof újranyitás, a hat további forma valós
+böngészős űrlap/eredmény, csatorna/szegély handoff és teljes Auth/RLS regresszió
+ellenőrizetlen. Hosted DB, reset, commit, push és deploy nem történt; `.DS_Store`
+érintetlen. Javasolt commit: `fix(F9.10.1): restore selector-first roof workflows`.
+
+## F9.10.2 — professzionális tetőválasztó és teljes integráció
+
+Állapot: **PARTIAL** a hét forma teljes, külön-külön browser save/reopen
+elfogadásához; a kritikus integrációk működnek. A közös selector alapfelirata
+`Válaszd ki a tető típusát`, egyetlen új-tető belépési pontot használ a
+standalone és projekt workflow, a survey ugyanazt a `RoofTypeSelector`-t kapja.
+A kalkulátorok áttekintő belépője most hét tetőformát és a méretezett rajzot
+nevezi meg, nem csak nyeregtetőt. A kártyák teljes gombfelülete kattintható,
+billentyűzettel és érintéssel működik; a meglévő topológiai SVG-k, fókusz- és
+kiválasztott állapotok megmaradtak.
+
+Valós hitelesített helyi böngészőben: Dashboard → Projektek és Dashboard →
+Kalkulátorok működött szervezeti query-paraméterrel. A hét kártya dimenziómezők
+nélkül jelent meg. Standalone félnyeregtető 10 000 × 6 000 mm, 35° mentése
+`DEMO F9.10.2 selector smoke` névvel sikeres; reload után a selector kimaradt,
+a Félnyeregtető editor, mentett revízió, SVG és kiválasztható élek visszanyíltak.
+Projektben ugyanez `DEMO F9.10.2 projekt smoke` névvel sikerült; reload után
+közvetlenül a mentett típusos editor nyílt. Új survey-ben a Félnyeregtető
+választása után 10 000/6 000/35 adatokból 73,246 m² előnézet és műszaki SVG
+jelent meg; Enterrel mentve V1 létrejött, reload után a selector összecsukva,
+a mentett előnézet megmaradt. A gable 10 000/6 000/3 000 mm előnézete 84,853
+m² felületet és 60 m² vetületet adott; élkijelölés látszott.
+
+Automatizált bizonyíték: selector/geometria/dashboard/standalone/survey fókuszált
+Vitest 5 fájl / 26 PASS; local Auth/RLS roof integration 4/4 PASS; `npm run
+typecheck`, `npm run lint`, friss izolált forrásmásolaton `npm run build`
+(Next.js 16.4.0 webpack) és `git diff --check` PASS. A hét forma geometriai
+fixture-jeit a domain suite lefedi; a F9.10 writer, RLS, history, expected
+revision és handoff kódja változatlan. Fizikai eszköz, teljes viewport-emuláció,
+mind a hét forma külön browser save/reopen, gable covering regresszió teljes
+browser útja és a későbbi browser automation interakciók egy része nem bizonyított.
+Hosted DB, reset, commit, push és deploy nem történt; `.DS_Store` érintetlen.
+Javasolt commit: `fix(F9.10.2): integrate professional roof selector workflows`.
