@@ -8,6 +8,8 @@ import { getAuthContext } from "@/features/auth/auth.server";
 import { getFlashingCatalogVariants } from "@/features/flashings/flashing-data";
 import { createClient } from "@/infrastructure/supabase/server";
 import type { Json } from "@/infrastructure/supabase/database.types";
+import { getVerifiedMultiRoofSources } from "@/features/roof-models/multi-roof-source-data";
+import { persistMultiRoofFlashing } from "@/infrastructure/supabase/multi-roof-flashing-writer";
 
 export type FlashingSaveResult = { ok: boolean; error?: string; calculationId?: string; revisionId?: string; revisionNumber?: number };
 export type FlashingTakeoffResult = { ok: boolean; error?: string; takeoffId?: string };
@@ -42,25 +44,40 @@ export async function saveFlashingCalculationAction(data: FormData): Promise<Fla
   if (!project) return { ok: false, error: "A projekt nem érhető el ebben a műhelyben." };
 
   const references = parsed.data.runs.flatMap((run) => run.roofEdgeReference ? [{ run, reference: run.roofEdgeReference }] : []);
-  if (references.length) {
-    for (const { run, reference } of references) {
+  const multiReferences = references.filter(({ reference }) => reference.outputField === "edges");
+  if (multiReferences.length) {
+    const sources = await getVerifiedMultiRoofSources(organizationId, projectId);
+    const category = { eave: "eaves", ridge: "ridge", rake: "verge", hip: "hip", valley: "valley" } as const;
+    const seen = new Set<string>();
+    for (const { run, reference } of multiReferences) {
+      const source = sources.find((item) => item.roofModelId === reference.roofModelId && item.roofModelRevisionId === reference.roofModelRevisionId && item.calculationId === reference.calculationId && item.calculationRevisionId === reference.calculationRevisionId);
+      const edge = source?.geometry.edges.find((item) => item.id === reference.edgeId && item.kind !== "upper");
+      const key = `${reference.roofModelId}:${reference.edgeId}`;
+      if (!source || !edge || seen.has(key) || run.lengthSource !== "geometry" || run.category !== category[edge.kind as keyof typeof category]
+        || edge.lengthMm !== reference.suggestedLengthMm || (!reference.lengthOverridden && run.lengthMm !== Math.ceil(edge.lengthMm))) return { ok: false, error: "A kijelölt tetőél forrása, típusa vagy hossza nem egyezik a mentett geometriával." };
+      seen.add(key);
+    }
+  }
+  const gableReferences = references.filter(({ reference }) => reference.outputField !== "edges");
+  if (gableReferences.length) {
+    for (const { run, reference } of gableReferences) {
       const rule = edgeRules.get(reference.edgeId);
       if (!rule || rule.field !== reference.outputField || rule.category !== run.category || run.lengthSource !== "geometry") return { ok: false, error: "A tetőél-hozzárendelés nem támogatott vagy nem egyezik a szegélykategóriával." };
     }
-    const modelIds = [...new Set(references.map(({ reference }) => reference.roofModelId))];
+    const modelIds = [...new Set(gableReferences.map(({ reference }) => reference.roofModelId))];
     const { data: models, error: modelsError } = await supabase.from("roof_models").select("id, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).eq("roof_type", "gable").in("id", modelIds);
     if (modelsError || models?.length !== modelIds.length) return { ok: false, error: "Egy tetőmodell nem tartozik ehhez a projekthez." };
-    if (references.some(({ reference }) => models?.find((model) => model.id === reference.roofModelId)?.current_revision_id !== reference.roofModelRevisionId)) return { ok: false, error: "A forrás tetőgeometria megváltozott; töltsd újra a javaslatokat." };
-    const { data: roofRevisions, error: roofRevisionError } = await supabase.from("roof_model_revisions").select("id, roof_model_id, validation_status").eq("organization_id", organizationId).in("id", [...new Set(references.map(({ reference }) => reference.roofModelRevisionId))]);
-    if (roofRevisionError || references.some(({ reference }) => !roofRevisions?.some((revision) => revision.id === reference.roofModelRevisionId && revision.roof_model_id === reference.roofModelId && revision.validation_status === "verified"))) return { ok: false, error: "A forrás tetőrevízió nem ellenőrzött." };
-    const calculationRevisionIds = [...new Set(references.map(({ reference }) => reference.calculationRevisionId))];
+    if (gableReferences.some(({ reference }) => models?.find((model) => model.id === reference.roofModelId)?.current_revision_id !== reference.roofModelRevisionId)) return { ok: false, error: "A forrás tetőgeometria megváltozott; töltsd újra a javaslatokat." };
+    const { data: roofRevisions, error: roofRevisionError } = await supabase.from("roof_model_revisions").select("id, roof_model_id, validation_status").eq("organization_id", organizationId).in("id", [...new Set(gableReferences.map(({ reference }) => reference.roofModelRevisionId))]);
+    if (roofRevisionError || gableReferences.some(({ reference }) => !roofRevisions?.some((revision) => revision.id === reference.roofModelRevisionId && revision.roof_model_id === reference.roofModelId && revision.validation_status === "verified"))) return { ok: false, error: "A forrás tetőrevízió nem ellenőrzött." };
+    const calculationRevisionIds = [...new Set(gableReferences.map(({ reference }) => reference.calculationRevisionId))];
     const [{ data: geometryRevisions, error: geometryError }, { data: geometryDependencies, error: dependencyError }] = await Promise.all([
       supabase.from("calculation_revisions").select("id, calculation_id, output_snapshot, validation_status").eq("organization_id", organizationId).in("id", calculationRevisionIds),
       supabase.from("calculation_dependencies").select("downstream_calculation_revision_id, upstream_roof_model_revision_id").in("downstream_calculation_revision_id", calculationRevisionIds),
     ]);
-    const calculationIds = [...new Set(references.map(({ reference }) => reference.calculationId))];
+    const calculationIds = [...new Set(gableReferences.map(({ reference }) => reference.calculationId))];
     const { data: geometryCalculations, error: calculationsError } = calculationIds.length ? await supabase.from("calculations").select("id, roof_model_id, current_revision_id, calculator_type").eq("organization_id", organizationId).eq("project_id", projectId).eq("calculator_type", "roof.gable").in("id", calculationIds) : { data: [], error: null };
-    if (geometryError || dependencyError || calculationsError || references.some(({ reference }) => {
+    if (geometryError || dependencyError || calculationsError || gableReferences.some(({ reference }) => {
       const revision = geometryRevisions?.find((item) => item.id === reference.calculationRevisionId);
       const calculation = geometryCalculations?.find((item) => item.id === reference.calculationId);
       const output = revision?.output_snapshot as { lengths?: Record<string, unknown> } | null;
@@ -70,6 +87,18 @@ export async function saveFlashingCalculationAction(data: FormData): Promise<Fla
     })) return { ok: false, error: "A forráskalkuláció elavult vagy a javasolt élhossz nem egyezik a mentett geometriával." };
   }
 
+  if (multiReferences.length) {
+    const operationId = read(data, "operationId");
+    if (!isUuid(operationId)) return { ok: false, error: "Érvénytelen mentési műveletazonosító." };
+    try {
+      const result = await persistMultiRoofFlashing({ organizationId, projectId, name: read(data, "name") || "Bádogos szegély becslés", input: parsed.data, output: calculated.output, expectedRevisionNumber: expectedRevision, operationId, actorId: auth.userId });
+      revalidatePath(`/projektek/${projectId}`);
+      revalidatePath(`/projektek/${projectId}/szegelyek`);
+      return { ok: true, calculationId: result.calculation_id, revisionId: result.calculation_revision_id, revisionNumber: result.revision_number };
+    } catch (cause) {
+      return { ok: false, error: cause && typeof cause === "object" && "code" in cause && cause.code === "40001" ? "A kalkuláció vagy a forrás időközben megváltozott; töltsd újra az oldalt." : "A szegélyszámítás mentése nem sikerült." };
+    }
+  }
   const { data: result, error } = await supabase.rpc("save_flashing_material_calculation", {
     p_organization_id: organizationId,
     p_project_id: projectId,

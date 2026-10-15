@@ -2,6 +2,7 @@ import { createClient } from "@/infrastructure/supabase/server";
 import { gutterMaterialInputSchema, gutterMaterialCalculator, type GutterMaterialInput, type GutterMaterialOutput } from "@/domain/calculations/gutter-material";
 import { executeCalculator } from "@/domain/calculations/engine";
 import { gableRoofCalculator } from "@/domain/calculations/gable-roof";
+import { getVerifiedMultiRoofSources } from "@/features/roof-models/multi-roof-source-data";
 
 export type GutterGeometrySuggestion = { id: string; label: string; lengthMm: number; roofModelId: string; roofModelRevisionId: string; calculationId: string; calculationRevisionId: string };
 export type GutterCalculationRevision = { revisionId: string; revisionNumber: number; input: GutterMaterialInput; output: GutterMaterialOutput; createdAt: string };
@@ -11,10 +12,16 @@ function parse(value: unknown): GutterMaterialInput | null { const result = gutt
 function output(value: unknown): GutterMaterialOutput | null { return value && typeof value === "object" ? value as GutterMaterialOutput : null; }
 
 export async function getGutterGeometrySuggestions(organizationId: string, projectId: string): Promise<GutterGeometrySuggestion[]> {
+  const multiSources = await getVerifiedMultiRoofSources(organizationId, projectId);
+  const multiSuggestions = multiSources.flatMap((source) => source.geometry.edges.filter((edge) => edge.kind === "eave" && Number.isSafeInteger(edge.lengthMm) && edge.lengthMm > 0).map((edge, index) => ({
+    id: edge.id, label: `${source.roofModelName} · eresz ${index + 1}`, lengthMm: edge.lengthMm,
+    roofModelId: source.roofModelId, roofModelRevisionId: source.roofModelRevisionId,
+    calculationId: source.calculationId, calculationRevisionId: source.calculationRevisionId,
+  })));
   const supabase = await createClient();
   const { data: models, error } = await supabase.from("roof_models").select("id, name, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).eq("roof_type", "gable");
   if (error) throw new Error("A tetőadatok betöltése nem sikerült.");
-  if (!models?.length) return [];
+  if (!models?.length) return multiSuggestions;
   const { data: calculations, error: calculationsError } = await supabase.from("calculations").select("id, roof_model_id, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).eq("calculator_type", "roof.gable").in("roof_model_id", models.map((model) => model.id));
   if (calculationsError) throw new Error("A mentett tetőszámítások betöltése nem sikerült.");
   const calculationsByModel = new Map((calculations ?? []).map((calculation) => [calculation.roof_model_id, calculation]));
@@ -29,7 +36,7 @@ export async function getGutterGeometrySuggestions(organizationId: string, proje
   return models.flatMap((model) => {
     const calculation = calculationsByModel.get(model.id);
     const revision = (revisions ?? []).find((item) => item.id === calculation?.current_revision_id && item.calculation_id === calculation?.id && item.validation_status === "verified");
-    if (!model.current_revision_id || !modelRevisions?.some((item) => item.id === model.current_revision_id && item.roof_model_id === model.id && item.validation_status === "verified") || !revision || !dependencies?.some((item) => item.downstream_calculation_revision_id === revision.id && item.upstream_roof_model_revision_id === model.current_revision_id)) return [];
+  if (!model.current_revision_id || !modelRevisions?.some((item) => item.id === model.current_revision_id && item.roof_model_id === model.id && item.validation_status === "verified") || !revision || !dependencies?.some((item) => item.downstream_calculation_revision_id === revision.id && item.upstream_roof_model_revision_id === model.current_revision_id)) return [];
     const geometry = executeCalculator(gableRoofCalculator, revision.input_snapshot);
     const stored = gableRoofCalculator.outputSchema.safeParse(revision.output_snapshot);
     if (!geometry.ok || !stored.success || stored.data.lengths.eachEaveEdgeMm !== geometry.output.lengths.eachEaveEdgeMm) return [];
@@ -39,7 +46,7 @@ export async function getGutterGeometrySuggestions(organizationId: string, proje
       { id: "left-eave", label: `${model.name} · bal eresz`, lengthMm: length, roofModelId: model.id, roofModelRevisionId: model.current_revision_id, calculationId: calculation!.id, calculationRevisionId: revision.id },
       { id: "right-eave", label: `${model.name} · jobb eresz`, lengthMm: length, roofModelId: model.id, roofModelRevisionId: model.current_revision_id, calculationId: calculation!.id, calculationRevisionId: revision.id },
     ];
-  });
+  }).concat(multiSuggestions);
 }
 
 export async function getGutterCalculation(organizationId: string, projectId: string): Promise<GutterCalculationRecord | null> {

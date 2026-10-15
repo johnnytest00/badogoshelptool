@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { gutterInputFromSelectedEaves, mergeSelectedEaves } from "./gutter-handoff";
+import { gutterMaterialInputSchema } from "@/domain/calculations/gutter-material";
 
 const source = { roofModelId: "00000000-0000-4000-8000-000000000001", roofModelRevisionId: "00000000-0000-4000-8000-000000000002", calculationId: "00000000-0000-4000-8000-000000000003", calculationRevisionId: "00000000-0000-4000-8000-000000000004" };
 
@@ -23,5 +24,14 @@ describe("selected eave handoff", () => {
     expect(merged.runs.map((run) => run.lengthMm)).toEqual([10_000, 11_000]);
     expect(merged.gutterStockLengthMm).toBe(3_000);
     expect(merged.runs[0].roofEdge?.suggestedLengthMm).toBe(10_000);
+  });
+  it("keeps a long geometric edge ID in the source while producing a bounded run ID", () => {
+    const edgeId = `eave:0,0,0:10000,0,0:${"segment".repeat(10)}`;
+    const suggestion = { ...source, id: edgeId, label: "DEMO összetett tető eresze", lengthMm: 3000 };
+    const input = gutterInputFromSelectedEaves([suggestion]);
+    expect(input.runs[0].id.length).toBeLessThanOrEqual(80);
+    expect(input.runs[0].roofEdge?.edgeId).toBe(edgeId);
+    expect(gutterInputFromSelectedEaves([suggestion]).runs[0].id).toBe(input.runs[0].id);
+    expect(gutterMaterialInputSchema.safeParse({ ...input, gutterStockLengthMm: 4000 }).success).toBe(true);
   });
 });

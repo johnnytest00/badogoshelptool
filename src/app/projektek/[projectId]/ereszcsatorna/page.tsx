@@ -7,6 +7,7 @@ import { BackNavigation } from "@/components/navigation/back-navigation";
 import { GutterCalculator } from "@/features/gutters/gutter-calculator";
 import { getGutterCalculation, getGutterGeometrySuggestions } from "@/features/gutters/gutter-data";
 import { getMaterialProductsForOrganization } from "@/features/materials/material-data";
+import { selectedEdgeIdsFromQuery } from "@/features/roof-models/selected-edge-query";
 
 export default async function GutterCalculatorPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string }>; searchParams: Promise<{ organization?: string; calculation?: string; revision?: string; roof?: string; edges?: string }> }>) {
   const { projectId } = await params;
@@ -21,6 +22,6 @@ export default async function GutterCalculatorPage({ params, searchParams }: Rea
   const [suggestions, saved, products] = await Promise.all([getGutterGeometrySuggestions(organizationId, projectId), getGutterCalculation(organizationId, projectId), getMaterialProductsForOrganization(organizationId, { includeArchived: false })]);
   if ((pageQuery.calculation && saved?.calculationId !== pageQuery.calculation) || (pageQuery.revision && saved?.revisionId !== pageQuery.revision)) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A projektkalkuláció nem található.</h1><Link className="login-secondary-link" href={`/projektek/${projectId}/ereszcsatorna?organization=${organizationId}`}>Projektkalkuláció megnyitása</Link></section></main>;
   const catalogVariants = products.flatMap((product) => product.variants.map((variant) => ({ id: variant.id, productId: product.id, productName: product.name, category: product.category, variantName: variant.name, sku: variant.sku, purchasingUnit: variant.purchasingUnit, lengthMm: variant.lengthMm, nominalWidthMm: variant.nominalWidthMm, effectiveWidthMm: variant.effectiveWidthMm, technicalSpecs: variant.technicalSpecs, provenance: variant.provenance })));
-  const selectedSuggestions = pageQuery.roof && pageQuery.edges ? [...new Set(pageQuery.edges.split(","))].flatMap((edge) => suggestions.find((suggestion) => suggestion.roofModelId === pageQuery.roof && suggestion.id === edge) ? [suggestions.find((suggestion) => suggestion.roofModelId === pageQuery.roof && suggestion.id === edge)!] : []) : [];
+  const selectedSuggestions = pageQuery.roof ? selectedEdgeIdsFromQuery(pageQuery.edges).flatMap((edge) => suggestions.find((suggestion) => suggestion.roofModelId === pageQuery.roof && suggestion.id === edge) ? [suggestions.find((suggestion) => suggestion.roofModelId === pageQuery.roof && suggestion.id === edge)!] : []) : [];
   return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${organizationId}`} label="Vissza a projekthez" /><GutterCalculator organizationId={organizationId} projectId={projectId} suggestions={suggestions} selectedSuggestions={selectedSuggestions} saved={saved} catalogVariants={catalogVariants} /></div></main>;
 }

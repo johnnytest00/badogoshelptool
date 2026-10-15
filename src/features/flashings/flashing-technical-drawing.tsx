@@ -1,7 +1,7 @@
 import { buildFlashingDrawingModel } from "@/domain/calculations/flashing-material-integration";
 import type { FlashingMaterialInput, FlashingMaterialOutput } from "@/domain/calculations/flashing-material";
 
-const labels = { verge: "Oromszegély", wall: "Falszegély", eaves: "Ereszszegély", ridge: "Gerincszegély", valley: "Vápalemez", custom: "Egyedi szegélyprofil" } as const;
+const labels = { verge: "Oromszegély", wall: "Falszegély", eaves: "Ereszszegély", ridge: "Gerincszegély", hip: "Kontyszegély", valley: "Vápalemez", custom: "Egyedi szegélyprofil" } as const;
 const mm = (value: number) => `${value.toLocaleString("hu-HU")} mm`;
 
 export function FlashingTechnicalDrawing({ input, output, sourceRevisionId }: Readonly<{ input: FlashingMaterialInput; output: FlashingMaterialOutput; sourceRevisionId: string }>) {

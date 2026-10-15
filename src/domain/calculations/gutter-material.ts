@@ -16,7 +16,7 @@ const runSchema = z.object({
   description: z.string().trim().max(500).optional().default(""),
   measurementSource: z.enum(["site_measurement", "drawing", "demo", "user_provided"]),
   roofEdge: z.object({
-    revisionId: z.string().uuid(), edgeId: z.string().trim().min(1).max(80),
+    revisionId: z.string().uuid(), edgeId: z.string().trim().min(1).max(240),
     roofModelId: z.string().uuid().optional(), calculationId: z.string().uuid().optional(), calculationRevisionId: z.string().uuid().optional(),
     suggestedLengthMm: positiveMm.optional(), lengthOverridden: z.boolean().optional(),
   }).nullable().optional().default(null),

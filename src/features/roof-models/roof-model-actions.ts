@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { gableRoofInputSchema, calculateGableRoof } from "@/domain/calculations/gable-roof";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
-import type { Json } from "@/infrastructure/supabase/database.types";
+import { persistGableRoof } from "@/infrastructure/supabase/gable-roof-writer";
 
 export type RoofModelActionResult = {
   ok: boolean;
@@ -31,7 +31,10 @@ export async function saveGableRoofAction(formData: FormData): Promise<RoofModel
   const organizationId = uuid(text(formData, "organizationId"));
   const projectId = uuid(text(formData, "projectId"));
   const roofModelId = uuid(text(formData, "roofModelId"));
+  const operationId = uuid(text(formData, "operationId"));
+  const newRoofModelId = uuid(text(formData, "newRoofModelId"));
   if (!organizationId || !projectId) return { ok: false, error: "Érvénytelen projektazonosító." };
+  if (!operationId || (!roofModelId && !newRoofModelId)) return { ok: false, error: "Érvénytelen mentési művelet." };
   const auth = await getAuthContext();
   if (!auth) return { ok: false, error: "A munkamenet lejárt. Jelentkezz be újra." };
   if (!auth.organizations.some((organization) => organization.id === organizationId)) return { ok: false, error: "Ehhez a műhelyhez nincs hozzáférésed." };
@@ -57,22 +60,15 @@ export async function saveGableRoofAction(formData: FormData): Promise<RoofModel
   const { data: project, error: projectError } = await supabase.from("projects").select("id").eq("id", projectId).eq("organization_id", organizationId).maybeSingle();
   if (projectError || !project) return { ok: false, error: "A projekt nem található ebben a műhelyben." };
 
-  const { data, error } = await supabase.rpc("save_gable_roof_calculation", {
-    p_organization_id: organizationId,
-    p_project_id: projectId,
-    p_roof_model_id: (roofModelId ?? null) as unknown as string,
-    p_name: name,
-    p_input_data: parsed.data,
-    p_output_data: output as unknown as Json,
-    p_data_provenance: { input: "user_provided", output: "verified", verifiedBy: "server_calculation" },
-    p_warnings: [],
-    p_expected_revision_number: expectedRevision,
-  });
-  if (error || !data?.[0]) {
-    if (error?.code === "40001") return { ok: false, error: "A tetőmodell időközben megváltozott; töltsd újra az oldalt." };
+  let saved: Awaited<ReturnType<typeof persistGableRoof>>;
+  try {
+    saved = await persistGableRoof({ organizationId, projectId, roofModelId: roofModelId ?? newRoofModelId!, operationId,
+      expectedRevisionNumber: expectedRevision, name, input: parsed.data, output,
+      provenance: { input: "user_provided", output: "verified", verifiedBy: "server_calculation" }, actorId: auth.userId });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "40001") return { ok: false, error: "A tetőmodell időközben megváltozott; töltsd újra az oldalt." };
     return { ok: false, error: "A tetőmodell mentése nem sikerült." };
   }
-  const saved = data[0];
   revalidatePath(`/projektek/${projectId}`);
   revalidatePath(`/projektek/${projectId}/tetomodellek/${saved.roof_model_id}`);
   revalidatePath(`/projektek/${projectId}/tetomodellek/uj`);

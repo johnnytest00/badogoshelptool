@@ -59,7 +59,7 @@ export type FlashingMappingCheck = Readonly<{
   message: string;
 }>;
 
-const categoryLabels: Record<FlashingCategory, string> = { verge: "Oromszegély", wall: "Falszegély", eaves: "Ereszszegély", ridge: "Gerincszegély", valley: "Vápalemez", custom: "Egyedi szegélyprofil" };
+const categoryLabels: Record<FlashingCategory, string> = { verge: "Oromszegély", wall: "Falszegély", eaves: "Ereszszegély", ridge: "Gerincszegély", hip: "Kontyszegély", valley: "Vápalemez", custom: "Egyedi szegélyprofil" };
 
 export function buildFlashingTakeoffCandidates(input: FlashingMaterialInput, output: FlashingMaterialOutput): FlashingTakeoffCandidate[] {
   const candidates: FlashingTakeoffCandidate[] = [];

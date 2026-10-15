@@ -7,6 +7,7 @@ vi.mock("@/features/field-surveys/field-survey-actions", () => ({ saveFieldSurve
 
 vi.mock("./workspace-actions", () => ({ loadSurveyCalculator: vi.fn(), createSurveyFollowups: vi.fn() }));
 vi.mock("./workspace-calculator", () => ({ WorkspaceCalculator: () => null }));
+vi.mock("./survey-roof-actions", () => ({ listVerifiedSurveyRoofs: vi.fn(), saveSurveyRoofGeometry: vi.fn(), listVerifiedSurveyMultiRoofs: vi.fn(), saveSurveyMultiRoofGeometry: vi.fn() }));
 
 import { FieldSurveyEditor } from "./field-survey-editor";
 import type { FieldSurveyRecord, FieldSurveyRevisionRecord } from "./field-survey-data";

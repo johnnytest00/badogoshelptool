@@ -3,7 +3,7 @@ import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getProjectForOrganization } from "@/features/projects/project-data";
-import { GableRoofCalculatorForm } from "@/features/roof-models/gable-roof-form";
+import { RoofCreation } from "@/features/roof-models/roof-creation";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 import { getSheetLayoutMaterials } from "@/features/roof-models/sheet-layout-data";
 
@@ -16,5 +16,5 @@ export default async function NewRoofModelPage({ params, searchParams }: Readonl
   const project = await getProjectForOrganization(selected.organization.id, projectId);
   if (!project) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1><Link className="login-secondary-link" href={`/projektek?organization=${selected.organization.id}`}>Vissza a projektekhez</Link></section></main>;
   const sheetLayoutMaterials = await getSheetLayoutMaterials(selected.organization.id);
-  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${selected.organization.id}`} label="Vissza a projekthez" /><GableRoofCalculatorForm organizationId={selected.organization.id} projectId={projectId} sheetLayoutMaterials={sheetLayoutMaterials} /></div></main>;
+  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${selected.organization.id}`} label="Vissza a projekthez" /><RoofCreation organizationId={selected.organization.id} projectId={projectId} sheetLayoutMaterials={sheetLayoutMaterials} /></div></main>;
 }

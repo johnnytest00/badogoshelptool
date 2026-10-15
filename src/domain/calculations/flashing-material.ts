@@ -12,7 +12,7 @@ const positiveMm = safeInteger.positive();
 const nonNegativeMm = safeInteger.nonnegative();
 const nonNegativeQuantity = safeInteger.nonnegative();
 
-export const flashingCategories = ["verge", "wall", "eaves", "ridge", "valley", "custom"] as const;
+export const flashingCategories = ["verge", "wall", "eaves", "ridge", "hip", "valley", "custom"] as const;
 export type FlashingCategory = (typeof flashingCategories)[number];
 
 const provenanceSchema = z.object({
@@ -36,7 +36,7 @@ const roofEdgeReferenceSchema = z.object({
   roofModelRevisionId: z.string().uuid(),
   calculationId: z.string().uuid(),
   calculationRevisionId: z.string().uuid(),
-  edgeId: z.string().trim().min(1).max(120),
+  edgeId: z.string().trim().min(1).max(240),
   outputField: z.string().trim().min(1).max(120),
   suggestedLengthMm: z.number().finite().positive().max(Number.MAX_SAFE_INTEGER),
   lengthOverridden: z.boolean().default(false),

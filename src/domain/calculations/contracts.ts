@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const roofTypeSchema = z.enum(["gable", "shed", "hip", "other"]);
+export const roofTypeSchema = z.enum(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape", "other"]);
 export type RoofType = z.infer<typeof roofTypeSchema>;
 
 export const calculationStatusSchema = z.enum(["current", "stale", "invalid"]);

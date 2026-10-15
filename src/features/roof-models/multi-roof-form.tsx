@@ -1,0 +1,85 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { calculateRoofGeometry, roofGeometryInputSchema, type RoofGeometryType } from "@/domain/calculations/roof-geometry";
+import type { RoofModelRecord } from "./roof-model-data";
+import { saveMultiRoofAction } from "./multi-roof-actions";
+import { saveStandaloneMultiRoofAction } from "./multi-roof-actions";
+import { TechnicalDrawing } from "./technical-drawing";
+import { roofTypeOptions } from "./roof-type-selector";
+import type { StandaloneRoofRecord } from "./standalone-roof-data";
+
+type MultiType = Exclude<RoofGeometryType, "gable">;
+type Field = { key: string; label: string; unit: string };
+const names: Record<MultiType, string> = Object.fromEntries(roofTypeOptions.filter((option) => option.type !== "gable").map((option) => [option.type, option.name])) as Record<MultiType, string>;
+const num = (text: string) => text.trim() ? Number(text.trim().replace(",", ".")) : undefined;
+const display = (value: number, unit: string) => `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value)} ${unit}`;
+
+function fieldsFor(type: MultiType): Field[] {
+  if (type === "pyramid") return [{ key: "sideMm", label: "Tető külső oldalhossza", unit: "mm" }, { key: "pitchDegrees", label: "Tetőhajlás", unit: "°" }];
+  return [
+    { key: "lengthMm", label: "Tető külső hossza", unit: "mm" },
+    { key: "widthMm", label: "Tető külső szélessége", unit: "mm" },
+    { key: "pitchDegrees", label: "Tetőhajlás", unit: "°" },
+    ...(type === "halfHip" ? [{ key: "hipEaveHeightMm", label: "Félkonty alsó élének magassága az ereszhez képest", unit: "mm" }] : []),
+    ...(type === "lShape" || type === "tShape" ? [
+      { key: "wingWidthMm", label: "Csatlakozó szárny külső szélessége", unit: "mm" },
+      { key: "wingProjectionMm", label: "Szárny kinyúlása a főtetőből", unit: "mm" },
+    ] : []),
+  ];
+}
+
+export function MultiRoofCalculatorForm({ type, organizationId, projectId, model = null, standalone = null }: Readonly<{ type: MultiType; organizationId?: string; projectId?: string; model?: RoofModelRecord | null; standalone?: StandaloneRoofRecord | null }>) {
+  const fields = fieldsFor(type);
+  const savedInput = model?.currentMultiRoofInput ?? standalone?.input;
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((field) => [field.key, savedInput && field.key in savedInput ? String(savedInput[field.key as keyof typeof savedInput]) : ""])));
+  const [name, setName] = useState(model?.name ?? standalone?.name ?? `Új ${names[type].toLowerCase()}`);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [viewedHistoryId, setViewedHistoryId] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const [pending, startTransition] = useTransition();
+  const [operationId, setOperationId] = useState(() => crypto.randomUUID());
+  const [roofModelId] = useState(() => model?.id ?? crypto.randomUUID());
+  const [calculationId] = useState(() => standalone?.id ?? crypto.randomUUID());
+  const router = useRouter();
+  const parsed = useMemo(() => roofGeometryInputSchema.safeParse({ type, ...Object.fromEntries(fields.map((field) => [field.key, num(values[field.key] ?? "")])) }), [fields, type, values]);
+  const dirty = (!model && !standalone) || JSON.stringify(parsed.success ? parsed.data : values) !== JSON.stringify(savedInput) || name !== (model?.name ?? standalone?.name);
+  const geometry = useMemo(() => parsed.success ? !dirty && (model?.currentMultiRoofOutput || standalone?.output) ? (model?.currentMultiRoofOutput ?? standalone?.output)! : calculateRoofGeometry(parsed.data) : null, [parsed, dirty, model, standalone]);
+  const selectedEaves = geometry?.edges.filter((edge) => edge.kind === "eave" && selectedIds.includes(edge.id)) ?? [];
+  const selectedFlashings = geometry?.edges.filter((edge) => edge.kind !== "upper" && selectedIds.includes(edge.id)) ?? [];
+  const history = model ? model.revisions.flatMap((revision) => revision.input && "type" in revision.input && revision.input.type === type
+    ? [{ id: revision.id, revisionNumber: revision.revisionNumber, input: revision.input, createdAt: revision.createdAt }] : []) : standalone?.revisions ?? [];
+  const viewedHistory = history.find((revision) => revision.id === viewedHistoryId);
+  const historicalGeometry = viewedHistory ? calculateRoofGeometry(viewedHistory.input) : null;
+  const update = (key: string, value: string) => { setValues((current) => ({ ...current, [key]: value })); setSelectedIds([]); setMessage(""); };
+  const save = () => {
+    if (!organizationId || !parsed.success) return;
+    startTransition(async () => {
+      const saved = projectId
+        ? await saveMultiRoofAction({ organizationId, projectId, roofModelId, operationId, expectedRevisionNumber: model?.currentRevisionNumber ?? 0, name, input: parsed.data })
+        : await saveStandaloneMultiRoofAction({ organizationId, calculationId, operationId, expectedRevisionNumber: standalone?.revisionNumber ?? 0, name, input: parsed.data });
+      if (!saved.ok) { setMessage(saved.error ?? "A mentés nem sikerült."); return; }
+      setOperationId(crypto.randomUUID());
+      setMessage(`A tetőgeometria mentve · V${saved.revisionNumber}.`);
+      router.replace(projectId ? `/projektek/${projectId}/tetomodellek/${roofModelId}?organization=${organizationId}` : `/kalkulatorok/nyeregteto?organization=${organizationId}&calculation=${calculationId}`);
+      router.refresh();
+    });
+  };
+  return <div className="roof-calculator">
+    <header className="roof-calculator-toolbar"><div><p className="section-eyebrow">Paraméteres tetőgeometria</p><h1>{names[type]}</h1><p>A méretek a tető külső kontúrját jelölik. Eltérő túlnyúlásokat ez a modell nem tartalmaz; azokat nem számítja hozzá.</p></div></header>
+    <section className="roof-surface"><div className="roof-form-grid"><label className="roof-field"><span>Tetőmodell neve</span><input value={name} maxLength={200} onChange={(event) => { setName(event.target.value); setMessage(""); }} /></label>{fields.map((field) => <label key={field.key} className="roof-field"><span>{field.label} <small>{field.unit}</small></span><input inputMode="decimal" value={values[field.key] ?? ""} onChange={(event) => update(field.key, event.target.value)} aria-invalid={Boolean(values[field.key] && !parsed.success && parsed.error.issues.some((issue) => issue.path.includes(field.key)))} /></label>)}</div>
+      {(type === "lShape" || type === "tShape") && <p className="roof-help-note">A főtető X irányú, a szárny dél felé nyúlik ki; azonos hajlás és közös ereszszint szükséges. A T szárny középen, az L szárny a bal végen csatlakozik.</p>}
+      {!parsed.success && Object.values(values).some(Boolean) && <p className="missing-data" role="status">{parsed.error.issues[0]?.message ?? "Hiányzó vagy érvénytelen méret."}</p>}
+      {organizationId && <div className="roof-toolbar-actions"><button className="primary-button" type="button" disabled={!geometry || !name.trim() || pending || !dirty} onClick={save}>{pending ? "Mentés…" : model || standalone ? "Új tetőrevízió mentése" : "Tetőgeometria mentése"}</button></div>}
+      {!projectId && <p className="roof-help-note">Projekt nélküli, saját számítás. Mentés után ugyanerről az oldalról újranyitható.</p>}
+      {message && <p role="status" className={`form-message ${message.includes("mentve") ? "is-success" : "is-error"}`}>{message}</p>}
+    </section>
+    {history.length > 0 && <details className="roof-surface"><summary>Korábbi tetőrevíziók · {history.length}</summary><p>Az eredeti, változtathatatlan bemenetből újraszámolt rajz. A kapcsolt munkák saját, pontos forrásrevíziójukat őrzik.</p><div className="roof-toolbar-actions">{history.map((revision) => <button key={revision.id} type="button" className="secondary-button" aria-pressed={viewedHistoryId === revision.id} onClick={() => setViewedHistoryId(revision.id)}>V{revision.revisionNumber} · {new Date(revision.createdAt).toLocaleDateString("hu-HU")}</button>)}</div>{viewedHistory && historicalGeometry && <><p>Revízióazonosító: <code>{viewedHistory.id}</code> · felület: {display(historicalGeometry.totalAreaMm2 / 1e6, "m²")}</p><TechnicalDrawing geometry={historicalGeometry} isSaved /></>}</details>}
+    {geometry && <><section className="roof-results" aria-live="polite"><div className="roof-section-heading"><div><p className="section-eyebrow">Eredmények</p><h2>Geometriai összesítő</h2></div></div><div className="roof-result-grid"><div className="roof-result-metric"><small>Teljes tetőfelület</small><strong>{display(geometry.totalAreaMm2 / 1e6, "m²")}</strong></div><div className="roof-result-metric"><small>Vízszintes vetület</small><strong>{display(geometry.projectedAreaMm2 / 1e6, "m²")}</strong></div><div className="roof-result-metric"><small>Tetősík-részek</small><strong>{geometry.planes.length}</strong></div><div className="roof-result-metric"><small>Vápavonalak</small><strong>{geometry.edges.filter((edge) => edge.kind === "valley").length}</strong></div></div></section><TechnicalDrawing geometry={geometry} isSaved={Boolean((model || standalone) && !dirty)} selectedSegmentIds={selectedIds} onSegmentToggle={(id) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])} />
+      {model && !dirty && selectedEaves.length > 0 && <div className="roof-segment-actions"><p>Csak a kijelölt, mentett V{model.currentRevisionNumber} ereszélek kerülnek át. A csatornarendszer és lefolyók adatait külön add meg.</p><Link className="primary-button" href={`/projektek/${projectId}/ereszcsatorna?organization=${organizationId}&roof=${model.id}&edges=${encodeURIComponent(JSON.stringify(selectedEaves.map((edge) => edge.id)))}`}>Felhasználás ereszcsatornához · {display(selectedEaves.reduce((sum, edge) => sum + edge.lengthMm, 0) / 1000, "m")}</Link></div>}
+      {model && !dirty && selectedFlashings.length > 0 && <div className="roof-segment-actions"><p>A kijelölt, mentett élek külön szegélykategóriával kerülnek át. A profilt és szálkapcsolatot külön add meg.</p><Link className="secondary-button" href={`/projektek/${projectId}/szegelyek?organization=${organizationId}&roof=${model.id}&edges=${encodeURIComponent(JSON.stringify(selectedFlashings.map((edge) => edge.id)))}`}>Felhasználás bádogos szegélyhez · {selectedFlashings.length} él</Link></div>}
+      <p className="roof-disclaimer">A nem nyeregtetős fedési kiosztás még nem érhető el; ehhez nem készül kitalált lemezmennyiség.</p></>}
+  </div>;
+}

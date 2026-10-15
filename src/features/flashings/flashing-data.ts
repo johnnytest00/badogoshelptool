@@ -5,11 +5,12 @@ import { mapGableRoofToFlashingSuggestions } from "@/domain/calculations/flashin
 import { createClient } from "@/infrastructure/supabase/server";
 import { getMaterialProductsForOrganization } from "@/features/materials/material-data";
 import type { FlashingCatalogVariant } from "@/domain/calculations/flashing-material-integration";
+import { getVerifiedMultiRoofSources } from "@/features/roof-models/multi-roof-source-data";
 
 export type FlashingGeometrySuggestion = {
   id: string;
   label: string;
-  category: "verge" | "eaves" | "ridge";
+  category: "verge" | "eaves" | "ridge" | "hip" | "valley";
   lengthMm: number;
   reference: NonNullable<FlashingMaterialInput["runs"][number]["roofEdgeReference"]>;
 };
@@ -36,10 +37,17 @@ const parseInput = (value: unknown) => { const result = flashingMaterialInputSch
 const parseOutput = (value: unknown) => { const parsed = flashingMaterialCalculator.outputSchema.safeParse(value); return parsed.success ? parsed.data as FlashingMaterialOutput : null; };
 
 export async function getFlashingGeometrySuggestions(organizationId: string, projectId: string): Promise<FlashingGeometrySuggestion[]> {
+  const multiSources = await getVerifiedMultiRoofSources(organizationId, projectId);
+  const categories = { eave: "eaves", ridge: "ridge", rake: "verge", hip: "hip", valley: "valley" } as const;
+  const edgeLabels = { eave: "eresz", ridge: "gerinc", rake: "oromél", hip: "kontyél", valley: "vápavonal" } as const;
+  const multiSuggestions: FlashingGeometrySuggestion[] = multiSources.flatMap((source) => source.geometry.edges.flatMap((edge, index) => {
+    if (edge.kind === "upper" || !Number.isFinite(edge.lengthMm) || edge.lengthMm <= 0) return [];
+    return [{ id: `${source.roofModelId}:${edge.id}`, label: `${source.roofModelName} · ${edgeLabels[edge.kind]} ${index + 1}`, category: categories[edge.kind], lengthMm: Math.ceil(edge.lengthMm), reference: { roofModelId: source.roofModelId, roofModelRevisionId: source.roofModelRevisionId, calculationId: source.calculationId, calculationRevisionId: source.calculationRevisionId, edgeId: edge.id, outputField: "edges", suggestedLengthMm: edge.lengthMm, lengthOverridden: false } }];
+  }));
   const supabase = await createClient();
   const { data: models, error: modelError } = await supabase.from("roof_models").select("id, name, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).eq("roof_type", "gable");
   if (modelError) throw new Error("A tetőadatok betöltése nem sikerült.");
-  if (!models?.length) return [];
+  if (!models?.length) return multiSuggestions;
   const modelIds = models.map((model) => model.id);
   const [{ data: modelRevisions, error: modelRevisionError }, { data: calculations, error: calcError }] = await Promise.all([
     supabase.from("roof_model_revisions").select("id, roof_model_id, validation_status").eq("organization_id", organizationId).in("roof_model_id", modelIds),
@@ -47,7 +55,7 @@ export async function getFlashingGeometrySuggestions(organizationId: string, pro
   ]);
   if (modelRevisionError) throw new Error("A tetőrevíziók betöltése nem sikerült.");
   if (calcError) throw new Error("A mentett tetőszámítások betöltése nem sikerült.");
-  if (!modelRevisions?.length || !calculations?.length) return [];
+  if (!modelRevisions?.length || !calculations?.length) return multiSuggestions;
   const currentCalculationIds = calculations.flatMap((item) => item.current_revision_id ? [item.current_revision_id] : []);
   const { data: results, error: resultError } = currentCalculationIds.length
     ? await supabase.from("calculation_revisions").select("id, calculation_id, input_snapshot, output_snapshot, validation_status").eq("organization_id", organizationId).in("id", currentCalculationIds)
@@ -59,7 +67,7 @@ export async function getFlashingGeometrySuggestions(organizationId: string, pro
     : { data: [], error: null };
   if (dependencyError) throw new Error("A tetőszámítás forráskapcsolatai nem tölthetők be.");
   const currentCalcByModel = new Map(calculations.map((item) => [item.roof_model_id, item]));
-  return models.flatMap((model) => {
+  const gableSuggestions: FlashingGeometrySuggestion[] = models.flatMap((model) => {
     const modelRevision = modelRevisions.find((item) => item.id === model.current_revision_id && item.roof_model_id === model.id && item.validation_status === "verified");
     const calculation = currentCalcByModel.get(model.id);
     const result = results?.find((item) => item.id === calculation?.current_revision_id && item.calculation_id === calculation?.id && item.validation_status === "verified");
@@ -71,6 +79,7 @@ export async function getFlashingGeometrySuggestions(organizationId: string, pro
     if (storedOutput?.lengths?.eachEaveEdgeMm !== output.lengths.eachEaveEdgeMm || storedOutput.lengths.ridgeLineMm !== output.lengths.ridgeLineMm || storedOutput.lengths.eachSlopingGableEdgeMm !== output.lengths.eachSlopingGableEdgeMm) return [];
     return mapGableRoofToFlashingSuggestions({ roofModelId: model.id, roofModelName: model.name, roofModelRevisionId: modelRevision.id, calculationId: calculation.id, calculationRevisionId: result.id }, output);
   });
+  return [...gableSuggestions, ...multiSuggestions];
 }
 
 export async function getFlashingCalculation(organizationId: string, projectId: string): Promise<FlashingCalculationRecord | null> {
@@ -84,7 +93,7 @@ export async function getFlashingCalculation(organizationId: string, projectId: 
   const modelIds = [...new Set(rows.flatMap((row) => { const input = parseInput(row.input_snapshot); return input ? input.runs.flatMap((run) => run.roofEdgeReference ? [run.roofEdgeReference.roofModelId] : []) : []; }))];
   const [{ data: models, error: modelsError }, { data: geometryCalculations, error: geometryCalculationsError }] = modelIds.length ? await Promise.all([
     supabase.from("roof_models").select("id, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).in("id", modelIds),
-    supabase.from("calculations").select("id, roof_model_id, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).eq("calculator_type", "roof.gable").in("roof_model_id", modelIds),
+    supabase.from("calculations").select("id, roof_model_id, current_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).in("calculator_type", ["roof.gable", "roof.geometry.shed", "roof.geometry.hip", "roof.geometry.pyramid", "roof.geometry.halfHip", "roof.geometry.lShape", "roof.geometry.tShape"]).in("roof_model_id", modelIds),
   ]) : [{ data: [], error: null }, { data: [], error: null }];
   if (modelsError || geometryCalculationsError) throw new Error("A szegélykalkuláció forrásadatai nem tölthetők be.");
   const currentModelRevision = new Map((models ?? []).map((model) => [model.id, model.current_revision_id]));

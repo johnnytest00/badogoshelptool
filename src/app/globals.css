@@ -790,6 +790,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .roof-segment-list button strong { white-space: nowrap; }
 .roof-segment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; margin: 1rem 0; }
 .roof-segment-actions p { flex-basis: 100%; margin: 0; color: var(--muted); }
+.roof-type-selector { display: grid; gap: 1rem; padding: clamp(1rem, 3vw, 1.75rem); border: 1px solid var(--border); border-radius: 1.5rem; background: var(--surface); }
+.roof-type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: .7rem; }
+.roof-type-card { display: grid; align-content: start; gap: .4rem; min-height: 12rem; padding: .85rem; border: 2px solid var(--border); border-radius: 1rem; background: var(--surface-strong); color: var(--foreground); text-align: left; cursor: pointer; font: inherit; }
+.roof-type-card:hover, .roof-type-card:focus-visible { border-color: var(--brand); }
+.roof-type-card.is-selected { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, var(--surface-strong)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 20%, transparent); }
+.roof-type-card strong { font-size: calc(.95rem * var(--tp-text-scale)); }
+.roof-type-card span { color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.4; }
+.roof-type-illustration { width: 100%; height: 5.6rem; border-radius: .65rem; background: color-mix(in srgb, var(--brand) 5%, var(--surface)); }
+@media (max-width: 560px) { .roof-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.roof-type-card { min-height: 11rem; padding: .65rem; } }
 .survey-roof-workspace { display: grid; gap: .8rem; margin-top: 1rem; }
 .survey-roof-project { display: grid; gap: .7rem; margin-top: 1rem; }
 .survey-roof-project p { margin: 0; }

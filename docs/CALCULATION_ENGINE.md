@@ -403,3 +403,13 @@ Nem vezethető le csatornaigény, lefolyószám/-hely/-magasság, profilalak,
 toldás, gyártási méret, termékspecifikáció, vápa, falcsatlakozás vagy
 gyártói megfelelőség. A projekt nélküli kézi eresz- és szegélymunka továbbra
 is használható.
+
+## F9.10 — deklarált paraméteres tetőformák
+
+A `roof-geometry.ts` discriminated-union bemenete hét formát ismer: `gable`, `shed`, `hip`, `pyramid`, `halfHip`, `lShape`, `tShape`. A `gable` a meglévő `calculateGableRoof` motort használja. A hat új forma méretei mm-ben, a hajlásszög fokban értendő; a vetület mm², a valódi felület mm², az élek 3D hossza mm. A külső tetőkontúrt kérjük be: eltérő túlnyúlást a hat új modell nem vezet le. Konty/ sátor geometria szimmetrikus; L/T azonos hajlású, közös ereszszintű főtetőből és csatlakozó szárnyból áll. Nem tetszőleges, aszimmetrikus összetett tetőt jelentenek.
+
+L/T esetén a síkok vízszintes tartományait metszési vonalakkal felosztjuk, az átfedésben a tényleges felső tetőfelületet választjuk. Az eredmény síkpoligon, síkterület, vetület, eave/rake/ridge/hip/valley/upper él, 3D élhossz és szomszédos síkazonosító. A 10 000×6000 mm, 45° referencia 60 m² vetület/84,853 m² felület; 4000×5000 mm L/T szárnnyal 80 m²/113,137 m² és két 3464 mm körüli vápa. Az SVG a domain poligonokat és éleket használja, a kiválasztás egyenként és listából ugyanarra a stabil élazonosítóra mutat.
+
+Mentéskor a szerver újraszámolja az eredményt. A projekt- és standalone V1+ revízió immutable input/output snapshotot őriz, műveletazonosítós retry és expected-revision konfliktuskezeléssel. A felmérési forrás és a kapcsolt eresz/szegély számítás pontos tetőmodell- és számításrevízióra hivatkozik. A korábbi, kliens-eredményt elfogadó `roof.gable` RPC böngészőjoga F9.10-ben megszűnt; a nyeregtető is korlátozott, szerveroldali íróúton menthető. A történeti rajz immutable inputból determinisztikusan újraszámolt előnézet; a csatolt régi számítás eredeti snapshotja változatlan.
+
+Az eresz csak kijelölt élként megy csatornához; a szegélytípus a kijelölt él jelentéséből következik. Vápához vápalemez-kategória, kontyhoz kontyszegély tartozik; konkrét termékprofil, gyártási toldás és csatornarendszer további bemenet. Nyeregtetőn kívül a meglévő fedési kiosztómotor nem alkalmazható, ezért nincs darabszám vagy hulladékbecslés. Böngészős mobil/tablet és a lezárt nyeregtető-íróút végső UI próbája nyitott; az utóbbi helyi DB-integrációval igazolt.

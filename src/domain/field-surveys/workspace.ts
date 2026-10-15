@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fieldSurveyMeasurementSchema, fieldSurveyWorkTypeSchema, fieldSurveyWorkTypeLabels, fieldSurveySemanticTypeSchema, fieldSurveyUnitSchema, type FieldSurveyMeasurement, type FieldSurveyWorkType } from "./contracts";
+import { roofGeometryTypeSchema } from "@/domain/calculations/roof-geometry";
 
 export const surveySectionMeasurementSchema = z.object({
   id: z.string().uuid(), label: z.string().trim().min(1).max(120), value: z.number().finite().nullable(),
@@ -15,6 +16,7 @@ export function completeSectionMeasurements(section: SurveySection): FieldSurvey
 export const surveySectionSchema = z.object({
   id: z.string().uuid(), name: z.string().trim().min(1, "A munkaszakasz neve kötelező.").max(120),
   workType: fieldSurveyWorkTypeSchema, measurements: z.array(surveySectionMeasurementSchema).max(100),
+  roofType: roofGeometryTypeSchema.optional(),
   notes: z.string().max(2000), photoIds: z.array(z.string().uuid()).max(100),
 }).strict();
 export const surveySectionsSchema = z.array(surveySectionSchema).min(1).max(30).superRefine((sections, context) => {

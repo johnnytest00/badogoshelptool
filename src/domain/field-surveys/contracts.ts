@@ -9,6 +9,7 @@ export type FieldSurveyUnit = z.infer<typeof fieldSurveyUnitSchema>;
 export const fieldSurveySemanticTypeSchema = z.enum([
   "custom", "roof_building_length", "roof_building_width", "roof_rise", "roof_pitch",
   "roof_eave_overhang", "roof_front_gable_overhang", "roof_rear_gable_overhang",
+  "roof_outer_length", "roof_outer_width", "roof_outer_side", "roof_hip_eave_height", "roof_wing_width", "roof_wing_projection",
   "gutter_run_length", "gutter_stock_length", "gutter_bracket_spacing",
   "flashing_run_length", "flashing_section_length", "flashing_overlap",
 ]);
@@ -23,6 +24,8 @@ export const fieldSurveySemanticTypeLabels: Record<FieldSurveySemanticType, stri
   roof_eave_overhang: "Nyeregtető · eresztúlnyúlás",
   roof_front_gable_overhang: "Nyeregtető · első oromtúlnyúlás",
   roof_rear_gable_overhang: "Nyeregtető · hátsó oromtúlnyúlás",
+  roof_outer_length: "Tető külső hossza", roof_outer_width: "Tető külső szélessége", roof_outer_side: "Sátortető külső oldalhossza",
+  roof_hip_eave_height: "Félkonty alsó élének magassága", roof_wing_width: "Csatlakozó szárny szélessége", roof_wing_projection: "Szárny kinyúlása",
   gutter_run_length: "Ereszcsatorna · szakaszhossz",
   gutter_stock_length: "Ereszcsatorna · kiválasztott szálhossz",
   gutter_bracket_spacing: "Ereszcsatorna · konzoltávolság",
@@ -46,7 +49,7 @@ export const fieldSurveyMeasurementSchema = z.object({
   if (measurement.unit === "degree" && measurement.value > 360) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "A szög legfeljebb 360° lehet." });
   }
-  const lengthTypes: FieldSurveySemanticType[] = ["roof_building_length", "roof_building_width", "roof_rise", "roof_eave_overhang", "roof_front_gable_overhang", "roof_rear_gable_overhang", "gutter_run_length", "gutter_stock_length", "gutter_bracket_spacing", "flashing_run_length", "flashing_section_length", "flashing_overlap"];
+  const lengthTypes: FieldSurveySemanticType[] = ["roof_building_length", "roof_building_width", "roof_rise", "roof_eave_overhang", "roof_front_gable_overhang", "roof_rear_gable_overhang", "roof_outer_length", "roof_outer_width", "roof_outer_side", "roof_hip_eave_height", "roof_wing_width", "roof_wing_projection", "gutter_run_length", "gutter_stock_length", "gutter_bracket_spacing", "flashing_run_length", "flashing_section_length", "flashing_overlap"];
   if (lengthTypes.includes(measurement.semanticType) && !["mm", "m"].includes(measurement.unit)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["unit"], message: "Ehhez a mérési szerephez mm vagy m egység szükséges." });
   }
