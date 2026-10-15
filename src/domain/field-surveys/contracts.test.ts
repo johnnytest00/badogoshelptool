@@ -24,6 +24,12 @@ describe("field survey contracts", () => {
     expect(fieldSurveyMeasurementSchema.safeParse({ ...valid.measurements[0], semanticType: "roof_pitch", unit: "mm" }).success).toBe(false);
   });
 
+  it("shows a Hungarian message for an empty mobile numeric field", () => {
+    const result = fieldSurveyInputSchema.safeParse({ ...valid, measurements: [{ ...valid.measurements[0], value: Number.NaN }] });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues[0].message).toBe("Adj meg érvényes számértéket.");
+  });
+
   it("allows notes and project association to stay absent and exposes practical editable templates", () => {
     expect(fieldSurveyInputSchema.safeParse({ ...valid, projectId: null, notes: null }).success).toBe(true);
     expect(fieldSurveyTemplates.gutter.map(({ label }) => label)).toContain("Ereszszakasz hossza");

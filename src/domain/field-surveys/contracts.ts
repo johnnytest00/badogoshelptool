@@ -35,8 +35,8 @@ type FieldSurveyTemplate = Readonly<{ label: string; unit: FieldSurveyUnit; sema
 
 export const fieldSurveyMeasurementSchema = z.object({
   id: z.string().uuid(),
-  label: z.string().trim().min(1, "A mérés neve kötelező.").max(120),
-  value: z.number().finite().min(0, "A mérés nem lehet negatív.").max(1_000_000_000),
+  label: z.string().trim().min(1, "A mérés neve kötelező.").max(120, "A mérés neve legfeljebb 120 karakter lehet."),
+  value: z.number({ error: "Adj meg érvényes számértéket." }).finite("Adj meg véges számértéket.").min(0, "A mérés nem lehet negatív.").max(1_000_000_000, "A mérés értéke túl nagy."),
   unit: fieldSurveyUnitSchema,
   semanticType: fieldSurveySemanticTypeSchema.optional().default("custom"),
 }).strict().superRefine((measurement, context) => {

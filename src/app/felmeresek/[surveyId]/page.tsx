@@ -3,12 +3,13 @@ import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getProjectForOrganization, getProjectsForOrganization } from "@/features/projects/project-data";
-import { getFieldSurvey } from "@/features/field-surveys/field-survey-data";
+import { getFieldSurvey, getFieldSurveyRevision, getFieldSurveyRevisionVersions } from "@/features/field-surveys/field-survey-data";
 import { FieldSurveyEditor } from "@/features/field-surveys/field-survey-editor";
 
-export default async function FieldSurveyPage({ params, searchParams }: Readonly<{ params: Promise<{ surveyId: string }>; searchParams: Promise<{ organization?: string }> }>) {
+export default async function FieldSurveyPage({ params, searchParams }: Readonly<{ params: Promise<{ surveyId: string }>; searchParams: Promise<{ organization?: string; version?: string }> }>) {
   const { surveyId } = await params;
-  const selected = await getProjectOrganization((await searchParams).organization);
+  const query = await searchParams;
+  const selected = await getProjectOrganization(query.organization);
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
   if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt a felméréshez.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
@@ -16,13 +17,18 @@ export default async function FieldSurveyPage({ params, searchParams }: Readonly
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(surveyId)) return <NotFound organizationId={organizationId} />;
   const survey = await getFieldSurvey(organizationId, surveyId);
   if (!survey) return <NotFound organizationId={organizationId} />;
-  const [projects, linkedProject] = await Promise.all([
+  const requestedVersion = query.version === undefined ? null : Number(query.version);
+  if (requestedVersion !== null && (!Number.isSafeInteger(requestedVersion) || requestedVersion < 1)) return <NotFound organizationId={organizationId} />;
+  const [projects, linkedProject, revisionVersions, historicalRevision] = await Promise.all([
     getProjectsForOrganization(organizationId, { includeArchived: true, sort: "newest" }),
     survey.projectId ? getProjectForOrganization(organizationId, survey.projectId) : Promise.resolve(null),
+    getFieldSurveyRevisionVersions(organizationId, surveyId),
+    requestedVersion !== null && requestedVersion !== survey.version ? getFieldSurveyRevision(organizationId, surveyId, requestedVersion) : Promise.resolve(null),
   ]);
+  if (requestedVersion !== null && requestedVersion !== survey.version && !historicalRevision) return <NotFound organizationId={organizationId} />;
   const projectOptions = projects.map(({ id, name }) => ({ id, name }));
   if (linkedProject && !projectOptions.some((project) => project.id === linkedProject.id)) projectOptions.unshift({ id: linkedProject.id, name: linkedProject.name });
-  return <main className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor organizationId={organizationId} projects={projectOptions} survey={survey} /></div></main>;
+  return <main className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} projects={projectOptions} survey={survey} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
 }
 
 function NotFound({ organizationId }: Readonly<{ organizationId: string }>) {

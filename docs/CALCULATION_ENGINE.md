@@ -370,3 +370,10 @@ anyagszükséglet létrehozása.
 A fotók privát, JPEG/PNG/WebP formátumú, legfeljebb 10 MB-os állományok. A
 felmérés változatlanul helyszíni adat; a fotó hozzáadása/eltávolítása új
 felmérési verziót készít.
+
+## F9.7.8.3 — mobil revízióválasztás az átadásnál
+
+A felmérés régi változata külön, csak olvasható nézetben nyílik meg a saját
+méréseivel és fotóival. Az eresz-, nyeregtető- vagy szegélykalkulátor a
+kiválasztott változat azonosítóját kapja. A helyszíni adat továbbra sem válik
+ellenőrzött kalkulátorbemenetté, és az átadás nem ment számítást.

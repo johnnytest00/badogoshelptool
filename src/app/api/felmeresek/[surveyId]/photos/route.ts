@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { getAuthContext } from "@/features/auth/auth.server";
-import { getFieldSurvey } from "@/features/field-surveys/field-survey-data";
+import { getFieldSurvey, getFieldSurveyRevision } from "@/features/field-surveys/field-survey-data";
 import { createClient } from "@/infrastructure/supabase/server";
 import { attachFieldSurveyPhoto, cancelFieldSurveyPhotoUpload, removeFieldSurveyPhoto, reserveFieldSurveyPhoto } from "@/infrastructure/supabase/field-survey-photo-writer";
+import { normalizeSurveyPhoto } from "@/infrastructure/images/normalize-survey-photo";
 
 const maxPhotoBytes = 10 * 1024 * 1024;
 const allowedTypes = new Map([["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"]]);
@@ -32,19 +33,32 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ su
   if (!uuidPattern.test(surveyId)) return failure("A felmérés nem található.", 404);
   const auth = await getAuthContext();
   if (!auth) return failure("Jelentkezz be a fényképek megtekintéséhez.", 401);
-  const organizationId = new URL(_request.url).searchParams.get("organization") ?? "";
+  const query = new URL(_request.url).searchParams;
+  const organizationId = query.get("organization") ?? "";
   if (!auth.organizations.some((organization) => organization.id === organizationId)) return failure("Nincs hozzáférés ehhez a műhelyhez.", 403);
   const survey = await getFieldSurvey(organizationId, surveyId);
   if (!survey) return failure("A felmérés vagy a fényképei nem érhetők el.", 404);
+  const requestedVersion = query.get("version");
+  const version = requestedVersion === null ? survey.version : Number(requestedVersion);
+  if (!Number.isSafeInteger(version) || version < 1) return failure("A felmérés változata érvénytelen.", 422);
+  const revision = await getFieldSurveyRevision(organizationId, surveyId, version);
+  if (!revision) return failure("A felmérés kiválasztott változata nem érhető el.", 404);
+  const snapshot = revision.photosSnapshot.filter((item): item is { id: string; objectKey: string } =>
+    typeof item === "object" && item !== null && "id" in item && typeof item.id === "string"
+    && "objectKey" in item && typeof item.objectKey === "string");
+  if (snapshot.length === 0) return Response.json({ ok: true, version, currentVersion: survey.version, photos: [] }, { headers: { "Cache-Control": "no-store, private" } });
   const supabase = await createClient();
   const { data, error } = await supabase.from("field_survey_photos").select("id, object_key, display_filename, mime_type, file_size, description, uploaded_at")
-    .eq("survey_id", surveyId).is("removed_at", null).order("uploaded_at", { ascending: true });
+    .eq("survey_id", surveyId).in("id", snapshot.map((item) => item.id));
   if (error) return failure("A fényképek listája nem tölthető be.", 502);
-  const photos = await Promise.all((data ?? []).map(async (photo) => {
+  const byId = new Map((data ?? []).map((photo) => [photo.id, photo]));
+  const photos = await Promise.all(snapshot.map(async (item) => {
+    const photo = byId.get(item.id);
+    if (!photo || photo.object_key !== item.objectKey) return null;
     const { data: signed, error: signError } = await supabase.storage.from("field-survey-photos").createSignedUrl(photo.object_key, 900);
     return signError || !signed ? null : { id: photo.id, filename: photo.display_filename, mimeType: photo.mime_type, fileSize: photo.file_size, description: photo.description, uploadedAt: photo.uploaded_at, url: signed.signedUrl };
   }));
-  return Response.json({ ok: true, version: survey.version, photos: photos.filter(Boolean) }, { headers: { "Cache-Control": "no-store, private" } });
+  return Response.json({ ok: true, version, currentVersion: survey.version, photos: photos.filter(Boolean) }, { headers: { "Cache-Control": "no-store, private" } });
 }
 
 export async function POST(request: NextRequest, context: { params: Promise<{ surveyId: string }> }) {
@@ -71,13 +85,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ su
   const supabase = await createClient();
   const key = `${organizationId}/${surveyId}/${requestKey}.${extension}`;
   const filename = safeFilename(file.name, extension);
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  if (!matchesImageSignature(bytes, file.type)) return failure("A fájl tartalma nem egyezik a kiválasztott képtípussal.", 415);
+  const sourceBytes = new Uint8Array(await file.arrayBuffer());
+  if (!matchesImageSignature(sourceBytes, file.type)) return failure("A fájl tartalma nem egyezik a kiválasztott képtípussal.", 415);
+  let bytes: Buffer;
+  try { bytes = await normalizeSurveyPhoto(sourceBytes, file.type); }
+  catch (error) { return failure(error instanceof Error && error.message === "normalized_image_too_large" ? "A feldolgozott fénykép nagyobb 10 MB-nál." : "A kép tartalma sérült vagy túl nagy a biztonságos feldolgozáshoz.", error instanceof Error && error.message === "normalized_image_too_large" ? 413 : 415); }
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   let reservation: Awaited<ReturnType<typeof reserveFieldSurveyPhoto>>;
   try {
     reservation = await reserveFieldSurveyPhoto({ surveyId, organizationId, photoId: requestKey, objectKey: key,
-      filename, mimeType: file.type, fileSize: file.size, sha256, description: description || null,
+      filename, mimeType: file.type, fileSize: bytes.length, sha256, description: description || null,
       requestKey, expectedVersion, actorId: auth.userId });
   } catch (error) {
     const status = sqlStatus(error);
@@ -110,7 +127,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ su
     return failure(message, status);
   }
   const { data: signed } = await supabase.storage.from("field-survey-photos").createSignedUrl(key, 900);
-  return Response.json({ ok: true, version: attached.version, photo: { id: requestKey, filename, mimeType: file.type, fileSize: file.size, description: description || null, url: signed?.signedUrl ?? null } }, { headers: { "Cache-Control": "no-store, private" } });
+  return Response.json({ ok: true, version: attached.version, photo: { id: requestKey, filename, mimeType: file.type, fileSize: bytes.length, description: description || null, url: signed?.signedUrl ?? null } }, { headers: { "Cache-Control": "no-store, private" } });
 }
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ surveyId: string }> }) {

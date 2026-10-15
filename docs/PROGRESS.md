@@ -1268,3 +1268,34 @@ támogatva (JPEG/PNG/WebP, max 10 MB). Fizikai iPhone/iPad QA és hosted DB nem
 futott. DEMO Auth és survey adatok, valamint lokális képek megmaradtak; hosted,
 reset, commit/push/deploy nem történt. Javasolt commit:
 `feat(F9.7.8.2): add survey photos and calculator handoff`.
+
+## F9.7.8.3 — helyszíni felmérés mobil használhatósága
+
+Állapot: **COMPLETE (MOBILE READINESS IMPLEMENTATION, LOCAL)**. A mobil űrlap
+érintésre méretezett mezőket, numerikus billentyűzetet, magyar tizedesvesszőt,
+összecsukott opcionális részleteket és jól látható mentést kapott. A fotópanel
+feltöltési állapotot, várakozó fájlokat, újrapróbálást és elvetést mutat; a
+mentetlen mérések és folyamatban lévő műveletek navigációja védett. A korábbi
+felmérésverzió saját mérését, megjegyzését és fotóját jeleníti meg, pontos
+verziójú kalkulátorátadással. A JPEG/PNG/WebP képet a szerver valódi tartalom
+alapján dekódolja és EXIF nélkül újrakódolja, legfeljebb 40 megapixel és
+10 MB tárolt méret mellett. A helyi Sharp nem dekódol iPhone HEIC-et;
+az alkalmazás ezt elutasítja, és JPEG-exportot javasol.
+
+A `20261015110000_field_survey_save_retry.sql` előremenő helyi migráció
+stabil, kliens által választott UUID-t és azonos tartalmú V1/V2 válaszvesztés
+utáni idempotens ismétlést ad. Eltérő payloadra megmarad a konfliktus.
+RLS, privát Storage és restricted writer változatlan.
+
+Bizonyíték: `023`–`025` helyi pgTAP 68/68; két független DB-kapcsolatos
+konkurenciateszt PASS. Fókuszált Vitest 10 fájl/42 teszt, typecheck, lint,
+production build és diff-check PASS. Hitelesített helyi Brave DevTools
+iPhone 16 Pro Max 440×956: standalone DEMO felmérés
+`2a4b7f08-4218-44d8-b52a-3d256599a171`, V1 8,7 m, JPEG V2, reload,
+9,1 m-es V3, reload, V3 kalkulátorátadás 9100 mm; iPad Mini 768×1024
+kalkulátornézet. Egy korábbi DEMO felmérés V2-ben képet, V3-ban üres
+fotóállapotot mutatott. Fizikai Safari/iPhone/iPad: **UNVERIFIED**.
+Kézi elfogadás: valódi iPhone-on JPEG kamerakép, HEIC útmutatás, megszakított
+mobiladat-feltöltés/újrapróbálás és V1/V2 fotóváltás; iPaden szerkesztés és
+kalkulátorátadás. Offline működés és hosted Supabase nem ellenőrzött.
+Javasolt commit: `feat(F9.7.8.3): harden mobile field surveys`.

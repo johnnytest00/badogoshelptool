@@ -70,3 +70,11 @@ export async function getFieldSurveyRevision(organizationId: string, surveyId: s
     photosSnapshot: data.photos_snapshot as unknown[], createdAt: data.created_at,
   } : null;
 }
+
+export async function getFieldSurveyRevisionVersions(organizationId: string, surveyId: string): Promise<number[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("field_survey_revisions")
+    .select("version").eq("organization_id", organizationId).eq("survey_id", surveyId).order("version", { ascending: false });
+  if (error) throw new Error("A felmérés változatai nem tölthetők be.");
+  return (data ?? []).map((item) => item.version);
+}

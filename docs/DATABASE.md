@@ -662,3 +662,21 @@ ellenőrzése a bucketre és API-ra támaszkodik.
 F9.7.8.2 local pgTAP: `024_field_survey_photos_handoff.sql` és
 `023_field_surveys.sql`, 55/55 PASS; külön kétkapcsolatos szerkesztési verseny
 egy V2 update-et és egy 40001 konfliktust adott.
+
+## F9.7.8.3 — mobil felmérésmentés és képbiztonság
+
+A `20261015110000_field_survey_save_retry.sql` helyi, előremenő migráció az
+új felméréshez kliens által képzett stabil UUID-t enged. Ugyanazon actor,
+szervezet, projekt és payload V1 ismétlése ugyanazt a revíziót adja vissza;
+V2 szerkesztésnél az azonos tartalom és korábbi expected-version szintén
+idempotens. Más tartalom stale konfliktus. Az authenticated RLS, creator-scope
+és aktív projekt-tagság továbbra is ellenőrzött. `023`–`025`: 68/68 helyi
+pgTAP, két külön DB-kapcsolatú konkurenciateszt PASS.
+
+A verzióhoz kötött fotó GET a `photos_snapshot` pontos azonosítóit és
+object key-jét RLS-sel látható metaadathoz illeszti, majd csak azokra készít
+15 perces privát signed URL-t. Soft detach után a történeti Storage objektum
+megmarad. A szerver a JPEG/PNG/WebP bájtokat dekódolja, formátumot és legfeljebb
+40 megapixelt ellenőriz, majd EXIF nélkül újrakódolja és 10 MB-ra korlátozza.
+HEIC/HEIF nem támogatott a helyi dekóderrel; nincs megtévesztő átnevezéses
+elfogadás. Fizikai iPhone/Safari viselkedés nincs igazolva.

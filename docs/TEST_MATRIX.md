@@ -1140,3 +1140,14 @@ PostgreSQL kapcsolat segítségével futott; ezek nem hosted környezetek.
 | Hitelesített local browser | PASS | Eresz DEMO V1 mentés; JPEG/PNG/WebP fotó feltöltés és refresh utáni olvasás; fotó eltávolítása V4-ben, visszakereshető V3 snapshot; V5 demo tetőábra feltöltése és reload; mentett V2 felmérésből gutter kalkulátor 3 ereszszálat számolt. Nyeregtető V1 exact felmérésből 100 m² / 36,87°-ra számolt. Cross-org photo GET 403; hamis PNG tartalom kliensoldali tartalom-validációnál visszautasítva. Minden input és kép DEMO. |
 | Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` Next.js 16.4 webpack, `git diff --check`. |
 | Mobil és hosted | Nem futott | Fizikai iPhone/iPad és hosted Supabase nem ellenőrzött. HEIC nem támogatott; a UI JPEG/PNG/WebP-t ajánl (max 10 MB). Legacy felmérésből a migration csak aktuális állapotot tudott snapshotolni; korábbi változások/fotók nem rekonstruálhatók. |
+
+## F9.7.8.3 — helyszíni felmérés mobil használhatósága
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Célzott Vitest | PASS | 10 fájl/42 teszt: mobil mező/korábbi revízió, magyar numerikus hiba, HEIC fallback, tényleges képdekódolás és EXIF eltávolítás, V1/V2 kép-URL izoláció, jogosulatlan kérés, sikertelen feltöltés utáni azonos kulcsos retry, eresz/szegély/tető átadás regresszió. TSX tesztfájlok is bekerültek a Vitest konfigurációba. |
+| Helyi Auth/RLS pgTAP | PASS | `supabase test db --local` a `023`, `024`, `025` fájlokkal: 68/68. V1/V2 snapshot, törölt kép története, peer/cross-org tiltás, V1/V2 save retry és eltérő/stale payload konfliktus. Migration reset nélkül alkalmazva. |
+| Konkurencia | PASS | `node scripts/verify-field-survey-concurrency.mjs`: két független DB-kapcsolat, egy V2 és egy 40001 konfliktus. |
+| Hitelesített mobil böngésző | PASS, emuláció | Brave DevTools iPhone 16 Pro Max 440×956: DEMO standalone V1 8,7 m, JPEG V2, reload, 9,1 m V3, reload, kalkulátorban 9100 mm/exact V3. Korábbi DEMO V2 képet, V3 üres állapotot mutatott; iPad Mini 768×1024 kalkulátornézet. |
+| Fizikai készülék/Safari | UNVERIFIED | Nincs fizikai iPhone/iPad. Kézi ellenőrzés: Safari kamerakép, HEIC export-útmutatás, megszakított feltöltés és újrapróbálás, történeti V1/V2 képek, iPad szerkesztés és átadás. |
+| Typecheck/lint/build/diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check`. Hosted Supabase, reset, commit, push, deploy nem történt. |

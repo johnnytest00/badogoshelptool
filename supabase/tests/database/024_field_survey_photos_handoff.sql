@@ -1,5 +1,5 @@
 begin;
-select plan(31);
+select plan(35);
 select has_table('public', 'field_survey_photos', 'private survey photo metadata exists');
 select has_table('public', 'field_survey_revisions', 'immutable survey revisions exist');
 select is((select public from storage.buckets where id='field-survey-photos'),false,'survey photo bucket is private');
@@ -64,6 +64,8 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
 select is(jsonb_array_length((select photos_snapshot from public.field_survey_revisions where survey_id=current_setting('test.photo_survey_id')::uuid and version=3)),1,'V3 snapshot includes the attached photo reference');
 select is((select photos_snapshot #>> '{0,id}' from public.field_survey_revisions where survey_id=current_setting('test.photo_survey_id')::uuid and version=3),'00000000-0000-4000-8000-000000000901','photo snapshot preserves the exact photo ID');
+select is(jsonb_array_length((select photos_snapshot from public.field_survey_revisions where survey_id=current_setting('test.photo_survey_id')::uuid and version=1)),0,'V1 shows its own empty photo state');
+select is(jsonb_array_length((select photos_snapshot from public.field_survey_revisions where survey_id=current_setting('test.photo_survey_id')::uuid and version=2)),0,'V2 shows its own empty photo state');
 select set_config('test.project_survey_id',(select survey_id::text from public.save_field_survey(null,'00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000823','gutter',
  '[{"id":"00000000-0000-4000-8000-000000000827","label":"DEMO projekt eresz","value":12,"unit":"m","semanticType":"gutter_run_length"}]'::jsonb,'DEMO projekthez kötött fotó',0)),true);
 set local role postgres;
@@ -79,6 +81,7 @@ select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002'
 select is((select count(*)::int from public.field_survey_photos where survey_id=current_setting('test.project_survey_id')::uuid),1,'active project member can read project survey photo');
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',true);
 select is_empty('select 1 from public.field_survey_photos where id=''00000000-0000-4000-8000-000000000901''','photo metadata is not visible across standalone creator boundary');
+select is_empty('select 1 from public.field_survey_revisions where survey_id=current_setting(''test.photo_survey_id'')::uuid and version=3','peer cannot fetch historical standalone photo snapshot');
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
 select is_empty('select 1 from public.field_survey_revisions where survey_id=current_setting(''test.foreign_survey_id'')::uuid','cross-organization revisions are isolated');
 select is((select count(*)::int from public.field_surveys where id=current_setting('test.foreign_survey_id')::uuid),0,'cross-organization survey is isolated');
@@ -89,5 +92,6 @@ select is((select version from public.remove_field_survey_photo(current_setting(
 reset role;
 select is(jsonb_array_length((select photos_snapshot from public.field_survey_revisions where survey_id=current_setting('test.photo_survey_id')::uuid and version=3)),1,'V3 photo snapshot survives removal');
 select is(jsonb_array_length((select photos_snapshot from public.field_survey_revisions where survey_id=current_setting('test.photo_survey_id')::uuid and version=4)),0,'V4 snapshot reflects the removed photo');
+select is((select count(*)::int from public.field_survey_photos where id='00000000-0000-4000-8000-000000000901'),1,'removed photo metadata remains for authorized historical access');
 select * from finish();
 rollback;

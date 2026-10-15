@@ -6,7 +6,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("@/features/field-surveys/field-survey-actions", () => ({ saveFieldSurveyAction: vi.fn() }));
 
 import { FieldSurveyEditor } from "./field-survey-editor";
-import type { FieldSurveyRecord } from "./field-survey-data";
+import type { FieldSurveyRecord, FieldSurveyRevisionRecord } from "./field-survey-data";
 
 const survey: FieldSurveyRecord = {
   id: "123e4567-e89b-42d3-a456-426614174002", organizationId: "123e4567-e89b-42d3-a456-426614174000",
@@ -39,5 +39,26 @@ describe("field survey editor", () => {
     expect(html).toContain("DEMO nehezen hozzáférhető");
     expect(html).toContain("Kapcsolt projekt");
     expect(html).toContain("DEMO linked project");
+  });
+
+  it("uses touch numeric input, a collapsed optional note and a full-width save action", () => {
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} />);
+    expect(html).toContain('inputMode="decimal"');
+    expect(html).toContain('type="text"');
+    expect(html).toContain('class="field-survey-note-details"');
+    expect(html).toContain('class="primary-button field-survey-save"');
+  });
+
+  it("renders a historical revision with its exact measurements and calculator handoff", () => {
+    const revision: FieldSurveyRevisionRecord = {
+      id: "revision-1", surveyId: survey.id, organizationId: survey.organizationId, projectId: survey.projectId,
+      version: 1, workType: "gutter", measurements: [{ ...survey.measurements[0], value: 7.5 }],
+      notes: "DEMO V1", photosSnapshot: [], createdAt: survey.createdAt,
+    };
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={survey} revisionVersions={[2, 1]} historicalRevision={revision} />);
+    expect(html).toContain("Korábbi felmérésváltozat");
+    expect(html).toContain("7,5");
+    expect(html).toContain("DEMO V1");
+    expect(html).toContain("version=1");
   });
 });
