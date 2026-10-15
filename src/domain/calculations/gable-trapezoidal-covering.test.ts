@@ -59,4 +59,17 @@ describe("gable trapezoidal sheet covering", () => {
     const overflow = calculateGableTrapezoidalCovering(roof, product({ endAllowanceMm: Number.MAX_VALUE }));
     expect(overflow.status).toBe("UNSUPPORTED");
   });
+
+  it("does not create a quantity when an end allowance would require an unsupported zero-overlap join", () => {
+    const result = calculateGableTrapezoidalCovering(roof, product({
+      selectedSheetLengthMm: 5_000,
+      endAllowanceMm: 100,
+      longitudinalOverlapMm: 0,
+      lapCompatibilityConfirmed: true,
+    }));
+    expect(["INCOMPLETE", "INVALID", "UNSUPPORTED"]).toContain(result.status);
+    expect(result.rowsPerPlane).toBeNull();
+    expect(result.totalSheetCount).toBeNull();
+    expect(result.purchasedNominalAreaMm2).toBeNull();
+  });
 });

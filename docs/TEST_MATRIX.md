@@ -1325,3 +1325,27 @@ Csak local DEMO adatot és auth tesztfelhasználót használtunk; hosted DB, res
 | Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, izolált forrásmásolaton `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
 | Helyi DB/Auth/RLS | PARTIAL | `RUN_LOCAL_MULTI_ROOF_TESTS=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/features/roof-models/multi-roof.local.integration.test.ts`: 4/4 PASS, Auth/RLS és secure roof writer. A `supabase test db --local supabase/tests/database/030_survey_roof_source_link.sql` 0/7 subtestnél megáll, mert a régi teszt a visszavont `save_gable_roof_calculation` RPC-t hívja; az új null-mező esethez nincs közvetlen SQL assertion. Nincs hosted DB ellenőrzés. |
 | Mobil / adatbiztonság | UNVERIFIED / UNCHANGED | Mobil viewport és fizikai iPhone/iPad Safari nem futott. Meglévő Auth/RLS, immutable revision, idempotencia és snapshot contract nem módosult; a survey–roof matcher null alternatív mezőt hagy ki, de megőrzi a típusos/duplikációs ellenőrzést. |
+
+## F9.13.1 — napi workflow acceptance lezárása
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Legacy SQL és security boundary | PASS | `030_survey_roof_source_link.sql`: 8/8 PASS; az obsolete gable RPC nincs execute jogosultsággal authenticated szerepkörön, a teszt a secure writer tranzakciós helyi szerepkörét használja. |
+| A — önálló ereszcsere | BROWSER VERIFIED | A korábbi hitelesített LOCAL DEMO 6,4 m-es felmérése és mentett standalone ereszkalkulációja refresh/reopen után is megmaradt. |
+| B — projekt tető → eresz → szegély | BROWSER VERIFIED | Mentett nyeregtető V1 (`b7ce1e5f-cb2b-4d18-bcdf-39f81037d4b2`), projekt eresz V1 és projekt szegély V2 újranyitva. A kiválasztott ferde oromél 4667 mm, `lengthSource=geometry`, forrásrevízió változatlan; a képernyőn `Mentett aktuális változat · V2`. |
+| C — önálló szegély | BROWSER VERIFIED | Tető és projekt nélkül mentett V1; 2500 mm helyszíni szakasz, 2000 mm DEMO szálhossz, ismeretlen toldás mellett HIÁNYOS eredmény és nincs kitalált darabszám. Refresh/reopen után az értékek és figyelmeztetés megmaradtak. |
+| Auth/RLS és immutable adatok | PASS | `multi-roof.local.integration.test.ts` 4/4; restricted writers, expected-version/idempotency, direct insert/RPC denial és exact source checks. |
+| Célzott regresszió | PASS | Vitest 3 fájl / 14 teszt, typecheck, lint, izolált production build és `git diff --check`. |
+| Eszközkorlát | UNVERIFIED | Mobil viewport, fizikai eszköz, hosted DB és deploy nem futott. |
+
+## F9.14 — független számítási audit
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Hét tetőforma golden fixture | PASS | `roof-geometry.engineering-audit.test.ts`: 29/29; kézi referencia, összes élkategória, külön 2D/3D terület, szomszédság, önmetszés, 3× hossz és 9× terület. Tűrések: 1e-6 mm, 1e-3 mm² és 1e-10 relatív. |
+| Fedés | PASS | Trapéz- és cserepeslemez golden, teljes hossz/toldás/modul/névleges-hasznos méret, unsupported és takeoff source-recompute tesztek. Csak nyeregtetős deklarált scope. |
+| Eresz/szegély/profil | PASS | Szálhatár, több szakasz, átfedés, ismeretlen paraméterből `null`, BA/K és önmetszés regresszió. Automatikus fitting/hidraulika/gyártói szabály nincs. |
+| Egység, mennyiség, forrás | PASS | Explicit mm→m és mm²→m²; safe integer; hat tizedes BigInt aggregáció; eltérő egység/snapshot szétválik; draft kizárt; stale és exact revision megmarad; ár nem pótlódik. |
+| Production módosítás | NINCS | Igazolt P0/P1 nem került elő; csak független fixture, célzott biztonsági regresszió és dokumentáció készült. |
+| Végső ellenőrzések | PASS | Fókuszált Vitest 20 fájl / 147 teszt; typecheck; lint; izolált Next.js 16.4.0 webpack production build; `git diff --check`. Perzisztencia/security változás hiányában Auth/RLS nem futott újra. |
+| Browser / eszköz | NOT RUN / UNVERIFIED | Felhasználói számítási viselkedés nem változott, ezért AGENTS.md szerint külön browser smoke nem futott. Fizikai eszköz nem ellenőrzött. |

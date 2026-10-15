@@ -34,6 +34,36 @@ describe("gutters.material-estimate", () => {
     expect(result.warnings[0]).toContain("felhasználó által megadott kiosztás");
   });
 
+  it("does not infer connectors, fittings or hydraulic suitability", () => {
+    const result = calculateGutterMaterial({
+      ...singleRun,
+      runs: [{ ...singleRun.runs[0], lengthMm: 8_500 }],
+      manualComponents: [],
+    });
+    expect(result.gutterRuns[0].stockSections).toBe(3);
+    expect(result.componentQuantities.some((item) => item.category === "connector")).toBe(false);
+    expect(result.assumptions.join(" ")).toContain("nem hidraulikai méretezés");
+    expect(result.assumptions.join(" ")).toContain("nem vágási vagy toldási terv");
+  });
+
+  it("rejects aggregate section counts outside the safe integer range", () => {
+    const huge = 5_000_000_000_000_000;
+    const result = executeCalculator(gutterMaterialCalculator, {
+      ...singleRun,
+      gutterStockLengthMm: 1,
+      runs: [
+        { ...singleRun.runs[0], id: "huge-a", lengthMm: huge },
+        { ...singleRun.runs[0], id: "huge-b", lengthMm: huge },
+      ],
+      manualComponents: [],
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.map((issue) => issue.code)).toContain("VALIDATION_ERROR");
+      expect(result.errors.map((issue) => issue.message).join(" ")).toContain(String(Number.MAX_SAFE_INTEGER));
+    }
+  });
+
   it("rejects zero, negative and duplicate definitions", () => {
     expect(executeCalculator(gutterMaterialCalculator, { ...singleRun, gutterStockLengthMm: 0 }).ok).toBe(false);
     expect(executeCalculator(gutterMaterialCalculator, { ...singleRun, runs: [{ ...singleRun.runs[0], lengthMm: -1 }] }).ok).toBe(false);

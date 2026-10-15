@@ -430,3 +430,21 @@ mérési végpontok jelentését és az egységet. L/T szárnyaknál a külső s
 és a kinyúlás külön, felülnézeti méretvonal; a pitch és a félkonty magassága
 kiegészítő metszeti útmutatót kap, mert a felülnézetben nem ábrázolható
 félrevezetés nélkül. A kiválasztott tetőélek külön overlay-rétege változatlan.
+
+## F9.14 — független számítási audit
+
+A hét meglévő tetőforma production motortól független, kézzel levezetett DEMO
+fixture-t kapott. Az audit külön képlettel ellenőrzi a vetületet, 3D
+vektorterülettel a síkfelületet, az összes élkategória hosszát, a szomszédos
+síkok határpontjait, a síkpoligonok önmetszésmentességét és a lineáris/négyzetes
+skálázást. A számszerű tűrések és eredmények a
+`docs/CALCULATION_VERIFICATION_MATRIX.md` fájlban vannak.
+
+A trapéz- és cserepeslemez auditja változatlanul csak a deklarált,
+szimmetrikus nyeregtetős tartományt igazolja. A szegély ismeretlen toldása és a
+profil ismeretlen BA/K adata nem képez darabszámot vagy terítéket. Az eresz
+szálbecslése nem következtet összekötőre, idomra vagy hidraulikai
+alkalmasságra. A takeoff átadások exact mentett snapshotot számolnak újra,
+egységet nem váltanak implicit módon, az aggregáció pedig megőrzi a
+forrásrevíziót és a stale jelzést. Igazolt P0/P1 számítási hiba nem került elő;
+production képlet, adatbázisséma és jogosultsági szerződés nem változott.

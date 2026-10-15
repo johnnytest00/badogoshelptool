@@ -45,7 +45,7 @@ export async function saveFlashingCalculationAction(data: FormData): Promise<Fla
 
   const references = parsed.data.runs.flatMap((run) => run.roofEdgeReference ? [{ run, reference: run.roofEdgeReference }] : []);
   const multiReferences = references.filter(({ reference }) => reference.outputField === "edges");
-  if (multiReferences.length) {
+  if (references.length) {
     const sources = await getVerifiedMultiRoofSources(organizationId, projectId);
     const category = { eave: "eaves", ridge: "ridge", rake: "verge", hip: "hip", valley: "valley" } as const;
     const seen = new Set<string>();

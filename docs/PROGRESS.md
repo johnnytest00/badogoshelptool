@@ -1703,3 +1703,54 @@ Mobil viewport és fizikai eszköz UNVERIFIED; teljes háromworkflow acceptance
 ezért nem COMPLETE. Hosted DB, reset, commit, push, deploy nem történt.
 
 Javasolt commit: `fix(F9.13): unblock survey and preserve calculator navigation`.
+
+## F9.13.1 — napi workflow acceptance lezárása
+
+Állapot: **COMPLETE (helyi DEMO)**. A `030_survey_roof_source_link.sql`
+teszt a visszavont `save_gable_roof_calculation` RPC helyett a jelenlegi
+`save_gable_roof_calculation_secure` íróutat használja tranzakciós,
+`tetopro_covering_writer` szerepkörrel; az authenticated közvetlen privilegizált
+RPC-hívás továbbra is tiltott. A javított SQL futás 8/8 PASS.
+
+A gable tetőél → meglévő F9.9 szegélykalkulátor átadás most ugyanazon
+korlátozott szerveroldali íróutat használja, mint a többtetős élek. Helyi,
+hitelesített DEMO-ban a bal első ferde oromél 4667 mm-es geometriai forrása,
+az exact tetőrevízió és a `Tetőgeometria` mérési forrás megmaradt. Projektben a
+szegélyszámítás V2 frissítés után újranyitható; ismeretlen toldás mellett a
+darabszám hiányos marad.
+
+Az önálló szegélyszámítás 2,5 m-es méréssel, 2000 mm DEMO szálhosszal,
+tető/projekt nélkül V1-ben mentve, frissítés után újranyitva igazolt. A forrás
+és a mért hossz megmaradt, darabszámot a rendszer nem fabrikált.
+
+Újraellenőrzött: célzott Vitest 3/14 PASS, helyi Auth/RLS 4/4 PASS,
+typecheck, lint, izolált production build és `git diff --check` PASS. A
+Workflow A korábbi böngészős bizonyítéka megmaradt. Mobil/fizikai eszköz,
+hosted DB és deploy továbbra sem ellenőrzött; commit/push nem történt.
+
+Javasolt commit: `fix(F9.13.1): complete daily workflow acceptance`.
+
+## F9.14 — független mérnöki számítási audit
+
+Állapot: **COMPLETE (LOCAL CALCULATION AUDIT)**. Mind a hét tetőformához
+production függvény nélküli, kézzel levezetett DEMO referencia készült. A
+fixture-ek területet, vetületet, hajlást és minden releváns élhosszt rögzítenek;
+az audit külön shoelace/3D vektorterületet, síkhatár-szomszédságot,
+önmetszésmentességet és 3×/9× skálázást ellenőriz.
+
+A meglévő trapézlemez, cserepeslemez, eresz, szegély és profil golden tesztek
+igazolták a deklarált tartományt és a biztonságos hiányos/unsupported
+állapotokat. A mennyiség- és egységtesztek megőrzik a mm/m/m²/piece jelentést,
+a tizedes aggregációt, a stale forrásjelzést és az inkompatibilis snapshotok
+szétválasztását. Igazolt P0/P1 hiba nem került elő, ezért production képlet,
+perzisztencia és jogosultság nem változott. A részletes bizonyíték a
+`CALCULATION_VERIFICATION_MATRIX.md` fájlban található.
+
+Futtatva: fókuszált Vitest 20 fájl / 147 teszt PASS; `npm run typecheck`,
+`npm run lint`, izolált Next.js 16.4.0 webpack production build és
+`git diff --check` PASS. A perzisztencia/security szerződés nem változott,
+ezért új Auth/RLS vagy konkurenciateszt nem volt indokolt.
+
+Fizikai eszköz és browser smoke nem futott, mert felhasználói számítási
+viselkedés nem változott. Hosted DB, reset, commit, push és deploy nem történt.
+Javasolt commit: `test(F9.14): add independent calculation audit fixtures`.
