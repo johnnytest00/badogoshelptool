@@ -22,8 +22,12 @@ describe("saved calculation in the survey summary", () => {
     expect(html).toContain("/kalkulatorok/ereszcsatorna?organization=organization-1&amp;calculation=calculation-1");
     expect(html).toContain("Forrásfelmérés: V1");
     expect(html).toContain("korábbi forrás");
+    expect(html).toContain("A felmérésből hiányzik (a kalkulátorban pótolható)");
     expect(html).toContain("calculation-revision-1");
     expect(html).toContain("3 db");
+
+    const projectHtml = renderToStaticMarkup(<WorkspaceSummary organizationId="organization-1" surveyId="survey-1" version={2} sections={[section]} calculations={[linked]} initialFollowups={[]} projects={[]} originalProjectId="project-1" readOnly />);
+    expect(projectHtml).toContain("/projektek/project-1/ereszcsatorna?organization=organization-1&amp;calculation=calculation-1&amp;revision=calculation-revision-1");
   });
 
   it("shows existing project and quotation links without offering duplicate creation", () => {
@@ -37,5 +41,12 @@ describe("saved calculation in the survey summary", () => {
     expect(html).toContain("már létrejött");
     expect(html).not.toContain("Projekt létrehozása / kapcsolása");
     expect(html).not.toContain("Árajánlat-piszkozat létrehozása");
+  });
+  it("shows missing roof type as an actionable calculation gap without blocking the saved summary", () => {
+    const section: SurveySection = { id: "123e4567-e89b-42d3-a456-426614174101", name: "DEMO tető", workType: "roof", notes: "", photoIds: [], measurements: [] };
+    const html = renderToStaticMarkup(<WorkspaceSummary organizationId="organization-1" surveyId="survey-1" version={1} sections={[section]} calculations={[]} initialFollowups={[]} projects={[]} originalProjectId={null} readOnly />);
+    expect(html).toContain("A felmérés menthető tetőforma nélkül.");
+    expect(html).not.toContain("Épület hossza");
+    expect(html).toContain("Felmérés összesítése · V1");
   });
 });

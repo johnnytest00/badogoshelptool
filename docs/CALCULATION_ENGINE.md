@@ -413,3 +413,20 @@ L/T esetén a síkok vízszintes tartományait metszési vonalakkal felosztjuk, 
 Mentéskor a szerver újraszámolja az eredményt. A projekt- és standalone V1+ revízió immutable input/output snapshotot őriz, műveletazonosítós retry és expected-revision konfliktuskezeléssel. A felmérési forrás és a kapcsolt eresz/szegély számítás pontos tetőmodell- és számításrevízióra hivatkozik. A korábbi, kliens-eredményt elfogadó `roof.gable` RPC böngészőjoga F9.10-ben megszűnt; a nyeregtető is korlátozott, szerveroldali íróúton menthető. A történeti rajz immutable inputból determinisztikusan újraszámolt előnézet; a csatolt régi számítás eredeti snapshotja változatlan.
 
 Az eresz csak kijelölt élként megy csatornához; a szegélytípus a kijelölt él jelentéséből következik. Vápához vápalemez-kategória, kontyhoz kontyszegély tartozik; konkrét termékprofil, gyártási toldás és csatornarendszer további bemenet. Nyeregtetőn kívül a meglévő fedési kiosztómotor nem alkalmazható, ezért nincs darabszám vagy hulladékbecslés. Böngészős mobil/tablet és a lezárt nyeregtető-íróút végső UI próbája nyitott; az utóbbi helyi DB-integrációval igazolt.
+
+## F9.11 — mérési jelentés és rajzhoz kötött input-útmutató
+
+Az F9.11 felhasználói rétege nem módosítja a hétforma discriminated-union
+szerződését vagy a szerveroldali számítást. A `measurement-guidance.tsx` a
+meglévő inputkulcsokat és felmérési `semanticType` értékeket közös magyar
+mérési jelentéshez köti. A hossz/szélesség mindig vízszintes vetületi méret;
+az emelkedés és a félkonty-magasság függőleges érték; a hajlás fok; a ferde
+hossz csak számított eredmény.
+
+A `DrawingDimension.sourceKey` és `DrawingAngle.sourceKey` megőrzi ezt a
+kapcsolatot a meglévő `TechnicalDrawing` modellen belül. Fókuszált mezőnél a
+hozzá tartozó méretvonal vagy szögjel kiemelődik, a panel pedig megmutatja a
+mérési végpontok jelentését és az egységet. L/T szárnyaknál a külső szélesség
+és a kinyúlás külön, felülnézeti méretvonal; a pitch és a félkonty magassága
+kiegészítő metszeti útmutatót kap, mert a felülnézetben nem ábrázolható
+félrevezetés nélkül. A kiválasztott tetőélek külön overlay-rétege változatlan.

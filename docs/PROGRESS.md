@@ -1598,3 +1598,108 @@ mind a hét forma külön browser save/reopen, gable covering regresszió teljes
 browser útja és a későbbi browser automation interakciók egy része nem bizonyított.
 Hosted DB, reset, commit, push és deploy nem történt; `.DS_Store` érintetlen.
 Javasolt commit: `fix(F9.10.2): integrate professional roof selector workflows`.
+
+## F9.11 — professzionális tetőmérés és intelligens UX
+
+Állapot: **PARTIAL**. A meglévő hétforma selector-, geometria-, SVG-, mentés-
+és revízióarchitektúrára építve létrejött a közös `MeasurementGuidance` réteg.
+Fókuszált mezőnél magyarul megjelenik a mérés helye, jelentése, egysége és a
+vízszintes/függőleges/ferde konvenció. A `TechnicalDrawing` a hozzá tartozó
+méretvonalat vagy szögjelet kiemeli; az L/T szárny szélessége és kinyúlása
+külön méretvonal. Pitch és félkonty-magasság esetén a felülnézet helyett
+kiegészítő metszeti útmutató jelenik meg, így nem készül hamis végpont.
+
+A hét forma mezői explicit magyar egységet és típusfüggő magyarázatot kaptak.
+A nyeregtető magasság/szög módja továbbra is kölcsönösen kizáró, a többi
+forma csak a tényleges geometry contract mezőit kéri. A multi-form eredmény
+megjeleníti a számított vetületet, felületet, síkszámot, vápatartalmat és a
+modell referencia-szintjéhez viszonyított legmagasabb geometriai pontot.
+Szerveroldali számítás, Auth/RLS, source revision és handoff kód nem változott.
+
+Bizonyíték: célzott 7 fájl / 35 Vitest PASS, `npm run typecheck`, `npm run lint`,
+`git diff --check` és friss izolált Next.js 16.4.0 webpack production build PASS.
+Hitelesített helyi böngészőben a félnyeregtető méretfókusz, útmutató, aktív SVG-
+méretvonal és 73,246 m² eredmény látszott. A hét forma gyors végigkattintása
+CDP időkorlátba futott; ezt nem jelölöm PASS-ként. Fizikai mobil/tablet és mind
+a hét forma külön save/reopen browser flow nincs lezárva. Hosted DB-t nem érintettem.
+Javasolt commit: `feat(F9.11): add roof measurement guidance UX`.
+
+## F9.12 — product integration és workflow hardening
+
+Állapot: **PARTIAL**. A dashboard helyszíni belépője a szervezethez kötött
+felmérés workflow; a mentett felmérések a meglévő Felmérések felületen érhetők el.
+A meglévő `/felmeresek/uj` útvonalat és az opcionális projektválasztást változatlanul
+használtam, ezért projekt vagy ügyfél nélkül is menthető és később folytatható a
+felmérés. A tető selector-, mérési,
+SVG-, számítás-, mentés- és revíziós réteghez nem készült párhuzamos motor.
+
+Automatizált bizonyíték: dashboard, measurement guidance és geometriai célzott
+suite 3 fájl / 19 PASS; `npm run typecheck`, `npm run lint`, `npm run build`
+(Next.js 16.4.0 webpack) és `git diff --check` PASS. A meglévő F9.10 local
+Auth/RLS integration és eresz/szegély handoff tesztek változatlanul a korábbi
+revízió- és jogosultsági szerződéseket fedik.
+
+Browserben az új dashboard belépő és az org query-kód ellenőrzött; a korábbi
+hitelesített roof selector, valid számítás, save/reload és handoff bizonyítékok
+újrahasznosíthatók. A hét forma külön browser save/reopen, teljes survey →
+project → takeoff → quotation út és mobil emuláció ezen a mérföldkövön nem lett
+lezárva; ezért teljes acceptance PASS nem adható. Hosted DB, reset, commit,
+push és deploy nem történt. Javasolt commit: `feat(F9.12): harden dashboard and roof workflow integration`.
+
+## F9.12.1 — dashboard kártyarács javítása
+
+Állapot: **IMPLEMENTED**. A korábbi külön Gyors felmérés panelt és beágyazott
+előzménylistát eltávolítottam. A meglévő hat funkciókártya maradt az egyetlen
+belépő; a helyszíni kártya első helyre került, neve „Gyors felmérés”, útvonala
+`/felmeresek/uj?organization=...`. A kártyaméret, ikon, stílus és reszponzív
+rács változatlan.
+
+Javasolt commit: `fix(F9.12.1): correct dashboard survey card layout`.
+
+## F9.13 — valós munkafolyamatok célzott keményítése
+
+Állapot: **PARTIAL**. A gyors felmérés tetőforma nélkül is menthető: egy
+tetőfelújítás nélküli ereszcserénél korábban a tető munkaszakasz kötelező
+modellválasztása blokkolta a mentést. A roofType nélküli részleges adatot most
+az editor és a szerveres survey szerződés is elfogadja; az összesítő jelzi,
+hogy tetőszámításhoz később választható forma. Az üres felmérés nem vetít
+automatikusan nyeregtető-méreteket.
+
+A helyi, hitelesített DEMO-ban a gyors ereszfelmérés 4 érdemi művelettel
+menthető volt (gyors felmérés megnyitása, ereszszakasz hozzáadása, egy hossz
+megadása, mentés); tetőmodell, ügyfél, projekt és katalógus nélkül. A mentett
+6,4 m adat átkerült az ereszkalkulátorba; hibás 0 mm szálhossznál a mentés
+leállt, javítás után 3 szál / 400 mm maradék lett, lefolyó nélkül. V1 mentés
+és összesítő bizonyított. Opcionális jegyzetet is rögzítettünk. Refresh utáni
+visszanyitás korábban sikerült ezen a standalone útvonalon.
+
+A nyeregtetős DEMO útban a roof type → mérési útmutató és SVG, 10/6/3 m
+méretek, 300 mm túlnyúlások és a geometriai eredmény látszott. A szerveres
+felméréskapcsolat elsőre elutasította a hiányzó, null pitch sablonmező miatt;
+az új forward-only migráció ezt az üres alternatív mérési módot kihagyja,
+közben a duplikált szemantikus kulcsokat továbbra is ellenőrzi. Újrapróbálva a
+kapcsolat sikerült. Két ereszél kijelölése után a kalkulátor mindkét 10,6 m-es
+geometriai forrást átvette; a DEMO 3000 mm kereskedelmi szálhosszra 8 ereszszál
+becslést számolt, 0 lefolyóval. A forrásrevíziók megmaradtak. A projekt-scope
+számítás összesítő linkje eddig hibásan standalone oldalra ment; most eresz- és
+szegélykalkulátornál projekten belüli, számítás- és revízióazonosítós útvonalra
+mutat. Ennek friss böngészős visszanyitása nem bizonyított.
+
+Az önálló szegélymunka 2,5 m DEMO hosszal tetőgeometria nélkül menthető volt.
+Egyedi profil és 2000 mm-es DEMO szálhossz megadásával a számítás menthető,
+de ismeretlen toldási/átfedési kapcsolat mellett a darabszám helyesen HIÁNYOS
+maradt; gyártói adat vagy átfedés nem lett kitalálva. A refresh utáni
+visszanyitás ezen az úton nincs igazolva.
+
+Ellenőrzés: 3 Vitest fájl / 14 PASS, `npm run typecheck`, `npm run lint`,
+izolált forrásmásolaton `npm run build` Next.js 16.4.0 webpack és
+`git diff --check` PASS. A helyi `multi-roof.local.integration.test.ts`
+Auth/RLS és secure roof writer tesztje 4/4 PASS. A DB teszt célzott futása
+0/7 esetnél megállt, mert a régebbi `030_survey_roof_source_link.sql` teszt a
+visszavont `save_gable_roof_calculation` RPC-t hívja; helyi migrációt a
+tesztfutás nem végzett. Az újrapróbálás böngészős bizonyítéka és az általános
+Auth/RLS teszt megvan, de a null alternatív mező közvetlen SQL tesztje hiányzik.
+Mobil viewport és fizikai eszköz UNVERIFIED; teljes háromworkflow acceptance
+ezért nem COMPLETE. Hosted DB, reset, commit, push, deploy nem történt.
+
+Javasolt commit: `fix(F9.13): unblock survey and preserve calculator navigation`.

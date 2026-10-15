@@ -28,7 +28,8 @@ describe("gable drawing model", () => {
 
   it("uses source dimensions and Hungarian formatting", () => {
     const section = createGableDrawingModel(output, "cross-section");
-    expect(section.dimensions.map((item) => item.sourceMm)).toEqual([9000, 3000, 5625]);
+    expect(section.dimensions.map((item) => item.sourceMm)).toEqual([9000, 8000, 3000, 5625]);
+    expect(section.dimensions.find((item) => item.sourceKey === "buildingWidthMm")?.description).toContain("falsík");
     expect(formatDrawingMeasurement(12500)).toBe("12,50 m");
     expect(formatDrawingMeasurement(500)).toBe("500 mm");
   });

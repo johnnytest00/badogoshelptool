@@ -219,6 +219,11 @@ body[data-editing="true"] .scaling-bubble { display: none; }
 @media (max-width: 560px) { .drawing-view-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }.technical-drawing-svg { min-height: 15rem; }.drawing-toolbar-hint { width: 100%; margin-left: 0; }.technical-dimension text, .technical-angle text { font-size: 22px; } }
 @media (prefers-reduced-motion: reduce) { .technical-drawing *, .technical-drawing *::before, .technical-drawing *::after { transition: none !important; animation: none !important; } }
 
+.technical-dimension.is-active line, .technical-angle.is-active path { stroke: var(--accent); stroke-width: 4; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 65%, transparent)); }
+.technical-dimension.is-active text, .technical-angle.is-active text { fill: var(--accent); stroke-width: 7px; }
+.technical-drawing-active-guide { margin: 0; border-left: 4px solid var(--accent); border-radius: .35rem; background: color-mix(in srgb, var(--accent) 10%, transparent); padding: .65rem .8rem; color: var(--foreground); font-size: calc(.8rem * var(--tp-text-scale)); font-weight: 700; }
+.measurement-guidance { display: grid; gap: .35rem; margin-top: 1rem; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: .9rem; background: color-mix(in srgb, var(--accent) 7%, var(--surface-strong)); padding: .8rem 1rem; color: var(--foreground); }.measurement-guidance > div { display: grid; gap: .2rem; }.measurement-guidance strong { font-size: calc(.92rem * var(--tp-text-scale)); }.measurement-guidance p, .measurement-guidance small { margin: 0; color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.5; }.measurement-guidance-empty { border-style: dashed; background: transparent; }
+
 /* F9.7.4 responsive and keyboard-aware presentation */
 html { scroll-padding-block: 1.5rem; }
 :where(input, textarea, select, [contenteditable="true"]) { scroll-margin-block: 2rem; }
@@ -682,9 +687,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 /* F9.7.9: reuse the survey surface and existing touch controls. */
-.survey-dashboard-start { display: grid; gap: .85rem; padding: 1.4rem; margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: 1.2rem; background: var(--surface); }
-.survey-dashboard-start > .primary-button { justify-self: start; min-height: 48px; }
-.survey-dashboard-start ul { display: grid; gap: .7rem; }
 .survey-section-tabs, .survey-workspace-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1rem 0; }
 .survey-section-tabs > button, .survey-workspace-actions > button { min-height: 48px; white-space: normal; }
 .survey-workspace-calculator { border-top: 1px solid var(--border); padding-top: 1.5rem; margin-top: 1.5rem; min-width: 0; }

@@ -18,6 +18,9 @@ describe("unified survey contracts", () => {
     expect(surveySectionsSchema.safeParse([{ ...section, measurements: [{ ...measurement, value: NaN }] }]).success).toBe(false);
     expect(surveySectionsSchema.safeParse([{ ...section, measurements: [] }]).success).toBe(true);
   });
+  it("allows a partial roof section to persist before roof type selection", () => {
+    expect(surveySectionsSchema.safeParse([{ id, name: "DEMO tető", workType: "roof", notes: "", photoIds: [], measurements: [] }]).success).toBe(true);
+  });
   it("maps legacy data without rewriting its identity, measurements or history", () => {
     const record = { id, workType: "gutter" as const, measurements: [measurement], notes: "DEMO" };
     expect(surveySections(record)[0]).toMatchObject({ id, measurements: [measurement], notes: "DEMO" });

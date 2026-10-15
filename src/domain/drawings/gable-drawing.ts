@@ -6,8 +6,8 @@ export type DrawingLayerId = "planes" | "outlines" | "ridge-eaves" | "dimensions
 export type DrawingPoint = Readonly<{ x: number; y: number }>;
 export type DrawingSegment = Readonly<{ id?: string; start: DrawingPoint; end: DrawingPoint; label?: string; hidden?: boolean }>;
 export type DrawingPolygon = Readonly<{ id?: string; points: readonly DrawingPoint[]; label: string; side?: "left" | "right" }>;
-export type DrawingDimension = Readonly<{ kind: "horizontal" | "vertical" | "aligned"; start: DrawingPoint; end: DrawingPoint; offset: number; label: string; sourceMm: number; optional?: boolean }>;
-export type DrawingAngle = Readonly<{ vertex: DrawingPoint; start: DrawingPoint; end: DrawingPoint; label: string }>;
+export type DrawingDimension = Readonly<{ kind: "horizontal" | "vertical" | "aligned"; start: DrawingPoint; end: DrawingPoint; offset: number; label: string; sourceMm: number; sourceKey?: string; description?: string; optional?: boolean }>;
+export type DrawingAngle = Readonly<{ vertex: DrawingPoint; start: DrawingPoint; end: DrawingPoint; label: string; sourceKey?: string; description?: string }>;
 export type DrawingSheetStrip = Readonly<{ id: string; points: readonly DrawingPoint[]; planeSide: "left" | "right"; indexFromStart: number; isPartial: boolean }>;
 
 export type GableDrawingModel = Readonly<{
@@ -64,8 +64,8 @@ function bounds(points: readonly DrawingPoint[]): GableDrawingModel["bounds"] {
   const ys = points.map((item) => item.y);
   return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
 }
-function dimension(kind: DrawingDimension["kind"], start: DrawingPoint, end: DrawingPoint, offset: number, sourceMm: number, optional = false): DrawingDimension {
-  return { kind, start, end, offset, sourceMm, label: formatDrawingMeasurement(sourceMm), optional };
+function dimension(kind: DrawingDimension["kind"], start: DrawingPoint, end: DrawingPoint, offset: number, sourceMm: number, sourceKey?: string, description?: string, optional = false): DrawingDimension {
+  return { kind, start, end, offset, sourceMm, sourceKey, description, label: formatDrawingMeasurement(sourceMm), optional };
 }
 
 export function createGableDrawingModel(output: GableRoofOutput, view: DrawingView, sheetLayout?: MetalSheetLayoutOutput | null): GableDrawingModel {
@@ -102,7 +102,12 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
       { id: "right-front-gable", start: rightPoints[0], end: rightPoints[3], label: "Jobb első ferde oromél" },
       { id: "right-rear-gable", start: rightPoints[1], end: rightPoints[2], label: "Jobb hátsó ferde oromél" },
     );
-    dimensions = [dimension("horizontal", point(startX, 0), point(endX, 0), 900, output.dimensions.overallRoofLengthMm), dimension("vertical", point(0, -output.dimensions.horizontalSlopeRunMm), point(0, output.dimensions.horizontalSlopeRunMm), 900, output.dimensions.horizontalRoofWidthMm)];
+    dimensions = [
+      dimension("horizontal", point(startX, 0), point(endX, 0), 900, output.dimensions.overallRoofLengthMm, undefined, "A teljes tető külső hossza túlnyúlásokkal."),
+      dimension("horizontal", point(0, 0), point(output.dimensions.buildingLengthMm, 0), 1250, output.dimensions.buildingLengthMm, "buildingLengthMm", "Az épület két oromfala közötti vízszintes hossz."),
+      dimension("vertical", point(0, -output.dimensions.horizontalSlopeRunMm), point(0, output.dimensions.horizontalSlopeRunMm), 900, output.dimensions.horizontalRoofWidthMm, undefined, "A tető külső vízszintes szélessége eresztúlnyúlással."),
+      dimension("vertical", point(0, -output.dimensions.buildingWidthMm / 2), point(0, output.dimensions.buildingWidthMm / 2), 1250, output.dimensions.buildingWidthMm, "buildingWidthMm", "A két falsík közötti vízszintes szélesség."),
+    ];
     angles = [];
     guides = [];
     allPoints = [...leftPoints, ...rightPoints, ...ridge, ...eaveL, ...eaveR];
@@ -121,7 +126,11 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
     const points = [xz(leftEave), xz(ridgeStart), xz(ridgeEnd), xz(rightEave)];
     polygons = [];
     segments = [{ start: points[0], end: points[1], label: "Bal tetőél" }, { start: points[1], end: points[2], label: "Gerinc" }, { start: points[2], end: points[3], label: "Jobb tetőél" }, { start: point(startX, 0), end: point(endX, 0), label: "Megtémasztási sík", hidden: true }];
-    dimensions = [dimension("horizontal", point(startX, 0), point(endX, 0), 900, output.dimensions.overallRoofLengthMm), dimension("vertical", point(0, 0), point(0, invertY(output.heights.roofRiseMm)), -700, output.heights.roofRiseMm)];
+    dimensions = [
+      dimension("horizontal", point(startX, 0), point(endX, 0), 900, output.dimensions.overallRoofLengthMm, undefined, "A teljes tetőhossz túlnyúlásokkal."),
+      dimension("horizontal", point(0, 0), point(output.dimensions.buildingLengthMm, 0), 1250, output.dimensions.buildingLengthMm, "buildingLengthMm", "Az épület hossza falsíktól falsíkig."),
+      dimension("vertical", point(0, 0), point(0, invertY(output.heights.roofRiseMm)), -700, output.heights.roofRiseMm, "roofRiseMm", "Függőleges emelkedés a megtámasztási síktól a gerincig."),
+    ];
     angles = [];
     guides = [{ start: point(0, 0), end: point(endX, 0), label: "Fal megtámasztási síkja", hidden: true }];
     allPoints = [...points, point(startX, 0), point(endX, 0)];
@@ -130,9 +139,14 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
     polygons = [];
     segments = [{ start: points[0], end: points[1], label: "Bal tetősík" }, { start: points[1], end: points[2], label: "Jobb tetősík" }];
     guides = [{ start: point(-output.dimensions.buildingWidthMm / 2, 0), end: point(output.dimensions.buildingWidthMm / 2, 0), label: "Fal megtámasztási síkja", hidden: true }, { start: point(0, 0), end: points[1], label: "Felező segédvonal", hidden: true }];
-    dimensions = [dimension("horizontal", point(-output.dimensions.horizontalSlopeRunMm, 0), point(output.dimensions.horizontalSlopeRunMm, 0), 900, output.dimensions.horizontalRoofWidthMm), dimension("vertical", point(0, 0), points[1], 900, output.heights.roofRiseMm), dimension("aligned", points[0], points[1], -650, output.lengths.slopeLengthIncludingEaveMm)];
+    dimensions = [
+      dimension("horizontal", point(-output.dimensions.horizontalSlopeRunMm, 0), point(output.dimensions.horizontalSlopeRunMm, 0), 900, output.dimensions.horizontalRoofWidthMm, undefined, "A tető külső vízszintes szélessége eresztúlnyúlással."),
+      dimension("horizontal", point(-output.dimensions.buildingWidthMm / 2, 0), point(output.dimensions.buildingWidthMm / 2, 0), 1250, output.dimensions.buildingWidthMm, "buildingWidthMm", "A két falsík közötti vízszintes szélesség."),
+      dimension("vertical", point(0, 0), points[1], 900, output.heights.roofRiseMm, "roofRiseMm", "Függőleges emelkedés a megtámasztási síktól a gerincig."),
+      dimension("aligned", points[0], points[1], -650, output.lengths.slopeLengthIncludingEaveMm, undefined, "Ferde geometriai hossz az eresztúlnyúlással."),
+    ];
     // The label is the pitch of one roof plane, so the arc compares one slope ray with the horizontal reference ray.
-    angles = [{ vertex: points[1], start: point(points[1].x + output.dimensions.horizontalSlopeRunMm * 0.35, points[1].y + output.heights.roofRiseMm * 0.35), end: point(points[1].x + output.dimensions.horizontalSlopeRunMm * 0.35, points[1].y), label: `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 2 }).format(output.angles.pitchDegrees)}°` }];
+    angles = [{ vertex: points[1], start: point(points[1].x + output.dimensions.horizontalSlopeRunMm * 0.35, points[1].y + output.heights.roofRiseMm * 0.35), end: point(points[1].x + output.dimensions.horizontalSlopeRunMm * 0.35, points[1].y), label: `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 2 }).format(output.angles.pitchDegrees)}°`, sourceKey: "roofPitchDegrees", description: "A tetősík és a vízszintes sík közötti szög." }];
     allPoints = [...points, ...guides.flatMap((item) => [item.start, item.end])];
   }
   const flatPoints = allPoints.filter((item) => Number.isFinite(item.x) && Number.isFinite(item.y));

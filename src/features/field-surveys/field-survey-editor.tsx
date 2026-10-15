@@ -21,6 +21,7 @@ import { calculateRoofGeometry } from "@/domain/calculations/roof-geometry";
 import { calculateGableRoof, gableRoofInputSchema } from "@/domain/calculations/gable-roof";
 import { mapFieldSurveyToCalculator } from "@/domain/field-surveys/calculator-handoff";
 import { TechnicalDrawing } from "@/features/roof-models/technical-drawing";
+import { MeasurementGuidance, measurementGuideForSurvey } from "@/features/roof-models/measurement-guidance";
 
 type MeasurementDraft = { id: string; label: string; value: string; unit: FieldSurveyUnit; semanticType: FieldSurveySemanticType };
 type SectionDraft = Omit<SurveySection, "measurements"> & { measurements: MeasurementDraft[] };
@@ -55,6 +56,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   const [photoAssociationPending, setPhotoAssociationPending] = useState(false);
   const [calculatorState, setCalculatorState] = useState({ dirty: false, pending: false });
   const [calculator, setCalculator] = useState<{ sectionId: string; version: number; context: Awaited<ReturnType<typeof loadSurveyCalculator>> } | null>(null);
+  const [focusedRoofMeasurement, setFocusedRoofMeasurement] = useState<FieldSurveySemanticType | null>(null);
   const saveLock = useRef(false);
   const createIdRef = useRef<string | null>(null);
   const dirty = baseline !== fingerprint;
@@ -143,7 +145,6 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     if (saveLock.current) return null;
     saveLock.current = true; setSaving(true); setError("");
     try {
-      if (nextSections.some((section) => section.workType === "roof" && !section.roofType && !survey?.sections?.some((original) => original.id === section.id))) { setError("Válassz tetőformát a tetőmunkaszakasz mentése előtt."); return null; }
       const parsed = surveySectionsSchema.safeParse(serialize(nextSections));
       if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Ellenőrizd a munkaszakaszokat."); return null; }
       const data = new FormData();
@@ -217,12 +218,13 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
         {projectId && <p>Kapcsolt projekt: {projects.find((project) => project.id === projectId)?.name ?? projectId}</p>}
         {active.workType === "roof" && !active.roofType && !survey?.sections?.some((section) => section.id === active.id) && <RoofTypeSelector selected={null} onSelect={selectRoofType} label="Felmért tetőforma" />}
         {active.workType === "roof" && active.roofType && !survey?.sections?.some((section) => section.id === active.id) && <div className="survey-roof-type-heading"><p className="section-eyebrow">Kiválasztott tetőforma · {roofTypeOptions.find((option) => option.type === active.roofType)?.name}</p><button className="secondary-button" type="button" onClick={returnToRoofSelection}>← Tetőtípus kiválasztása</button></div>}
+        {active.workType === "roof" && !active.roofType && <p className="form-message">A felmérés tetőforma nélkül is menthető. Tetőszámításhoz válassz tetőformát.</p>}
         {active.workType === "roof" && active.roofType && survey?.sections?.some((section) => section.id === active.id) && (survey?.sections?.some((section) => section.id === active.id && section.roofType)
           ? <details className="survey-section-settings"><summary>Tetőforma: {roofTypeOptions.find((option) => option.type === active.roofType)?.name ?? "ismeretlen"} · módosítás</summary><RoofTypeSelector selected={active.roofType ?? null} onSelect={selectRoofType} label="Tetőforma módosítása" /></details>
           : <RoofTypeSelector selected={active.roofType ?? null} onSelect={selectRoofType} label="Felmért tetőforma" />)}
         {active.workType !== "roof" || active.roofType ? <section className="field-survey-measurements"><h2>Mérések</h2><p>Az üres érték hiányzó mérésként menthető. A kalkulátorhoz csak kitöltött, megfelelő egységű adat kerül. A túlnyúlásnál 0 csak ténylegesen ellenőrzött hiányt jelent.</p>{missingRoofTemplates.length > 0 && active.roofType === "gable" && <button type="button" className="secondary-button" onClick={() => patchSection({ measurements: [...active.measurements, ...missingRoofTemplates.map((template) => ({ ...template, id: crypto.randomUUID(), value: "" }))] })}>Nyeregtető alapmérései · {missingRoofTemplates.length} mező hozzáadása</button>}
           {active.measurements.map((measurement, index) => <div className="field-survey-measurement" key={measurement.id}>
-            <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
+            <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onFocus={() => active.workType === "roof" && setFocusedRoofMeasurement(measurement.semanticType)} onBlur={() => setFocusedRoofMeasurement(null)} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
             <details className="field-survey-measurement-settings"><summary>Mérés beállításai</summary><label className="field-survey-field"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} onChange={(event) => patchMeasurement(measurement.id, { label: event.target.value })} /></label><label className="field-survey-field"><span>Egység</span><select aria-label={`Mérés ${index + 1} egysége`} value={measurement.unit} onChange={(event) => patchMeasurement(measurement.id, { unit: event.target.value as FieldSurveyUnit })}>{Object.entries(fieldSurveyUnitLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label className="field-survey-field"><span>Számítási szerep</span><select aria-label={`Mérés ${index + 1} számítási szerepe`} value={measurement.semanticType} onChange={(event) => patchMeasurement(measurement.id, { semanticType: event.target.value as FieldSurveySemanticType })}>{Object.entries(fieldSurveySemanticTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></details>
             <button type="button" className="field-survey-remove" aria-label={`${measurement.label} törlése`} onClick={() => patchSection({ measurements: active.measurements.filter((item) => item.id !== measurement.id) })}><Trash2 aria-hidden="true" className="size-4" /></button>
           </div>)}
@@ -233,7 +235,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
         <div className="field-survey-save-row"><p role="status">{saving ? "Mentés…" : dirty ? "Nem mentett módosítások" : surveyId ? `Mentve · V${version}` : "Új felmérés"}</p><button type="submit" className="primary-button field-survey-save">{saving ? "Mentés…" : "Felmérés mentése"}</button></div>
       </fieldset>
     </form>
-    {active.workType === "roof" && active.roofType && <SurveyRoofPreview roofType={active.roofType} measurements={serialize([active])[0].measurements.filter((measurement): measurement is FieldSurveyMeasurement => measurement.value !== null)} />}
+    {active.workType === "roof" && active.roofType && <><MeasurementGuidance guide={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")} /><SurveyRoofPreview roofType={active.roofType} activeDimension={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")?.key ?? null} activeDimensionDescription={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")?.meaning} measurements={serialize([active])[0].measurements.filter((measurement): measurement is FieldSurveyMeasurement => measurement.value !== null)} /></>}
     {active.workType === "roof" && effectiveProjectId && surveyId && !calculator && !recovery && <SurveyRoofWorkspace organizationId={organizationId} surveyId={surveyId} version={version} sectionId={active.id} sectionName={active.name} projectId={effectiveProjectId} roofType={active.roofType ?? "gable"} links={relationships.calculations} ensureSaved={ensureSaved} onWork={openGeometryWork} onLinked={() => router.refresh()} />}
     {active.workType === "roof" && !effectiveProjectId && !calculator && <div className="detail-surface survey-roof-project"><p>Mentett, más munkához átadható tetőmodellhez projekt kell. Az önálló felmérés és a kézi kalkulátorok továbbra is használhatók.</p><label className="field-survey-field"><span>Új projekt neve</span><input value={newProjectName} maxLength={200} onChange={(event) => setNewProjectName(event.target.value)} /></label><button type="button" className="secondary-button" disabled={blocked || !newProjectName.trim()} onClick={() => void createGeometryProject()}>{followupPending ? "Projekt létrehozása…" : "Projekt létrehozása a tetőmodellhez"}</button></div>}
     <div className="survey-workspace-actions"><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || Boolean(calculator) || photoState.queued || active.workType === "other"} onClick={() => void openCalculator()}>Számítás hozzáadása · {active.name}</button><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || Boolean(calculator) || photoState.queued} onClick={() => void showSummary()}>Felmérés összesítése</button></div>
@@ -245,7 +247,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   </section>;
 }
 
-function SurveyRoofPreview({ roofType, measurements }: Readonly<{ roofType: RoofGeometryType; measurements: readonly FieldSurveyMeasurement[] }>) {
+function SurveyRoofPreview({ roofType, measurements, activeDimension, activeDimensionDescription }: Readonly<{ roofType: RoofGeometryType; measurements: readonly FieldSurveyMeasurement[]; activeDimension?: string | null; activeDimensionDescription?: string }>) {
   let gableOutput: ReturnType<typeof calculateGableRoof> | null = null;
   let multiGeometry: ReturnType<typeof calculateRoofGeometry> | null = null;
   if (roofType === "gable") {
@@ -268,6 +270,6 @@ function SurveyRoofPreview({ roofType, measurements }: Readonly<{ roofType: Roof
   if (!measurements.length) return <p className="missing-data" role="status">A rajz és az eredmények a szükséges méretek megadása után jelennek meg.</p>;
   return <section className="roof-results survey-roof-preview" aria-live="polite"><div className="roof-section-heading"><div><p className="section-eyebrow">Geometriai előnézet</p><h2>Rajz és ellenőrzött eredmények</h2></div></div>{areaM2 === null
     ? <p className="missing-data" role="status">A rajz és a geometriai eredmény a tetőforma minden szükséges, érvényes méretének megadása után jelenik meg.</p>
-    : <><div className="roof-result-grid"><div className="roof-result-metric"><small>Teljes tetőfelület</small><strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(areaM2)} m²</strong></div><div className="roof-result-metric"><small>Tetősíkok</small><strong>{gableOutput ? gableOutput.planes.length : multiGeometry?.planes.length}</strong></div></div>{gableOutput ? <TechnicalDrawing output={gableOutput} isSaved={false} /> : multiGeometry && <TechnicalDrawing geometry={multiGeometry} isSaved={false} />}</>}
+    : <><div className="roof-result-grid"><div className="roof-result-metric"><small>Teljes tetőfelület</small><strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(areaM2)} m²</strong></div><div className="roof-result-metric"><small>Tetősíkok</small><strong>{gableOutput ? gableOutput.planes.length : multiGeometry?.planes.length}</strong></div></div>{gableOutput ? <TechnicalDrawing output={gableOutput} activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} isSaved={false} /> : multiGeometry && <TechnicalDrawing geometry={multiGeometry} activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} isSaved={false} />}</>}
   </section>;
 }

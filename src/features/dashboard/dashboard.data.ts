@@ -19,12 +19,12 @@ export type DemoProject = {
 };
 
 export const dashboardFunctions: readonly DashboardFunction[] = [
+  { id: "field-surveys", label: "Gyors felmérés", description: "Gyors mérések mentése és folytatása", icon: ClipboardCheck, tone: "amber" },
   { id: "projects", label: "Projektek", description: "Munkák és ügyfelek áttekintése", icon: FolderKanban, tone: "orange" },
   { id: "calculators", label: "Kalkulátorok", description: "Eresz-, szegély- és profilkalkulátorok", icon: Calculator, tone: "blue" },
   { id: "quotes", label: "Árajánlatok", description: "Projektajánlatok, revíziók és PDF-ek", icon: FileText, tone: "violet" },
   { id: "materials", label: "Anyagok", description: "Műhelykatalógus és árverziók", icon: PackageOpen, tone: "green" },
   { id: "execution", label: "Kivitelezés", description: "Tervek, feladatok, munkanaplók és fotók", icon: ClipboardList, tone: "amber" },
-  { id: "field-surveys", label: "Helyszíni felmérés", description: "Gyors mérések mentése és folytatása", icon: ClipboardCheck, tone: "amber" },
 ] as const;
 
 export function dashboardFunctionHref(id: string, organizationId: string) {
@@ -34,7 +34,7 @@ export function dashboardFunctionHref(id: string, organizationId: string) {
     quotes: "/ajanlatok",
     materials: "/anyagok",
     execution: "/kivitelezes",
-    "field-surveys": "/felmeresek",
+    "field-surveys": "/felmeresek/uj",
   }[id as "projects" | "calculators" | "quotes" | "materials" | "execution"];
   if (!route) throw new Error(`Ismeretlen dashboard funkció: ${id}`);
   return `${route}?organization=${encodeURIComponent(organizationId)}`;

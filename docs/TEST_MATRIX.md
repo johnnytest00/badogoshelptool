@@ -1281,3 +1281,47 @@ Csak local DEMO adatot és auth tesztfelhasználót használtunk; hosted DB, res
 | Auth/RLS és konzisztencia | PASS | `RUN_LOCAL_MULTI_ROOF_TESTS=1 ... multi-roof.local.integration.test.ts`: 4/4 PASS; forrásrevízió, creator-scope, retry, expected revision, közvetlen írástiltás, survey-link és handoff megmaradt. |
 | Typecheck/lint/build/diff | PASS | `npm run typecheck`, `npm run lint`, friss izolált forrásmásolaton `npm run build` Next.js 16.4.0 webpack, `git diff --check`: PASS. |
 | Reszponzív és teljes acceptance | PARTIAL | A CSS desktop/tablet/mobile elrendezése megmaradt, de fizikai eszköz és teljes viewport-emuláció nem futott; a hat további típus külön browser save/reopen, teljes covering browser út és külső handoff acceptance nincs lezárva. Hosted DB, reset, commit, push, deploy nem történt. |
+
+## F9.11 — professzionális tetőmérés és intelligens UX
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Közös mérési útmutató | AUTOMATED VERIFIED | `measurement-guidance.tsx` a gable/multi inputkulcsokat és survey semanticType értékeket ugyanahhoz a magyar egység-, jelentés- és méréskonvencióhoz köti; 3 célzott tesztág PASS. |
+| Input → SVG kapcsolat | AUTOMATED VERIFIED | `DrawingDimension.sourceKey` és `DrawingAngle.sourceKey` alapján a `TechnicalDrawing` a fókuszált méretvonalat/szögjelet kiemeli; L/T wing width és projection külön felülnézeti méretvonal. |
+| Field validation | PASS | A multi és gable form típusos schema-üzenetei mezőszinten jelennek meg; hiányos inputnál nincs NaN/Infinity eredmény. |
+| Geometriai regresszió | PASS | Gable drawing source dimensionek, hétforma geometria, selector, measurement guidance, dashboard és survey editor célzott suite: 7 fájl / 35 PASS. |
+| Typecheck/lint/diff | PASS | `npm run typecheck`, `npm run lint`, `git diff --check` PASS. |
+| Production build | PASS | Friss izolált forrásmásolaton `npm run build` / Next.js 16.4.0 webpack: TypeScript, 23 statikus oldal és route-lista PASS. |
+| Browser acceptance | BROWSER VERIFIED / PARTIAL | Hitelesített helyi DEMO: Félnyeregtető selector → mezők → inputfókusz → mérési útmutató → aktív SVG-méretvonal → 73,246 m² eredmény. A hét forma gyors végigkattintása CDP időkorlátba futott; külön save/reopen mind a hét formára és mobil/tablet viewport nincs lezárva. |
+| Biztonság és revízió | UNCHANGED | A meglévő server recompute, Auth/RLS, expected revision, immutable source és handoff réteghez nem nyúltunk; hosted DB-t nem érintettünk. |
+
+## F9.12 — product integration és workflow hardening
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Dashboard gyors felmérés | AUTOMATED + IMPLEMENTED | A meglévő funkciókártya-rács első eleme a „Gyors felmérés”; a kártya a standalone létrehozási workflow-ra mutat és megtartja az organization query-paramétert. |
+| Roof workflow regresszió | AUTOMATED VERIFIED | Meglévő geometria/selector/mérési útmutató célzott suite: 3 fájl / 19 PASS; F9.10 local writer, revision és handoff tesztek változatlanok. |
+| Typecheck/lint/build/diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` Next.js 16.4.0 webpack, `git diff --check`. |
+| Browser / mobile | PARTIAL | Dashboard és szervezeti link ellenőrzött; korábbi selector/save/reload és handoff evidence újrahasznosítható. A hét forma külön browser save/reopen, teljes üzleti lánc és viewport emuláció ezen a mérföldkövön nincs lezárva. |
+| Security / revision | UNCHANGED | Új persistence vagy jogosultsági kód nem került be; hosted DB-t nem érintettünk. |
+
+## F9.12.1 — dashboard kártyarács javítása
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Hat kártya sorrendje | AUTOMATED VERIFIED | Dashboard adat teszt: Gyors felmérés, Projektek, Kalkulátorok, Árajánlatok, Anyagok, Kivitelezés. |
+| Navigáció | AUTOMATED VERIFIED | A hat útvonal szervezeti query-paramétert tartalmaz; Gyors felmérés közvetlenül a standalone létrehozási workflow-ra mutat. |
+| Layout / mobile | IMPLEMENTED | Meglévő `.function-grid` 3/2/1 oszlopos CSS és azonos kártyakomponens maradt; külön browser emuláció ezen a javításon nem futott. |
+
+## F9.13 — valós napi munkafolyamatok
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| A — önálló ereszcsere | BROWSER VERIFIED / PARTIAL | Hitelesített DEMO-ban tetőforma, ügyfél, projekt és katalógus nélkül felmérés mentve 6,4 m-rel és opcionális jegyzettel; mérés átkerült a kalkulátorba. Hibás 0 mm szálhossz letiltotta a mentést, javítás után 3 ereszszál / 0 lefolyószál / 400 mm maradék. V1 és összesítő látszott; refresh után a felmérés korábbi böngészős ellenőrzése megvan. |
+| B — nyeregtető felújítás | BROWSER VERIFIED / PARTIAL | Roof selector, inputfókusz-útmutató és SVG igazolt; 10/6/3 m, 300 mm túlnyúlások, 98,938 m². A mentett tető V1 kapcsolat az üres alternatív pitch érték migrációs javítása után sikerült. Két ereszélből 2×10,6 m került át, mentett ereszbecslés V1: 8 ereszszál, 0 lefolyó. Összesítő a hiányzó pitch-et és korábbi forrásrevíziót láthatóan jelzi. Szegély-handoff és a projekt-kalkuláció friss böngészős visszanyitása nem igazolt. |
+| C — önálló szegélymunka | BROWSER VERIFIED / PARTIAL | Tető/projekt nélkül 2,5 m DEMO hossz; egyedi profil és 2000 mm DEMO szálhossz. Hibás 0 mm input elutasítva. Ismeretlen toldás mellett nincs darabszám, az eredmény HIÁNYOS és menthető; refresh/reopen nem igazolt. |
+| Súrlódás / javítás | IMPLEMENTED | A 4 lépéses survey mentés előtte tetőforma-választás miatt blokkolt; most részleges roofType-mentés lehetséges, hiány a summary-ban cselekvésként megjelenik. Project-scope eresz/szegély összesítő link projekten belüli route-ra irányít számítás- és revízióazonosítóval. Megfigyelt A felmérés 4 érdemi művelet, majd 3 kalkulátorművelet; más munkafolyamatok lépésszáma nem normalizált, így számszerű csökkenésre nincs bizonyíték. |
+| Vitest | PASS | `npx vitest run src/domain/field-surveys/workspace.test.ts src/features/field-surveys/workspace-summary.test.tsx src/features/field-surveys/field-survey-editor.test.tsx`: 3 fájl / 14 teszt PASS; nem teljes regresszió. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, izolált forrásmásolaton `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Helyi DB/Auth/RLS | PARTIAL | `RUN_LOCAL_MULTI_ROOF_TESTS=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/features/roof-models/multi-roof.local.integration.test.ts`: 4/4 PASS, Auth/RLS és secure roof writer. A `supabase test db --local supabase/tests/database/030_survey_roof_source_link.sql` 0/7 subtestnél megáll, mert a régi teszt a visszavont `save_gable_roof_calculation` RPC-t hívja; az új null-mező esethez nincs közvetlen SQL assertion. Nincs hosted DB ellenőrzés. |
+| Mobil / adatbiztonság | UNVERIFIED / UNCHANGED | Mobil viewport és fizikai iPhone/iPad Safari nem futott. Meglévő Auth/RLS, immutable revision, idempotencia és snapshot contract nem módosult; a survey–roof matcher null alternatív mezőt hagy ki, de megőrzi a típusos/duplikációs ellenőrzést. |
