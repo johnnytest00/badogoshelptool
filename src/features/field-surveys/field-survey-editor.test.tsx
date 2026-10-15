@@ -5,6 +5,9 @@ const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("@/features/field-surveys/field-survey-actions", () => ({ saveFieldSurveyAction: vi.fn() }));
 
+vi.mock("./workspace-actions", () => ({ loadSurveyCalculator: vi.fn(), createSurveyFollowups: vi.fn() }));
+vi.mock("./workspace-calculator", () => ({ WorkspaceCalculator: () => null }));
+
 import { FieldSurveyEditor } from "./field-survey-editor";
 import type { FieldSurveyRecord, FieldSurveyRevisionRecord } from "./field-survey-data";
 

@@ -1151,3 +1151,32 @@ PostgreSQL kapcsolat segítségével futott; ezek nem hosted környezetek.
 | Hitelesített mobil böngésző | PASS, emuláció | Brave DevTools iPhone 16 Pro Max 440×956: DEMO standalone V1 8,7 m, JPEG V2, reload, 9,1 m V3, reload, kalkulátorban 9100 mm/exact V3. Korábbi DEMO V2 képet, V3 üres állapotot mutatott; iPad Mini 768×1024 kalkulátornézet. |
 | Fizikai készülék/Safari | UNVERIFIED | Nincs fizikai iPhone/iPad. Kézi ellenőrzés: Safari kamerakép, HEIC export-útmutatás, megszakított feltöltés és újrapróbálás, történeti V1/V2 képek, iPad szerkesztés és átadás. |
 | Typecheck/lint/build/diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build`, `git diff --check`. Hosted Supabase, reset, commit, push, deploy nem történt. |
+
+## F9.7.9 — egységes felmérési munkafelület
+
+| Ellenőrzés | Tényleges eredmény / bizonyíték |
+|---|---|
+| Célzott automatizált regresszió | `npx vitest run src/domain/field-surveys src/domain/calculations src/features/field-surveys src/features/gutters src/features/flashings src/features/roof-models src/features/quotations src/features/calculations src/features/dashboard/dashboard.test.ts src/app/api/felmeresek`: 44 fájl / 196 PASS, 5 fájl / 18 környezethez kötött teszt kihagyva. Ez célzott regresszió, nem teljes repóteszt. |
+| Javítások utáni célzott futás | `npx vitest run src/domain/field-surveys src/features/field-surveys src/features/quotations`: 9 fájl / 38 PASS; 1 fájl / 3 opt-in local teszt ebben a futásban kihagyva. A local tesztek alább ténylegesen lefutottak. |
+| Valós helyi Auth/Storage/alkalmazás | `RUN_LOCAL_SURVEY_WORKSPACE_TESTS=1 npx vitest run src/features/field-surveys/workspace.local.integration.test.ts`: 3/3 PASS. A: saját ereszfelmérés, valódi privát PNG feltöltés és visszaolvasás, szakaszkapcsolás, eltávolítás utáni történeti kép; 8500/4000 → 3 szál, exact revíziókapcsolat. B: három szakasz, meglévő trapézlemez-/cserepeslemez-/szegélymotor mentése és read-model összesítője (20/20/6 db). C–E: semmi/projekt/standalone draft/mindkettő, jogosult meglévő projekt, valódi ID/státusz/revízió, újrapróbálás, eredeti projektmező változatlan; megszakított ajánlatlépés után a sikeres projekt megmarad és újrahasznosul. Peer/cross-org olvasás és kapcsolás tiltása. |
+| Új DB/RLS szerződés | `npx supabase test db --local supabase/tests/database/026_unified_field_survey_workspace.sql`: 41/41 PASS. Hiányos/null mérés, több szakasz, teljes snapshot, szakasz-only V2/retry/stale; direkt link/followup írás és privilegizált fotóíró tiltás; creator/aktív tagság/cross-org, nem saját számítás, hibás revíziópár/szakasztípus/fotó, stale followup és más felmérésből hamisított revízió; eredeti history immutabilitás és üres draft null összeg. |
+| Meglévő DB regresszió | Együtt futott a `026` akkori 38 assertionjével: `023`, `024`, `025`, `009`, `011`, `016`, `018`, `020`, `022_gable_metal_tile_covering`, `002`, `003`, `004`: 13 fájl / 261 PASS. Ebből 223 a változatlan regressziós assertion; a végleges új szerződés külön 41/41 fent. Legacy felmérés/fotó, standalone és projektkalkuláció, projekt/standalone ajánlat és lifecycle. |
+| Tényleges konkurencia | `node scripts/verify-survey-workspace-concurrency.mjs`: PASS; két külön authenticated PG-kapcsolat, monitorral igazolt 5 lock contention: azonos V1 létrehozási retry, különböző szakasztartalmú V2 verseny (egy 40001), projekt, projektajánlat és exact számításkapcsolat. Két revízió, egy projekt, egy ajánlat. DEMO fixture: `8e7be2e3-959e-46bc-9107-6b99915cfa0a`. |
+| Típus/lint/build/diff | `npm run typecheck`, `npm run lint`, `npm run build` (Next 16.4.0 webpack), `git diff --check`: PASS. Egy párhuzamos typecheck/build kísérlet generált `.next/types` fájlversenyt okozott; a külön, build utáni typecheck sikeres. |
+| Hitelesített LOCAL böngésző | Egy fókuszált Brave production workflow, `localhost:3001`: dashboard → új tető+eresz+szegély → V1 mentés/reload → helybeni ereszkalkulátor (8500 mm és 4000 mm, 3 szál) → mentés/link → összesítő → projekt+projekt-DRAFT → retry → meglévő ajánlatszerkesztő, v1, ügyfél/tételek és összeg nélkül. Visszatérés után nem mentett 11 m, böngésző Back, újbóli megnyitás és explicit session-piszkozat visszaállítás, majd V2 mentés. Összesítő továbbra is V1 forrású 3 szálat és változatlan ajánlatkapcsolatot mutatott. Egy végső vizuális képellenőrzés; nincs screenshot-loop. |
+| Nem futott / határok | Teljes repóregresszió, fizikai iPhone/iPad/Safari, mobil viewport-emuláció, hosted Supabase és offline működés nem ellenőrzött. A Back figyelmeztetés megszakító ága nem kapott külön böngészős bizonyítékot; a mérési helyreállítás igen. A lokális DEMO Auth/DB/Storage fixture-ek megmaradtak. Nincs reset, hosted migráció, commit, push vagy deploy. |
+
+Böngészős rekordbizonyíték, külön helyi SQL-visszaolvasással:
+- Felmérés: `a6ffeb74-7fc7-4696-9f51-39d244c3f7f5`, 3 szakasz, current V2;
+  V1 tetőhossz 10 m, V2 11 m; mindkét eredeti `project_id=null`.
+- Forrás V1 revision: `7de5a404-ddd1-4527-a0e4-0397d0b493ef`.
+- Ereszszámítás: `daa1c476-775f-4850-8539-7ae705d79c87`, revision
+  `a4101243-24b3-4634-8a67-372a6fd1e7f3`, 3 szál, továbbra is survey V1.
+- Projekt: `b62d8921-b8be-4ebb-8875-1048589b083f`.
+- Projektajánlat: `b03d60a3-32a5-4635-bd9a-a7785d2b72b5`, revision
+  `15d969a6-4d5e-42b4-8783-7ca33f2a2c5d`, `draft`, 0 sor, `subtotal=null`.
+  Egy projekt- és egy ajánlatkapcsolat az ismétlés után is, eredeti V1 forrással.
+
+Állapot: **COMPLETE (UNIFIED SURVEY WORKSPACE, LOCAL)**. Az ismert
+környezet-/opcionális határok fent külön szerepelnek; ezek nem hosted vagy
+fizikai eszközös elfogadás állításai.

@@ -26,6 +26,14 @@ describe("field survey server action", () => {
     expect(state.rpc).toHaveBeenCalledWith("save_field_survey", expect.objectContaining({ p_project_id: null, p_notes: null, p_expected_version: 0 }));
   });
 
+  it("saves an incomplete workspace without coercing its missing value to zero", async () => {
+    const data = form({ measurements: "[]" });
+    const sections = [{ id: "123e4567-e89b-42d3-a456-426614174010", name: "DEMO eresz", workType: "gutter", measurements: [{ id: "123e4567-e89b-42d3-a456-426614174001", label: "DEMO mérés", value: null, unit: "m", semanticType: "gutter_run_length" }], notes: "", photoIds: [] }];
+    data.set("sections", JSON.stringify(sections));
+    expect((await saveFieldSurveyAction(data)).ok).toBe(true);
+    expect(state.rpc).toHaveBeenCalledWith("save_field_survey_workspace", expect.objectContaining({ p_sections: sections, p_measurements: [] }));
+  });
+
   it("preserves an explicitly selected project association", async () => {
     const projectId = "123e4567-e89b-42d3-a456-426614174004";
     expect(await saveFieldSurveyAction(form({ projectId }))).toMatchObject({ ok: true });

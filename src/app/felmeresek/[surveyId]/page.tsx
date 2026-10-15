@@ -1,3 +1,4 @@
+import { getSurveyRelationships } from "@/features/field-surveys/workspace-data";
 import Link from "next/link";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
@@ -26,9 +27,10 @@ export default async function FieldSurveyPage({ params, searchParams }: Readonly
     requestedVersion !== null && requestedVersion !== survey.version ? getFieldSurveyRevision(organizationId, surveyId, requestedVersion) : Promise.resolve(null),
   ]);
   if (requestedVersion !== null && requestedVersion !== survey.version && !historicalRevision) return <NotFound organizationId={organizationId} />;
+  const relationships = await getSurveyRelationships(organizationId, surveyId);
   const projectOptions = projects.map(({ id, name }) => ({ id, name }));
   if (linkedProject && !projectOptions.some((project) => project.id === linkedProject.id)) projectOptions.unshift({ id: linkedProject.id, name: linkedProject.name });
-  return <main className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} projects={projectOptions} survey={survey} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
+  return <main className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} relationships={relationships} survey={survey} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
 }
 
 function NotFound({ organizationId }: Readonly<{ organizationId: string }>) {

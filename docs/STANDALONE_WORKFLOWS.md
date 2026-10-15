@@ -284,3 +284,50 @@ Projektben a tetőmodell oldalán a fedési panel a pontos mentett, ellenőrzöt
 A `/kalkulatorok/cserepeslemez` kézi tetőgeometriával, projekt nélkül használható. A számítási panel egy művelettel ment V1-et, majd siker után calculation ID-s URL-re vált; a `Mentett számításaim` cserepeslemez-szűrője ugyanerre az útvonalra nyitja a rekordot. Az URL `revision` paramétere történeti revisiont választ. A V2 mentés expected revisionnel új, immutable változatot készít.
 
 Projektben a tetőszerkesztő az aktuális ellenőrzött tetőrevisiont adja át. Nem mentett tetőgeometriánál a fedés mentése tiltott. Stale forrásüzenet az aktuális és a mentett forrást megkülönbözteti; a „Aktuális tetőforrás használata” választás az aktuális tetőrevisionnel készít következő fedési revisiont. A történeti nézet mindig a saját geometriáját, termékadatait, eredményét és SVG-jét mutatja. Nem mentett módosításnál az oldal elhagyása figyelmeztet.
+
+## F9.7.9 — felmérésből induló, választható munkafolyamat
+
+A dashboard elsődleges művelete az Új felmérés; a legutóbbi saját/jogosult
+felmérések és a Felmérés folytatása közvetlenül elérhetők. A közvetlen
+projekt-, kalkulátor-, ajánlat-, anyag- és kivitelezési útvonalak megmaradnak.
+A felmérés több szabadon elnevezhető/rendezhető munkaszakaszt tartalmaz.
+Hiányos mérés és üres szakasz is menthető; ügyfél, projekt, termék és teljes
+tetőgeometria nem előfeltétel. A meglévő privát fotókból a felhasználó
+kifejezetten választja ki az adott szakasz képeit.
+
+A Számítás hozzáadása előbb menti a szükséges felmérési változatot, majd
+helyben nyitja meg a meglévő eresz-, szegély-, nyeregtető/trapézlemez- vagy
+cserepeslemez-komponenst. Csak a kiválasztott szakasz egyértelmű, megfelelő
+egységű, kitöltött mérési szerepei kerülnek át; a hiányzó adat nincs kitalálva.
+Az egy szakaszban felvett geometria a két meglévő fedési panelhez is
+felhasználható. Más munkatípusra nincs feltételezett tetőél- vagy
+termékkompatibilitás. Átvett/kézzel módosított adatok jelölve, szabadon
+szerkeszthetők. A geometria önállóan előnézet; a fedési eredmény a meglévő
+biztonságos mentéssel rögzíthető, tetőmodell létrehozása nélkül.
+
+A kalkulátor mentése után a pontos eredményrevízió kapcsolódik. Sikertelen
+második lépésnél a mentett ID és revízió látszik; a kapcsolás külön
+újrapróbálható. Az összesítő a forrásváltozatot, hiányokat, fotószámot és a
+támogatott eredménymennyiségeket mutatja; eltérő egységeket nem összegez,
+névleges lemezfelületből nem képez beszerzést. Későbbi felmérésmentés nem
+frissíti a korábbi mentett számítást.
+
+Az összesítő két független választása:
+- egyik sem: mentett felmérés, további szerkesztés;
+- projekt: új vagy jogosult meglévő projekt, külön visszakövethető kapcsolat;
+- csak ajánlat: saját standalone DRAFT;
+- mindkettő: projektlépés, majd annak projektajánlat-piszkozata.
+
+A névjavaslat kizárólag az ismert szakasznevekből származik. Ár, címzett,
+áfa, pénzügyi vagy anyagtétel nem készül mérésből. A jogosult szerkesztőben
+pótolhatók a hiányok; automatikus tételimport és hivatalos kiállítás nincs.
+A projektlépés eredménye ajánlathiba esetén is megmarad, újrapróbálva nem
+keletkezik új projekt/ajánlat. A forrásfelmérés standalone tulajdonjoga a
+projektkapcsolástól nem bővül más műhelytagokra.
+
+A mérési piszkozat sessionStorage-helyreállítása user/org/survey szerint
+elkülönített, és eltérő szerververziónál nem kerüli meg a konfliktuskezelést.
+Navigációkor mentetlen/függő műveletre figyelmeztetés van; fotólista-frissítés
+nem emeli meg csendben a szerkesztő várt verzióját. A helyi helyreállítás
+böngészőlaphoz kötött, nem offline szinkron. Fizikai mobil és tiltott
+sessionStorage alatti böngészőviselkedés külön nem ellenőrzött.

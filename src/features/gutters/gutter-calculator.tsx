@@ -1,6 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import type { SavedSurveyCalculation } from "@/domain/field-surveys/workspace";
+
+
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { materialProvenanceLabels, materialPurchasingUnitLabels, type MaterialProvenance } from "@/domain/materials/contracts";
 import { executeCalculator } from "@/domain/calculations/engine";
@@ -15,12 +18,12 @@ import { generateSecureUuid } from "@/lib/secure-uuid";
 import { StandaloneProjectAssociation } from "@/features/calculations/standalone-project-association";
 import type { SurveyHandoffSource } from "@/domain/field-surveys/calculator-handoff";
 
-type Props = { organizationId: string; projectId?: string; suggestions: GutterGeometrySuggestion[]; saved: GutterCalculationRecord | null; catalogVariants: GutterCatalogVariant[]; standaloneName?: string; initialInput?: GutterMaterialInput; handoffSource?: SurveyHandoffSource };
+type Props = { organizationId: string; projectId?: string; suggestions: GutterGeometrySuggestion[]; saved: GutterCalculationRecord | null; catalogVariants: GutterCatalogVariant[]; standaloneName?: string; initialInput?: GutterMaterialInput; handoffSource?: SurveyHandoffSource; onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void };
 const emptyRun = (id: string) => ({ id, name: "Új ereszszakasz", lengthMm: 0, description: "", measurementSource: "site_measurement" as const, roofEdge: null, bracketSpacingMm: null });
 const initial = (saved: GutterCalculationRecord | null): GutterMaterialInput => saved?.input ?? { gutterStockLengthMm: 0, runs: [emptyRun("run-1")], downpipes: [], manualComponents: [] };
 const numberValue = (value: string) => Number(value.replace(",", ".")) || 0;
 
-export function GutterCalculator({ organizationId, projectId, suggestions, saved, catalogVariants, standaloneName, initialInput, handoffSource }: Props) {
+export function GutterCalculator({ organizationId, projectId, suggestions, saved, catalogVariants, standaloneName, initialInput, handoffSource, onSaved, onWorkspaceState }: Props) {
   const router = useRouter();
   const [input, setInput] = useState<GutterMaterialInput>(() => initialInput ?? initial(saved));
   const handoffBaseline = useRef(initialInput ? JSON.stringify(initialInput) : "");
@@ -39,6 +42,7 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
   const mappingChecks = useMemo(() => checkGutterMappings(candidates, mappings, catalogVariants), [candidates, mappings, catalogVariants]);
   const inputChanged = saved ? JSON.stringify(input) !== JSON.stringify(saved.input) : handoffSource ? JSON.stringify(input) !== handoffBaseline.current : true;
   const standaloneChanged = inputChanged || name !== baselineName;
+  useEffect(() => { onWorkspaceState?.({ dirty: standaloneChanged, pending }); }, [standaloneChanged, pending, onWorkspaceState]);
   const updateRun = (id: string, patch: Partial<GutterMaterialInput["runs"][number]>) => setInput((current) => ({ ...current, runs: current.runs.map((run) => run.id === id ? { ...run, ...patch } : run) }));
   const updateDownpipe = (id: string, patch: Partial<GutterMaterialInput["downpipes"][number]>) => setInput((current) => ({ ...current, downpipes: current.downpipes.map((run) => run.id === id ? { ...run, ...patch } : run) }));
   const save = () => {
@@ -50,6 +54,7 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
       startTransition(async () => { let response; try { response = await saveStandaloneCalculationAction(data); } catch { setMessage("A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."); return; } if (!response.ok) { setMessage(response.error); return; }
         setBaselineName(name.trim() || "Ereszcsatorna-számítás");
         setMessage(`Mentve: V${response.revisionNumber}.`); setViewedRevisionNumber(null);
+        if (onSaved) { await onSaved(response); return; }
         router.replace(`/kalkulatorok/ereszcsatorna?organization=${organizationId}&calculation=${response.calculationId}`); router.refresh(); }); return;
     }
     const data = new FormData();

@@ -651,3 +651,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .field-survey-list-card { grid-template-columns: auto minmax(0, 1fr); }
   .field-survey-list-card time { grid-column: 2; }
 }
+
+/* F9.7.9: reuse the survey surface and existing touch controls. */
+.survey-dashboard-start { display: grid; gap: .85rem; padding: 1.4rem; margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: 1.2rem; background: var(--surface); }
+.survey-dashboard-start > .primary-button { justify-self: start; min-height: 48px; }
+.survey-dashboard-start ul { display: grid; gap: .7rem; }
+.survey-section-tabs, .survey-workspace-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1rem 0; }
+.survey-section-tabs > button, .survey-workspace-actions > button { min-height: 48px; white-space: normal; }
+.survey-workspace-calculator { border-top: 1px solid var(--border); padding-top: 1.5rem; margin-top: 1.5rem; min-width: 0; }
+.survey-workspace-summary { margin-top: 1.5rem; overflow-wrap: anywhere; }
+.survey-workspace-summary article { border-bottom: 1px solid var(--border); padding: 1rem 0; }
+.survey-workspace-summary fieldset { display: grid; gap: 1rem; margin: 1.5rem 0; }
+.survey-photo-choice { display: flex; align-items: center; gap: .7rem; min-height: 48px; }
+.survey-workspace-summary input[type="checkbox"], .survey-photo-choice input { width: 22px; height: 22px; vertical-align: middle; }
+@media (max-width: 600px) { .survey-workspace-actions > button { width: 100%; } .survey-section-tabs > button { flex: 1 1 42%; } }

@@ -23,6 +23,102 @@ export type Database = {
           }
         },"public": {
           Tables: {
+"field_survey_followups": {
+                  Row: {
+                    "created_at": string,"created_by": string,"id": string,"kind": string,"organization_id": string,"project_id": string | null,"quotation_id": string | null,"quotation_revision_id": string | null,"survey_id": string,"survey_revision_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by": string,"id"?: string,"kind": string,"organization_id": string,"project_id"?: string | null,"quotation_id"?: string | null,"quotation_revision_id"?: string | null,"survey_id": string,"survey_revision_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string,"id"?: string,"kind"?: string,"organization_id"?: string,"project_id"?: string | null,"quotation_id"?: string | null,"quotation_revision_id"?: string | null,"survey_id"?: string,"survey_revision_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "field_survey_followups_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "field_survey_followups_project_id_organization_id_fkey"
+      columns: ["project_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "field_survey_followups_quotation_id_organization_id_fkey"
+      columns: ["quotation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "quotations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "field_survey_followups_quotation_revision_id_fkey"
+      columns: ["quotation_revision_id"]
+isOneToOne: false
+      referencedRelation: "quotation_revisions"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "field_survey_followups_survey_id_organization_id_fkey"
+      columns: ["survey_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "field_surveys"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "field_survey_followups_survey_revision_id_fkey"
+      columns: ["survey_revision_id"]
+isOneToOne: false
+      referencedRelation: "field_survey_revisions"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },
+"field_survey_calculation_links": {
+                  Row: {
+                    "calculation_id": string,"calculation_revision_id": string,"created_at": string,"created_by": string,"id": string,"organization_id": string,"section_id": string,"survey_id": string,"survey_revision_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "calculation_id": string,"calculation_revision_id": string,"created_at"?: string,"created_by": string,"id"?: string,"organization_id": string,"section_id": string,"survey_id": string,"survey_revision_id": string
+                  }
+                  Update: {
+                    "calculation_id"?: string,"calculation_revision_id"?: string,"created_at"?: string,"created_by"?: string,"id"?: string,"organization_id"?: string,"section_id"?: string,"survey_id"?: string,"survey_revision_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "field_survey_calculation_link_calculation_id_organization__fkey"
+      columns: ["calculation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "calculations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "field_survey_calculation_link_calculation_revision_id_calc_fkey"
+      columns: ["calculation_revision_id","calculation_id"]
+isOneToOne: false
+      referencedRelation: "calculation_revisions"
+      referencedColumns: ["id","calculation_id"]
+    },{
+      foreignKeyName: "field_survey_calculation_links_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "field_survey_calculation_links_survey_id_organization_id_fkey"
+      columns: ["survey_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "field_surveys"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "field_survey_calculation_links_survey_revision_id_fkey"
+      columns: ["survey_revision_id"]
+isOneToOne: false
+      referencedRelation: "field_survey_revisions"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },
             "calculation_project_associations": {
                   Row: { "calculator_type": string,"created_at": string,"created_by": string,"id": string,"operation_id": string,"organization_id": string,"project_calculation_id": string,"project_id": string,"project_revision_id": string,"request_payload": NonNullable<Json>,"source_calculation_id": string,"source_creator_id": string,"source_revision_id": string,"source_revision_snapshot": NonNullable<Json> }
                   Insert: { "calculator_type": string,"created_at"?: string,"created_by": string,"id"?: string,"operation_id": string,"organization_id": string,"project_calculation_id": string,"project_id": string,"project_revision_id": string,"request_payload": NonNullable<Json>,"source_calculation_id": string,"source_creator_id": string,"source_revision_id": string,"source_revision_snapshot": NonNullable<Json> }
@@ -526,9 +622,12 @@ isOneToOne: false
     }
                   ]
                 },"field_surveys": {
-                  Row: { "created_at": string,"created_by": string,"id": string,"measurements": NonNullable<Json>,"notes": string | null,"organization_id": string,"project_id": string | null,"updated_at": string,"updated_by": string,"version": number,"work_type": string }
-                  Insert: { "created_at"?: string,"created_by": string,"id"?: string,"measurements": NonNullable<Json>,"notes"?: string | null,"organization_id": string,"project_id"?: string | null,"updated_at"?: string,"updated_by": string,"version"?: number,"work_type": string }
-                  Update: { "created_at"?: string,"created_by"?: string,"id"?: string,"measurements"?: NonNullable<Json>,"notes"?: string | null,"organization_id"?: string,"project_id"?: string | null,"updated_at"?: string,"updated_by"?: string,"version"?: number,"work_type"?: string }
+                  Row: {
+"sections": Json | null, "created_at": string,"created_by": string,"id": string,"measurements": NonNullable<Json>,"notes": string | null,"organization_id": string,"project_id": string | null,"updated_at": string,"updated_by": string,"version": number,"work_type": string }
+                  Insert: {
+"sections"?: Json | null, "created_at"?: string,"created_by": string,"id"?: string,"measurements": NonNullable<Json>,"notes"?: string | null,"organization_id": string,"project_id"?: string | null,"updated_at"?: string,"updated_by": string,"version"?: number,"work_type": string }
+                  Update: {
+"sections"?: Json | null, "created_at"?: string,"created_by"?: string,"id"?: string,"measurements"?: NonNullable<Json>,"notes"?: string | null,"organization_id"?: string,"project_id"?: string | null,"updated_at"?: string,"updated_by"?: string,"version"?: number,"work_type"?: string }
                   Relationships: [
                     { foreignKeyName: "field_surveys_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
                     { foreignKeyName: "field_surveys_project_same_organization_fk"; columns: ["project_id", "organization_id"]; isOneToOne: false; referencedRelation: "projects"; referencedColumns: ["id", "organization_id"] }
@@ -541,9 +640,12 @@ isOneToOne: false
                     { foreignKeyName: "field_survey_photos_survey_org_fk"; columns: ["survey_id", "organization_id"]; isOneToOne: false; referencedRelation: "field_surveys"; referencedColumns: ["id", "organization_id"] }
                   ]
                 },"field_survey_revisions": {
-                  Row: { "created_at": string,"created_by": string,"id": string,"measurements": Json,"notes": string | null,"organization_id": string,"photos_snapshot": Json,"project_id": string | null,"survey_id": string,"version": number,"work_type": string }
-                  Insert: { "created_at"?: string,"created_by": string,"id"?: string,"measurements": Json,"notes"?: string | null,"organization_id": string,"photos_snapshot"?: Json,"project_id"?: string | null,"survey_id": string,"version": number,"work_type": string }
-                  Update: { "created_at"?: string,"created_by"?: string,"id"?: string,"measurements"?: Json,"notes"?: string | null,"organization_id"?: string,"photos_snapshot"?: Json,"project_id"?: string | null,"survey_id"?: string,"version"?: number,"work_type"?: string }
+                  Row: {
+"sections": Json | null, "created_at": string,"created_by": string,"id": string,"measurements": Json,"notes": string | null,"organization_id": string,"photos_snapshot": Json,"project_id": string | null,"survey_id": string,"version": number,"work_type": string }
+                  Insert: {
+"sections"?: Json | null, "created_at"?: string,"created_by": string,"id"?: string,"measurements": Json,"notes"?: string | null,"organization_id": string,"photos_snapshot"?: Json,"project_id"?: string | null,"survey_id": string,"version": number,"work_type": string }
+                  Update: {
+"sections"?: Json | null, "created_at"?: string,"created_by"?: string,"id"?: string,"measurements"?: Json,"notes"?: string | null,"organization_id"?: string,"photos_snapshot"?: Json,"project_id"?: string | null,"survey_id"?: string,"version"?: number,"work_type"?: string }
                   Relationships: [
                     { foreignKeyName: "field_survey_revisions_project_org_fk"; columns: ["project_id", "organization_id"]; isOneToOne: false; referencedRelation: "projects"; referencedColumns: ["id", "organization_id"] },
                     { foreignKeyName: "field_survey_revisions_survey_org_fk"; columns: ["survey_id", "organization_id"]; isOneToOne: false; referencedRelation: "field_surveys"; referencedColumns: ["id", "organization_id"] }
@@ -762,6 +864,33 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
+"create_field_survey_followup":
+{ Args: { "p_kind": string,"p_name": string,"p_project_id": string | null,"p_revision_id": string,"p_survey_id": string | null }; Returns: {
+              "created_at": string,
+"created_by": string,
+"id": string,
+"kind": string,
+"organization_id": string,
+"project_id": string | null,
+"quotation_id": string | null,
+"quotation_revision_id": string | null,
+"survey_id": string,
+"survey_revision_id": string
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "field_survey_followups"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
+"link_field_survey_calculation":
+{ Args: { "p_calculation_id": string,"p_calculation_revision_id": string,"p_revision_id": string,"p_section_id": string,"p_survey_id": string | null }; Returns: string
+                           },
+"save_field_survey_workspace":
+{ Args: { "p_expected_version": number,"p_measurements": Json,"p_notes": string | null,"p_organization_id": string,"p_project_id": string | null,"p_sections": Json,"p_survey_id": string | null,"p_work_type": string }; Returns: {
+              "survey_id": string,"updated_at": string,"version": number
+            }[]
+                           },
             "save_field_survey": { Args: { "p_expected_version": number,"p_measurements": Json,"p_notes": string | null,"p_organization_id": string,"p_project_id": string | null,"p_survey_id": string | null,"p_work_type": string }; Returns: { "survey_id": string,"updated_at": string,"version": number }[] },
             "reserve_field_survey_photo_upload": { Args: { "p_actor_id": string,"p_content_sha256": string,"p_description": string | null,"p_display_filename": string,"p_expected_version": number,"p_file_size": number,"p_mime_type": string,"p_object_key": string,"p_organization_id": string,"p_photo_id": string,"p_request_key": string,"p_survey_id": string }; Returns: { "photo_id": string,"reused": boolean,"version": number }[] },
             "attach_field_survey_photo": { Args: { "p_actor_id": string,"p_expected_version": number,"p_organization_id": string,"p_photo_id": string,"p_survey_id": string }; Returns: { "photo_id": string,"version": number }[] },

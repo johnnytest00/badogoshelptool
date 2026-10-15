@@ -1,5 +1,8 @@
 "use client";
 
+import type { SavedSurveyCalculation } from "@/domain/field-surveys/workspace";
+
+
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { materialProvenanceLabels, materialPurchasingUnitLabels } from "@/domain/materials/contracts";
@@ -65,7 +68,7 @@ function toDomainInput(draft: Draft): unknown {
   return { sectionSpec: { nominalLengthMm: numeric(draft.nominalLengthMm), nominalLengthSource: source, connection }, runs: draft.runs.map((run) => ({ ...run, lengthMm: numeric(run.lengthMm), startExtensionMm: numeric(run.startExtensionMm), endExtensionMm: numeric(run.endExtensionMm), reserveMm: numeric(run.reserveMm) })), manualComponents: [] };
 }
 
-export function FlashingCalculator({ organizationId, projectId, suggestions, saved, catalogVariants, initialHandoff, handoffSource }: Readonly<{ organizationId: string; projectId?: string; suggestions: FlashingGeometrySuggestion[]; saved: FlashingCalculationRecord | null; catalogVariants: FlashingCatalogVariant[]; initialHandoff?: FlashingPrefill; handoffSource?: SurveyHandoffSource }>) {
+export function FlashingCalculator({ organizationId, projectId, suggestions, saved, catalogVariants, initialHandoff, handoffSource, onSaved, onWorkspaceState }: Readonly<{ organizationId: string; projectId?: string; suggestions: FlashingGeometrySuggestion[]; saved: FlashingCalculationRecord | null; catalogVariants: FlashingCatalogVariant[]; initialHandoff?: FlashingPrefill; handoffSource?: SurveyHandoffSource; onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void }>) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(() => saved ? draftFromInput(saved.input, saved.displayName) : initialHandoff ? draftFromSurvey(initialHandoff) : createInitialDraft());
   const handoffBaseline = useRef(initialHandoff ? JSON.stringify(draftFromSurvey(initialHandoff)) : "");
@@ -95,6 +98,7 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sav
   const selectedGroups = selectedMappings.flatMap((mapping) => { const candidate = transferCandidates.find((item) => item.id === mapping.candidateId); return candidate ? [candidate.groupId] : []; });
   const hasDuplicateGroup = new Set(selectedGroups).size !== selectedGroups.length;
   const drawing = selectFlashingDrawingPreview(dirty, selectedRevision, parsed.success ? parsed.data : null, calculated?.ok ? calculated.output : null);
+  useEffect(() => { onWorkspaceState?.({ dirty, pending: isPending }); }, [dirty, isPending, onWorkspaceState]);
   const transferReady = Boolean(saved && selectedRevision && selectedRevision.revisionId === saved.revisionId && !selectedRevision.stale && !dirty && selectedMappings.length > 0 && !hasDuplicateGroup && mappingChecks.filter((check) => selectedMappings.some((item) => item.candidateId === check.candidate.id)).every((check) => check.status === "compatible"));
 
   const update = (change: (current: Draft) => Draft) => setDraft((current) => change(current));
@@ -114,7 +118,7 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sav
       data.set("calculatorType", flashingMaterialCalculator.id); data.set("name", draft.name.trim() || "Bádogos szegély számítás");
       data.set("input", JSON.stringify(parsed.data)); data.set("expectedRevisionNumber", String(expectedRevision)); setFeedback("");
       startTransition(async () => { let response; try { response = await saveStandaloneCalculationAction(data); } catch { setFeedback("A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."); return; } if (!response.ok) { setFeedback(response.error); return; }
-        setExpectedRevision(response.revisionNumber); setBaseline(currentJson); setBaselineName(draft.name); setFeedback(`Mentve · V${response.revisionNumber}`); router.replace(`/kalkulatorok/szegelyek?organization=${organizationId}&calculation=${response.calculationId}`); router.refresh(); }); return;
+        setExpectedRevision(response.revisionNumber); setBaseline(currentJson); setBaselineName(draft.name); setFeedback(`Mentve · V${response.revisionNumber}`); if (onSaved) { await onSaved(response); return; } router.replace(`/kalkulatorok/szegelyek?organization=${organizationId}&calculation=${response.calculationId}`); router.refresh(); }); return;
     }
     const data = new FormData();
     data.set("organizationId", organizationId); data.set("projectId", projectId); data.set("name", draft.name);

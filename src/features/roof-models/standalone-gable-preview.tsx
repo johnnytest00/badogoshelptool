@@ -1,5 +1,8 @@
 "use client";
 
+import type { SavedSurveyCalculation } from "@/domain/field-surveys/workspace";
+
+
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -30,7 +33,7 @@ function toInput(draft: Draft): GableRoofInput | null {
   return parsed.success ? parsed.data : null;
 }
 
-export function StandaloneGablePreview({ organizationId, saved = null, initialHandoff, handoffSource, missingHandoffFields = [] }: Readonly<{ organizationId: string; saved?: SavedGableCovering | null; initialHandoff?: RoofPrefill; handoffSource?: SurveyHandoffSource; missingHandoffFields?: readonly string[] }>) {
+export function StandaloneGablePreview({ organizationId, saved = null, initialHandoff, handoffSource, missingHandoffFields = [], onSaved, onWorkspaceState, embedded = false }: Readonly<{ organizationId: string; saved?: SavedGableCovering | null; initialHandoff?: RoofPrefill; handoffSource?: SurveyHandoffSource; missingHandoffFields?: readonly string[]; onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void; embedded?: boolean }>) {
   const current = saved?.revisions.find((revision) => revision.revisionId === saved.currentRevisionId);
   const source = (current?.input as { source?: { geometryInput?: GableRoofInput } } | undefined)?.source?.geometryInput;
   const [draft, setDraft] = useState(() => source ? draftFromInput(source) : initialHandoff ? draftFromPrefill(initialHandoff) : emptyDraft);
@@ -42,6 +45,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
   const [coveringDirty, setCoveringDirty] = useState(false);
   const geometryDirty = !historical && (handoffSource ? handoffModified : JSON.stringify(draft) !== JSON.stringify(savedGeometry ? draftFromInput(savedGeometry) : emptyDraft));
   useEffect(() => { const handler = (event: BeforeUnloadEvent) => { if (geometryDirty) { event.preventDefault(); event.returnValue = ""; } }; window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler); }, [geometryDirty]);
+  useEffect(() => { onWorkspaceState?.({ dirty: geometryDirty || coveringDirty, pending: savePending }); }, [geometryDirty, coveringDirty, savePending, onWorkspaceState]);
   const input = useMemo(() => toInput(draft), [draft]);
   const result = useMemo(() => input ? calculateGableRoof(input) : null, [input]);
   const lastValid = useRef<{ input: GableRoofInput; result: NonNullable<typeof result> } | null>(null);
@@ -55,7 +59,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
     { key: "frontGableOverhangMm", label: "Első oromtúlnyúlás", unit: "mm" },
     { key: "rearGableOverhangMm", label: "Hátsó oromtúlnyúlás", unit: "mm" },
   ];
-  return <><Link className="back-navigation" href={`/kalkulatorok?organization=${organizationId}`} onClick={(event) => { if ((geometryDirty || coveringDirty) && !window.confirm("A nem mentett módosítások elvesznek. Továbbmész?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" className="size-4" /><span>Vissza a kalkulátorokhoz</span></Link><section className="detail-surface" aria-labelledby="standalone-gable-title">
+  return <>{!embedded && <Link className="back-navigation" href={`/kalkulatorok?organization=${organizationId}`} onClick={(event) => { if ((geometryDirty || coveringDirty) && !window.confirm("A nem mentett módosítások elvesznek. Továbbmész?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" className="size-4" /><span>Vissza a kalkulátorokhoz</span></Link>}<section className="detail-surface" aria-labelledby="standalone-gable-title">
     <header className="section-heading"><div><p className="section-eyebrow">Tetők és tetőfedés · projekt nélküli számítás</p><h1 id="standalone-gable-title">Nyeregtető geometria</h1><p>A meglévő `roof.gable` motor számítja az eredményeket. A fedési eredmény külön menthető; anyagkimutatás és statikai méretezés nem készül.</p></div></header>
     {handoffSource && <div className={`survey-handoff-banner ${handoffModified ? "is-modified" : ""}`} role="status"><strong>{handoffModified ? "A kalkuláció módosított adatokat tartalmaz" : "Adatok átvéve a felmérésből"}</strong><small>Felmérés: {handoffSource.surveyId} · V{handoffSource.version} · revízió: {handoffSource.revisionId}. A forrás változatlan marad.</small>{missingHandoffFields.length > 0 && <span>Ehhez a számításhoz még add meg: {missingHandoffFields.join(", ")}.</span>}</div>}
     <form className="roof-form" onSubmit={(event) => event.preventDefault()}>
@@ -74,7 +78,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
       <div className="roof-result-metric"><small>Ferde oromélek összesen</small><strong>{format(result.lengths.totalSlopingGableEdgesMm / 1000, "m")}</strong></div>
     </div></section></>
       : <p className="missing-data">Add meg az összes méretet egész milliméterben, vagy válassz érvényes tetőhajlást a geometriai előnézethez.</p>}
-    {lastValid.current && <div hidden={!result}><GableTrapezoidalCoveringPanel mode="standalone" organizationId={organizationId} saved={saved} geometryInput={result && input ? input : lastValid.current.input} onLoadGeometry={(value) => setDraft(draftFromInput(value))} onRevisionModeChange={setHistorical} onSavePendingChange={setSavePending} onSaveComplete={setSavedGeometry} onDirtyChange={setCoveringDirty} geometry={result ?? lastValid.current.result} sourceLabel="Kézi tetőméretek · projekt nélküli előnézet" /></div>}
+    {lastValid.current && <div hidden={!result}><GableTrapezoidalCoveringPanel onSaved={onSaved} mode="standalone" organizationId={organizationId} saved={saved} geometryInput={result && input ? input : lastValid.current.input} onLoadGeometry={(value) => setDraft(draftFromInput(value))} onRevisionModeChange={setHistorical} onSavePendingChange={setSavePending} onSaveComplete={setSavedGeometry} onDirtyChange={setCoveringDirty} geometry={result ?? lastValid.current.result} sourceLabel="Kézi tetőméretek · projekt nélküli előnézet" /></div>}
     {result && <TechnicalDrawing output={result} isSaved={false} />}
     <p className="roof-disclaimer">A ferde hossz geometriai érték; nem igazolt szarufavágási méret. A felület és hosszak nem jelentenek fedőanyag-, léc-, fólia- vagy szerkezeti mennyiséget.</p>
   </section></>;

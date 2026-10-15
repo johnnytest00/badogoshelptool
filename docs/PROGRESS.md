@@ -1299,3 +1299,58 @@ Kézi elfogadás: valódi iPhone-on JPEG kamerakép, HEIC útmutatás, megszakí
 mobiladat-feltöltés/újrapróbálás és V1/V2 fotóváltás; iPaden szerkesztés és
 kalkulátorátadás. Offline működés és hosted Supabase nem ellenőrzött.
 Javasolt commit: `feat(F9.7.8.3): harden mobile field surveys`.
+
+## F9.7.9 — egységes helyszíni felmérési munkafelület
+
+Állapot: **COMPLETE (UNIFIED SURVEY WORKSPACE, LOCAL)**.
+
+Megvalósult: kiemelt Új felmérés és legutóbbi felmérések a dashboardon;
+egyazon survey alatt több elnevezhető/rendezhető/eltávolítható tető-, eresz-,
+szegély- és egyéb munkaszakasz. Szakaszonkénti mérések, megjegyzések,
+engedélyezett fotókapcsolatok, kitöltetlen értékek veszteségmentes mentése.
+A helybeni kalkulátorpanel az adott pontos survey snapshotot használja;
+átvett/kézzel módosított érték, hiányzó adat, előnézet és mentett eredmény
+megkülönböztetett. Az összesítő lezárás nélkül elérhető, ismert egységű
+mentett eredményeket, régi forrást és hiányokat mutat. Projekt és ajánlat
+külön vagy együtt választható, meglévő jogosult projekt is kapcsolható.
+A projekt nélküli ajánlat tényleges standalone DRAFT, a közös út projekt-DRAFT.
+Üres projektajánlat a szerkesztőben sem mutat megtévesztő 0 HUF összesítést.
+
+Újrahasznosítás: eredeti survey/fotó/immutable revision; meglévő
+gutter/flashing/roof.gable/trapézlemez/cserepeslemez motorok, kalkulátor-
+komponensek és secure save actionök; eredeti projektmodell, standalone és
+projekt quotation RPC-k és szerkesztők. Nincs párhuzamos kalkulátor-,
+pénzügyi vagy ajánlatszerkesztő-architektúra és nincs mesterséges tetőmodell.
+A geometria önállóan előnézet marad; a támogatott fedési eredmény menthető.
+
+Adatkonzisztencia/jogosultság: forward-only nullable `sections` bővítés;
+legacy és history nincs átírva. A flat mérések és szakaszok egyezése constraint.
+Exact calculation revision és explicit append-only followup kapcsolatok;
+original survey/project ownership változatlan, régi eredmény nem frissül
+csendben. Creator-scope, aktív tagság, cross-org izoláció, forrásrevízió-párok,
+privilegizált írás tiltása helyben bizonyított. Survey sorzár és természetes
+idempotencia akadályozza a dupla projekt/ajánlat/link létrehozást. A projekt
+sikerét későbbi ajánlathiba nem törli; az action részleges eredményt ad és
+ismételve folytatja. Session-szintű user/org/survey draft recovery, pending/
+error/conflict kezelés; fotólista nem emeli csendben az expected versiont.
+
+Bizonyíték: célzott regresszió 44 fájl/196 PASS; utolsó érintett futás
+9 fájl/38 PASS. Külön opt-in valós helyi Auth/Storage/action/read-model
+integráció 3/3 PASS; végleges új pgTAP 41/41 és 223 változatlan DB-regressziós
+assertion PASS. Öt monitorral igazolt kétkapcsolatos lock contention PASS.
+Typecheck, lint, production build és diff-check PASS. Egy hitelesített helyi
+Brave workflow több szakasz, reload, ereszszámítás mentés/link, összesítő,
+projekt+ajánlat, retry és ajánlat-újranyitás; Back utáni 11 m draft recovery,
+V2 szerkesztés és régi V1 számítás/ajánlat megőrzés. A konkrét rekordokat
+SQL-lel is visszaolvastuk; azonosítók és pontos parancsok a TEST_MATRIX-ben.
+
+Korlátok: ez célzott, helyi elfogadás; teljes repóregresszió, fizikai mobil,
+Safari és hosted környezet nem ellenőrzött. Nincs automatikus pénzügyi vagy
+anyagtétel-import mérésből, önálló geometriarevízió-mentés, offline sync vagy
+ajánlatkiállítás. Ezek elkülönített támogatási határok. A helyi DEMO fixture-ek
+megmaradtak. Hosted módosítás, reset, commit, push, deploy nem történt;
+`.DS_Store` érintetlen.
+
+Következő ajánlás: fizikai iPhone/iPad helyszíni próba JPEG-feltöltéssel,
+megszakított hálózattal és a két fedési kalkulátor felhasználói elfogadásával.
+Javasolt commit: `feat(F9.7.9): unify field survey workspace`.

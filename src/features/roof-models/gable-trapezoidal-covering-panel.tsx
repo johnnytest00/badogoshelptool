@@ -1,5 +1,8 @@
 "use client";
 
+import type { SavedSurveyCalculation } from "@/domain/field-surveys/workspace";
+
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -42,7 +45,7 @@ function LayoutDrawing({ columns, rows, roofLength, slopeLength }: { columns: nu
   return <svg className="covering-layout-svg" viewBox="0 0 440 190" role="img" aria-label={`Sematikus lemezkiosztás: síkonként ${columns} oszlop és ${rows} sor`}><title>Sematikus fedési kiosztás</title><desc>A két azonos nyeregtető-sík hasznos szélességű lemezoszlopokra és a számított toldássorokra osztva.</desc><path d="M30 35H210V145H30Z M230 35H410V145H230Z" className="covering-plane"/><path d={lines.join("")} className="covering-grid"/><text x="120" y="165" textAnchor="middle">Bal tetősík</text><text x="320" y="165" textAnchor="middle">Jobb tetősík</text><text x="220" y="20" textAnchor="middle">Tetőhossz {display(roofLength / 1000, "m")} · ferde hossz {display(slopeLength / 1000, "m")}</text>{rows > 400 && <text x="220" y="184" textAnchor="middle">A túl nagy sorháló sematikus rajza rácsvonalak nélkül</text>}</svg>;
 }
 
-type Common = { organizationId: string; geometry: GableRoofOutput; geometryInput: GableRoofInput; sourceLabel: string; onDirtyChange?: (dirty: boolean) => void };
+type Common = { onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; organizationId: string; geometry: GableRoofOutput; geometryInput: GableRoofInput; sourceLabel: string; onDirtyChange?: (dirty: boolean) => void };
 type Props = Common & ({ mode: "standalone"; saved?: SavedGableCovering | null; onLoadGeometry: (input: GableRoofInput) => void; onRevisionModeChange: (historical: boolean) => void; onSavePendingChange: (pending: boolean) => void; onSaveComplete: (input: GableRoofInput) => void } | { mode: "project"; projectId: string; projectName: string; roofGeometryDirty?: boolean; takeoffOptions: readonly GableCoveringTakeoffOption[]; roofModelId: string; roofModelRevisionId: string | null; roofModelRevisionNumber: number; savedCalculations: readonly SavedGableCovering[]; name: string });
 
 export function GableTrapezoidalCoveringPanel(props: Readonly<Props>) {
@@ -95,7 +98,7 @@ export function GableTrapezoidalCoveringPanel(props: Readonly<Props>) {
       const loaded = await readGableTrapezoidalCovering(props.organizationId, response.calculationId!);
       if (!loaded || !latest(loaded)) { setFeedback("A mentés megtörtént, de az új változat nem tölthető be. Nyisd meg újra a számítást."); return; }
       setSaved(loaded); setViewedId(loaded.currentRevisionId); setName(loaded.displayName); setDraft(draftFrom(coveringRevisionView(latest(loaded)!).coveringInput)); setUseLatestSource(false); operation.current = null;
-      if (props.mode === "standalone") { props.onSaveComplete(sourceInput); router.replace(`/kalkulatorok/nyeregteto?organization=${props.organizationId}&calculation=${loaded.calculationId}`); }
+      if (props.mode === "standalone") { props.onSaveComplete(sourceInput); if (props.onSaved) { await props.onSaved({ calculationId: loaded.calculationId, revisionId: response.revisionId!, revisionNumber: response.revisionNumber! }); return; } router.replace(`/kalkulatorok/nyeregteto?organization=${props.organizationId}&calculation=${loaded.calculationId}`); }
       else router.refresh();
       setFeedback(`Mentve: V${loaded.currentRevisionNumber}${response.reused ? " · az ismételt kérés nem hozott létre új változatot" : ""}.`);
     } catch { setFeedback("A hálózati válasz bizonytalan. Azonos adatokkal ismételve ugyanazt a mentési műveletet folytatjuk."); }

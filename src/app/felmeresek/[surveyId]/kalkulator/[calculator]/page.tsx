@@ -1,3 +1,4 @@
+import { surveySections, completeSectionMeasurements } from "@/domain/field-surveys/workspace";
 import Link from "next/link";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 import { mapFieldSurveyToCalculator } from "@/domain/field-surveys/calculator-handoff";
@@ -16,7 +17,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 
 export default async function FieldSurveyCalculatorHandoffPage({ params, searchParams }: Readonly<{
   params: Promise<{ surveyId: string; calculator: string }>;
-  searchParams: Promise<{ organization?: string; version?: string }>;
+  searchParams: Promise<{ organization?: string; version?: string; section?: string }>;
 }>) {
   const { surveyId, calculator } = await params;
   const query = await searchParams;
@@ -29,7 +30,9 @@ export default async function FieldSurveyCalculatorHandoffPage({ params, searchP
   const organizationId = selected.organization.id;
   const revision = await getFieldSurveyRevision(organizationId, surveyId, version);
   if (!revision) return <Unavailable message="A felmérés kiválasztott változata nem érhető el." />;
-  const handoff = mapFieldSurveyToCalculator({ surveyId, revisionId: revision.id, version: revision.version, workType: revision.workType, measurements: revision.measurements });
+  const section = query.section ? surveySections(revision).find((item) => item.id === query.section) : surveySections(revision)[0];
+  if (!section) return <Unavailable message="A munkaszakasz nem szerepel a kiválasztott revízióban." />;
+  const handoff = mapFieldSurveyToCalculator({ surveyId, revisionId: revision.id, version: revision.version, workType: section.workType, measurements: completeSectionMeasurements(section) });
   if (!handoff.ok) return <Unavailable message={handoff.error} />;
   if (handoff.calculator !== calculator) return <Unavailable message="A kiválasztott kalkulátor nem illik a felmérés munkatípusához." />;
   const backHref = `/felmeresek/${surveyId}?organization=${encodeURIComponent(organizationId)}`;

@@ -19,5 +19,5 @@ export default async function NewFieldSurveyPage({ searchParams }: Readonly<{ se
   const projectOptions = projects.map(({ id, name }) => ({ id, name }));
   if (requestedProject && !projectOptions.some((project) => project.id === requestedProject.id)) projectOptions.unshift({ id: requestedProject.id, name: requestedProject.name });
   const initialProjectId = requestedProject?.id ?? null;
-  return <main className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor organizationId={organizationId} projects={projectOptions} initialProjectId={initialProjectId} /></div></main>;
+  return <main className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} initialProjectId={initialProjectId} /></div></main>;
 }

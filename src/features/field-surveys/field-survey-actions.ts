@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { fieldSurveyInputSchema } from "@/domain/field-surveys/contracts";
+import { z } from "zod";
+import { surveySectionsSchema } from "@/domain/field-surveys/workspace";
+import { fieldSurveyInputSchema, fieldSurveyMeasurementSchema } from "@/domain/field-surveys/contracts";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
 import type { Json } from "@/infrastructure/supabase/database.types";
@@ -37,7 +39,13 @@ export async function saveFieldSurveyAction(data: FormData): Promise<FieldSurvey
   let measurements: unknown;
   try { measurements = JSON.parse(text(data, "measurements")); }
   catch { return { ok: false, error: "A mérések formátuma hibás." }; }
-  const parsed = fieldSurveyInputSchema.safeParse({
+  let sections;
+  if (data.has("sections")) {
+    try { sections = surveySectionsSchema.parse(JSON.parse(text(data, "sections"))); }
+    catch { return { ok: false, error: "Ellenőrizd a munkaszakaszok adatait." }; }
+  }
+  const schema = sections ? fieldSurveyInputSchema.extend({ measurements: z.array(fieldSurveyMeasurementSchema).max(100) }) : fieldSurveyInputSchema;
+  const parsed = schema.safeParse({
     organizationId, projectId, workType: text(data, "workType"), measurements,
     notes: text(data, "notes") || null,
   });
@@ -48,7 +56,8 @@ export async function saveFieldSurveyAction(data: FormData): Promise<FieldSurvey
 
   try {
     const supabase = await createClient();
-    const { data: saved, error } = await supabase.rpc("save_field_survey", {
+    const { data: saved, error } = await supabase.rpc(sections ? "save_field_survey_workspace" : "save_field_survey", {
+      ...(sections ? { p_sections: sections as unknown as Json } : {}),
       p_survey_id: surveyId, p_organization_id: organizationId, p_project_id: parsed.data.projectId,
       p_work_type: parsed.data.workType, p_measurements: parsed.data.measurements as unknown as Json,
       p_notes: parsed.data.notes, p_expected_version: expectedVersion,

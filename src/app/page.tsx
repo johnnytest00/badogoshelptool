@@ -1,3 +1,4 @@
+import { getFieldSurveys } from "@/features/field-surveys/field-survey-data";
 import { redirect } from "next/navigation";
 import { Dashboard } from "@/features/dashboard/dashboard";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
@@ -28,6 +29,6 @@ export default async function Home({ searchParams }: Readonly<{ searchParams: Pr
     );
   }
 
-  const projects = await getProjectsForOrganization(selectedOrganization.id, { includeArchived: false, sort: "newest" });
-  return <Dashboard displayName={auth.displayName} email={auth.email} organizationName={selectedOrganization.name} organizationId={selectedOrganization.id} projects={projects} />;
+  const [projects, surveys] = await Promise.all([getProjectsForOrganization(selectedOrganization.id, { includeArchived: false, sort: "newest" }), getFieldSurveys(selectedOrganization.id, 3)]);
+  return <Dashboard displayName={auth.displayName} email={auth.email} organizationName={selectedOrganization.name} organizationId={selectedOrganization.id} projects={projects} recentSurveys={surveys.map(({ id, version, updatedAt }) => ({ id, version, updatedAt }))} />;
 }

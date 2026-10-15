@@ -680,3 +680,55 @@ megmarad. A szerver a JPEG/PNG/WebP bájtokat dekódolja, formátumot és legfel
 40 megapixelt ellenőriz, majd EXIF nélkül újrakódolja és 10 MB-ra korlátozza.
 HEIC/HEIF nem támogatott a helyi dekóderrel; nincs megtévesztő átnevezéses
 elfogadás. Fizikai iPhone/Safari viselkedés nincs igazolva.
+
+## F9.7.9 — egységes felmérési munkafelület
+
+A `20261015120000_unified_field_survey_workspace.sql` additív, előremenő
+migráció helyben, reset nélkül alkalmazva. A `field_surveys.sections` és
+`field_survey_revisions.sections` nullable JSONB mező: a régi sorok és korábbi
+pillanatképek változatlanok maradnak. A kompatibilitási olvasó a régi rekordot
+stabil azonosítójú szakaszként jeleníti meg; munkafelületi mentése új revízió.
+A szakasz azonosítót, nevet, munkatípust, saját méréseket, megjegyzést és
+fotóazonosítókat tárol. A tömb sorrendje a szakaszsorrend. Az üres mérés értéke
+`null`; csak a kitöltött értékek kerülnek a legacy `measurements` nézetbe és a
+kalkulátorba. Kettős domain/SQL validáció, legfeljebb 30 szakasz és összesen
+100 egyedi mérés; egységszemantika, fotótulajdon és teljes flat/section egyezés
+ellenőrzött. A constraint a régi RPC-n át sem enged eltérő flat adatot írni egy
+munkafelületi rekordhoz.
+
+A `save_field_survey_workspace` az eredeti auth/org/creator/project,
+expected-version és stabil UUID-s retry mintát követi; a szakasztartalom is
+része az idempotencia összehasonlításnak. Mentés és fotóművelet új snapshotot
+ír; fotóeltávolítás csak az új szakasz-pillanatképből távolítja el a kapcsolatot.
+A fotómetaadat, Storage és restricted writer továbbra is a meglévő rendszer.
+
+A `field_survey_calculation_links` append-only: pontos survey revision,
+szakasz, calculation ID és calculation revision ID. A kapcsoló RPC az adott
+forrásban létező szakaszt, kompatibilis kalkulátortípust, pontos revíziópárt,
+aktív tagságot és standalone creator-scope-ot ellenőriz. Történeti, jogosult
+számításrevízió megengedett; nincs automatikus „latest” csere vagy újraszámítás.
+Az RLS a forrásfelmérés és a célrevízió olvasását egyaránt megköveteli.
+
+A `field_survey_followups` append-only projekt-/ajánlatkapcsolat. Természetes
+idempotencia: felmérésenként egy projektkapcsolat és projektkontextusonként
+egy ajánlatpiszkozat. A survey sorzár védi a párhuzamos létrehozást. Új
+művelethez aktuális forrásrevízió kell; korábbi sikeres művelet ismétlése az
+eredeti kapcsolatot adja vissza. A kapcsolás nem módosítja a felmérés jelenlegi
+vagy történeti `project_id` mezőjét, tulajdonosát vagy korábbi snapshotjait.
+A projekt az eddigi táblát/constraint/RLS szerződést, az ajánlat a meglévő
+`save_quotation_draft` vagy `save_standalone_quotation_draft_with_document`
+függvényt használja. Az alkalmazás előbb commitolja a projektlépést; későbbi
+ajánlathibánál azt visszaadja és ugyanarra a projektre folytatja az ismétlést.
+Az üres projektajánlat `subtotal=null`, sorlista üres, státusz `draft`.
+
+Közvetlen authenticated táblaírás egyik új táblán sincs; a normál,
+jogosultságellenőrzött RPC-k különülnek a böngészőből továbbra sem hívható
+privilegizált fotó-/fedésíró RPC-ktől. Nincs service-role futásidejű kerülőút.
+Bizonyíték: `026_unified_field_survey_workspace.sql` 41 pgTAP; valós helyi Auth,
+privát Storage, Server Action és read-model integráció 3 teszt; öt tényleges,
+megfigyelt zárolással járó kétkapcsolatos tranzakcióverseny PASS.
+
+A már alkalmazott helyi migráció nyilvántartását a
+`npx supabase migration repair --local --status applied 20261015120000`
+parancs sikeresen rögzítette; további futás nem próbálja ismét létrehozni az
+objektumokat. Ez kizárólag a helyi migrációs ledger bejegyzése.

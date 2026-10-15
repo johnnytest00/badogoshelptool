@@ -1,3 +1,4 @@
+import type { SurveySection } from "@/domain/field-surveys/workspace";
 import { createClient } from "@/infrastructure/supabase/server";
 import type { Database } from "@/infrastructure/supabase/database.types";
 import type { FieldSurveyMeasurement, FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
@@ -9,6 +10,7 @@ export type FieldSurveyRecord = {
   createdBy: string;
   workType: FieldSurveyWorkType;
   measurements: FieldSurveyMeasurement[];
+  sections?: SurveySection[] | null;
   notes: string | null;
   version: number;
   createdAt: string;
@@ -23,6 +25,7 @@ export type FieldSurveyRevisionRecord = {
   version: number;
   workType: FieldSurveyWorkType;
   measurements: FieldSurveyMeasurement[];
+  sections?: SurveySection[] | null;
   notes: string | null;
   photosSnapshot: unknown[];
   createdAt: string;
@@ -34,16 +37,16 @@ function mapSurvey(row: SurveyRow): FieldSurveyRecord {
   return {
     id: row.id, organizationId: row.organization_id, projectId: row.project_id,
     createdBy: row.created_by, workType: row.work_type as FieldSurveyWorkType,
-    measurements: row.measurements as unknown as FieldSurveyMeasurement[], notes: row.notes,
+    sections: row.sections as unknown as SurveySection[] | null, measurements: row.measurements as unknown as FieldSurveyMeasurement[], notes: row.notes,
     version: row.version, createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 
-export async function getFieldSurveys(organizationId: string) {
+export async function getFieldSurveys(organizationId: string, limit = 100) {
   const supabase = await createClient();
   const { data, error } = await supabase.from("field_surveys")
-    .select("id, organization_id, project_id, created_by, updated_by, work_type, measurements, notes, version, created_at, updated_at")
-    .eq("organization_id", organizationId).order("updated_at", { ascending: false }).limit(100);
+    .select("id, organization_id, project_id, created_by, updated_by, work_type, measurements, sections, notes, version, created_at, updated_at")
+    .eq("organization_id", organizationId).order("updated_at", { ascending: false }).limit(Math.min(100, Math.max(1, limit)));
   if (error) throw new Error("A felmérések betöltése nem sikerült.");
   return (data ?? []).map(mapSurvey);
 }
@@ -51,7 +54,7 @@ export async function getFieldSurveys(organizationId: string) {
 export async function getFieldSurvey(organizationId: string, surveyId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase.from("field_surveys")
-    .select("id, organization_id, project_id, created_by, updated_by, work_type, measurements, notes, version, created_at, updated_at")
+    .select("id, organization_id, project_id, created_by, updated_by, work_type, measurements, sections, notes, version, created_at, updated_at")
     .eq("organization_id", organizationId).eq("id", surveyId).maybeSingle();
   if (error) throw new Error("A felmérés betöltése nem sikerült.");
   return data ? mapSurvey(data) : null;
@@ -60,13 +63,13 @@ export async function getFieldSurvey(organizationId: string, surveyId: string) {
 export async function getFieldSurveyRevision(organizationId: string, surveyId: string, version: number): Promise<FieldSurveyRevisionRecord | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("field_survey_revisions")
-    .select("id, survey_id, organization_id, project_id, version, work_type, measurements, notes, photos_snapshot, created_by, created_at")
+    .select("id, survey_id, organization_id, project_id, version, work_type, measurements, sections, notes, photos_snapshot, created_by, created_at")
     .eq("organization_id", organizationId).eq("survey_id", surveyId).eq("version", version).maybeSingle();
   if (error) throw new Error("A kiválasztott felmérésrevízió nem tölthető be.");
   return data ? {
     id: data.id, surveyId: data.survey_id, organizationId: data.organization_id, projectId: data.project_id,
     version: data.version, workType: data.work_type as FieldSurveyWorkType,
-    measurements: data.measurements as unknown as FieldSurveyMeasurement[], notes: data.notes,
+    sections: data.sections as unknown as SurveySection[] | null, measurements: data.measurements as unknown as FieldSurveyMeasurement[], notes: data.notes,
     photosSnapshot: data.photos_snapshot as unknown[], createdAt: data.created_at,
   } : null;
 }

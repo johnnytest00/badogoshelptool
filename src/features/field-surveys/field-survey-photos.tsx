@@ -7,11 +7,12 @@ import { validateSurveyPhotoSelection } from "@/domain/field-surveys/photo-file"
 type Photo = { id: string; filename: string; mimeType: string; fileSize: number; description: string | null; uploadedAt?: string; url: string | null };
 type QueuedPhoto = { key: string; file: File };
 
-export function FieldSurveyPhotos({ organizationId, surveyId, version, historical = false, onVersionChange, onEnsureSaved, onUploadComplete, onPendingChange }: Readonly<{
+export function FieldSurveyPhotos({ organizationId, surveyId, version, historical = false, onVersionChange, onEnsureSaved, onUploadComplete, onPendingChange, onPhotosChange }: Readonly<{
   organizationId: string; surveyId: string | null; version: number; historical?: boolean;
   onVersionChange: (version: number) => void;
   onEnsureSaved: () => Promise<{ surveyId: string; version: number } | null>;
   onUploadComplete: (surveyId: string) => void;
+  onPhotosChange?: (photos: { id: string; filename: string }[]) => void;
   onPendingChange?: (state: { busy: boolean; queued: boolean }) => void;
 }>) {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -39,11 +40,11 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error ?? "A fényképek betöltése nem sikerült.");
       if (request !== refreshRef.current) return;
-      setPhotos(result.photos as Photo[]);
-      if (!historical) { versionRef.current = result.currentVersion; onVersionChange(result.currentVersion); }
+      setPhotos(result.photos as Photo[]); onPhotosChange?.(result.photos as Photo[]);
+      if (!historical && result.currentVersion !== selectedVersion) setError("A felmérés közben megváltozott. Frissítsd az oldalt a folytatás előtt; a korábbi méréseket nem írjuk felül.");
     } catch (cause) { if (request === refreshRef.current) setError(cause instanceof Error ? cause.message : "A fényképek nem érhetők el."); }
     finally { if (request === refreshRef.current) setLoading(false); }
-  }, [organizationId, historical, onVersionChange]);
+  }, [organizationId, historical, onVersionChange, onPhotosChange]);
 
   useEffect(() => { if (surveyId) void refreshPhotos(surveyId, version); }, [surveyId, version, refreshPhotos]);
 
@@ -52,7 +53,7 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
     busyRef.current = true; setUploading(true); setError(""); setUploadStep(0); setUploadTotal(items.length);
     let activeSurveyId = surveyId;
     try {
-      if (!activeSurveyId) {
+      {
         const saved = await onEnsureSaved();
         if (!saved) throw new Error("A felmérés mentése sikertelen; a mérések javítása után próbáld újra a fényképet.");
         activeSurveyId = saved.surveyId; versionRef.current = saved.version; onVersionChange(saved.version);

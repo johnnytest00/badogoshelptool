@@ -13,7 +13,7 @@ import type { DashboardTab } from "@/features/dashboard/dashboard.types";
 import type { ProjectRecord } from "@/features/projects/project-data";
 import { projectTypeLabels } from "@/domain/projects/contracts";
 
-export function Dashboard({ displayName, email, organizationName, organizationId, projects = [] }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; organizationId?: string; projects?: readonly ProjectRecord[] }>) {
+export function Dashboard({ recentSurveys = [], displayName, email, organizationName, organizationId, projects = [] }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; organizationId?: string; projects?: readonly ProjectRecord[]; recentSurveys?: readonly { id: string; version: number; updatedAt: string }[] }>) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("functions");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { setMode } = useTheme();
@@ -34,6 +34,7 @@ export function Dashboard({ displayName, email, organizationName, organizationId
           <p className="dashboard-subtitle">Miben segíthetünk ma?</p>
         </section>
 
+        {organizationId && <section className="survey-dashboard-start" aria-label="Helyszíni munka indítása"><Link className="primary-button" href={`/felmeresek/uj?organization=${organizationId}`}>Új felmérés</Link><p>Gyors kezdés: mérés, fotó, számítás. Projekt és ügyfél később is hozzáadható.</p><Link className="text-action" href={`/felmeresek?organization=${organizationId}`}>Felmérés folytatása →</Link>{recentSurveys.length > 0 && <ul>{recentSurveys.map((survey) => <li key={survey.id}><Link href={`/felmeresek/${survey.id}?organization=${organizationId}`}>Felmérés · V{survey.version} · {new Date(survey.updatedAt).toLocaleDateString("hu-HU")} · {survey.id.slice(0, 8)}</Link></li>)}</ul>}</section>}
         <DashboardTabs activeTab={activeTab} onChange={setActiveTab} />
 
         <div className="dashboard-content" role="tabpanel" aria-live="polite" aria-labelledby={`dashboard-tab-${activeTab}`}>
@@ -110,7 +111,7 @@ function FunctionsView({ organizationId }: Readonly<{ organizationId?: string }>
         {dashboardFunctions.map((item) => <FunctionLauncher item={item} key={item.id} organizationId={organizationId} />)}
       </div>
       <div className="dashboard-tip">
-        <p><strong>Jelenlegi működés:</strong> a mentett kalkulációk és árajánlatok projekthez kötődnek. Önálló mentésük adatmodellje külön előkészítést igényel.</p>
+        <p><strong>Jelenlegi működés:</strong> önálló felméréssel vagy közvetlenül a kalkulátorokkal és ajánlatokkal is kezdhetsz.</p>
       </div>
     </section>
   );
