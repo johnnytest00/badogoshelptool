@@ -81,8 +81,8 @@ export const fieldSurveyTemplates: Record<FieldSurveyWorkType, readonly FieldSur
     { label: "Konzolok távolsága", unit: "mm", semanticType: "gutter_bracket_spacing" },
   ],
   flashing: [
-    { label: "Kiterített szélesség", unit: "mm", semanticType: "custom" },
     { label: "Szegélyszakasz hossza", unit: "m", semanticType: "flashing_run_length" },
+    { label: "Kiterített szélesség", unit: "mm", semanticType: "custom" },
     { label: "Kiválasztott szegélyszál hossza", unit: "mm", semanticType: "flashing_section_length" },
     { label: "Toldásonkénti átfedés", unit: "mm", semanticType: "flashing_overlap" },
   ],

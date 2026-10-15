@@ -6,13 +6,15 @@ import { validateSurveyPhotoSelection } from "@/domain/field-surveys/photo-file"
 
 type Photo = { id: string; filename: string; mimeType: string; fileSize: number; description: string | null; uploadedAt?: string; url: string | null };
 type QueuedPhoto = { key: string; file: File };
+export const photoErrorMessage = (cause: unknown, networkMessage: string, fallback: string) => cause instanceof TypeError ? networkMessage : cause instanceof Error ? cause.message : fallback;
 
-export function FieldSurveyPhotos({ organizationId, surveyId, version, historical = false, onVersionChange, onEnsureSaved, onUploadComplete, onPendingChange, onPhotosChange }: Readonly<{
+export function FieldSurveyPhotos({ organizationId, surveyId, version, historical = false, onVersionChange, onEnsureSaved, onUploadComplete, onPendingChange, onPhotosChange, onPhotoUploaded }: Readonly<{
   organizationId: string; surveyId: string | null; version: number; historical?: boolean;
   onVersionChange: (version: number) => void;
   onEnsureSaved: () => Promise<{ surveyId: string; version: number } | null>;
   onUploadComplete: (surveyId: string) => void;
   onPhotosChange?: (photos: { id: string; filename: string }[]) => void;
+  onPhotoUploaded?: (photoId: string) => void;
   onPendingChange?: (state: { busy: boolean; queued: boolean }) => void;
 }>) {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -42,7 +44,7 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
       if (request !== refreshRef.current) return;
       setPhotos(result.photos as Photo[]); onPhotosChange?.(result.photos as Photo[]);
       if (!historical && result.currentVersion !== selectedVersion) setError("A felmérés közben megváltozott. Frissítsd az oldalt a folytatás előtt; a korábbi méréseket nem írjuk felül.");
-    } catch (cause) { if (request === refreshRef.current) setError(cause instanceof Error ? cause.message : "A fényképek nem érhetők el."); }
+    } catch (cause) { if (request === refreshRef.current) setError(photoErrorMessage(cause, "A fényképek nem tölthetők be. Ellenőrizd a kapcsolatot, majd próbáld újra.", "A fényképek nem érhetők el.")); }
     finally { if (request === refreshRef.current) setLoading(false); }
   }, [organizationId, historical, onVersionChange, onPhotosChange]);
 
@@ -68,13 +70,14 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
         if (!response.ok || !result.ok) throw new Error(result.error ?? "A fénykép feltöltése nem sikerült.");
         versionRef.current = result.version; onVersionChange(result.version);
         setPhotos((current) => [...current.filter((photo) => photo.id !== result.photo.id), result.photo as Photo]);
+        onPhotoUploaded?.(result.photo.id);
         setQueue((current) => current.filter((queued) => queued.key !== item.key));
       }
       setDescription("");
       onUploadComplete(activeSurveyId);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "A fénykép feltöltése nem sikerült. A mérési adatok megmaradtak.");
-      if (activeSurveyId) await refreshPhotos(activeSurveyId, versionRef.current);
+      setError(photoErrorMessage(cause, "A kapcsolat megszakadt. A kép várakozik; kapcsolódás után próbáld újra.", "A fénykép feltöltése nem sikerült. A mérési adatok megmaradtak."));
+      if (activeSurveyId && !(cause instanceof TypeError)) await refreshPhotos(activeSurveyId, versionRef.current);
     } finally { setUploading(false); setUploadStep(0); busyRef.current = false; }
   }
 
@@ -119,7 +122,7 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
     {queue.length > 0 && !historical && <div className="field-survey-photo-queue"><p>{queue.length} kiválasztott fénykép vár feltöltésre.</p>{queue.map((item) => <div key={item.key}><span>{item.file.name}</span><button className="secondary-button" type="button" disabled={uploading} onClick={() => setQueue((current) => current.filter((queued) => queued.key !== item.key))}>Elvetés</button></div>)}<button className="secondary-button" type="button" disabled={uploading} onClick={() => void uploadQueued(queue)}>Feltöltés újrapróbálása</button></div>}
     {photos.length > 0 && <div className="field-survey-photo-grid">{photos.map((photo) => <article className="field-survey-photo-card" key={photo.id}>
       {photo.url ? <img src={photo.url} alt={photo.description || photo.filename} loading="lazy" /> : <div className="field-survey-photo-missing">Előnézet nem érhető el</div>}
-      <div><strong>{photo.description || photo.filename}</strong><small>{(photo.fileSize / 1024 / 1024).toLocaleString("hu-HU", { maximumFractionDigits: 1 })} MB</small></div>
+      <div><strong>{photo.description || photo.filename}</strong><small>{photo.fileSize < 1024 * 1024 ? `${Math.max(1, Math.round(photo.fileSize / 1024))} KB` : `${(photo.fileSize / 1024 / 1024).toLocaleString("hu-HU", { maximumFractionDigits: 1 })} MB`}</small></div>
       {!historical && <button className="secondary-button" type="button" onClick={() => void removePhoto(photo)} disabled={uploading || removingPhotoId !== null}><Trash2 aria-hidden="true" className="size-4" />Eltávolítás</button>}
     </article>)}</div>}
     {!loading && photos.length === 0 && queue.length === 0 && <p className="field-survey-photo-empty">Még nincs fénykép.</p>}

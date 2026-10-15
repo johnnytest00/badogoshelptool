@@ -26,11 +26,37 @@ describe("field survey editor", () => {
     expect(html).toContain("Új felmérés");
     expect(html).toContain("Munkatípus");
     expect(html).toContain("Tető");
+    expect(html).toContain("Ereszcsatorna");
+    expect(html).toContain("Bádogos szegély");
+    expect(html).toContain("Név, munkatípus és sorrend");
+    expect(html).toContain("Mérés beállításai");
     expect(html).toContain("Projekt");
     expect(html).toContain("Mérés hozzáadása");
     expect(html).toContain("Felmérés mentése");
     expect(html).toContain("opcionális");
     expect(html).toContain("value=\"roof\"");
+  });
+
+  it("keeps measurement values prominent while advanced mapping stays available", () => {
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={survey} />);
+    expect(html).toContain("Ereszszakasz · m");
+    expect(html).toContain('value="8.5"');
+    expect(html).toContain("Mérés beállításai");
+    expect(html).toContain("Számítási szerep");
+  });
+
+  it("restores the active work section after the first save changes the URL", () => {
+    const flashingId = "123e4567-e89b-42d3-a456-426614174005";
+    const withSections: FieldSurveyRecord = {
+      ...survey,
+      sections: [
+        { id: "123e4567-e89b-42d3-a456-426614174006", name: "Tető", workType: "roof", notes: "", photoIds: [], measurements: [] },
+        { id: flashingId, name: "Bádogos szegély", workType: "flashing", notes: "", photoIds: [], measurements: [{ id: survey.measurements[0].id, label: "Szegélyszakasz hossza", value: 10, unit: "m", semanticType: "flashing_run_length" }] },
+      ],
+    };
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={withSections} initialSectionId={flashingId} />);
+    expect(html).toContain("<h2>Munkaszakasz: Bádogos szegély</h2>");
+    expect(html).toContain('value="10"');
   });
 
   it("reopens persisted measurements, explicit units and note for continued editing", () => {

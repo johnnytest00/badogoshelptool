@@ -25,6 +25,11 @@ export async function saveQuotationDraftAction(data: FormData): Promise<Quotatio
   const parsed = quotationDraftSchema.safeParse({ name: text(data, "name"), clientId: text(data, "clientId"), currency: "HUF", lines: rawLines });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ellenőrizd az ajánlati adatokat." };
   const draft = parsed.data;
+  const operationId = text(data, "operationId");
+  if (operationId && !/^[0-9a-f-]{36}$/i.test(operationId)) return { ok: false, error: "Az átvétel műveletazonosítója érvénytelen." };
+  const sourceIds = draft.lines.flatMap((line) => line.takeoffSourceItemIds ?? []);
+  if (new Set(sourceIds).size !== sourceIds.length) return { ok: false, error: "Egy kimutatási tétel csak egyszer szerepelhet az ajánlatban." };
+  if (sourceIds.length && !operationId && !quotationId) return { ok: false, error: "Az anyagátvétel biztonságos mentéséhez műveletazonosító szükséges." };
   const priceClasses = new Set(draft.lines.map((line) => line.priceClass));
   if (priceClasses.size > 1) return { ok: false, error: "Nettó és bruttó tételek nem keverhetők ugyanabban az összesítésben." };
   const supabase = await createClient();
@@ -35,8 +40,11 @@ export async function saveQuotationDraftAction(data: FormData): Promise<Quotatio
     if (line.type === "MATERIAL" && !material) return { ok: false, error: `A(z) ${index + 1}. anyagtételhez érvényes katalógusváltozat szükséges.` };
     const takeoff = line.takeoffItemId ? await loadTakeoffSnapshot(supabase, organizationId, projectId, line.takeoffItemId) : null;
     if (line.takeoffItemId && !takeoff) return { ok: false, error: `A(z) ${index + 1}. forrás csak jóváhagyott, azonos projekthez tartozó kimutatásból importálható.` };
+    if (line.takeoffSourceItemIds?.length && line.type !== "MATERIAL") return { ok: false, error: "Kimutatási forrás csak anyagtételhez kapcsolható." };
+    const takeoffSources = line.takeoffSourceItemIds?.length ? await loadAggregateTakeoffSources(supabase, organizationId, projectId, line) : [];
+    if (line.takeoffSourceItemIds?.length && (!takeoffSources || takeoffSources.length !== line.takeoffSourceItemIds.length)) return { ok: false, error: `A(z) ${index + 1}. összevont forrás nem ellenőrizhető vagy nem egyezik a mennyiséggel.` };
     const total = lineTotal(line.quantity, line.unitPrice);
-    lineSnapshots.push({ ...line, quantity: line.quantity.replace(",", "."), unitPrice: line.unitPrice.replace(",", "."), lineTotal: scaledToDecimal(total.minor, 2), materialSnapshot: material, takeoffSnapshot: takeoff });
+    lineSnapshots.push({ ...line, quantity: line.quantity.replace(",", "."), unitPrice: line.unitPrice.replace(",", "."), lineTotal: scaledToDecimal(total.minor, 2), materialSnapshot: material, takeoffSnapshot: takeoff, takeoffSourceSnapshots: takeoffSources });
   }
   const subtotal = sumMoney(lineSnapshots.map((line) => lineTotal(String(line.quantity), String(line.unitPrice))));
   const [projectResponse, clientResponse] = await Promise.all([
@@ -51,7 +59,8 @@ export async function saveQuotationDraftAction(data: FormData): Promise<Quotatio
   const categorySubtotal = (type: QuotationLine["type"]) => scaledToDecimal(sumMoney(lineSnapshots.filter((line) => line.type === type).map((line) => lineTotal(String(line.quantity), String(line.unitPrice)))).minor, 2);
   const totalsSnapshot = { priceClass: [...priceClasses][0] ?? null, subtotal: scaledToDecimal(subtotal.minor, 2), materialSubtotal: categorySubtotal("MATERIAL"), laborSubtotal: categorySubtotal("LABOR"), otherSubtotal: categorySubtotal("OTHER"), currency: "HUF", complete: draft.lines.every((line) => line.unitPrice !== "") };
   const snapshot = { name: draft.name, clientId: draft.clientId || null, currency: "HUF", priceClass: [...priceClasses][0] ?? null, lines: lineSnapshots, documentSnapshot, precision: { quantityScale: 6, moneyScale: 2, rounding: "half_up" } };
-  const { data: result, error } = await db.rpc("save_quotation_draft", { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: quotationId, p_name: draft.name, p_client_id: draft.clientId || null, p_currency: "HUF", p_input_snapshot: snapshot, p_line_items_snapshot: lineSnapshots, p_totals_snapshot: totalsSnapshot, p_subtotal: scaledToDecimal(subtotal.minor, 2), p_expected_version: currentVersion });
+  const rpcArgs = { p_organization_id: organizationId, p_project_id: projectId, p_quotation_id: quotationId, p_name: draft.name, p_client_id: draft.clientId || null, p_currency: "HUF", p_input_snapshot: snapshot, p_line_items_snapshot: lineSnapshots, p_totals_snapshot: totalsSnapshot, p_subtotal: scaledToDecimal(subtotal.minor, 2), p_expected_version: currentVersion };
+  const { data: result, error } = await db.rpc("save_quotation_draft", operationId && !quotationId ? { ...rpcArgs, p_operation_id: operationId } : rpcArgs);
   if (error || !result?.[0]) return { ok: false, error: userFacingActionError(error, "Az ajánlat mentése nem sikerült.") };
   revalidatePath(`/projektek/${projectId}/ajanlatok`);
   return { ok: true, quotationId: result[0].quotation_id };
@@ -130,4 +139,31 @@ async function loadMaterialSnapshot(supabase: Awaited<ReturnType<typeof createCl
 async function loadTakeoffSnapshot(supabase: Awaited<ReturnType<typeof createClient>>, organizationId: string, projectId: string, itemId: string) {
   const { data } = await supabase.from("material_takeoff_items").select("id, takeoff_id, final_quantity, quantity_unit, material_snapshot, price_snapshot, material_takeoffs!inner(project_id, status)").eq("id", itemId).eq("organization_id", organizationId).eq("material_takeoffs.project_id", projectId).eq("material_takeoffs.status", "approved").maybeSingle();
   return data ? { id: data.id, takeoffId: data.takeoff_id, quantity: String(data.final_quantity), unit: data.quantity_unit, materialSnapshot: data.material_snapshot, priceSnapshot: data.price_snapshot } : null;
+}
+
+async function loadAggregateTakeoffSources(supabase: Awaited<ReturnType<typeof createClient>>, organizationId: string, projectId: string, line: QuotationLine) {
+  const ids = line.takeoffSourceItemIds ?? [];
+  const { data: items, error: itemError } = await supabase.from("material_takeoff_items").select("id, takeoff_id, variant_id, final_quantity, quantity_unit, material_snapshot, price_snapshot").eq("organization_id", organizationId).in("id", ids);
+  if (itemError || !items || items.length !== ids.length) return null;
+  const takeoffIds = [...new Set(items.map((item) => item.takeoff_id))];
+  const { data: takeoffs, error: takeoffError } = await supabase.from("material_takeoffs").select("id, name, version, source_calculation_id, source_calculation_revision_id, status, project_id").eq("organization_id", organizationId).eq("project_id", projectId).eq("status", "approved").in("id", takeoffIds);
+  if (takeoffError || !takeoffs || takeoffs.length !== takeoffIds.length) return null;
+  let quantity = BigInt(0);
+  const snapshots = [];
+  const orderedItems = ids.map((id) => items.find((item) => item.id === id)).filter((item): item is NonNullable<typeof item> => Boolean(item));
+  for (const item of orderedItems) {
+    const takeoff = takeoffs.find((candidate) => candidate.id === item.takeoff_id);
+    if (!takeoff || item.variant_id !== line.variantId || item.quantity_unit !== line.unit) return null;
+    const parsed = decimalMicros(String(item.final_quantity));
+    if (parsed === null) return null;
+    quantity += parsed;
+    snapshots.push({ itemId: item.id, takeoffId: takeoff.id, takeoffName: takeoff.name, takeoffVersion: takeoff.version, calculationId: takeoff.source_calculation_id, calculationRevisionId: takeoff.source_calculation_revision_id, quantity: String(item.final_quantity), unit: item.quantity_unit, materialSnapshot: item.material_snapshot, priceSnapshot: item.price_snapshot });
+  }
+  return decimalMicros(line.quantity) === quantity ? snapshots : null;
+}
+
+function decimalMicros(value: string): bigint | null {
+  const match = /^(\d+)(?:[.,](\d{1,6}))?$/.exec(value.trim());
+  if (!match) return null;
+  return BigInt(match[1]) * BigInt(1_000_000) + BigInt((match[2] ?? "").padEnd(6, "0"));
 }

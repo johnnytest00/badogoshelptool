@@ -7,7 +7,7 @@ import { getProjectForOrganization, getProjectsForOrganization } from "@/feature
 import { getFieldSurvey, getFieldSurveyRevision, getFieldSurveyRevisionVersions } from "@/features/field-surveys/field-survey-data";
 import { FieldSurveyEditor } from "@/features/field-surveys/field-survey-editor";
 
-export default async function FieldSurveyPage({ params, searchParams }: Readonly<{ params: Promise<{ surveyId: string }>; searchParams: Promise<{ organization?: string; version?: string }> }>) {
+export default async function FieldSurveyPage({ params, searchParams }: Readonly<{ params: Promise<{ surveyId: string }>; searchParams: Promise<{ organization?: string; version?: string; section?: string }> }>) {
   const { surveyId } = await params;
   const query = await searchParams;
   const selected = await getProjectOrganization(query.organization);
@@ -30,7 +30,7 @@ export default async function FieldSurveyPage({ params, searchParams }: Readonly
   const relationships = await getSurveyRelationships(organizationId, surveyId);
   const projectOptions = projects.map(({ id, name }) => ({ id, name }));
   if (linkedProject && !projectOptions.some((project) => project.id === linkedProject.id)) projectOptions.unshift({ id: linkedProject.id, name: linkedProject.name });
-  return <main className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} relationships={relationships} survey={survey} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
+  return <main className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} relationships={relationships} survey={survey} initialSectionId={query.section} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
 }
 
 function NotFound({ organizationId }: Readonly<{ organizationId: string }>) {

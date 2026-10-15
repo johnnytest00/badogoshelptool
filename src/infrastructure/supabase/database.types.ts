@@ -764,14 +764,14 @@ isOneToOne: false
                   ]
                 },"quotations": {
                   Row: {
-                    "client_id": string | null,"created_at": string,"created_by": string,"currency": string,"current_revision_id": string | null,"finalized_at": string | null,"finalized_by": string | null,"finalized_revision_id": string | null,"id": string,"name": string,"organization_id": string,"ownership_scope": "project" | "standalone","project_id": string | null,"status": Database["public"]['Enums']["quotation_status"],"updated_at": string,"version": number
+                    "client_id": string | null,"created_at": string,"created_by": string,"creation_operation_id": string | null,"currency": string,"current_revision_id": string | null,"finalized_at": string | null,"finalized_by": string | null,"finalized_revision_id": string | null,"id": string,"name": string,"organization_id": string,"ownership_scope": "project" | "standalone","project_id": string | null,"status": Database["public"]['Enums']["quotation_status"],"updated_at": string,"version": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "client_id"?: string | null,"created_at"?: string,"created_by": string,"currency"?: string,"current_revision_id"?: string | null,"finalized_at"?: string | null,"finalized_by"?: string | null,"finalized_revision_id"?: string | null,"id"?: string,"name": string,"organization_id": string,"ownership_scope"?: "project" | "standalone","project_id"?: string | null,"status"?: Database["public"]['Enums']["quotation_status"],"updated_at"?: string,"version"?: number
+                    "client_id"?: string | null,"created_at"?: string,"created_by": string,"creation_operation_id"?: string | null,"currency"?: string,"current_revision_id"?: string | null,"finalized_at"?: string | null,"finalized_by"?: string | null,"finalized_revision_id"?: string | null,"id"?: string,"name": string,"organization_id": string,"ownership_scope"?: "project" | "standalone","project_id"?: string | null,"status"?: Database["public"]['Enums']["quotation_status"],"updated_at"?: string,"version"?: number
                   }
                   Update: {
-                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string,"currency"?: string,"current_revision_id"?: string | null,"finalized_at"?: string | null,"finalized_by"?: string | null,"finalized_revision_id"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"ownership_scope"?: "project" | "standalone","project_id"?: string | null,"status"?: Database["public"]['Enums']["quotation_status"],"updated_at"?: string,"version"?: number
+                    "client_id"?: string | null,"created_at"?: string,"created_by"?: string,"creation_operation_id"?: string | null,"currency"?: string,"current_revision_id"?: string | null,"finalized_at"?: string | null,"finalized_by"?: string | null,"finalized_revision_id"?: string | null,"id"?: string,"name"?: string,"organization_id"?: string,"ownership_scope"?: "project" | "standalone","project_id"?: string | null,"status"?: Database["public"]['Enums']["quotation_status"],"updated_at"?: string,"version"?: number
                   }
                   Relationships: [
                     {
@@ -1006,7 +1006,7 @@ isOneToOne: false
                            },
 "save_standalone_quotation_draft_with_document": { Args: { "p_client_id": string | null,"p_document": Json,"p_expected_version": number,"p_lines": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_quotation_id": string | null }; Returns: { "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number,"totals_snapshot": Json }[] },
 "save_quotation_draft":
-{ Args: { "p_client_id": string,"p_currency": string,"p_expected_version": number,"p_input_snapshot": Json,"p_line_items_snapshot": Json,"p_name": string,"p_organization_id": string,"p_project_id": string,"p_quotation_id": string,"p_subtotal": number,"p_totals_snapshot": Json }; Returns: {
+{ Args: { "p_client_id": string | null,"p_currency": string,"p_expected_version": number,"p_input_snapshot": Json,"p_line_items_snapshot": Json,"p_name": string,"p_operation_id"?: string,"p_organization_id": string,"p_project_id": string,"p_quotation_id": string | null,"p_subtotal": number,"p_totals_snapshot": Json }; Returns: {
               "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number
             }[]
                            },

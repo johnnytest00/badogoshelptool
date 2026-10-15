@@ -1354,3 +1354,62 @@ megmaradtak. Hosted módosítás, reset, commit, push, deploy nem történt;
 Következő ajánlás: fizikai iPhone/iPad helyszíni próba JPEG-feltöltéssel,
 megszakított hálózattal és a két fedési kalkulátor felhasználói elfogadásával.
 Javasolt commit: `feat(F9.7.9): unify field survey workspace`.
+
+## F9.7.10 — valós helyszíni munkafolyamat és mobil UX
+
+Állapot: **COMPLETE (LOCAL WORKFLOW HARDENING)**; fizikai iPhone/iPad elfogadás külön **UNVERIFIED**.
+
+Hitelesített, helyi Brave production workflow: fiktív **DEMO** tetőfelújítás; tető 10×6 m és 4 m emelkedés, eresz 8,5 m/4000 mm-es választott szál, szegély 10 m, privát DEMO PNG. A tetőkalkulátor a hiányzó három túlnyúlást jelezte; eredményt nem találtunk ki. A helybeni ereszbecslés 3 szálat adott; a szegélybecslésnél a 2000 mm kézi DEMO szálhossz mellett ismeretlen toldási kapcsolat miatt darabszám nélkül, figyelmeztetéssel mentettünk. Mindkét számítás újranyílt. Az összesítőből projekt és üres, ár nélküli projektajánlat-piszkozat jött létre, újranyílt, majd frissítés után is megmaradt. A tető 11 m-es V4 módosítása után a számítások és followupok változatlanul a pontos V3 forráshoz kötődtek. SQL-visszaolvasás: felmérés `185aa689-134e-4852-988b-3a7a67abe5c6`, V3 revízió `d79571ee-2ca2-4d68-9d9b-22853baefdca`; eresz `a867e8dd-0fd3-4d6e-99b5-1e8f02e8bb14`, szegély `e64a4ff1-fd6f-49ae-89e3-3452f472c9dc`; projekt `4f56501f-a8ba-432e-9b8e-e4369fe6165c`, ajánlat `23617226-2c02-47d5-ad9d-d365f1ae6d14`, 0 tétel és `subtotal=null`. Ismételt létrehozási kattintás után is 1 projekt/1 ajánlat maradt.
+
+Megfigyelt és javított UX: a szegélysablon első, irreleváns üres szélességmérése helyett a szakaszhossz indul; az új szakasz egy kattintással felvehető, a mérésérték előtérben, a ritka beállítások csukva. Az üres opcionális kalkulátorrészek nem fedik el a fő bemenetet. A fotó feltöltés után automatikusan az aktív szakaszhoz jelölődik, külön mentési CTA mutatja a tényleges kapcsolási lépést, és a kis fájl mérete olvasható. Az összesítő közvetlen újranyitást ad, az exact forrásazonosítók részletekben maradnak, elkészült projekt/ajánlat esetén nincs ismételt létrehozási választó. Reprodukált első mentés utáni tetőre ugrás: a `section` URL-paraméter javításával a szegély aktív maradt az új DEMO V1 mentés és reload után. Reprodukált V1 utáni nem mentett draftvesztés: a recovery kulcs most a tényleges mentett survey ID-hoz kötődik; böngészős reload után a 11 m visszaállítható volt.
+
+Meglévő survey/fotó/immutable revision, kalkulátormotorok, projekt/ajánlat actionök, RLS és idempotencia újrahasznosítva; DB-séma és backend szerződés nem változott. Az új DEMO szegély-felmérés `872e7a5e-fbdd-4e9e-a571-9f2c9274752a` V1→V3 útján a fotófeltöltés V2-je után a kapcsolási CTA V3-at mentett; reload a szegélyt és 1 fotót mutatott. A nem mentett kalkulátor bezárása figyelmeztetett. Mobil Brave-emuláció: iPhone SE 375×667, iPad Mini portré 768×1024 és tájkép 1024×768, asztali 932 px; oldalszélesség = viewport. Az iPhone SVG 720 px-es rajza 267 px-es saját görgetőben maradt. Érintő célok és mentés/fotófeltöltés iPhone-on 52–53 px; összesítő és kapcsolt akciók láthatók. Ez Chromium-emuláció, nem fizikai Safari.
+
+Fókuszált Vitest 10 fájl/44 PASS, lint, production build, külön typecheck és diff-check PASS; pontos parancsok a TEST_MATRIX-ban. Auth/RLS/konkurencia szerződés változatlan, ezért a F9.7.9 bizonyítékát hivatkozzuk, nem nevezzük új futásnak. Brave offline mód mellett egy fotó POST-ja hálózati hibával megszakadt, a kép sorban maradt és az újrapróbálás gomb megjelent. Visszakapcsolt hálózaton a retry egyetlen új JPEG-et töltött fel (V4), a kapcsolási CTA V5-öt mentett; reload után a szegély és mindkét kép megmaradt. A nyers angol `Failed to fetch` helyett magyar, teendőt jelző hibaüzenet jelent meg a friss production build külön böngészős offline próbájában is; a várakozó kép elvetése után figyelmeztetés nélküli reload megőrizte V5-öt. Fizikai billentyűzet/kamera és helyszíni elfogadás nyitott.
+
+Fizikai iPhone/iPad checklist: Safari portré/tájkép navigáció és érintőcélok; magyar tizedesvessző és numerikus billentyűzet fel-le; kamera JPEG feltöltés, kapcsolás és reload; mobiladat-megszakítás/újrapróbálás; SVG vízszintes görgetés, sticky mentés; összesítőből projekt/ajánlat és mentett számítás újranyitása. Hosted változtatás, reset, commit, push, deploy nem történt; `.DS_Store` érintetlen. Javasolt commit: `fix(F9.7.10): harden mobile field survey workflow`.
+
+## F9.8 — anyagkimutatás és ajánlat-előkészítés
+
+Állapot: **COMPLETE (LOCAL WORKFLOW HARDENING)**. A kijelölt, jóváhagyott
+anyagkimutatások kompatibilis tételei pontos decimális összegzéssel kerülnek
+a meglévő ajánlatpiszkozatba. Méret, termékváltozat, egység vagy specifikáció
+eltérése külön sort tart; ismétlődő forrástétel nem dupláz. Az ár eredetét,
+hiányát vagy keveredését a felület jelzi; hiányzó árhoz nem készül összeg.
+Revízió- és forrás-snapshot változatlanul visszakövethető. Szerveroldali
+ellenőrzés érvényesíti a jóváhagyást, projektet, mennyiséget és forrásokat.
+Az ajánlatlétrehozás műveletkulcsa idempotens; azonos kulcsú eltérő tartalom
+konfliktus.
+
+Hitelesített helyi DEMO workflow: jóváhagyott Anyagkimutatás V2 két
+forrástételéből 171,875 + 2,5 = 174,375 m²; a snapshotban szereplő
+15 000 HUF/m² nettó ár változatlanul került át. Az egysoros projekt-DRAFT
+2 615 625 HUF nettó összeggel mentés után frissítést és újranyitást is túlélt.
+SQL-visszaolvasás: ajánlat `e02eccb3-1813-4058-b7ca-dc6db2f6f0da`, `draft`,
+1. revízió; az azonos műveletkulcs megismétlése után is 1 ajánlat/1 revízió.
+Mindkét forrástétel és a pontos kalkulációs revízió megmaradt. A régi
+forrásrevizió stale állapota látható.
+
+Javított súrlódás: korábbi snapshotmezők miatt a termék és változat
+„ismeretlenként” jelent meg; a read model most a DEMO katalógusból olvasható
+címkét ad, de az eredeti snapshot marad a bizonyító forrás. Az ajánlati
+mértékegység magyar feliratot kapott, a forrás részletekben nyitható, az üres
+ár nem jelenik meg nullaként, hiányzó kötelező árnál a mentés tiltott.
+Kis nézetben egyoszlopos beviteli űrlap és könnyen elérhető mentés jelenik
+meg; klienszár és DB-műveletkulcs védi az ismételt küldést.
+
+Automatizált bizonyíték: teljes Vitest 87 fájl/334 PASS, 18 SKIP; fókuszált
+aggregáció 5/5; helyi pgTAP `027` 15/15 (összeg, forrás, retry, konfliktus,
+jogosultság, immutabilitás); typecheck, lint, production build és diff-check
+PASS. Adatbázis-reset nem történt.
+
+Hitelesített Brave-emuláció: iPhone 16 393×852, iPad Mini portré 768×1024 és
+tájkép 1024×768, valamint desktop; a nézetek használhatók, vízszintes
+oldaltúlcsordulás nélkül. Frissítés utáni ajánlatnyitás működött. Ez
+Chromium-emuláció, nem fizikai eszközteszt. Fizikai checklist: Safari
+portré/tájkép és billentyűzet; numerikus mezők/tizedesbevitel; kamera JPEG;
+megszakított mobilhálózat és újrapróbálás; forrás, számítás és ajánlat
+újranyitása. Fizikai iPhone/iPad: **UNVERIFIED**. Hosted DB és offline sync
+nem tesztelt. Hosted változás, reset, commit, push, deploy nem történt.
+`.DS_Store` érintetlen. Javasolt commit:
+`feat(F9.8): prepare takeoff materials for quotation drafts`.

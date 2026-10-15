@@ -34,5 +34,6 @@ describe("field survey contracts", () => {
     expect(fieldSurveyInputSchema.safeParse({ ...valid, projectId: null, notes: null }).success).toBe(true);
     expect(fieldSurveyTemplates.gutter.map(({ label }) => label)).toContain("Ereszszakasz hossza");
     expect(fieldSurveyTemplates.flashing.map(({ label }) => label)).toContain("Kiterített szélesség");
+    expect(fieldSurveyTemplates.flashing[0].semanticType).toBe("flashing_run_length");
   });
 });

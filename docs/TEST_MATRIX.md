@@ -1180,3 +1180,35 @@ Böngészős rekordbizonyíték, külön helyi SQL-visszaolvasással:
 Állapot: **COMPLETE (UNIFIED SURVEY WORKSPACE, LOCAL)**. Az ismert
 környezet-/opcionális határok fent külön szerepelnek; ezek nem hosted vagy
 fizikai eszközös elfogadás állításai.
+
+## F9.7.10 — helyszíni munkafolyamat és mobil használhatóság
+
+| Ellenőrzés | Állapot | Tényleges bizonyíték / korlát |
+|---|---|---|
+| Teljes DEMO munka | BROWSER VERIFIED | Helyi, hitelesített Brave: 3 munkaszakasz, mérések, privát PNG, helybeni tető/eresz/szegély kalkulátor, 2 mentett és újranyitott számítás, összesítő, projekt és üres projekt-DRAFT, frissítés utáni újranyitás. Tető hiányzó túlnyúlás, szegély ismeretlen toldás → nincs kitalált eredmény. |
+| Adat/revízió | SQL VERIFIED | Survey `185aa689-134e-4852-988b-3a7a67abe5c6` V4, 3 szakasz, 1 fotó, 2 számítás. V3 revision `d79571ee-2ca2-4d68-9d9b-22853baefdca` a 2 calc és az 1 projekt/1 ajánlat pontos forrása; V4 tetőhossz 11 m, számítás V3 maradt. Quote 0 sor, `subtotal=null`; dupla kattintás után is egy followup-pár. |
+| Reprodukált javítások | IMPLEMENTED + BROWSER VERIFIED | Első mentés után az aktív szegély korábban tetőre váltott → `section` URL-paraméter; új DEMO survey V1 és reload után szegély maradt. V1 utáni draft kulcsa `new` maradt → mentett survey ID alapú recovery; 11 m reload után explicit visszaállítás és V4 mentés. Fotó korábban kézi listakeresést/kapcsolást kívánt → automatikus kijelölés és kapcsolási CTA; új DEMO V1→V2 feltöltés→V3 társítás, reload után 1 fotó. |
+| Fókuszált UX | IMPLEMENTED + BROWSER VERIFIED | Egykattintásos szakaszfelvétel; szegély első mérés szakaszhossz; mért érték elsődleges, részletek csukva; üres opcionális eresz/szegély panelek csukva; összesítőből direkt calc-link; elkészült followupnál újralétrehozó opciók eltűnnek. Meglévő motor és action maradt. |
+| Mobil emuláció | BROWSER VERIFIED | Brave DevTools: iPhone SE 375×667, iPad Mini 768×1024 és 1024×768, asztali 932 px. A dokumentum scrollWidth mindenhol a viewport szélessége. iPhone mérések és fotófeltöltés 52–53 px magas, összesítő 306 px széles; szegély SVG 720 px a 267 px-es saját vízszintes görgetőben. |
+| Megbízhatóság | BROWSER VERIFIED + KORÁBBI INTEGRÁCIÓ | Mentetlen survey reload-figyelmeztetés és visszaállítás, mentetlen kalkulátor bezárási figyelmeztetés, szakaszváltás, refresh, kapcsolt számítások újranyitása, duplikált followup és V3→V4 forrástartás böngészőben/SQL-ben. Brave offline mód: POST `ERR_INTERNET_DISCONNECTED`, egy kép a sorban maradt, „Feltöltés újrapróbálása” látható. Online retry egyetlen JPEG-et feltöltött (új DEMO survey V4), kapcsolási CTA V5-öt mentett; reload után 2 fotó és aktív szegély. A friss production build külön offline próbájában magyar hibaüzenet jelent meg; elvetés után a sor kiürült és figyelmeztetés nélküli reload V5-öt tartotta. Részleges ajánlatlétrehozás F9.7.9 opt-in integrációs bizonyítéka változatlan szerződésre vonatkozik. |
+| Automatizált regresszió | AUTOMATED VERIFIED | `npx vitest run src/domain/field-surveys src/features/field-surveys src/features/gutters/gutter-calculator-ux.test.ts src/features/flashings/calculator-ux.test.ts`: 10 fájl/44 PASS, 1 opt-in fájl/3 teszt kihagyva. Ez célzott regresszió, nem teljes repóteszt. |
+| Típus/lint/build/diff | AUTOMATED VERIFIED | `npm run lint`, `npm run build` (Next 16.4 webpack), utána külön `npm run typecheck`, `git diff --check`: mind PASS. |
+| DB-jogosultság és konkurencia | NEM FUTOTT ÚJRA | Nincs schema/action/RLS/konkurencia-contract változás. F9.7.9: 41/41 új pgTAP, 223 DB regresszió, 3/3 helyi Auth integráció és 5 lock-contention eset tényleges korábbi bizonyíték. |
+| Fizikai iPhone/iPad és Safari | PHYSICAL DEVICE UNVERIFIED | Ellenőrzendő: érintő navigáció és portré/tájkép; magyar numerikus billentyűzet/tizedesvessző; JPEG kamera és HEIC útmutatás; mobiladat megszakítás + retry; fotókapcsolás és reload; SVG görgetés; kalkulátor/projekt/ajánlat megnyitás. Hosted környezet, offline sync sem tesztelt. |
+
+Helyi DEMO rekordok megmaradtak; reset/hosted/commit/push/deploy nem történt.
+
+## F9.8 — anyagkimutatás → ajánlatpiszkozat
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Hitelesített helyi böngészős workflow | BROWSER VERIFIED | DEMO projekt → jóváhagyott Anyagkimutatás V2 → két forrás kiválasztása → kompatibilis anyagcsoport 171,875 + 2,5 = 174,375 m² → a meglévő 15 000 HUF/m² nettó forrásár átvétele → meglévő ajánlatszerkesztő mentése → lista frissítése → piszkozat újranyitása. Egyedi árat nem találtunk ki. |
+| Adat és forrásrevízió | BROWSER + SQL VERIFIED | Ajánlat `e02eccb3-1813-4058-b7ca-dc6db2f6f0da`, `draft`, creation operation `daeb25c4-aae0-4c3d-b119-ce54d8044e5f`, pontosan 1 revízió; a revision JSON két eredeti anyagtételt, mennyiséget és calc source revisiont őriz. Azonos műveletkulcs böngészős újrapróbálása után is 1 ajánlat / 1 revízió. Net amount: 2 615 625 HUF, 1 ajánlati sor. Forrás stale volt, a UI ezt mutatta. |
+| Új aggregációs Vitest | AUTOMATED VERIFIED | `npx vitest run src/domain/material-takeoffs/aggregation.test.ts`: 1 fájl / 5 PASS. Exact mértékegység-összegzés, inkompatibilis attribútumok szétválasztása, duplikált/tiltott forrás, hiányzó vagy eltérő ár és pontossági esetek. |
+| Teljes Vitest | AUTOMATED VERIFIED | `npm test`: 87 fájl PASS, 5 SKIP; 334 teszt PASS, 18 SKIP. |
+| DB/RLS/idempotencia szerződés | AUTOMATED VERIFIED | `SUPABASE_TELEMETRY_DISABLED=1 npx supabase test db supabase/tests/database/027_material_quote_preparation.sql`: helyi pgTAP 15/15 PASS. Jogosultság, exact mennyiség, source/revision snapshot, azonos operation-id retry, eltérő payload konfliktus, duplikált sor és immutabilitás. Helyi DEMO adat megmaradt, reset nem futott. |
+| Typecheck/lint/build/diff | AUTOMATED VERIFIED | `npm run typecheck`, `npm run lint`, `npm run build` (Next 16.4.0 webpack), `git diff --check`: PASS. Build közben párhuzamos typecheck elsőre `.next/types` fájlversenybe futott; build befejezése után külön typecheck PASS. |
+| Mobil nézetemuláció | BROWSER VERIFIED | Hitelesített Brave DevTools: iPhone 16 393×852, iPad Mini 768×1024 és 1024×768, Desktop. Egyoszlopos ajánlatsor, magyar egység, összeg, mentés/újranyitás; vízszintes viewport overflow nem látszott. Böngésző emuláció, nem Safari. |
+| Fizikai mobil | UNVERIFIED | Fizikai iPhone/iPad és Safari nincs tesztelve. Kézi elfogadás: Safari portrait/landscape, numerikus billentyűzet és tizedes, fotóválasztó/kamera JPEG, hálózati megszakítás és retry, forrás/kalkuláció/ajánlat újranyitás. |
+
+Nem futott: hosted DB, teljes Safari, offline sync, fizikai iPhone/iPad. Nem történt hosted módosítás, reset, commit, push vagy deploy.

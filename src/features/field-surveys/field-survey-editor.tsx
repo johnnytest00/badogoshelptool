@@ -20,14 +20,15 @@ const draftSections = (sections: SurveySection[]): SectionDraft[] => sections.ma
 const initialSections = (survey?: FieldSurveyRecord | null): SectionDraft[] => survey ? draftSections(surveySections(survey)) : [{ id: "00000000-0000-4000-8000-000000000002", name: "Tető", workType: "roof", notes: "", photoIds: [], measurements: [emptyMeasurement("roof", "00000000-0000-4000-8000-000000000001")] }];
 const serialize = (sections: SectionDraft[]): SurveySection[] => sections.map((section) => ({ ...section, measurements: section.measurements.map((measurement) => ({ ...measurement, value: measurement.value.trim() === "" ? null : Number(measurement.value.trim().replace(",", ".")) })) }));
 
-export function FieldSurveyEditor({ organizationId, userId, projects, survey, initialProjectId = null, revisionVersions = [], historicalRevision = null, relationships = { calculations: [], followups: [] } }: Readonly<{
+export function FieldSurveyEditor({ organizationId, userId, projects, survey, initialProjectId = null, initialSectionId = null, revisionVersions = [], historicalRevision = null, relationships = { calculations: [], followups: [] } }: Readonly<{
   organizationId: string; userId?: string; projects: readonly { id: string; name: string }[]; survey?: FieldSurveyRecord | null; initialProjectId?: string | null;
+  initialSectionId?: string | null;
   revisionVersions?: readonly number[]; historicalRevision?: FieldSurveyRevisionRecord | null;
   relationships?: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[] };
 }>) {
   const router = useRouter();
   const [sections, setSections] = useState(() => initialSections(survey));
-  const [activeId, setActiveId] = useState(() => initialSections(survey)[0].id);
+  const [activeId, setActiveId] = useState(() => initialSections(survey).find((section) => section.id === initialSectionId)?.id ?? initialSections(survey)[0].id);
   const [projectId, setProjectId] = useState(survey?.projectId ?? initialProjectId ?? "");
   const [version, setVersion] = useState(survey?.version ?? 0);
   const [surveyId, setSurveyId] = useState<string | null>(survey?.id ?? null);
@@ -40,6 +41,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   const [summary, setSummary] = useState(false);
   const [photoState, setPhotoState] = useState({ busy: false, queued: false });
   const [photos, setPhotos] = useState<{ id: string; filename: string }[]>([]);
+  const [photoAssociationPending, setPhotoAssociationPending] = useState(false);
   const [calculatorState, setCalculatorState] = useState({ dirty: false, pending: false });
   const [calculator, setCalculator] = useState<{ sectionId: string; version: number; context: Awaited<ReturnType<typeof loadSurveyCalculator>> } | null>(null);
   const saveLock = useRef(false);
@@ -58,7 +60,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
       return JSON.stringify(cleaned) === JSON.stringify(current) ? current : cleaned;
     });
   }, []);
-  const recoveryKey = userId ? `tetopro-survey:${userId}:${organizationId}:${survey?.id ?? "new"}` : null;
+  const recoveryKey = userId ? `tetopro-survey:${userId}:${organizationId}:${surveyId ?? "new"}` : null;
   const [recovery, setRecovery] = useState<{ sections: SectionDraft[]; projectId: string; version: number } | null>(null);
   const recoveryChecked = useRef(false);
   const [recoveryReady, setRecoveryReady] = useState(false);
@@ -109,6 +111,11 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   function addMeasurement(template = fieldSurveyTemplates[active.workType].find((candidate) => !active.measurements.some((measurement) => measurement.semanticType === candidate.semanticType)) ?? { label: "Egyedi mérés", unit: "mm" as const, semanticType: "custom" as const }) {
     patchSection({ measurements: [...active.measurements, { ...template, id: crypto.randomUUID(), value: "" }] });
   }
+  function associateUploadedPhoto(photoId: string) {
+    setSections((current) => current.map((section) => section.id === activeId && !section.photoIds.includes(photoId) ? { ...section, photoIds: [...section.photoIds, photoId] } : section));
+    setPhotoAssociationPending(true);
+    setSummary(false);
+  }
   async function persistCurrent() {
     if (saveLock.current) return null;
     saveLock.current = true; setSaving(true); setError("");
@@ -122,8 +129,8 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
       const result = await saveFieldSurveyAction(data);
       if (!result.ok || !result.surveyId || !result.version) { setError(result.error ?? "A mentés nem sikerült."); return null; }
       if (recoveryKey) { try { sessionStorage.removeItem(recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } }
-      setWorkspacePersisted(true); setBaseline(fingerprint); setSurveyId(result.surveyId); setVersion(result.version);
-      if (!surveyId) { window.history.replaceState(null, "", `/felmeresek/${result.surveyId}?organization=${organizationId}`); }
+      setWorkspacePersisted(true); setBaseline(fingerprint); setSurveyId(result.surveyId); setVersion(result.version); setPhotoAssociationPending(false);
+      if (!surveyId) { window.history.replaceState(null, "", `/felmeresek/${result.surveyId}?organization=${organizationId}&section=${active.id}`); }
       return { surveyId: result.surveyId, version: result.version };
     } catch { setError("A mentés válasza bizonytalan. Azonos adatokkal biztonságosan újrapróbálható."); return null; }
     finally { saveLock.current = false; setSaving(false); }
@@ -153,31 +160,29 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     <nav className="survey-section-tabs" aria-label="Munkaszakaszok">{sections.map((section) => <button className={active.id === section.id ? "primary-button" : "secondary-button"} type="button" key={section.id} aria-pressed={active.id === section.id} disabled={Boolean(calculator) || blocked || Boolean(recovery)} onClick={() => setActiveId(section.id)}>{section.name} · {section.measurements.filter((measurement) => measurement.value !== "").length} mérés</button>)}</nav>
     <form className="field-survey-form" noValidate onSubmit={(event) => { event.preventDefault(); if (!blocked) void persistCurrent(); }}>
       <fieldset disabled={blocked || Boolean(calculator) || Boolean(recovery)}>
-        <div className="field-survey-section-heading"><h2>Munkaszakasz</h2><details><summary>Munkaszakasz hozzáadása</summary>{Object.entries(fieldSurveyWorkTypeLabels).map(([key, label]) => <button type="button" className="secondary-button" key={key} onClick={() => addSection(key as FieldSurveyWorkType)}><Plus aria-hidden="true" className="size-4" />{label}</button>)}</details></div>
-        <label className="field-survey-field"><span>Munkaszakasz neve</span><input value={active.name} maxLength={120} onChange={(event) => patchSection({ name: event.target.value })} /></label>
-        <label className="field-survey-field"><span>Munkatípus</span><select value={active.workType} onChange={(event) => changeType(event.target.value as FieldSurveyWorkType)}>{Object.entries(fieldSurveyWorkTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <details><summary>Munkaszakasz rendezése / eltávolítása</summary><button type="button" className="secondary-button" disabled={sections[0].id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setSections(next); }}>Előrébb</button><button type="button" className="secondary-button" disabled={sections.at(-1)?.id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index], next[index + 1]] = [next[index + 1], next[index]]; setSections(next); }}>Hátrébb</button><button type="button" className="secondary-button" disabled={sections.length === 1} onClick={() => { if (!window.confirm("Eltávolítod ezt a munkaszakaszt? A mentett történeti változatok, fotók és számításkapcsolatok megmaradnak.")) return; const next = sections.filter((section) => section.id !== active.id); setSections(next); setActiveId(next[0].id); }}>Munkaszakasz eltávolítása</button></details>
+        <div className="field-survey-section-heading"><h2>Munkaszakasz: {active.name}</h2></div>
+        <div className="survey-section-add" aria-label="Munkaszakasz hozzáadása">{(["roof", "gutter", "flashing"] as const).map((type) => <button type="button" className="secondary-button" key={type} onClick={() => addSection(type)}><Plus aria-hidden="true" className="size-4" />{fieldSurveyWorkTypeLabels[type]}</button>)}<details><summary>Egyéb szakasz</summary><button type="button" className="secondary-button" onClick={() => addSection("other")}>Egyéb hozzáadása</button></details></div>
+        <details className="survey-section-settings"><summary>Név, munkatípus és sorrend</summary><label className="field-survey-field"><span>Munkaszakasz neve</span><input value={active.name} maxLength={120} onChange={(event) => patchSection({ name: event.target.value })} /></label><label className="field-survey-field"><span>Munkatípus</span><select value={active.workType} onChange={(event) => changeType(event.target.value as FieldSurveyWorkType)}>{Object.entries(fieldSurveyWorkTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><div className="survey-section-settings-actions"><button type="button" className="secondary-button" disabled={sections[0].id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setSections(next); }}>Előrébb</button><button type="button" className="secondary-button" disabled={sections.at(-1)?.id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index], next[index + 1]] = [next[index + 1], next[index]]; setSections(next); }}>Hátrébb</button><button type="button" className="secondary-button" disabled={sections.length === 1} onClick={() => { if (!window.confirm("Eltávolítod ezt a munkaszakaszt? A mentett történeti változatok, fotók és számításkapcsolatok megmaradnak.")) return; const next = sections.filter((section) => section.id !== active.id); setSections(next); setActiveId(next[0].id); }}>Munkaszakasz eltávolítása</button></div></details>
         {!surveyId && <details><summary>Projekt · opcionális</summary><label className="field-survey-field"><span>Projekt</span><select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">Önálló felmérés</option>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label></details>}
         {projectId && <p>Kapcsolt projekt: {projects.find((project) => project.id === projectId)?.name ?? projectId}</p>}
         <section className="field-survey-measurements"><h2>Mérések</h2><p>Az üres érték hiányzó mérésként menthető. A kalkulátorhoz csak kitöltött, megfelelő egységű adat kerül.</p>
           {active.measurements.map((measurement, index) => <div className="field-survey-measurement" key={measurement.id}>
-            <label className="field-survey-field field-survey-measurement-name"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} onChange={(event) => patchMeasurement(measurement.id, { label: event.target.value })} /></label>
-            <label className="field-survey-field field-survey-measurement-value"><span>Érték</span><input type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
-            <label className="field-survey-field field-survey-measurement-unit"><span>Egység</span><select aria-label={`Mérés ${index + 1} egysége`} value={measurement.unit} onChange={(event) => patchMeasurement(measurement.id, { unit: event.target.value as FieldSurveyUnit })}>{Object.entries(fieldSurveyUnitLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-            <details className="field-survey-semantic-details"><summary>Kalkulátor-megfeleltetés</summary><label className="field-survey-field"><span>Mérési szerep</span><select aria-label={`Mérés ${index + 1} számítási szerepe`} value={measurement.semanticType} onChange={(event) => patchMeasurement(measurement.id, { semanticType: event.target.value as FieldSurveySemanticType })}>{Object.entries(fieldSurveySemanticTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></details>
+            <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
+            <details className="field-survey-measurement-settings"><summary>Mérés beállításai</summary><label className="field-survey-field"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} onChange={(event) => patchMeasurement(measurement.id, { label: event.target.value })} /></label><label className="field-survey-field"><span>Egység</span><select aria-label={`Mérés ${index + 1} egysége`} value={measurement.unit} onChange={(event) => patchMeasurement(measurement.id, { unit: event.target.value as FieldSurveyUnit })}>{Object.entries(fieldSurveyUnitLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label className="field-survey-field"><span>Számítási szerep</span><select aria-label={`Mérés ${index + 1} számítási szerepe`} value={measurement.semanticType} onChange={(event) => patchMeasurement(measurement.id, { semanticType: event.target.value as FieldSurveySemanticType })}>{Object.entries(fieldSurveySemanticTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></details>
             <button type="button" className="field-survey-remove" aria-label={`${measurement.label} törlése`} onClick={() => patchSection({ measurements: active.measurements.filter((item) => item.id !== measurement.id) })}><Trash2 aria-hidden="true" className="size-4" /></button>
           </div>)}
           <button type="button" className="field-survey-add" onClick={() => addMeasurement()}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><details className="field-survey-template-details"><summary>Másik sablonmérés hozzáadása</summary>{fieldSurveyTemplates[active.workType].map((template) => <button type="button" key={template.label} onClick={() => addMeasurement(template)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</details>
         </section>
         <details className="field-survey-note-details"><summary>Megjegyzés · opcionális</summary><label className="field-survey-field"><span>Helyszíni megjegyzés</span><textarea value={active.notes} rows={3} maxLength={2000} onChange={(event) => patchSection({ notes: event.target.value })} /></label></details>
-        <details><summary>Fotók ehhez a munkaszakaszhoz · {active.photoIds.length}</summary>{photos.length ? photos.map((photo) => <label className="survey-photo-choice" key={photo.id}><input type="checkbox" checked={active.photoIds.includes(photo.id)} onChange={(event) => patchSection({ photoIds: event.target.checked ? [...active.photoIds, photo.id] : active.photoIds.filter((id) => id !== photo.id) })} />{photo.filename}</label>) : <p>Az alábbi fotópanelben tölthetsz fel képet, majd itt kapcsolhatod a szakaszhoz.</p>}</details>
+        <details><summary>Fotók ehhez a munkaszakaszhoz · {active.photoIds.length}</summary>{photos.length ? photos.map((photo) => <label className="survey-photo-choice" key={photo.id}><input type="checkbox" checked={active.photoIds.includes(photo.id)} onChange={(event) => patchSection({ photoIds: event.target.checked ? [...active.photoIds, photo.id] : active.photoIds.filter((id) => id !== photo.id) })} />{photo.filename}</label>) : <p>Az alábbi fotópanelben tölthetsz fel képet; az új kép automatikusan ehhez a szakaszhoz kerül a következő mentéskor.</p>}</details>
         <div className="field-survey-save-row"><p role="status">{saving ? "Mentés…" : dirty ? "Nem mentett módosítások" : surveyId ? `Mentve · V${version}` : "Új felmérés"}</p><button type="submit" className="primary-button field-survey-save">{saving ? "Mentés…" : "Felmérés mentése"}</button></div>
       </fieldset>
     </form>
     <div className="survey-workspace-actions"><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || Boolean(calculator) || photoState.queued || active.workType === "other"} onClick={() => void openCalculator()}>Számítás hozzáadása · {active.name}</button><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || Boolean(calculator) || photoState.queued} onClick={() => void showSummary()}>Felmérés összesítése</button></div>
     {error && <p role="alert" className="form-message is-error">{error}</p>}
     {calculator && surveyId && <WorkspaceCalculator key={`${calculator.sectionId}:${calculator.version}`} organizationId={organizationId} surveyId={surveyId} sectionId={calculator.sectionId} version={calculator.version} context={calculator.context} onClose={() => setCalculator(null)} onLinked={() => router.refresh()} onState={setCalculatorState} />}
-    {!calculator && !recovery && <FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={version} onVersionChange={setVersion} onEnsureSaved={ensureSaved} onPendingChange={setPhotoState} onPhotosChange={onPhotos} onUploadComplete={() => router.refresh()} />}
+    {!calculator && !recovery && <FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={version} onVersionChange={setVersion} onEnsureSaved={ensureSaved} onPendingChange={setPhotoState} onPhotosChange={onPhotos} onPhotoUploaded={associateUploadedPhoto} onUploadComplete={() => router.refresh()} />}
+    {photoAssociationPending && !calculator && <button type="button" className="primary-button survey-photo-save" disabled={blocked || Boolean(recovery)} onClick={() => void persistCurrent()}>{saving ? "Kapcsolás mentése…" : `Fénykép kapcsolásának mentése · ${active.name}`}</button>}
     {summary && surveyId && !dirty && <WorkspaceSummary key={version} organizationId={organizationId} surveyId={surveyId} version={version} sections={serialize(sections)} calculations={relationships.calculations} initialFollowups={relationships.followups} onPendingChange={setFollowupPending} projects={projects} originalProjectId={projectId || null} />}
   </section>;
 }
