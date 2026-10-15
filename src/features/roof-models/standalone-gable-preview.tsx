@@ -7,6 +7,7 @@ import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput } from "@
 import { TechnicalDrawing } from "./technical-drawing";
 import { GableTrapezoidalCoveringPanel } from "./gable-trapezoidal-covering-panel";
 import type { SavedGableCovering } from "./gable-trapezoidal-covering-data";
+import type { RoofPrefill, SurveyHandoffSource } from "@/domain/field-surveys/calculator-handoff";
 
 type Draft = Record<string, string> & { inputMode: "height" | "angle" };
 const emptyDraft: Draft = {
@@ -16,6 +17,7 @@ const emptyDraft: Draft = {
 const parse = (value: string) => value.trim() ? Number(value.trim().replace(",", ".")) : undefined;
 const format = (value: number, unit: string) => `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value)} ${unit}`;
 function draftFromInput(input: GableRoofInput): Draft { return { inputMode: input.inputMode, buildingLengthMm: String(input.buildingLengthMm), buildingWidthMm: String(input.buildingWidthMm), roofRiseMm: input.inputMode === "height" ? String(input.roofRiseMm) : "", roofPitchDegrees: input.inputMode === "angle" ? String(input.roofPitchDegrees) : "", eaveOverhangMm: String(input.eaveOverhangMm), frontGableOverhangMm: String(input.frontGableOverhangMm), rearGableOverhangMm: String(input.rearGableOverhangMm) }; }
+function draftFromPrefill(input: RoofPrefill): Draft { return { ...input }; }
 
 function toInput(draft: Draft): GableRoofInput | null {
   const parsed = gableRoofInputSchema.safeParse({
@@ -28,15 +30,17 @@ function toInput(draft: Draft): GableRoofInput | null {
   return parsed.success ? parsed.data : null;
 }
 
-export function StandaloneGablePreview({ organizationId, saved = null }: Readonly<{ organizationId: string; saved?: SavedGableCovering | null }>) {
+export function StandaloneGablePreview({ organizationId, saved = null, initialHandoff, handoffSource, missingHandoffFields = [] }: Readonly<{ organizationId: string; saved?: SavedGableCovering | null; initialHandoff?: RoofPrefill; handoffSource?: SurveyHandoffSource; missingHandoffFields?: readonly string[] }>) {
   const current = saved?.revisions.find((revision) => revision.revisionId === saved.currentRevisionId);
   const source = (current?.input as { source?: { geometryInput?: GableRoofInput } } | undefined)?.source?.geometryInput;
-  const [draft, setDraft] = useState(() => source ? draftFromInput(source) : emptyDraft);
+  const [draft, setDraft] = useState(() => source ? draftFromInput(source) : initialHandoff ? draftFromPrefill(initialHandoff) : emptyDraft);
+  const handoffBaseline = useRef(initialHandoff ? JSON.stringify(draftFromPrefill(initialHandoff)) : "");
+  const handoffModified = Boolean(handoffSource && JSON.stringify(draft) !== handoffBaseline.current);
   const [savedGeometry, setSavedGeometry] = useState<GableRoofInput | null>(source ?? null);
   const [historical, setHistorical] = useState(false);
   const [savePending, setSavePending] = useState(false);
   const [coveringDirty, setCoveringDirty] = useState(false);
-  const geometryDirty = !historical && JSON.stringify(draft) !== JSON.stringify(savedGeometry ? draftFromInput(savedGeometry) : emptyDraft);
+  const geometryDirty = !historical && (handoffSource ? handoffModified : JSON.stringify(draft) !== JSON.stringify(savedGeometry ? draftFromInput(savedGeometry) : emptyDraft));
   useEffect(() => { const handler = (event: BeforeUnloadEvent) => { if (geometryDirty) { event.preventDefault(); event.returnValue = ""; } }; window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler); }, [geometryDirty]);
   const input = useMemo(() => toInput(draft), [draft]);
   const result = useMemo(() => input ? calculateGableRoof(input) : null, [input]);
@@ -53,6 +57,7 @@ export function StandaloneGablePreview({ organizationId, saved = null }: Readonl
   ];
   return <><Link className="back-navigation" href={`/kalkulatorok?organization=${organizationId}`} onClick={(event) => { if ((geometryDirty || coveringDirty) && !window.confirm("A nem mentett módosítások elvesznek. Továbbmész?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" className="size-4" /><span>Vissza a kalkulátorokhoz</span></Link><section className="detail-surface" aria-labelledby="standalone-gable-title">
     <header className="section-heading"><div><p className="section-eyebrow">Tetők és tetőfedés · projekt nélküli számítás</p><h1 id="standalone-gable-title">Nyeregtető geometria</h1><p>A meglévő `roof.gable` motor számítja az eredményeket. A fedési eredmény külön menthető; anyagkimutatás és statikai méretezés nem készül.</p></div></header>
+    {handoffSource && <div className={`survey-handoff-banner ${handoffModified ? "is-modified" : ""}`} role="status"><strong>{handoffModified ? "A kalkuláció módosított adatokat tartalmaz" : "Adatok átvéve a felmérésből"}</strong><small>Felmérés: {handoffSource.surveyId} · V{handoffSource.version} · revízió: {handoffSource.revisionId}. A forrás változatlan marad.</small>{missingHandoffFields.length > 0 && <span>Ehhez a számításhoz még add meg: {missingHandoffFields.join(", ")}.</span>}</div>}
     <form className="roof-form" onSubmit={(event) => event.preventDefault()}>
       <label className="roof-field"><span>Bemenet módja</span><select value={draft.inputMode} disabled={historical || savePending} onChange={(event) => { const inputMode = event.target.value as Draft["inputMode"]; setDraft((current) => ({ ...current, inputMode, roofRiseMm: "", roofPitchDegrees: "" })); }}><option value="height">Tetőemelkedés</option><option value="angle">Tetőhajlás</option></select></label>
       {fields.map((field) => <label className="roof-field" key={field.key}><span>{field.label} <small>{field.unit}</small></span><input inputMode="decimal" value={draft[field.key]} disabled={historical || savePending} onChange={(event) => set(field.key, event.target.value)} /></label>)}

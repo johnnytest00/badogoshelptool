@@ -345,3 +345,28 @@ A projekt tetőmodell cserepeslemez-előnézetéből egy művelettel indítható
 A termékválasztó aktív, `piece` egységű opciókat kínál. A számítás ismert névleges/hasznos szélességével és fizikai hosszával inkompatibilis variáns kiesik; ha moduladat ismert a katalógusban, annak is egyeznie kell. Hiányzó opcionális specifikáció nem követel gyártói profilt. A méret egyezése nem gyártói igazolás. Ár nélküli termékből ár nélküli draft készül. A párbeszéd mutatja a mennyiséget, forrásrevisiont, méreteket, modulforrást, provenance-t és ár-elérhetőséget; a részletes katalógus-eredet összecsukható. A draft nincs automatikusan jóváhagyva vagy beárazva.
 
 Változatlan payloadú retry megtartja az operation ID-t, módosított payload új ID-t kap. Nincs standalone → project átadás, és ebben a mérföldkőben backend vagy séma nem változott.
+
+## F9.7.8.1 — helyszíni felmérés integrációs határ
+
+A felmérés több, felhasználó által elnevezett mérést, numerikus értéket és
+kötelező egységet tárol. Ezek strukturált, később újrahasznosítható adatok, de
+nem ellenőrzött kalkulátorbemenetek és nem hoznak létre roof geometry,
+calculation, takeoff vagy quotation adatot. Kalkulátorátadás, fotó és offline
+szinkron külön későbbi mérföldkő.
+
+## F9.7.8.2 — felmérési fotók és kalkulátor-átadás
+
+A támogatott kézi megfeleltetés a mérés `semanticType` és explicit egység
+mezőjét használja; a felhasználói címke nem bemenet. Eresz, nyeregtető és
+bádogos szegély esetén csak a kalkulátor által igényelt, egyértelmű mérések
+kerülnek előtöltésre. Hiányzó érték üres marad, az `other` típus nem kap
+automatikus megfeleltetést. Az editor a kalkulátor saját validációját és
+TypeScript számítási motorját futtatja, és megőrzi a felmérés azonosítóját,
+mentett verzióját és a kézi/ellenőrizetlen eredet jelzését. A megnyitás önmagában
+nem hoz létre vagy ment kalkulációt; a felhasználó később külön mentheti a
+kalkulátorban. Jelenleg nem történik automatikus `roof.gable` modell vagy
+anyagszükséglet létrehozása.
+
+A fotók privát, JPEG/PNG/WebP formátumú, legfeljebb 10 MB-os állományok. A
+felmérés változatlanul helyszíni adat; a fotó hozzáadása/eltávolítása új
+felmérési verziót készít.

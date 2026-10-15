@@ -13,15 +13,17 @@ import { GutterTechnicalDrawing } from "./gutter-technical-drawing";
 import { createIdempotencyKey } from "@/lib/secure-uuid";
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { StandaloneProjectAssociation } from "@/features/calculations/standalone-project-association";
+import type { SurveyHandoffSource } from "@/domain/field-surveys/calculator-handoff";
 
-type Props = { organizationId: string; projectId?: string; suggestions: GutterGeometrySuggestion[]; saved: GutterCalculationRecord | null; catalogVariants: GutterCatalogVariant[]; standaloneName?: string };
+type Props = { organizationId: string; projectId?: string; suggestions: GutterGeometrySuggestion[]; saved: GutterCalculationRecord | null; catalogVariants: GutterCatalogVariant[]; standaloneName?: string; initialInput?: GutterMaterialInput; handoffSource?: SurveyHandoffSource };
 const emptyRun = (id: string) => ({ id, name: "Új ereszszakasz", lengthMm: 0, description: "", measurementSource: "site_measurement" as const, roofEdge: null, bracketSpacingMm: null });
 const initial = (saved: GutterCalculationRecord | null): GutterMaterialInput => saved?.input ?? { gutterStockLengthMm: 0, runs: [emptyRun("run-1")], downpipes: [], manualComponents: [] };
 const numberValue = (value: string) => Number(value.replace(",", ".")) || 0;
 
-export function GutterCalculator({ organizationId, projectId, suggestions, saved, catalogVariants, standaloneName }: Props) {
+export function GutterCalculator({ organizationId, projectId, suggestions, saved, catalogVariants, standaloneName, initialInput, handoffSource }: Props) {
   const router = useRouter();
-  const [input, setInput] = useState<GutterMaterialInput>(() => initial(saved));
+  const [input, setInput] = useState<GutterMaterialInput>(() => initialInput ?? initial(saved));
+  const handoffBaseline = useRef(initialInput ? JSON.stringify(initialInput) : "");
   const [name, setName] = useState(standaloneName ?? "Ereszcsatorna-becslés");
   const [baselineName, setBaselineName] = useState(standaloneName ?? "Ereszcsatorna-becslés");
   const standaloneId = useRef(saved?.calculationId ?? generateSecureUuid());
@@ -35,7 +37,7 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
   const result = useMemo(() => { const calculation = executeCalculator(gutterMaterialCalculator, input); return calculation.ok ? calculation.output : null; }, [input]);
   const candidates = useMemo(() => result ? buildGutterTakeoffCandidates(input, result) : [], [input, result]);
   const mappingChecks = useMemo(() => checkGutterMappings(candidates, mappings, catalogVariants), [candidates, mappings, catalogVariants]);
-  const inputChanged = saved ? JSON.stringify(input) !== JSON.stringify(saved.input) : true;
+  const inputChanged = saved ? JSON.stringify(input) !== JSON.stringify(saved.input) : handoffSource ? JSON.stringify(input) !== handoffBaseline.current : true;
   const standaloneChanged = inputChanged || name !== baselineName;
   const updateRun = (id: string, patch: Partial<GutterMaterialInput["runs"][number]>) => setInput((current) => ({ ...current, runs: current.runs.map((run) => run.id === id ? { ...run, ...patch } : run) }));
   const updateDownpipe = (id: string, patch: Partial<GutterMaterialInput["downpipes"][number]>) => setInput((current) => ({ ...current, downpipes: current.downpipes.map((run) => run.id === id ? { ...run, ...patch } : run) }));
@@ -71,6 +73,7 @@ export function GutterCalculator({ organizationId, projectId, suggestions, saved
   };
   const categoryLabels: Record<string, string> = { end_cap: "Végzáró", connector: "Összekötő", bracket: "Konzol", outlet: "Kifolyó", downpipe: "Lefolyó", elbow: "Könyök", accessory: "Egyéb tartozék" };
   return <section className="detail-surface gutter-calculator" aria-labelledby="gutter-title">
+    {handoffSource && <div className={`survey-handoff-banner ${inputChanged ? "is-modified" : ""}`} role="status"><strong>{inputChanged ? "A kalkuláció módosított adatokat tartalmaz" : "Adatok átvéve a felmérésből"}</strong><small>Felmérés: {handoffSource.surveyId} · V{handoffSource.version} · revízió: {handoffSource.revisionId}. A forrás változatlan marad.</small></div>}
     <div className="section-heading"><div><p className="section-eyebrow">Előzetes anyagbecslés</p><h2 id="gutter-title">Ereszcsatorna-kalkulátor</h2></div><span className="status-pill">{viewedRevisionNumber !== null && inputChanged ? `V${viewedRevisionNumber} alapján nem mentett módosítás · következő: V${(saved?.revisionNumber ?? 0) + 1}` : viewedRevisionNumber !== null ? `Történeti változat megtekintése · V${viewedRevisionNumber}` : saved ? inputChanged ? `Nem mentett módosítás · következő: V${saved.revisionNumber + 1}` : `Mentett aktuális változat · V${saved.revisionNumber}` : "Új, még nem mentett számítás"}</span></div>
     {!projectId && saved && viewedRevisionNumber === null && <StandaloneProjectAssociation organizationId={organizationId} sourceCalculationId={saved.calculationId} sourceRevisionId={saved.revisionId} sourceRevisionNumber={saved.revisionNumber} sourceName={standaloneName ?? "Ereszcsatorna-becslés"} calculatorType={gutterMaterialCalculator.id} hasUnsavedChanges={standaloneChanged} />}
     <p className="detail-description">Az egyes szakaszokhoz külön, a választott termék hosszából számított előzetes szálmennyiség. Nem hidraulikai méretezés és nem végleges beszerzési vagy vágási terv.</p>

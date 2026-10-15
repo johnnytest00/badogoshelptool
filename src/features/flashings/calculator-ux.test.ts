@@ -37,6 +37,18 @@ describe("szegély- és profilkalkulátor szakmai feliratai", () => {
     expect(html).toContain("Önálló módban nincs projekt tetőgeometria");
     expect(html).not.toContain("Anyagkimutatás előkészítése");
   });
+  it("a felmérés szegélyhosszait felhasználói eredetként tölti be", () => {
+    const html = renderToStaticMarkup(createElement(FlashingCalculator, {
+      organizationId: "org", suggestions: [], saved: null, catalogVariants: [],
+      initialHandoff: { sectionLengthMm: 2000, overlapMm: 100, runs: [{ id: "survey-run", name: "Oromszegély", lengthMm: 5000 }] },
+      handoffSource: { surveyId: "survey-id", revisionId: "revision-id", version: 5 },
+    }));
+    expect(html).toContain("Adatok átvéve a felmérésből");
+    expect(html).toContain("revízió: revision-id");
+    expect(html).toContain("Felhasználó által megadott adat a felmérésből; nem gyártói igazolás");
+    expect(html).toContain('value="5000"');
+    expect(html).toContain('value="100"');
+  });
   it("a profilnál a tangensméretet, irányt és a BA/K forrásigényét mutatja", () => {
     const html = renderToStaticMarkup(createElement(ProfileEditor, {
       organizationId: "org", projectId: "project", profiles: [], catalogCandidates: [],

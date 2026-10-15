@@ -525,6 +525,29 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"field_surveys": {
+                  Row: { "created_at": string,"created_by": string,"id": string,"measurements": NonNullable<Json>,"notes": string | null,"organization_id": string,"project_id": string | null,"updated_at": string,"updated_by": string,"version": number,"work_type": string }
+                  Insert: { "created_at"?: string,"created_by": string,"id"?: string,"measurements": NonNullable<Json>,"notes"?: string | null,"organization_id": string,"project_id"?: string | null,"updated_at"?: string,"updated_by": string,"version"?: number,"work_type": string }
+                  Update: { "created_at"?: string,"created_by"?: string,"id"?: string,"measurements"?: NonNullable<Json>,"notes"?: string | null,"organization_id"?: string,"project_id"?: string | null,"updated_at"?: string,"updated_by"?: string,"version"?: number,"work_type"?: string }
+                  Relationships: [
+                    { foreignKeyName: "field_surveys_organization_id_fkey"; columns: ["organization_id"]; isOneToOne: false; referencedRelation: "organizations"; referencedColumns: ["id"] },
+                    { foreignKeyName: "field_surveys_project_same_organization_fk"; columns: ["project_id", "organization_id"]; isOneToOne: false; referencedRelation: "projects"; referencedColumns: ["id", "organization_id"] }
+                  ]
+                },"field_survey_photos": {
+                  Row: { "content_sha256": string,"description": string | null,"display_filename": string,"file_size": number,"id": string,"mime_type": string,"object_key": string,"organization_id": string,"removed_at": string | null,"request_key": string,"survey_id": string,"upload_state": string,"uploaded_at": string,"uploaded_by": string }
+                  Insert: { "content_sha256": string,"description"?: string | null,"display_filename": string,"file_size": number,"id": string,"mime_type": string,"object_key": string,"organization_id": string,"removed_at"?: string | null,"request_key": string,"survey_id": string,"upload_state"?: string,"uploaded_at"?: string,"uploaded_by": string }
+                  Update: { "content_sha256"?: string,"description"?: string | null,"display_filename"?: string,"file_size"?: number,"id"?: string,"mime_type"?: string,"object_key"?: string,"organization_id"?: string,"removed_at"?: string | null,"request_key"?: string,"survey_id"?: string,"upload_state"?: string,"uploaded_at"?: string,"uploaded_by"?: string }
+                  Relationships: [
+                    { foreignKeyName: "field_survey_photos_survey_org_fk"; columns: ["survey_id", "organization_id"]; isOneToOne: false; referencedRelation: "field_surveys"; referencedColumns: ["id", "organization_id"] }
+                  ]
+                },"field_survey_revisions": {
+                  Row: { "created_at": string,"created_by": string,"id": string,"measurements": Json,"notes": string | null,"organization_id": string,"photos_snapshot": Json,"project_id": string | null,"survey_id": string,"version": number,"work_type": string }
+                  Insert: { "created_at"?: string,"created_by": string,"id"?: string,"measurements": Json,"notes"?: string | null,"organization_id": string,"photos_snapshot"?: Json,"project_id"?: string | null,"survey_id": string,"version": number,"work_type": string }
+                  Update: { "created_at"?: string,"created_by"?: string,"id"?: string,"measurements"?: Json,"notes"?: string | null,"organization_id"?: string,"photos_snapshot"?: Json,"project_id"?: string | null,"survey_id"?: string,"version"?: number,"work_type"?: string }
+                  Relationships: [
+                    { foreignKeyName: "field_survey_revisions_project_org_fk"; columns: ["project_id", "organization_id"]; isOneToOne: false; referencedRelation: "projects"; referencedColumns: ["id", "organization_id"] },
+                    { foreignKeyName: "field_survey_revisions_survey_org_fk"; columns: ["survey_id", "organization_id"]; isOneToOne: false; referencedRelation: "field_surveys"; referencedColumns: ["id", "organization_id"] }
+                  ]
                 },"organizations": {
                   Row: {
                     "business_address": string | null,"business_name": string | null,"contact_email": string | null,"contact_phone": string | null,"created_at": string,"id": string,"name": string,"tax_identifier": string | null,"updated_at": string
@@ -739,6 +762,11 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
+            "save_field_survey": { Args: { "p_expected_version": number,"p_measurements": Json,"p_notes": string | null,"p_organization_id": string,"p_project_id": string | null,"p_survey_id": string | null,"p_work_type": string }; Returns: { "survey_id": string,"updated_at": string,"version": number }[] },
+            "reserve_field_survey_photo_upload": { Args: { "p_actor_id": string,"p_content_sha256": string,"p_description": string | null,"p_display_filename": string,"p_expected_version": number,"p_file_size": number,"p_mime_type": string,"p_object_key": string,"p_organization_id": string,"p_photo_id": string,"p_request_key": string,"p_survey_id": string }; Returns: { "photo_id": string,"reused": boolean,"version": number }[] },
+            "attach_field_survey_photo": { Args: { "p_actor_id": string,"p_expected_version": number,"p_organization_id": string,"p_photo_id": string,"p_survey_id": string }; Returns: { "photo_id": string,"version": number }[] },
+            "cancel_field_survey_photo_upload": { Args: { "p_actor_id": string,"p_photo_id": string }; Returns: boolean },
+            "remove_field_survey_photo": { Args: { "p_actor_id": string,"p_expected_version": number,"p_photo_id": string,"p_survey_id": string }; Returns: { "version": number }[] },
             "associate_standalone_calculation_to_project":
 { Args: { "p_expected_project_revision_number": number,"p_input_data": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_output_data": Json,"p_project_calculation_id": string | null,"p_project_id": string,"p_source_calculation_id": string,"p_source_revision_id": string }; Returns: {
               "association_id": string,

@@ -13,6 +13,7 @@ import { buildFlashingTakeoffCandidates, checkFlashingMappings, type FlashingCat
 import { FlashingTechnicalDrawing } from "./flashing-technical-drawing";
 import { createIdempotencyKey, generateSecureUuid } from "@/lib/secure-uuid";
 import { selectFlashingDrawingPreview } from "./drawing-preview";
+import type { FlashingPrefill, SurveyHandoffSource } from "@/domain/field-surveys/calculator-handoff";
 
 type RunDraft = { id: string; category: FlashingCategory; name: string; lengthMm: string; lengthSource: FlashingMaterialInput["runs"][number]["lengthSource"]; roofEdgeReference: FlashingMaterialInput["runs"][number]["roofEdgeReference"]; startExtensionMm: string; endExtensionMm: string; reserveMm: string };
 type Draft = { name: string; nominalLengthMm: string; nominalLengthLabel: string; connectionMode: "unknown" | "no_overlap_confirmed" | "explicit_overlap" | "effective_length_supplied"; overlapMm: string; effectiveLengthMm: string; runs: RunDraft[] };
@@ -26,6 +27,18 @@ const validationField = (path: PropertyKey[]) => path.length ? path.map((part) =
 const categoryLabels: Record<FlashingCategory, string> = { verge: "Oromszegély", wall: "Falszegély", eaves: "Ereszszegély", ridge: "Gerincszegély", valley: "Vápalemez", custom: "Egyedi szegélyprofil" };
 const initialName = "Bádogos szegély becslés";
 const createInitialDraft = (): Draft => ({ name: initialName, nominalLengthMm: "", nominalLengthLabel: "Kézi megadás — forrás/gyártói adat nincs rögzítve", connectionMode: "unknown", overlapMm: "", effectiveLengthMm: "", runs: [{ id: generateSecureUuid(), category: "verge", name: "Oromszakasz", lengthMm: "", lengthSource: "user_provided", roofEdgeReference: null, startExtensionMm: "0", endExtensionMm: "0", reserveMm: "0" }] });
+
+function draftFromSurvey(input: FlashingPrefill): Draft {
+  const base = createInitialDraft();
+  return {
+    ...base,
+    nominalLengthMm: input.sectionLengthMm === undefined ? "" : String(input.sectionLengthMm),
+    nominalLengthLabel: "Felhasználó által megadott adat a felmérésből; nem gyártói igazolás",
+    connectionMode: input.overlapMm === undefined ? "unknown" : "explicit_overlap",
+    overlapMm: input.overlapMm === undefined ? "" : String(input.overlapMm),
+    runs: input.runs.length ? input.runs.map((run) => ({ ...base.runs[0], ...run, category: "custom", lengthMm: String(run.lengthMm), lengthSource: "site_measurement" })) : base.runs,
+  };
+}
 
 export function isFlashingDraftDirty(currentInputJson: string, baselineInputJson: string, currentName: string, baselineName: string) {
   return currentInputJson !== baselineInputJson || currentName !== baselineName;
@@ -52,9 +65,11 @@ function toDomainInput(draft: Draft): unknown {
   return { sectionSpec: { nominalLengthMm: numeric(draft.nominalLengthMm), nominalLengthSource: source, connection }, runs: draft.runs.map((run) => ({ ...run, lengthMm: numeric(run.lengthMm), startExtensionMm: numeric(run.startExtensionMm), endExtensionMm: numeric(run.endExtensionMm), reserveMm: numeric(run.reserveMm) })), manualComponents: [] };
 }
 
-export function FlashingCalculator({ organizationId, projectId, suggestions, saved, catalogVariants }: Readonly<{ organizationId: string; projectId?: string; suggestions: FlashingGeometrySuggestion[]; saved: FlashingCalculationRecord | null; catalogVariants: FlashingCatalogVariant[] }>) {
+export function FlashingCalculator({ organizationId, projectId, suggestions, saved, catalogVariants, initialHandoff, handoffSource }: Readonly<{ organizationId: string; projectId?: string; suggestions: FlashingGeometrySuggestion[]; saved: FlashingCalculationRecord | null; catalogVariants: FlashingCatalogVariant[]; initialHandoff?: FlashingPrefill; handoffSource?: SurveyHandoffSource }>) {
   const router = useRouter();
-  const [draft, setDraft] = useState<Draft>(() => saved ? draftFromInput(saved.input, saved.displayName) : createInitialDraft());
+  const [draft, setDraft] = useState<Draft>(() => saved ? draftFromInput(saved.input, saved.displayName) : initialHandoff ? draftFromSurvey(initialHandoff) : createInitialDraft());
+  const handoffBaseline = useRef(initialHandoff ? JSON.stringify(draftFromSurvey(initialHandoff)) : "");
+  const handoffModified = Boolean(handoffSource && JSON.stringify(draft) !== handoffBaseline.current);
   const [expectedRevision, setExpectedRevision] = useState(saved?.revisionNumber ?? 0);
   const [baseline, setBaseline] = useState(() => saved ? JSON.stringify(saved.input) : "");
   const [baselineName, setBaselineName] = useState(saved?.displayName ?? initialName);
@@ -129,6 +144,7 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sav
 
   return <div className="materials-workspace flashing-workspace">
     <section className="projects-toolbar material-detail-header"><div><p className="section-eyebrow">Előzetes anyagbecslés</p><h1>Bádogos szegélyek kalkulátora</h1><p>Több, egymástól független szakasz előzetes anyaghossz- és darabszámbecslése.</p></div><div className="flashing-save-state" aria-live="polite"><span className="status-pill">{dirty ? `Nem mentett módosítás · következő változat: V${expectedRevision + 1}` : selectedRevision && saved && selectedRevision.revisionId !== saved.revisionId ? `Történeti változat · V${selectedRevision.revisionNumber}` : expectedRevision ? `Mentett aktuális változat · V${expectedRevision}` : "Új, még nem mentett számítás"}</span></div></section>
+    {handoffSource && <div className={`survey-handoff-banner ${handoffModified ? "is-modified" : ""}`} role="status"><strong>{handoffModified ? "A kalkuláció módosított adatokat tartalmaz" : "Adatok átvéve a felmérésből"}</strong><small>Felmérés: {handoffSource.surveyId} · V{handoffSource.version} · revízió: {handoffSource.revisionId}. A forrás változatlan marad.</small></div>}
     {!projectId && saved && selectedRevision?.revisionId === saved.revisionId && <StandaloneProjectAssociation organizationId={organizationId} sourceCalculationId={saved.calculationId} sourceRevisionId={saved.revisionId} sourceRevisionNumber={saved.revisionNumber} sourceName={saved.displayName} calculatorType={flashingMaterialCalculator.id} hasUnsavedChanges={dirty} />}
 
     <section className="detail-surface flashing-section" aria-labelledby="geometry-title"><div className="section-heading"><div><p className="section-eyebrow">OPCIONÁLIS FORRÁSGEOMETRIA</p><h2 id="geometry-title">Tetőélek javaslatai</h2></div></div><p className="detail-description">{projectId ? "A javaslat csak gombnyomásra kerül be. Kizárólag ellenőrzött projekt nyeregtető-élek érhetők el; vápa és falcsatlakozás nincs kikövetkeztetve." : "Önálló módban nincs projekt tetőgeometria, ezért a javaslatok nem érhetők el. A szakaszok kézzel felvehetők."}</p>{suggestions.length ? <div className="flashing-suggestions">{suggestions.map((suggestion) => { const added = draft.runs.some((run) => run.roofEdgeReference?.roofModelId === suggestion.reference.roofModelId && run.roofEdgeReference.edgeId === suggestion.reference.edgeId); return <article className="flashing-suggestion" key={suggestion.id}><div><strong>{suggestion.label}</strong><small>{suggestion.lengthMm.toLocaleString("hu-HU")} mm · {categoryLabels[suggestion.category]}</small></div><button className="secondary-button" type="button" onClick={() => addSuggestion(suggestion)} disabled={added}>{added ? "Hozzáadva" : "Él hozzáadása"}</button></article>; })}</div> : projectId && <p className="missing-data">Nincs elérhető, ellenőrzött nyeregtető-geometria.</p>}</section>

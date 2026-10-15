@@ -1204,3 +1204,67 @@ Javasolt commit: `feat(F9.7.7.4c.1): transfer metal tile sheets to takeoffs`.
 Bizonyíték: célzott Vitest 5 fájl / 19 teszt PASS, benne trapéz UI regresszió, exact forrásrevision, darabszám, termékkompatibilitás, retry ID és dialogtartalom. `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) és `git diff --check` PASS. Hitelesített helyi böngészőben a projekt `1340d579-d1b1-496c-a3c5-1f7e75019413` fedési V2 revisionje (`15d60e59-b0a9-461d-92e0-3111ba3bff4d`) exact roof V4 (`d11e0843-91bb-4089-b245-ad0879fbfb4b`) alapján 28 db-ot mutatott; az ár nélküli DEMO variánssal draft `2dc9db5c-ba1a-40dc-af91-927cffc04b25` jött létre és megnyílt a takeoff oldalon. A helyi DEMO termék/variáns és draft megmaradt. A backend nem változott, ezért a 4c.1 valós local Auth/RLS és két DB-kapcsolatos bizonyítékát használjuk; hosted DB, reset, commit, push, deploy nem futott.
 
 Javasolt commit: `feat(F9.7.7.4c.2): simplify metal tile takeoff UX`.
+
+## F9.7.8.1 — helyszíni felmérés MVP
+
+Állapot: **COMPLETE (FIELD SURVEY MVP; LOCAL AUTH/RLS + BROWSER)**. Elkészült a
+standalone vagy opcionálisan projekthez kötött felmérés lista, új felmérés és
+újranyitható szerkesztője. A négy kezdő munkatípushoz szerkeszthető mérési
+sablonok vannak; több sor, explicit egység, opcionális megjegyzés és nagy,
+mobilra tördelődő vezérlők használhatók. A mentés V1/V2 verziózást alkalmaz,
+dupla küldést blokkol, dirty állapotot és mentési/hibajelzést mutat, stale
+mentésnél pedig konfliktust jelez. A projekt egy mentés után immutable link.
+Mérési adatok nem lesznek automatikusan kalkulátoradatok.
+
+Biztonság: a `20261015070000_field_surveys.sql` migrációt helyi Supabase-re
+reset nélkül alkalmaztam. A felhasználói szerep csak RLS-szűrt SELECT-et kap;
+írás kizárólag a `save_field_survey` RPC-n keresztül, actor/org/project és
+szerveroldali mérésegység-validációval történik. Standalone hozzáférés creator
+scope-os, projektre szervezeti tagság szükséges. Várható verzióval a párhuzamos
+szerkesztés stale írását visszautasítjuk.
+
+Bizonyíték: local pgTAP `023_field_surveys.sql` 24/24; két külön DB sessionből
+végrehajtott versenyben 1 update sikerült és 1 stale konfliktust kapott.
+Önálló authenticated Brave smoke: `93b3e45b-f86b-433e-a01e-16727d9c64e9`,
+V1 → refresh/reopen → edit → V2, majd refresh; 9.1 m, 4.2 m és DEMO megjegyzés
+megmaradt. Projekt smoke: `dd2f7790-0ed6-460e-8ba5-4371a91d7742`, projekt
+`1340d579-d1b1-496c-a3c5-1f7e75019413`, V1 után refresh/reopen; 6.8 m,
+3.4 m és DEMO megjegyzés megmaradt, a kapcsolt projekt látható. A Vitest,
+typecheck, lint és webpack production build eredményét a tesztmátrix rögzíti.
+
+Korlát: fizikai iPhone/iPad vizsgálat, kamera/fotó, offline működés, kalkulátor-
+átadás és hosted Supabase nem része/ellenőrzése ennek a mérföldkőnek. Helyi DEMO
+felmérések megmaradtak. Javasolt commit: `feat(F9.7.8.1): add field survey MVP`.
+
+## F9.7.8.2 — felmérési fotók és kalkulátor-átadás
+
+Állapot: **COMPLETE (FIELD SURVEY PHOTOS & HANDOFF, LOCAL)**. Elkészült a
+privát, többképes feltöltés opcionális leírással, előnézettel, újrapróbálással
+és visszavonható eltávolítással. A fotóműveletek immutable survey revisiont
+hoznak létre, a korábbi fotóhivatkozás megmarad. A felmérésből kézi
+megfeleltetéssel nyitható a meglévő eresz-, nyeregtető- és szegélykalkulátor;
+csak szemantikai típus/egység alapján ad át adatot, üres mezőt nem tölt ki
+feltételezéssel. Forrásfelmérés és verzió jelölve, az eredeti felmérés
+változatlan.
+
+Biztonság: négy előrehaladó, helyi migráció reset nélkül; privát Storage
+bucket, creator-scope standalone és aktív tagságú projekt-hozzáférés, RLS,
+korlátozott restricted-writer RPC-k, fájlsignatúra és méretellenőrzés,
+expected-version konfliktus. A közvetlen kliens-metaadatírás és író RPC
+hívás tiltott. A tárolási INSERT policy a helyi Supabase metadata-context
+eltérés miatt a szerveroldali pending foglalást és actor/survey/org kapcsolatot
+ellenőrzi; MIME/méret ellenőrzés a bucket és API feladata.
+
+Bizonyíték: `024_field_survey_photos_handoff.sql` + `023_field_surveys.sql`
+55/55 pgTAP PASS; két független DB-session versenyben egy update és egy stale
+konfliktus. Fókuszált Vitest 6 fájl/27 teszt PASS; typecheck, lint, production
+build és diff-check PASS. Hitelesített helyi böngésző: eresz DEMO V1→V5,
+fotófeltöltés és frissítés utáni visszaolvasás, mentett V2 adatból 3 ereszszál;
+tető DEMO V1-ből 100 m² és 36,87°. Cross-org GET 403. Hibás PNG-tartalom
+elutasított. Egy eltávolított fotó revision-története megmaradt.
+
+Korlát: legacy survey-k korábbi historyja nem rekonstruálható; HEIC nincs
+támogatva (JPEG/PNG/WebP, max 10 MB). Fizikai iPhone/iPad QA és hosted DB nem
+futott. DEMO Auth és survey adatok, valamint lokális képek megmaradtak; hosted,
+reset, commit/push/deploy nem történt. Javasolt commit:
+`feat(F9.7.8.2): add survey photos and calculator handoff`.

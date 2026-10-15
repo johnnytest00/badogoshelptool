@@ -32,6 +32,19 @@ describe("ereszcsatorna-kalkulátor felülete", () => {
     expect(html).not.toContain("Anyagkimutatás-piszkozat");
   });
 
+  it("a felmérés ereszméréseit előtölti, és a forrásrevíziót jelzi", () => {
+    const html = renderToStaticMarkup(createElement(GutterCalculator, {
+      organizationId: "org", suggestions: [], saved: null, catalogVariants: [],
+      initialInput: { gutterStockLengthMm: 3000, runs: [{ id: "survey-run", name: "Északi eresz", lengthMm: 8500, description: "", measurementSource: "site_measurement", roofEdge: null, bracketSpacingMm: 1000 }], downpipes: [], manualComponents: [] },
+      handoffSource: { surveyId: "survey-id", revisionId: "revision-id", version: 3 },
+    }));
+    expect(html).toContain("Adatok átvéve a felmérésből");
+    expect(html).toContain("Felmérés: survey-id · V3 · revízió: revision-id");
+    expect(html).toContain("Északi eresz");
+    expect(html).toContain('value="8500"');
+    expect(html).toContain('value="1000"');
+  });
+
   it("mentett számításnál az eredmény, rajz, katalógus és átadás olvasási sorrendjét megőrzi", () => {
     const input: GutterMaterialInput = { gutterStockLengthMm: 4000, runs: [{ id: "r1", name: "DEMO eresz", lengthMm: 5000, description: "DEMO", measurementSource: "demo", roofEdge: null, bracketSpacingMm: null }], downpipes: [], manualComponents: [] };
     const output = calculateGutterMaterial(input);

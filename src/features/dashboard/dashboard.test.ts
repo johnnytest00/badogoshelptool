@@ -4,9 +4,9 @@ import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 
 describe("dashboard foundation", () => {
   it("contains only implemented Hungarian launchers", () => {
-    expect(dashboardFunctions).toHaveLength(5);
+    expect(dashboardFunctions).toHaveLength(6);
     expect(dashboardFunctions.map((item) => item.label)).toEqual([
-      "Projektek", "Kalkulátorok", "Árajánlatok", "Anyagok", "Kivitelezés",
+      "Projektek", "Kalkulátorok", "Árajánlatok", "Anyagok", "Kivitelezés", "Helyszíni felmérés",
     ]);
   });
 
@@ -18,6 +18,7 @@ describe("dashboard foundation", () => {
       "/ajanlatok?organization=a1b2-c3d4",
       "/anyagok?organization=a1b2-c3d4",
       "/kivitelezes?organization=a1b2-c3d4",
+      "/felmeresek?organization=a1b2-c3d4",
     ]);
     expect(() => dashboardFunctionHref("documents", organizationId)).toThrow("Ismeretlen dashboard funkció");
   });

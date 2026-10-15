@@ -610,3 +610,55 @@ meglévő jóváhagyási lifecycle marad érvényben. `022_gable_metal_tile_take
 33 pgTAP assertion és a `021_gable_covering_takeoff.sql` 33 regression
 assertion PASS; a külön kétkapcsolatos race egy draftot/tételt és egy retry
 reuse-t adott.
+
+## F9.7.8.1 — helyszíni felmérések
+
+A `20261015070000_field_surveys.sql` forward-only migráció új, célzott
+`field_surveys` táblát ad. A mérési sorok JSON objektumai pontosan azonosítót,
+nevet, numerikus értéket és explicit `mm`/`m`/`m2`/`degree`/`count` egységet
+tárolnak. A szerver RPC és a domain séma is korlátozza a sorok számát, az
+értékeket, a számlálót és a szövegeket.
+
+Az authenticated szerep csak RLS-szűrt olvasást kap; közvetlen insert/update/
+delete nincs. A `save_field_survey` RPC ellenőrzi a hitelesített aktort, aktív
+szervezeti tagságot, projektszervezet-egyezést és felmérési payloadot. Önálló
+felmérést csak a létrehozó olvashat és módosíthat; projektfelmérést a tagok
+érhetik el. A projektkapcsolat létrehozás után változatlan. A `version` és
+`expected_version` stale szerkesztésnél 40001 konfliktust ad, ezért újabb
+mentés nem írja felül csendben a frissebb adatot. Nincs kapcsolat kalkulációs,
+tetőmodell-, takeoff- vagy quotation rekorddal.
+
+Helyi adatbázison reset nélkül alkalmazva. A `023_field_surveys.sql` 24/24
+pgTAP assertiont teljesített; a két külön DB-kapcsolatú update versenyben egy
+V2 mentés és egy konfliktus keletkezett.
+
+## F9.7.8.2 — felmérési fotók, snapshotok és kézi átadás
+
+A `20261015080000_field_survey_photos_handoff.sql` létrehozza a privát
+`field-survey-photos` bucketet, a `field_survey_photos` metaadatot és a
+`field_survey_revisions` append-only bemeneti/fotó snapshotokat. A migration
+mentéskor rögzíti az új revisionöket; legacy felméréshez csak az akkori jelenlegi
+állapotot lehetett visszatölteni, korábbi szerkesztési vagy fotótörténet nem
+rekonstruálható. A `20261015090000` és `20261015100000` forward-only helyi
+migrációk korrigálják az író actor-validációt és a Supabase Storage INSERT
+policy kompatibilitását.
+
+Az authenticated szerep csak jogosult sorokat olvashat. A kliens közvetlen
+metaadat-írása és a trusted fotó RPC-k hívása tiltott; szerveroldali restricted
+writer foglal, csatol, visszavon vagy eltávolít. A foglalás/idempotencia-kulcs,
+várható survey verzió, aktor, tagság és projekt-szervezet egyezés ellenőrzött.
+Standalone fotó creator-scope-os; projektfotót a projekt aktív szervezeti
+tagjai láthatják. Az eltávolítás soft detach: a storage objektum és történeti
+revisionhivatkozás megmarad. A signed URL csak jogosultságellenőrzött GET-ben
+készül.
+
+Storage bucket korlátozza a MIME-típust és 10 MB méretet; az API a tényleges
+fájl bájtjainak JPEG/PNG/WebP signatúráját is ellenőrzi. A storage policy a
+Supabase helyi INSERT RLS kontextusában nem kapta meg megbízhatóan a kliens
+metaadatokat. Ezért a végső policy a függő szerveroldali foglalást, feltöltő
+azonosságát és felmérés/szervezet jogosultságát ellenőrzi; a típus/méret
+ellenőrzése a bucketre és API-ra támaszkodik.
+
+F9.7.8.2 local pgTAP: `024_field_survey_photos_handoff.sql` és
+`023_field_surveys.sql`, 55/55 PASS; külön kétkapcsolatos szerkesztési verseny
+egy V2 update-et és egy 40001 konfliktust adott.

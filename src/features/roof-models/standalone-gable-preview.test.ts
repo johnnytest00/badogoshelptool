@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("./gable-trapezoidal-covering-actions", () => ({ saveGableTrapezoidalCovering: vi.fn(), readGableTrapezoidalCovering: vi.fn() }));
+vi.mock("./gable-trapezoidal-covering-takeoff-actions", () => ({ createGableCoveringTakeoffAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 import { StandaloneGablePreview } from "./standalone-gable-preview";
 
@@ -12,5 +13,16 @@ describe("standalone gable geometry preview", () => {
     expect(html).toContain("Tetőemelkedés");
     expect(html).toContain("projekt nélküli számítás");
     expect(html).not.toContain("<button");
+  });
+
+  it("prefills explicit survey dimensions and retains the exact revision banner", () => {
+    const html = renderToStaticMarkup(createElement(StandaloneGablePreview, {
+      organizationId: "org", initialHandoff: { inputMode: "height", buildingLengthMm: "10000", buildingWidthMm: "8000", roofRiseMm: "3000", roofPitchDegrees: "", eaveOverhangMm: "0", frontGableOverhangMm: "0", rearGableOverhangMm: "0" },
+      handoffSource: { surveyId: "survey-id", revisionId: "revision-id", version: 2 },
+    }));
+    expect(html).toContain("Adatok átvéve a felmérésből");
+    expect(html).toContain("Felmérés: survey-id · V2 · revízió: revision-id");
+    expect(html).toContain('value="10000"');
+    expect(html).toContain("Teljes tetőfelület");
   });
 });

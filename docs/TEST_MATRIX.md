@@ -1118,3 +1118,25 @@ PostgreSQL kapcsolat segítségével futott; ezek nem hosted környezetek.
 | Katalógusszűrés | RÉSZBEN | Kompatibilitás egységtesztje lefedi az ismert szélesség, hossz és modul eltérésének kizárását, valamint a hiányzó opcionális moduladat elfogadását. Browserben kompatibilis DEMO variánst mentettünk; a selector teljes opciólistáját külön nem vizsgáltuk. |
 | Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
 | DB biztonság / mobil / hosted | Korábbi backend bizonyíték / NEM FUTOTT | Sémát/actiont nem módosítottunk, így a 4c.1 local Auth/RLS, forged RPC és két-kapcsolatos concurrency bizonyítéka érvényes. iPad/iPhone QA és hosted DB nem futott; helyi DEMO variáns/draft megmaradt. |
+
+## F9.7.8.1 — helyszíni felmérés MVP
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Domain/action/UI Vitest | PASS | `npx vitest run src/domain/field-surveys/contracts.test.ts src/features/field-surveys/field-survey-actions.test.ts src/features/field-surveys/field-survey-editor.test.tsx`: 3 fájl / 12 teszt PASS; külön `npx vitest run src/features/dashboard/dashboard.test.ts`: 1 fájl / 4 teszt PASS. Egységek, template, opcionális mezők, auth/error/conflict/action, dirty/duplicate-submit/editor states. |
+| Local Auth/RLS pgTAP | PASS | `SUPABASE_TELEMETRY_DISABLED=1 supabase test db --local supabase/tests/database/023_field_surveys.sql`: 24/24. Local Auth subject, creator és org membership, projekt-kapcsolat, authenticated direct write/RPC jogosultság, forged/invalid unit/count, peer és cross-org szűrés, version V2/stale, nincs calculator side effect. |
+| Független DB kapcsolatok | PASS | `SUPABASE_TELEMETRY_DISABLED=1 node scripts/verify-field-survey-concurrency.mjs`: két önálló CLI DB session V1-ről párhuzamos V2-t próbált; egy frissítés és egy 40001 stale konfliktus, végső verzió V2. |
+| Hitelesített local browser | PASS | Brave production builden: standalone felmérés `93b3e45b-f86b-433e-a01e-16727d9c64e9`, V1 mentés, frissítés, lista/újranyitás, szerkesztés V2-re, frissítés; 9.1 m, 4.2 m és megjegyzés visszaolvasva. Projektfelmérés `dd2f7790-0ed6-460e-8ba5-4371a91d7742`, projekt `1340d579-d1b1-496c-a3c5-1f7e75019413`, V1 mentés/frissítés; 6.8 m, 3.4 m, megjegyzés és projektkapcsolat visszaolvasva. Mindkét adat DEMO. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` Next.js 16.4.0 webpack, `git diff --check`. |
+| Fizikai mobil / hosted | Nem futott | iPhone/iPad valódi készülék QA és hosted Supabase ellenőrzés nem történt. A desktop Brave smoke nem igazolja a fizikai touch/viewport működését. |
+
+## F9.7.8.2 — helyszíni fotók és kalkulátor-átadás
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Local Auth/RLS pgTAP | PASS | `024_field_survey_photos_handoff.sql` + regressziós `023_field_surveys.sql`: 55/55. Direct authenticated metadata/write RPC tiltás, standalone creator-scope, active project-member photo read, cross-org izoláció, snapshot immutabilitás, idempotens reservation, invalid unit/MIME, soft detach. |
+| Valós DB konkurencia | PASS | `scripts/verify-field-survey-concurrency.mjs`, két független DB-kapcsolat: párhuzamos V2 írásból egy mentés, egy stale 40001 konfliktus, current V2. |
+| Fókuszált Vitest | PASS | `src/domain/field-surveys`, `src/features/field-surveys`, gutter/flashing UX és roof preview: 6 fájl / 28 teszt. Szemantikus mapping (eresz, tető, szegély), hiányzó/ambiguous érték, provenance, meglévő motor-prefill regresszió. |
+| Hitelesített local browser | PASS | Eresz DEMO V1 mentés; JPEG/PNG/WebP fotó feltöltés és refresh utáni olvasás; fotó eltávolítása V4-ben, visszakereshető V3 snapshot; V5 demo tetőábra feltöltése és reload; mentett V2 felmérésből gutter kalkulátor 3 ereszszálat számolt. Nyeregtető V1 exact felmérésből 100 m² / 36,87°-ra számolt. Cross-org photo GET 403; hamis PNG tartalom kliensoldali tartalom-validációnál visszautasítva. Minden input és kép DEMO. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` Next.js 16.4 webpack, `git diff --check`. |
+| Mobil és hosted | Nem futott | Fizikai iPhone/iPad és hosted Supabase nem ellenőrzött. HEIC nem támogatott; a UI JPEG/PNG/WebP-t ajánl (max 10 MB). Legacy felmérésből a migration csak aktuális állapotot tudott snapshotolni; korábbi változások/fotók nem rekonstruálhatók. |
