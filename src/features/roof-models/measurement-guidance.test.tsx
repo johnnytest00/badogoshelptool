@@ -27,6 +27,17 @@ describe("professional measurement guidance", () => {
     expect(html).toContain("mm");
   });
 
+  it("renders compact live guidance without an empty placeholder", () => {
+    const guide = measurementGuideFor("gable", "buildingWidthMm");
+    const html = renderToStaticMarkup(createElement(MeasurementGuidance, { guide, compact: true }));
+    expect(html).toContain("measurement-guidance is-compact");
+    expect(html).toContain("Épület szélessége · mm");
+    expect(html).toContain("két szemközti falsík");
+    expect(html).toContain('<details class="measurement-guidance-detail">');
+    expect(html).toContain("Vízszintes vetületi méret");
+    expect(renderToStaticMarkup(createElement(MeasurementGuidance, { guide: null, compact: true }))).toBe("");
+  });
+
   it("links survey semantics to the same guide keys and roof drawing dimensions", () => {
     expect(measurementGuideForSurvey("gable", "roof_building_width")?.key).toBe("buildingWidthMm");
     const geometry = calculateRoofGeometry({ type: "lShape", lengthMm: 10000, widthMm: 6000, pitchDegrees: 35, wingWidthMm: 4000, wingProjectionMm: 5000 });

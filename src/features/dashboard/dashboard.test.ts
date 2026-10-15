@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dashboardFunctionHref, dashboardFunctions, demoProjects } from "@/features/dashboard/dashboard.data";
-import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
+import { getDashboardGreeting, getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 
 describe("dashboard foundation", () => {
   it("contains only implemented Hungarian launchers", () => {
@@ -33,5 +33,13 @@ describe("dashboard foundation", () => {
     expect(getNextDashboardTab("projects", "forward")).toBe("functions");
     expect(getNextDashboardTab("projects", "backward")).toBe("functions");
     expect(getNextDashboardTab("functions", "backward")).toBe("projects");
+  });
+
+  it("uses a greeting that matches the local hour", () => {
+    expect(getDashboardGreeting(1)).toBe("Jó éjszakát!");
+    expect(getDashboardGreeting(5)).toBe("Jó reggelt!");
+    expect(getDashboardGreeting(11)).toBe("Jó napot!");
+    expect(getDashboardGreeting(18)).toBe("Jó estét!");
+    expect(getDashboardGreeting(22)).toBe("Jó éjszakát!");
   });
 });

@@ -1754,3 +1754,223 @@ ezért új Auth/RLS vagy konkurenciateszt nem volt indokolt.
 Fizikai eszköz és browser smoke nem futott, mert felhasználói számítási
 viselkedés nem változott. Hosted DB, reset, commit, push és deploy nem történt.
 Javasolt commit: `test(F9.14): add independent calculation audit fixtures`.
+
+## F9.14.1 — kompakt, interaktív tetőmérési UX
+
+Állapot: **COMPLETE (UI + célzott regresszió)**. A nyeregtető projekt- és
+standalone űrlap, a hat többtetős kalkulátor, valamint az egységes felmérési
+tető-előnézet kompakt, reszponzív mérőrácsot kapott. A fókuszált mező rövid
+magyar útmutatást ad, a közös F9.9 `TechnicalDrawing` kiemeli a megfelelő
+méretvonalat, és az input után közvetlenül jelenik meg. Az eredmények a rajz
+alatt maradnak; a rajz részletes nézetei és eszközei elérhető összecsukható
+vezérlőkben. A számítási, mentési, revízió- és élkijelölési logika nem változott.
+
+Hitelesített helyi böngészőben a nyeregtető standalone űrlap 1440/768/390/320
+px nézetén rendre 4/3/2/2 oszlopot és 16 px-es mezőszöveget mutatott, vízszintes
+túlcsordulás nélkül. 320 px-en fókuszváltás után a `buildingLengthMm` SVG-méret
+kiemelése és a mezőfókusz megmaradt. A survey tetőelőnézetet is mértem mind a
+négy méreten. Helyi DEMO nyeregtető-felmérés V1 mentése, refresh és visszanyitás
+után a 10/6/3 m méretek, egységek, 84,853 m² előnézet és SVG megmaradt.
+
+Futtatva: célzott Vitest 6 fájl / 23 teszt PASS, typecheck, lint, Next.js
+16.4.0 webpack production build és `git diff --check` PASS. A projekt gable és
+hat többtetős forma input → rajz → eredménysorrendje komponens-teszttel
+ellenőrzött; standalone gable és survey SSR regresszió PASS. Fizikai iPhone/iPad, külön
+projektben végzett browser save/reopen és hosted DB nem ellenőrzött. A böngésző
+által készített próba helyi DEMO surveyként megmaradt; éles vagy hosted adatot
+nem érintettünk.
+
+Javasolt commit: `feat(F9.14.1): compact interactive roof measurement UX`.
+
+## F9.14.2 — globális Liquid Glass UX és egységes munkaterület
+
+Állapot: **PARTIAL (UI rendszer + hitelesített helyi smoke)**. Közös felületi
+tokenek és `glass-navigation` / `glass-toolbar` primitívek egységesítik a
+navigációt, eszköztárakat, gombokat, fókuszt, mezőket, állapotokat és
+felületeket. Az adatot hordozó űrlapok, rajzok, eredmények és táblák átlátszatlan
+felületet kapnak; glass blur csak a navigációs és interaktív chrome-on jelenik
+meg, fallback, reduced-motion/transparency és increased-contrast szabályokkal.
+
+A `RoofWorkspace` közös kompozíciót használja a felmérés, projekt/standalone
+nyeregtető és a hat többtetős forma: kompakt mezők → SVG → eredmény → mentés.
+A felmérés meglévő mezői és mérési szerepei maradnak az egyetlen piszkozat;
+SVG-méret billentyűzetről vagy pointerrel a hozzá tartozó mezőt fókuszálja. A
+L/T geometriai feltételezés és a fedési/anyagpanel az eredmény után,
+progresszív disclosure-ban marad.
+
+Hitelesített local DEMO-ban a survey 10/6/3 m és 0 mm eresz-/oromtúlnyúlással
+V1-ben ment, frissítés után ugyanazok az értékek, SVG és 84,853 m² jelent meg.
+Dashboard, projekt tetőűrlap, standalone gable, projekt eresz/szegély,
+anyagkimutatás, katalógus, ajánlatpiszkozat, beszerzés és kivitelezés böngészőben
+megnyílt. A roof mérőrács 1440/1024/768/390/320 px-en 4/4/3/2/2 oszlopos,
+mindegyiken 16 px-es mezővel, 44 px-es fő vezérlőkkel és dokumentum-túlcsordulás
+nélkül. Az ellenőrzött egyéb oldalak 320 px-en sem lógtak ki.
+
+Futtatva: célzott Vitest 6 fájl / 21 teszt PASS, `npm run typecheck`,
+`npm run lint`, Next.js 16.4.0 webpack `npm run build` és `git diff --check` PASS. Nincs képlet-,
+domain-, mentési action-, Auth/RLS-, adatbázis-, pénzügyi vagy adószemantikai
+módosítás; nincs migráció, reset, commit, push vagy deploy.
+
+**Nem igazolt:** előtte-képpár (F9.14.2 előtti screenshot nem készült),
+Safari és fizikai eszköz, külön projekt/standalone mentés-újranyitás, dialog
+billentyűzetútvonal és képernyőolvasó, reduced-motion/kontraszt preferencia
+valós emulációja, valamint hosted DB. A böngészősmoke ezek miatt nem teljes
+elfogadási regresszió; az állapot nem COMPLETE.
+
+Javasolt commit: `feat(F9.14.2): unify global glass UX and roof workspace`.
+
+## F9.14.3 — Liquid Glass vizuális audit és UX finomítás
+
+Állapot: **COMPLETE (UI + célzott regresszió)**. A kritikus elfogadási
+feltételek local browserben és célzott automatizált ellenőrzéssel igazoltak.
+Állapotfelmérés után a `RoofWorkspace` meglévő mérési és rajzkomponense egy
+közös, visszafogott felületbe került. A tetőformás gyorsfelmérés külső kártyája
+lapos; eltűnt a külön „Mérések” címsor, a kompakt rajzból a „Rajzok” felirat és
+a látható, ismétlődő méretösszefoglaló. Az SVG, eredmények, fókuszkiemelés,
+eszközök és mentési műveletek a meglévő architektúrán maradtak. 350 px alatt a
+felmérési mérőrács egy oszlopos, mert a 320 px-es audit két oszlopban címke- és
+beállítási zsúfoltságot mutatott.
+
+Hitelesített local böngészőben előtte/utána képernyőképek készültek a
+felmérésről, standalone nyeregtetőről, projekt tetőmodellről, dashboardról és
+anyagkatalógusról. A dashboard jóváhagyott 6 kártyája és sorrendje megmaradt;
+az öt DEMO anyag kártyái, valamint a gyártó űrlap önálló üzleti egységek,
+ezeket nem lapítottam el. A standalone és survey egységes tetőfelülete világos
+és sötét témában is olvasható; a korábbi sötét téma vissza lett állítva.
+
+Valós viewport-ellenőrzés: 1440/768/390/320 px-en 4/3/2/1 mérési oszlop,
+16 px-es input, dokumentumszintű vízszintes túlcsordulás nélkül. A survey
+mezőstrip és a rajz címsora közötti rés 1440-en 9 px, 768-on 9 px, 390-en
+7 px. A 1440 px survey előtte-mérés 194 px input→canvas távolságához képest az
+utána 63 px-re csökkent; a maradékot a rajz címsora/eszköztára foglalja el.
+Building length mező fókusza az SVG `buildingLengthMm` vonalát kiemelte, a
+mező fókuszban maradt. Helyi, „DEMO F9.14.3” megjegyzésű survey V1 mentés, reload
+és felméréslistából újranyitás után a 10/6/3 m, 0 mm értékek, 84,853 m² és SVG
+megmaradt. Az ellenőrző rekord ID-je: `e2060324-914b-4d45-a011-3e4c07fb3f31`.
+
+Az előtte/utána screenshotokat a browserben vizuálisan ellenőriztem; a screenshot
+binárisainak lokális exportját az in-app browser URL-szabályzata blokkolta, így
+nem kerültek fájlként a repóba. Soft keyboard, Safari/fizikai eszköz, projekt-
+mentés és hosted DB nem ellenőrzött. A bővített konzisztencia-audit a
+kalkulátorválasztót, standalone eresz- és szegélykalkulátort, anyagkimutatást,
+ajánlatpiszkozatot, beszerzési/műhelylistát is megnyitotta; külön üzleti műveletet
+nem mentett. Ezek eltérő üzleti entitásai és indokolt paneljei megmaradtak.
+Nincs számítási, üzleti, adatbázis- vagy jogosultsági változás.
+
+Futtatva: célzott Vitest 6 fájl / 21 teszt, `npm run typecheck`,
+`npm run lint`, Next.js 16.4.0 webpack `npm run build` izolált forrásmásolaton,
+valamint `git diff --check` — mind PASS. A célzott teszt nem teljes regresszió.
+
+Javasolt commit: `fix(F9.14.3): refine unified liquid glass roof workspace`.
+
+## F9.14.4 — fluid Liquid Glass UI átalakítás
+
+Állapot: **PARTIAL**. A meglévő CSS design-rendszer tokenjeit bővítettem
+blur/saturation, radius, elevation és rövid motion értékekkel; a már használt
+`glass-navigation` és `glass-toolbar` primitíveket valós navigációs és rajz
+vezérlőkön alkalmaztam. A shadcn/ui, Motion és creativoma megoldásait a jelenlegi
+Next/React stackhez ellenőriztem. Új UI-függőség nem került be: a natív
+mezők, `<details>` és meglévő React komponensek megfelelő szemantikát adnak;
+az SVG rajzra kiterjedő torzító filter indokolatlan teljesítménykockázat lenne.
+
+A `RoofWorkspace` immár közvetlenül tartalmazza a mérési mezőket és a rajzot,
+belső dekoratív felület-wrapper nélkül. A rajzeszközök a vásznon lebegnek,
+haladó rétegek összecsukhatók. A gyorsfelmérési gable külső kártyája és az
+önálló kalkulátor ismétlődő felülete eltűnt; a felmérési műveletek megmaradtak.
+Globális, alacsony kontrasztú elválasztók váltják a workflow, anyag-, beszerzési
+és ajánlatsorok ismétlődő kártyakereteit. Képlet, üzleti szerződés, jogosultság
+és adatbázis nem változott.
+
+Hitelesített lokális browserben 1440 px-en dashboard világos/sötét témával,
+felmérés, standalone és projekt tetőszerkesztő látható állapotáról készült
+vizuális ellenőrzés. A tetőszerkesztők egyetlen közös workspace DOM-fát adtak;
+méretmező fókusza a megfelelő SVG dimenziót jelölte ki, rajzeszköz és
+haladó rétegek működtek. Korábbi screenshot exportja nem volt elérhető, ezért
+képfájl-pár nem csatolható. A végső CSS utáni összehasonlító hatképernyős
+vizuális audit nem teljesült.
+
+Futtatva a végleges forrásállapoton: lásd a F9.14.4 tesztmátrixot. A böngésző
+save/reopen, projekt újranyitás, handoff és quote/material navigáció nem
+igazolt; az aktuális lokális dev szerver a save interakció közben leállt, az
+elkülönített preview pedig eltérő, régi markupot szolgált. 1024/768/390/320 px,
+Safari/fizikai mobil, valamint valós reduced-motion/kontraszt emuláció nem
+ellenőrzött. Emiatt a mérföldkő PARTIAL, nem COMPLETE.
+
+Javasolt commit: `feat(F9.14.4): fluid workspace and glass controls`.
+
+## F9.14.5 — Global Fluid Liquid Glass & Application Recovery
+
+Állapot: **PARTIAL**. A projekt-áttekintés munkafolyamat-kártyáit teljes
+szélességű, szemantikus navigációs sorokra cseréltem; a projekt alapadatai és
+szerkesztése nyitott, kétoszlopos munkaterületet alkotnak. A roof választó,
+projektmodellek, katalógus, eresz/szegély, anyagkimutatás, beszerzés és
+kivitelezés ismétlődő kereteit visszafogott elválasztók váltják. A dashboard
+hat funkciókártyája és sorrendje megmaradt. Egy valódi megjelenési regressziót
+is javítottam: a régi grid-szabály a projektfolyamat listáját egy keskeny
+oszlopba szorította és a műveleteket a címkékre tolta; a lista most teljes
+szélességű, desktopon kétoszlopos, mobilon egyoszlopos.
+
+A meglévő React komponenseket, CSS tokeneket, navigációs és toolbar primitíveket
+használtam. shadcn/ui, Motion és creativoma vizsgálata után új függőség nem
+került be: a projektmunka navigációjához natív link/lista, a mezőkhöz meglévő
+vezérlők, a rajzhoz a jelenlegi SVG/React workspace elegendő. A domain-számítás,
+adatbázis, mentés, Auth/RLS, verzió- és forrássnapshot-szerződés nem változott;
+üzleti adatot nem hoztam létre vagy módosítottam.
+
+**Útvonal-helyreállítás:** a meglévő `localhost:3001` példányon a projektoldal
+ChunkLoadError-rel hibázott; két korábbi, `/private/tmp` alatti Next folyamat
+ütközése valószínű, de a pontos okot nem bizonyítottam, és egyiket sem állítottam
+le. A projektmásolaton, helyi Supabase-környezetre kötött izolált
+`localhost:3214` szerveren a hitelesített fő route-ok betöltődtek, a szervezet
+paramétert megtartó dashboard→gyorsfelmérés és projekt→beszerzés kattintás is
+működött. A projektek, dashboard, felméréslista/rekord, tetőválasztás/szerkesztés,
+kalkulátor, anyagkimutatás, ajánlatpiszkozat, beszerzés és kivitelezés
+megnyíltak. Egy régi survey ID hiánya helyes „nem található” állapotot adott,
+nem navigációs hibát. A rapid váltások alatt néhány Next destination-stream
+megszakadt, miközben az érintett kérések 200-zal lezárultak.
+
+A már létező, lokális DEMO survey V1 frissítés és újranyitás után is megtartotta
+a 10 000 × 6 000 mm-es alapméretet, 35°-os lejtést, SVG-t és 73,246 m² eredményt.
+Projekt tetőrevízió, ajánlat és beszerzési lista csak olvasásra nyílt meg; mentési
+műveletet nem kértem. A dashboard világos és sötét nézetét ellenőriztem; a
+sötét téma visszaállítva. A második ellenőrzés képernyőképe a tool-nézetben
+vizuálisan megtekinthető, de lokális képfájl nem készült. A kilenc megkövetelt
+képernyő azonos állapotú előtte/utána exportja, valamint a 1440/1024/768/390/320
+viewport-mérés ebben a körben nem teljesült; ezért globális vizuális és mobil
+elfogadás nem bizonyított.
+
+**Futtatva a végső kódon:** célzott Vitest **12 fájl / 39 teszt PASS**;
+`npm run typecheck`, `npm run lint`, izolált friss forrásmásolaton Next.js
+16.4.0 webpack `npm run build`, majd dokumentációval együtt `git diff --check`
+PASS. A build 43 app/API route-ot listázott; ez nem helyettesíti a teljes
+browser-regressziót. Auth/RLS és adatbázis-ellenőrzés nem futott, mert ezek
+szerződése nem változott. Teljes Vitest suite, Safari/fizikai eszköz,
+billentyűzet/screen reader, soft keyboard, reduced-motion/kontraszt valós
+emuláció és hosted DB nem ellenőrzött. Nincs ismert kritikus üzleti regresszió.
+
+Javasolt commit: `feat(F9.14.5): unify fluid glass workspace layouts`.
+
+## F9.14.6 — Product UI Architecture & Visual Refinement
+
+Állapot: **PARTIAL**. A fő munkafelületek kompozíciója a RoofWorkspace, TechnicalDrawing és MeasurementGuidance meglévő komponenseire épül. Új, szemantikusan címkézett `GlassToolbar` csoport fogja össze a rajz-, projekt-, anyag- és ajánlatszűrő vezérlőket; új függőség nem került be. A hét tetőforma rajza és leírása nagyobb, egyértelműen kijelölt csempén jelenik meg. A survey tetőszerkesztő sorrendje kontextus → kompakt mérési sor → közvetlen SVG → eredmény/mentés; a mérési beállítások alapállapotban összecsukottak. A projektlista, projektmunkafolyamat, dashboard és anyag/ajánlat szűrők hierarchiája sűrűbb, a hat dashboard funkció jóváhagyott sorrendje megmaradt. A helyi időalapú köszöntés SSR-biztos.
+
+**Böngészőben bizonyított:** hitelesített izolált localhost előnézetben a dashboard → gyorsfelmérés, projektek → részlet → mentett tetőmodell revízió 4, valamint projekt → ajánlat navigáció működött. Az anyagkatalógus öt, már meglévő DEMO termékkel, az ajánlatoldal hat meglévő rekorddal nyílt meg; ezeken adatot nem módosítottam. Új, `DEMO F9.14.6 nyeregtető` címkéjű lokális felmérést mentettem, majd a listából újranyitottam: V1, 10/6/3 m, 300/0/0 mm, SVG és 93,338 m² megmaradt. Az új rekord lokális tesztadatként megmarad; meglévő rekordot nem írtam felül. A projekt tetőmodell csak olvasásra nyílt meg.
+
+A dashboard, selector, survey, standalone tetőkalkulátor, projektlista és -részlet, anyagkatalógus és ajánlatok 1440/1024/768/390/320 px emulált nézeten vízszintes oldal-túlcsordulás nélkül jelentek meg. Az anyag- és ajánlatszűrőt mind az öt szélességen újramértem; 390/320 px-en a szűrő egy oszlopba rendeződik. A 320 px-es survey bemenetei 16 px-esek, legalább 46 px magasak; a fókuszált méréshez tartozó SVG-vonal kiemelődött. Világos dashboard- és survey-nézetet, valamint sötét mobil survey-t ellenőriztem; az eredeti sötét témát visszaállítottam.
+
+**Adat és architektúra:** UI/prezentáció változott; domain-képlet, pénzügyi logika, adatbázisséma, jogosultság, mentési action és revízió/snapshot szerződés nem. A save/reopen bizonyíték a lokális UI+DB útvonalat fedi, de nem helyettesít külön Auth/RLS vagy párhuzamos mentési tesztet. Hosted Supabase-t nem használtam.
+
+**Automatizált ellenőrzés:** fókuszált Vitest 15 fájl / 55 teszt PASS; `npm run typecheck`, `npm run lint`; Next.js 16.4.0 webpack production `npm run build` PASS egy friss, elkülönített forrásmásolaton, build-only placeholder public Supabase beállításokkal. Ez nem teljes regressziós suite.
+
+A vizuális after állapotokat a böngészőben megtekintettem; összehasonlító képek a tool nézetében látszottak, de fájlként nem exportálhatók ebből az in-app browserből. Ezért nincs megőrzött, azonos állapotú hét route-os before/after képpár, és a kritikus vizuális elfogadási bizonyíték nem teljes. Fizikai Safari/eszköz, screen reader, soft keyboard, valódi reduced-motion/kontraszt emuláció és hosted DB nem ellenőrzött.
+
+Tesztadat-azonosító: `f6bbeac3-9158-4dac-a9de-c20e74f13140`. A változatlan mentési action a hitelesített szervezeti tagságot és `expectedVersion=0` értéket érvényesítette; a lokális mentés V1-ként nyílt újra. Ez nem külön Auth/RLS vagy konkurencia-regresszió.
+
+A projektmunkaterület mentési útvonalát külön, elkülönített lokális projekten is
+ellenőriztem: `DEMO F9.14.6 tetőmodell QA` (`2e5ebf96-6dbc-4b2e-b8bc-60bffe430318`)
+alatt a `DEMO F9.14.6 nyeregtető` modell (`73521fd7-cf63-4350-a908-4290cb4642c9`)
+V1 revízióként mentődött. Oldal-újratöltés után a 10 000 × 6 000 × 3 000 mm-es
+méretek, 300/0/0 mm túlnyúlások, SVG és 93,338 m² eredmény megmaradt. Kizárólag
+ez az új, egyértelműen DEMO-ként címkézett lokális tesztprojekt módosult.
+
+Javasolt commit: `feat(F9.14.6): refine product workspace UX`.

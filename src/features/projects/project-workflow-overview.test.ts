@@ -26,11 +26,14 @@ describe("projektfolyamat összefoglaló", () => {
     expect(rows.find((row) => row.label === "Anyagkimutatások")?.detail).toBe("Legutóbbi: V4 · 2 piszkozat · 1 jóváhagyott");
   });
 
-  it("szemantikus modulfőcímeket és egyedileg megnevezett navigációs linkeket renderel", () => {
+  it("folytonos, szemantikus navigációként rendereli az összefoglalót", () => {
     const html = renderToStaticMarkup(createElement(ProjectWorkflowOverview, { rows: projectWorkflowRows(base) }));
     expect(html).toContain("<h2 id=\"project-workflow-title\">Munka áttekintése</h2>");
-    expect(html).toContain("<h3>Tetőmodellek</h3>");
-    expect(html).toContain('aria-label="Megnyitás: Tetőmodellek"');
-    expect(html).toContain('aria-label="Megnyitás: Dokumentáció és munkanapló"');
+    expect(html).toContain('<nav class="project-workflow-grid" aria-label="Projektmunkák">');
+    expect(html).toContain('<a class="project-workflow-link" href="#tetomodellek">');
+    expect(html).toContain("<strong>Tetőmodellek</strong>");
+    expect(html).toContain('href="/projektek/p1/ereszcsatorna?organization=org1"');
+    expect(html).toContain('href="#kivitelezes">');
+    expect(html).not.toContain("<article class=\"project-workflow-card\"");
   });
 });

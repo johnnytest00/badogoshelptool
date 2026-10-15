@@ -3,6 +3,10 @@ import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ScalingProvider } from "@/features/preferences/scaling-provider";
 import { ScalingBubble } from "@/components/accessibility/scaling-bubble";
 import { MobileFocusSupport } from "@/components/accessibility/mobile-focus-support";
+import "@fontsource/noto-sans/400.css";
+import "@fontsource/noto-sans/500.css";
+import "@fontsource/noto-sans/600.css";
+import "@fontsource/noto-sans/700.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

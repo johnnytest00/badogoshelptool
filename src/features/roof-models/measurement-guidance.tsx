@@ -49,9 +49,13 @@ export function measurementGuideForSurvey(type: RoofGeometryType, semanticType: 
   return key ? measurementGuideFor(type, key) : null;
 }
 
-export function MeasurementGuidance({ guide: activeGuide }: Readonly<{ guide: MeasurementGuide | null }>) {
-  if (!activeGuide) return <p className="measurement-guidance measurement-guidance-empty" role="status">Fókuszálj egy méretmezőre: a rajz megmutatja, hol mérd, és a szöveg jelzi, milyen méretről van szó.</p>;
-  return <aside className="measurement-guidance" aria-live="polite" data-active-measurement={activeGuide.key}>
+export function MeasurementGuidance({ guide: activeGuide, compact = false }: Readonly<{ guide: MeasurementGuide | null; compact?: boolean }>) {
+  if (!activeGuide) return compact ? null : <p className="measurement-guidance measurement-guidance-empty" role="status">Fókuszálj egy méretmezőre: a rajz megmutatja, hol mérd, és a szöveg jelzi, milyen méretről van szó.</p>;
+  if (compact) return <aside className="measurement-guidance is-compact" aria-live="polite" aria-atomic="true" data-active-measurement={activeGuide.key}>
+    <div><strong>{activeGuide.title} · {activeGuide.unit}</strong><p title={activeGuide.meaning}>{activeGuide.meaning}</p></div>
+    <details className="measurement-guidance-detail"><summary aria-label={`Részletes mérési útmutató: ${activeGuide.title}`}>?</summary><div><p>{activeGuide.meaning}</p><small>{activeGuide.convention}{activeGuide.secondaryView ? ` ${activeGuide.secondaryView}.` : ""}</small></div></details>
+  </aside>;
+  return <aside className={`measurement-guidance${compact ? " is-compact" : ""}`} aria-live="polite" aria-atomic="true" data-active-measurement={activeGuide.key}>
     <div><p className="section-eyebrow">Aktív mérési útmutató</p><strong>{activeGuide.title} · {activeGuide.unit}</strong></div>
     <p>{activeGuide.meaning}</p>
     <small>{activeGuide.convention}{activeGuide.secondaryView ? ` ${activeGuide.secondaryView}.` : ""}</small>

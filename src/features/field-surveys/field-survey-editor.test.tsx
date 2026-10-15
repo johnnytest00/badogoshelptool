@@ -43,7 +43,7 @@ describe("field survey editor", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={survey} />);
     expect(html).toContain("Ereszszakasz · m");
     expect(html).toContain('value="8.5"');
-    expect(html).toContain("Mérés beállításai");
+    expect(html).toContain("Beállítások és törlés");
     expect(html).toContain("Számítási szerep");
   });
 
@@ -77,6 +77,34 @@ describe("field survey editor", () => {
     expect(html).not.toContain('class="field-survey-measurements"');
     expect(html).toContain('class="field-survey-note-details"');
     expect(html).toContain('class="primary-button field-survey-save"');
+  });
+
+  it("keeps a roof survey's measurement grid immediately ahead of its validated drawing", () => {
+    const roofSurvey: FieldSurveyRecord = {
+      ...survey, workType: "roof", projectId: null,
+      sections: [{
+        id: "123e4567-e89b-42d3-a456-426614174010", name: "Nyeregtető", workType: "roof", roofType: "gable", notes: "", photoIds: [],
+        measurements: [
+          { id: "123e4567-e89b-42d3-a456-426614174011", label: "Épület hossza", value: 10000, unit: "mm", semanticType: "roof_building_length" },
+          { id: "123e4567-e89b-42d3-a456-426614174012", label: "Épület szélessége", value: 8000, unit: "mm", semanticType: "roof_building_width" },
+          { id: "123e4567-e89b-42d3-a456-426614174013", label: "Tetőemelkedés", value: 3000, unit: "mm", semanticType: "roof_rise" },
+          { id: "123e4567-e89b-42d3-a456-426614174014", label: "Eresztúlnyúlás", value: 0, unit: "mm", semanticType: "roof_eave_overhang" },
+          { id: "123e4567-e89b-42d3-a456-426614174015", label: "Első oromtúlnyúlás", value: 0, unit: "mm", semanticType: "roof_front_gable_overhang" },
+          { id: "123e4567-e89b-42d3-a456-426614174016", label: "Hátsó oromtúlnyúlás", value: 0, unit: "mm", semanticType: "roof_rear_gable_overhang" },
+        ],
+      }],
+    };
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofSurvey} />);
+    expect(html).toContain('class="technical-drawing is-compact"');
+    const stripStart = html.indexOf('class="roof-survey-measurement-strip"');
+    const drawingStart = html.indexOf('class="technical-drawing is-compact"');
+    expect(html.indexOf("roof-workspace-context")).toBeLessThan(stripStart);
+    expect(stripStart).toBeGreaterThan(-1);
+    expect(drawingStart).toBeGreaterThan(stripStart);
+    expect(html.slice(stripStart, drawingStart)).not.toContain("measurement-guidance");
+    expect(html.slice(stripStart, drawingStart)).not.toContain("roof-workspace-context");
+    expect(html).toContain("Tetőemelkedés");
+    expect(html).toContain("Interaktív műszaki rajz");
   });
 
   it("renders a historical revision with its exact measurements and calculator handoff", () => {

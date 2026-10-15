@@ -2,11 +2,46 @@ import Link from "next/link";
 import { ArrowRight, Archive, CalendarDays, MapPin, Plus, RotateCcw, Search, UserRound } from "lucide-react";
 import { projectStatusLabels, projectTypeLabels, type ProjectStatus, type ProjectType } from "@/domain/projects/contracts";
 import type { ProjectRecord } from "./project-data";
+import { GlassToolbar } from "@/components/ui/glass-toolbar";
 
 const dateFormatter = new Intl.DateTimeFormat("hu-HU", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 export function ProjectList({ organizationId, projects, filters }: Readonly<{ organizationId: string; projects: readonly ProjectRecord[]; filters: { search?: string; status?: ProjectStatus; projectType?: ProjectType; includeArchived: boolean; sort: "newest" | "oldest" } }>) {
-  return <section className="projects-workspace" aria-labelledby="projects-page-title"><div className="projects-toolbar"><div><p className="section-eyebrow">Műhelymunka</p><h1 id="projects-page-title">Projektek</h1><p>Az aktív munkáid és ügyfeleid egy helyen.</p></div><div className="toolbar-actions"><Link className="secondary-button" href={`/ugyfelek?organization=${organizationId}`}><UserRound className="size-4" /> Ügyfelek</Link><Link className="primary-button" href={`/projektek/uj?organization=${organizationId}`}><Plus className="size-4" /> Új projekt</Link></div></div><form className="project-filters" method="get"><input type="hidden" name="organization" value={organizationId} /><label className="filter-search"><Search className="size-4" aria-hidden="true" /><span className="sr-only">Projekt keresése</span><input name="search" defaultValue={filters.search ?? ""} placeholder="Keresés projekt név alapján" /></label><label><span>Állapot</span><select name="status" defaultValue={filters.status ?? ""}><option value="">Aktív állapotok</option>{Object.entries(projectStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>Munkatípus</span><select name="projectType" defaultValue={filters.projectType ?? ""}><option value="">Minden munkatípus</option>{Object.entries(projectTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>Rendezés</span><select name="sort" defaultValue={filters.sort}><option value="newest">Legutóbbi módosítás</option><option value="oldest">Legrégebbi módosítás</option></select></label><label className="filter-check"><input type="checkbox" name="archived" value="1" defaultChecked={filters.includeArchived} /> <span>Archiváltak is</span></label><button className="secondary-button" type="submit">Szűrés</button></form>{projects.length === 0 ? <ProjectEmptyState hasFilters={Boolean(filters.search || filters.status || filters.projectType || filters.includeArchived)} organizationId={organizationId} /> : <div className="real-project-grid">{projects.map((project) => <ProjectCard key={project.id} project={project} organizationId={organizationId} />)}</div>}</section>;
+  return (
+    <section className="projects-workspace" aria-labelledby="projects-page-title">
+      <div className="projects-toolbar">
+        <div>
+          <p className="section-eyebrow">Műhelymunka</p>
+          <h1 id="projects-page-title">Projektek</h1>
+          <p>Az aktív munkáid és ügyfeleid egy helyen.</p>
+        </div>
+        <div className="toolbar-actions">
+          <Link className="secondary-button" href={`/ugyfelek?organization=${organizationId}`}><UserRound className="size-4" /> Ügyfelek</Link>
+          <Link className="primary-button" href={`/projektek/uj?organization=${organizationId}`}><Plus className="size-4" /> Új projekt</Link>
+        </div>
+      </div>
+      <form className="project-filter-form" method="get">
+        <input type="hidden" name="organization" value={organizationId} />
+        <GlassToolbar ariaLabel="Projektkeresés és szűrés" className="project-filters">
+          <label className="filter-search">
+            <Search className="size-4" aria-hidden="true" />
+            <span className="sr-only">Projekt keresése</span>
+            <input name="search" defaultValue={filters.search ?? ""} placeholder="Keresés projekt név alapján" />
+          </label>
+          <label className="project-filter-field"><span>Állapot</span><select name="status" defaultValue={filters.status ?? ""}><option value="">Aktív állapotok</option>{Object.entries(projectStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="project-filter-field"><span>Munkatípus</span><select name="projectType" defaultValue={filters.projectType ?? ""}><option value="">Minden munkatípus</option>{Object.entries(projectTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="project-filter-field"><span>Rendezés</span><select name="sort" defaultValue={filters.sort}><option value="newest">Legutóbbi módosítás</option><option value="oldest">Legrégebbi módosítás</option></select></label>
+          <div className="project-filter-actions">
+            <label className="filter-check"><input type="checkbox" name="archived" value="1" defaultChecked={filters.includeArchived} /> <span>Archiváltak is</span></label>
+            <button className="secondary-button" type="submit">Szűrés</button>
+          </div>
+        </GlassToolbar>
+      </form>
+      {projects.length === 0
+        ? <ProjectEmptyState hasFilters={Boolean(filters.search || filters.status || filters.projectType || filters.includeArchived)} organizationId={organizationId} />
+        : <div className="real-project-grid">{projects.map((project) => <ProjectCard key={project.id} project={project} organizationId={organizationId} />)}</div>}
+    </section>
+  );
 }
 
 function ProjectCard({ project, organizationId }: Readonly<{ project: ProjectRecord; organizationId: string }>) {

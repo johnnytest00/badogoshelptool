@@ -24,5 +24,8 @@ describe("standalone gable geometry preview", () => {
     expect(html).toContain("Felmérés: survey-id · V2 · revízió: revision-id");
     expect(html).toContain('value="10000"');
     expect(html).toContain("Teljes tetőfelület");
+    expect(html).toContain("technical-drawing is-compact");
+    expect(html.indexOf("<form class=\"roof-form roof-measurement-inputs roof-form-grid-compact\"")).toBeLessThan(html.indexOf("technical-drawing is-compact"));
+    expect(html.indexOf("technical-drawing is-compact")).toBeLessThan(html.indexOf("roof-results"));
   });
 });

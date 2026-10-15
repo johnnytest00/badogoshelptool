@@ -56,3 +56,68 @@ A tető eredménye most a megadott adatokból számított geometriai értékkén
 A helyi műszaki/termékforrások: [termékkészültségi audit](PRODUCT_READINESS_AUDIT.md), [szegélyterv](FLASHING_CALCULATOR_DESIGN.md), [profilterv](SHEET_METAL_PROFILE_DESIGN.md), [számítási motor](CALCULATION_ENGINE.md), `PROJECT_BLUEPRINT.md` és az aktuális `src/` szerződések. A korábbi kutatás [Lindab SRP Click útmutatót](https://www.lindab.hu/globalassets/commerce/lindabwebproductsdoc/pdf/profile/hu/seamline/lindab_seamline_srp-click_szerelesi-utmutato.pdf?v=1771111103) és [SOLIDWORKS K-Factor leírást](https://help.solidworks.com/2022/english/solidworks/sldworks/c_K_Factor.htm) idéz; a külső oldalakat ebben a körben nem nyitottam újra, és nem emeltem át belőlük általános kivitelezési szabályt.
 
 **Futtatva:** `npx vitest run` a 4 új UI/opció-, a 3 kapcsolódó számítási, valamint a profil-, projekt-navigációs és kivitelezési áttekintő tesztfájlra: **10 fájl / 39 teszt PASS**; külön `npx vitest run src/domain/materials/contracts.test.ts src/features/dashboard/dashboard.test.ts`: **2 fájl / 6 teszt PASS**. `npm run typecheck`, `npm run lint`, `npm run build` PASS; végső `git diff --check` külön. **Nem futtatva:** teljes regresszió, adatbázis/pgTAP, böngésző/valódi készülék. A szerveroldali szerződés, képlet, RLS, séma, migráció, történeti változat és üzleti állapot nem módosult. Az anyagkimutatás meglévő actionje továbbra is szervezet/projekt és aktív variáns szerint ellenőriz, a jóváhagyás verziót továbbít az RPC-nek; ennek adatbázisos konkurencia- és jogosultsági bizonyítása nem része e körnek.
+
+## F9.14.2 — Egységes Liquid Glass és RoofWorkspace döntések
+
+- A központi változók: `--surface`, `--surface-subtle`, `--surface-glass`,
+  `--glass-border`, `--glass-highlight`, `--border`, `--focus-ring`,
+  `--shadow-surface`, `--shadow-control`, `--radius-*` és `--space-section`.
+  A brand narancs marad az elsődleges kiemelés; a dark mode külön felületi,
+  határ- és szemantikus színeket kap.
+- A `glass-navigation` és `glass-toolbar` csak chrome-hoz használatos. Az
+  űrlapmezők, rajzok, eredmények, táblázatok, státuszkártyák és dialog tartalmak
+  megfelelően átlátszatlan felületet kapnak. A blur `@supports`-fallbackdal,
+  reduced-transparency és increased-contrast szabállyal működik.
+- A `RoofWorkspace` a mérések, rajz, eredmény és műveletek közös kompozíciója.
+  A survey a már meglévő `SectionDraft` mérési értékeit szerkeszti; külön tető-
+  űrlapadat nem keletkezik. A guidance fix magasságú, rövid élő szöveget és
+  `<details>`-ben elérhető hosszabb magyarázatot ad. Az aktív SVG-méretek
+  pointerről és billentyűzetről visszafókuszálhatók a megfelelő inputra.
+- A mérőrács desktopon legfeljebb 4, tablet szélességen 3–4, mobilon 2 oszlopra
+  vált. Szerkeszthető szövegvezérlők minimum 16 px-esek; ikonvezérlők minimum
+  44 px-es célméretet kapnak. A survey L/T modellfeltételezés, a fedési és
+  anyagkiosztási részletek az SVG/eredmény után progresszíven jelennek meg.
+- Keskeny survey nézetben a tetőmunkaterület mentése az eredmény után marad és
+  nem ragad rá az SVG-re; a többi munkatípus meglévő sticky mentősávját ez nem
+  változtatja meg.
+
+Az F9.14.2 browser smoke local és hitelesített volt, de nem teljes platform QA.
+Az előtte screenshot, Safari/valós eszköz, dialog-központozás, képernyőolvasó és
+valós reduced-motion/contrast emuláció nem bizonyított; ezért ez a bejegyzés nem
+minősíti COMPLETE-ra a mérföldkövet. Részletes bizonyíték: `PROGRESS.md` és
+`TEST_MATRIX.md` F9.14.2 szakasza.
+
+## F9.14.5 — munkaterület- és útvonal-audit
+
+**Státusz: PARTIAL.** A jelenlegi appstruktúrát, a projekt részletoldalt,
+`ProjectWorkflowOverview`, a tetőválasztót és a közös CSS-t vizsgáltam. A
+dashboard hat útvonalválasztója önálló, fontos navigáció maradt (**KEEP**). A
+projekt munkafolyamatok és alapadatok/szerkesztés egymásba ágyazott, ismétlődő
+surface-ei dekoratív keretét eltávolítottam (**REMOVE**); az önálló rekordokat
+elválasztó (**KEEP**), a workflow linkjeit folyamatos, szemantikus listává
+alakítottam (**REPLACE**). A tetőmodell-, ajánlat- és anyagrekordok továbbra is
+felismerhető, önálló választások.
+
+A változás a meglévő React/Next/CSS rendszert bővíti, nem hoz létre párhuzamos
+design systemet. A `ProjectWorkflowOverview` `nav > ul > li > Link` szerkezetű,
+az organization/project hrefek változatlan kontextust visznek. Közös CSS ad
+nyitott section-, elválasztós lista-, fókusz-, tetőválasztó- és munkafolyamat
+mintát. A korábbi workflow grid keskeny oszlopot és címkére futó műveletet
+okozott; teljes szélességű grid javítja, desktopon két oszloppal és keskeny
+nézetben egy oszloppal.
+
+**Könyvtárdöntés:** shadcn/ui, Motion és creativoma Liquid Glass opciót az
+aktuális React 19 / Next 16 stackhez és helyi függőségekhez auditáltam. A natív
+linkek, mezők, `<details>`, meglévő CSS tokenek és SVG primitívek elegendőek;
+refraction filter nem került az SVG-re, új UI dependency nincs.
+
+**Bizonyíték és korlát:** a projektworkflow javítása böngészőben látható volt.
+A sötét és világos dashboardot ellenőriztem; a sötét téma visszaállítva. Az
+izolált, helyi hitelesített server főútvonalai betöltődtek; a korábbi
+`:3001` projekt-ChunkLoadError oka nem bizonyított. A kilenc előírt route
+azonos állapotú screenshot-párja nem készült el és nem lett képfájlként
+exportálva. Pontos 1440/1024/768/390/320 viewport, fizikai mobil/Safari,
+dialog-billentyűzet, screen reader és valós média-preferencia teszt F9.14.5 alatt
+nem történt. Emiatt a route smoke és célzott tesztek mellett sem igazolt a
+globális vizuális és reszponzív elfogadás; részletek `PROGRESS.md` és
+`TEST_MATRIX.md` F9.14.5 szakaszában.

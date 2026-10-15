@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { duplicateFinalizedQuotationAction, finalizeQuotationAction, transitionQuotationStatusAction, type QuotationFinalizeResult, type QuotationStatusActionResult } from "./quotation-actions";
 import { QuotationDocumentActions } from "./quotation-document-actions";
 import type { QuotationRecord, QuotationStatus } from "./quotation-data";
+import { GlassToolbar } from "@/components/ui/glass-toolbar";
 
 const money = (value: string | null) => value == null ? "Nincs összesítés" : Number(value).toLocaleString("hu-HU", { minimumFractionDigits: 2 }) + " HUF";
 const statusLabel: Record<QuotationStatus, string> = { draft: "Piszkozat", finalized: "Véglegesített", sent: "Elküldött", accepted: "Elfogadott", rejected: "Elutasított" };
@@ -45,7 +46,7 @@ export function QuotationManagement({ organizationId, projectId, quotations }: R
   return <>
     <section className="detail-surface quotation-history" aria-labelledby="quotation-list-title">
       <div className="section-heading"><div><p className="section-eyebrow">Ajánlatok és állapotuk</p><h2 id="quotation-list-title">Ajánlatok a projektben</h2></div><span className="status-pill">{visible.length} találat</span></div>
-      <div className="material-filters quotation-filters"><label>Keresés<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Referencia vagy ügyfél" /></label><label>Állapot<select value={status} onChange={(event) => setStatus(event.target.value as "all" | QuotationStatus)}>{statusFilter.map((item) => <option key={item} value={item}>{item === "all" ? "Minden állapot" : statusLabel[item]}</option>)}</select></label></div>
+      <GlassToolbar ariaLabel="Ajánlatkeresés és szűrés" className="material-filters quotation-filters quotation-filter-toolbar"><label>Keresés<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Referencia vagy ügyfél" /></label><label>Állapot<select value={status} onChange={(event) => setStatus(event.target.value as "all" | QuotationStatus)}>{statusFilter.map((item) => <option key={item} value={item}>{item === "all" ? "Minden állapot" : statusLabel[item]}</option>)}</select></label></GlassToolbar>
       {result.error && <p className="form-message is-error" role="alert">{result.error}</p>}
       {quotations.length === 0 && <p className="missing-data">Ehhez a projekthez még nincs mentett ajánlat.</p>}
       {quotations.length > 0 && visible.length === 0 && <p className="missing-data">Nincs a szűrésnek megfelelő ajánlat.</p>}

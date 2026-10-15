@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, FolderKanban, Settings2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useTheme } from "@/components/theme/theme-provider";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { LogoutButton } from "@/features/auth/auth-controls";
 import { dashboardFunctionHref, dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
-import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
+import { getDashboardGreeting, getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 import type { DashboardTab } from "@/features/dashboard/dashboard.types";
 import type { ProjectRecord } from "@/features/projects/project-data";
 import { projectTypeLabels } from "@/domain/projects/contracts";
@@ -16,7 +16,15 @@ import { projectTypeLabels } from "@/domain/projects/contracts";
 export function Dashboard({ displayName, email, organizationName, organizationId, projects = [] }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; organizationId?: string; projects?: readonly ProjectRecord[]; recentSurveys?: readonly { id: string; version: number; updatedAt: string }[] }>) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("functions");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [greeting, setGreeting] = useState("Üdv a műhelyben!");
   const { setMode } = useTheme();
+
+  useEffect(() => {
+    const updateGreeting = () => setGreeting(getDashboardGreeting(new Date().getHours()));
+    updateGreeting();
+    const interval = window.setInterval(updateGreeting, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const resetTheme = () => {
     setMode("system");
@@ -30,7 +38,7 @@ export function Dashboard({ displayName, email, organizationName, organizationId
 
         <section className="greeting-section" aria-labelledby="dashboard-title">
           <p className="eyebrow">TetőPro · műhely</p>
-          <h1 id="dashboard-title" className="dashboard-title">Jó reggelt!</h1>
+          <h1 id="dashboard-title" className="dashboard-title">{greeting}</h1>
           <p className="dashboard-subtitle">Miben segíthetünk ma?</p>
         </section>
 
@@ -52,7 +60,7 @@ export function Dashboard({ displayName, email, organizationName, organizationId
 function DashboardHeader({ displayName, email, organizationName, settingsOpen, onToggleSettings }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; settingsOpen: boolean; onToggleSettings: () => void }>) {
   const userLabel = displayName || email || "Felhasználó";
   return (
-    <header className="dashboard-header">
+    <header className="dashboard-header glass-navigation">
       <div className="brand-label">
         <span className="brand-mark"><span className="brand-mark-line" aria-hidden="true" /></span>
         <span>TETŐPRO</span>

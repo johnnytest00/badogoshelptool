@@ -1349,3 +1349,87 @@ Csak local DEMO adatot és auth tesztfelhasználót használtunk; hosted DB, res
 | Production módosítás | NINCS | Igazolt P0/P1 nem került elő; csak független fixture, célzott biztonsági regresszió és dokumentáció készült. |
 | Végső ellenőrzések | PASS | Fókuszált Vitest 20 fájl / 147 teszt; typecheck; lint; izolált Next.js 16.4.0 webpack production build; `git diff --check`. Perzisztencia/security változás hiányában Auth/RLS nem futott újra. |
 | Browser / eszköz | NOT RUN / UNVERIFIED | Felhasználói számítási viselkedés nem változott, ezért AGENTS.md szerint külön browser smoke nem futott. Fizikai eszköz nem ellenőrzött. |
+
+## F9.14.1 — kompakt tetőmérési UX
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Hét geometriai forma komponens-elrendezése | PASS | `gable-roof-form.test.tsx` ellenőrzi a projekt-gable-t; `multi-roof-form.test.tsx` a shed, hip, pyramid, halfHip, L és T bemeneteket a közös interaktív rajz előtt, az eredményeket utána. `standalone-gable-preview.test.ts` a standalone gable útvonalat ellenőrzi. |
+| Survey mérési útmutató és SVG | PASS | `field-survey-editor.test.tsx` érvényes nyeregtető survey esetén mező → rajz → eredmény sorrendet ellenőriz; `measurement-guidance.test.tsx` rövid, fókuszált jelentést és rajzkulcs-kapcsolatot fed le. |
+| Browser responsive | BROWSER VERIFIED | Hitelesített local DEMO, standalone gable: 1440/768/390/320 px-en 4/3/2/2 mezőoszlop, mindegyiken 16 px input és nincs dokumentum-túlcsordulás. A survey roof preview-t szintén ellenőriztem a négy viewporton. |
+| Fókusz és rajz | BROWSER VERIFIED | 320 px-en az aktív mező megmaradt, a `buildingLengthMm` vonal kiemelt; 10 000 × 6 000 × 3 000 mm DEMO geometriából élő 93,338 m² standalone előnézet. |
+| Mentés és újranyitás | BROWSER VERIFIED | Helyi, projekt nélküli DEMO survey V1 mentés, refresh és újranyitás után a 10/6/3 m mértékek, explicit egységek, 84,853 m² és rajz megmaradt. Projekt editor külön browser save/reopen és fizikai eszköz nincs ellenőrizve. |
+| Vitest / statikus ellenőrzések | PASS | 6 célzott fájl / 23 teszt, `npm run typecheck`, `npm run lint`, `npm run build` Next.js 16.4.0 webpack, `git diff --check`. Ez fókuszált, nem teljes regressziós suite. |
+| Képlet / adatbiztonság | UNCHANGED | Csak UI/elrendezés, közös drawing presentation és komponens regresszió változott; számítási képlet, RLS/Auth, adatbázis, revízió, idempotencia és forráscontract nem módosult. Hosted DB és fizikai iPhone/iPad nem tesztelt. |
+
+## F9.14.2 — Globális UX és egységes RoofWorkspace
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Design tokenek és közös chrome | IMPLEMENTED / BROWSER PARTIAL | Globális felület-, glass, fókusz-, szemantikus szín-, térköz-, árnyék- és radius tokenek; `glass-navigation`, `glass-toolbar`, egységes gombok/mezők/státuszok. A DOM-ban dashboard, projekt, roof, quotation, materials és preparation oldalakon használt osztályok/felületek ellenőrizve. |
+| RoofWorkspace DOM-sorrend | AUTOMATED VERIFIED | `gable-roof-form.test.tsx`, `multi-roof-form.test.tsx` (6 típus), `standalone-gable-preview.test.ts`, `field-survey-editor.test.tsx`: mérés → rajz → eredmény. L/T feltételezés az eredmények után. |
+| Drawing controls / dimension access | AUTOMATED + BROWSER VERIFIED | `technical-drawing.test.tsx`: toolbar az advanced `<details>` előtt, dimenziók csoportként elérhetők. Local browser: SVG-dimenzió pointer- és Enter-kiválasztása a megfelelő mezőre fókuszált és kiemelt. |
+| Breakpoint / overflow | BROWSER VERIFIED (EMULATED) | Roof survey 1440/1024/768/390/320 px: 4/4/3/2/2 oszlop, 16 px mezőszöveg, legalább 44 px ellenőrzött vezérlő, nincs vízszintes dokumentum-túlcsordulás. Dashboard, projekt gable, materials, quotation, procurement és kivitelezés 320 px-en is overflow nélkül. Nem fizikai eszközteszt. |
+| Helyi survey persistence | BROWSER VERIFIED | Hitelesített local DEMO survey V1; 10/6/3 m, 0 mm túlnyúlások és 84,853 m² reload + újranyitás után megmaradt. Meglévő save action/contract változatlan. |
+| Representative surfaces | BROWSER VERIFIED / PARTIAL | Dashboard; quick survey (summary button is present, summary result not verified); standalone gable; projekt gable; projekt eresz és szegély; project material takeoff + katalógus; új quotation; beszerzés; kivitelezés megnyílt. A nem tető üzleti műveletek nem kerültek mentésre. |
+| Sötét mód / accessibility fallback | IMPLEMENTED / NOT FULLY VERIFIED | CSS fallback, `prefers-reduced-transparency`, `prefers-reduced-motion`, `prefers-contrast: more`, forced-colors és globális fókuszgyűrű szerepel. Képernyőolvasó, dialog fókusz, Safari, média-preferencia futtatott emuláció és fizikai eszköz nem ellenőrzött. |
+| Képlet / adatbiztonság | UNCHANGED | Domain-képlet, adatbázisséma, Auth/RLS, pénzügyi/áfa szemantika, mentési action és revision/snapshot contract nem módosult; hosted DB és regresszió suite nem futott. |
+| Vitest / typecheck / lint / build / diff | PASS | 6 célzott tesztfájl / 21 teszt; `npm run typecheck`, `npm run lint`, Next.js 16.4.0 webpack `npm run build`, majd dokumentációval együtt `git diff --check`. |
+
+## F9.14.3 — Liquid Glass vizuális audit és finomítás
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Survey input–rajz integráció | BROWSER VERIFIED | A mérési strip és drawing header közötti távolság: 1440/768/390 px-en 9/9/7 px; a 1440-es előtte input→canvas 194 px, utána 63 px. Egy közös `roof-workspace-surface`; külön „Mérések”/„Rajzok” felirat és látható ismétlődő summary nincs. |
+| Reszponzivitás | BROWSER VERIFIED (EMULATED) | Survey viewport 1440/768/390/320 px; 4/3/2/1 oszlop, input szöveg 16 px, `documentElement.scrollWidth === innerWidth` minden méreten. 320 px-en az egy oszlop a kétoszlopos címke/beállítás zsúfoltságot javította. Fizikai eszköz/soft keyboard nincs. |
+| Fókusz és SVG | BROWSER VERIFIED | A „Mérés 1 értéke” fókusza mellett a `buildingLengthMm` SVG group `is-active`; az aktív input fókusza megmaradt. 390/320 px-en az SVG rajz teljes szélességében a közös munkafelületen jelenik meg. Soft keyboard takarását nem emuláltam. |
+| Téma | BROWSER VERIFIED | Dashboard light és dark, survey light és dark tényleges DOM/screenshot ellenőrzése. Az eredeti sötét beállítás visszaállítva. |
+| Mentés és navigáció | BROWSER VERIFIED | `DEMO F9.14.3` survey `e2060324-914b-4d45-a011-3e4c07fb3f31`, V1 mentés, reload és felméréslistából újranyitás. 10/6/3 m, 0 mm, 84,853 m² és SVG megmaradt; státusz `Mentve · V1`. Ez lokális tesztadat marad. |
+| Reprezentatív vizuális felületek | BROWSER VERIFIED / PARTIAL | Előtte/utána survey, standalone gable, project gable, dashboard és anyagkatalógus. Kalkulátorválasztó, standalone eresz/szegély, projekt anyagkimutatás, ajánlatpiszkozat és beszerzési/műhelylista is megnyitva 1440 px-en. A hat dashboard kártya/sorrend és az 5 DEMO anyagkártya megmaradt. Ezeken az oldalakon nem mentettem üzleti módosítást. |
+| Célzott Vitest / typecheck / lint / build / diff | PASS | 6 fájl / 21 teszt; `npm run typecheck`; `npm run lint`; Next.js 16.4.0 webpack `npm run build` izolált forrásmásolaton, csak buildhez használt placeholder Supabase public env-vel; `git diff --check`. Nem teljes regresszió. |
+| Persistencia, jogosultság, képlet | NEM VÁLTOZOTT | Csak komponens-prezentáció és CSS breakpoint módosult; domain-számítás, adatbázis, mentési action és Auth/RLS szerződés nem változott. Hosted DB, projekt tetőmodell külön mentés és Safari nem ellenőrzött. |
+
+## F9.14.4 — Fluid Liquid Glass UI transformation
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Könyvtár- és kompatibilitásvizsgálat | PASS, audit | A jelenlegi React/Next stackhez shadcn/ui dokumentáció, Motion és creativoma liquid-glass megoldás áttekintve. Új dependency nem indokolt: natív interakciók és CSS primitívek elegendők; torzító SVG filtert nem alkalmaztam. |
+| Közös UI és RoofWorkspace szerkezet | AUTOMATED VERIFIED | A workspace közvetlen mező/rajz gyerekeket ad, a rajzeszközök a drawing stage-en belül jelennek meg, a haladó `<details>` zárt alapállapotú. Fókusz-dimenzió és meglévő rajz funkciók megmaradtak. |
+| Vizuális böngésző-ellenőrzés | BROWSER PARTIAL | Authenticated local dashboard light/dark, survey, standalone gable és project editor 1440 px-en megnyitva. A workspace DOM-fája és dimenziókiemelés ellenőrizve. A hat azonos képernyő előtte/utána export és teljes összehasonlítás nem készült. |
+| Interakció / mentés | PARTIAL / UNVERIFIED | Zoom és rétegmenü megnyitása, mező → SVG dimenzió fókusz ellenőrizve. Survey save/reopen, projekt mentés/újranyitás, handoff, quote/material navigáció nem igazolt; a lokális dev szerver save közben leállt, a preview régi markuppal szolgált. DEMO adatot nem módosítottam. |
+| Viewport / accessibility | PARTIAL | 1440 px-en nincs horizontális túlcsordulás a vizsgált tetőoldalakon. 1024/768/390/320, fizikai Safari, billentyűzet teljes útvonal, reduced-motion, increased-contrast és screen reader nem ellenőrzött. |
+| Vitest / typecheck / lint / build / diff | PASS | Végleges forrás: 4 célzott fájl / 15 Vitest teszt, `npm run typecheck`, `npm run lint`, `git diff --check` sikeres. Next.js 16.4.0 webpack production build friss forrásmásolaton sikeres. Ez célzott, nem teljes regresszió. |
+| Adatkonzisztencia / jogosultság | VÁLTOZATLAN | Kizárólag CSS és felületi komponens-struktúra változott; számítás, mentési action, Auth/RLS, séma és pénzügyi contract érintetlen. |
+
+## F9.14.5 — Global Fluid Liquid Glass & Application Recovery
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Hitelesített főútvonalak | WORKING (local) | Izolált `localhost:3214`: dashboard → gyorsfelmérés szervezeti query-vel; survey lista/rekord; projektek/lista/részlet; kalkulátor és tető létrehozás/szerkesztés; projekt eresz/szegély; anyagkatalógus/kimutatás; ajánlatlista/piszkozat; beszerzés; kivitelezés. A fő oldalak és mélylinkek megnyíltak. Ez útvonalsmoke, nem teljes oldalankénti üzleti regresszió. |
+| Előző szerverhibák | PARTIAL / DIAGNOSED | A régi `localhost:3001` projektoldal ChunkLoadError-t adott; két korábbi, ideiglenes checkoutból futó Next folyamatot láttam. A pontos portütközés/asset-cache ok nem bizonyított; más alkalmazás kockázata miatt nem állítottam le őket. Izolált helyi szerverrel a főútvonalak rendben voltak. Rapid navigációnál néhány stream megszakadt, a releváns GET kérések 200-zal zárultak. |
+| Várt hozzáférési állapot | EXPECTED NOT FOUND | Egy korábbi, ebben a lokális adatbázisban nem létező survey-azonosító megfelelő „nem található” oldalt adott. Ez nem 401/403 és nem hibás route. Az elérhető rekordoknál a szervezet query megmaradt. |
+| Dashboard és projektkompozíció | BROWSER VERIFIED | A hat dashboard funkció és sorrend megmaradt. Projektfolyamat: nyolc szemantikus link teljes szélességű 2-oszlopos lista, mobilra 1 oszlop. Az alapadat/szerkesztés szekciók nyitottak; keretes egymásba ágyazás csökkent. A 2-oszlop regressziót javított CSS-szabályt követően képernyőn vizuálisan ellenőriztem. |
+| Munkaterületek | BROWSER VERIFIED / PARTIAL | Tetőselector, meglévő roof workspace/revízió, dashboard, survey, project overview, takeoff, quote draft, procurement, gutter/flashing, materials, execution megnyílt. Képlet, forrásrevision, Auth/RLS, adatbázis és pénzügyi szerződés nem változott. A mentési/approval/handoff műveleteket nem futtattam. |
+| Témák | BROWSER VERIFIED (DASHBOARD) | A dashboard világos és sötét módját megtekintettem; a sötét mód lett visszaállítva. A két téma minden route-on, kontrasztmérővel nem lett ellenőrizve. |
+| Browser-bizonyíték | PARTIAL | Vizuális ellenőrzés képernyőn; a projektáttekintő lista hiba előtti/utáni állapota ellenőrizve. A kilenc előírt route képpárja nem készült el és browser screenshotok lokális fájlba exportálása nem volt elérhető. |
+| Responsive / accessibility | NOT VERIFIED THIS MILESTONE | 1440/1024/768/390/320 px pontos viewport override és overflow mérés nem futott. Fizikai Safari/eszköz, soft keyboard, teljes billentyűzet/dialog, screen reader, reduced-motion, increased-contrast nem ellenőrzött. Korábbi mérföldkő emulációja nem bizonyíték erre a végleges F9.14.5 buildre. |
+| Automatizált regresszió | PASS (FOCUSED) | Pontos parancs: `npx vitest run src/features/projects/project-workflow-overview.test.ts src/features/projects/project-navigation.test.ts src/features/dashboard/dashboard.test.ts src/features/roof-models/gable-roof-form.test.tsx src/features/roof-models/multi-roof-form.test.tsx src/features/roof-models/technical-drawing.test.tsx src/features/roof-models/roof-type-selector.test.tsx src/features/roof-models/standalone-gable-preview.test.ts src/features/field-surveys/field-survey-editor.test.tsx src/features/roof-models/measurement-guidance.test.tsx src/features/execution/execution-overview.test.ts src/features/roof-models/project-roof-drawings.test.ts`: 12 fájl / 39 teszt PASS. `npm run typecheck`, `npm run lint`, izolált forrásmásolaton `npm run build` (Next.js 16.4.0 webpack, 43 felsorolt app/API route) és `git diff --check` PASS. Teljes suite nem futott. |
+| Perzisztencia / adatvédelem | NEM VÁLTOZOTT | Csak UI/CSS/teszt/dokumentáció; adatbázis-, számítás- és mentési contract nem módosult. Elérhető survey és saved roof/quote/procurement rekordokat csak olvastam. Hosted DB/RLS test suite nem futott. |
+
+## F9.14.6 — Product UI Architecture & Visual Refinement
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Megosztott UX-szerkezet | IMPLEMENTED / AUTOMATED VERIFIED | Új `GlassToolbar` szemantikus groupként használható a rajz- és szűrőeszközökön; meglévő `RoofWorkspace`, `TechnicalDrawing` és mérési útmutató újrafelhasználva. Új UI-függőség nincs. |
+| Tetőválasztó | BROWSER VERIFIED | Hét felismerhető típus és címke; 1440/1024/768/390/320 px-en 4/4/3/2/2 csempeoszlop, 0 px dokumentum-túlcsordulás. |
+| Survey mérések → SVG | BROWSER VERIFIED | A méréssor közvetlenül az interaktív rajz előtt áll. Mérések 16 px betűvel és legalább 46 px magas mezővel; mérőmező fókuszára egy SVG-dimenzió kiemelődik. Eredmény: 93,338 m². |
+| Survey mentés / újranyitás | BROWSER VERIFIED (LOCAL DEMO) | Dashboard → gyorsfelmérés → mentés → felméréslista → újranyitás: `DEMO F9.14.6 nyeregtető`, V1, 10/6/3 m, 300/0/0 mm, SVG és 93,338 m². Új lokális tesztrekord; meglévő adat nem módosult. |
+| Projekt tetőmodell mentés / újratöltés | BROWSER VERIFIED (LOCAL DEMO) | Új tesztprojekt `2e5ebf96-6dbc-4b2e-b8bc-60bffe430318`; tetőmodell `73521fd7-cf63-4350-a908-4290cb4642c9`, V1. Oldal-újratöltés után 10 000 × 6 000 × 3 000 mm, 300/0/0 mm túlnyúlások, műszaki SVG és 93,338 m² megmaradt. Más projektet vagy rekordot nem módosítottam. |
+| Dashboard → projektek → részlet | BROWSER VERIFIED | Dashboard funkciólink, projektlista `Megnyitás`, projektazonosító query megmaradt; részleten 0 px oldal-túlcsordulás 320 px-en. |
+| Projekt → mentett tetőrajz | BROWSER VERIFIED (READ ONLY) | Projektből a meglévő nyeregtető modell Revízió 4 megnyílt; rajz, dimenziók és eredménymetrikák jelen vannak; 320 px-en 0 px túlcsordulás. |
+| Projekt → ajánlat / anyag | BROWSER VERIFIED (READ ONLY) | Projekt-ajánlat útvonalon 6 meglévő ajánlat látható; az anyagkatalóguson 5 meglévő DEMO termék. Mentési, véglegesítési vagy archiválási művelet nem futott. |
+| Responsive mátrix | BROWSER VERIFIED (EMULATED) | Dashboard, selector, survey, standalone roof calculator, projektlista/részlet, anyagok és ajánlatok: 1440/1024/768/390/320 px, dokumentumszintű vízszintes overflow nélkül. Materials/quotation toolbar: 2 oszlop desktopon/tableten; 1 oszlop 390/320 px-en. Nem fizikai eszközteszt. |
+| Téma / fókusz | BROWSER VERIFIED / PARTIAL | Világos dashboard és survey; sötét dashboard és 320 px survey; a sötét beállítás visszaállítva. SVG-dimenzió-fókusz működik. Screen reader és fizikai Safari nincs ellenőrizve. |
+| Fókuszált Vitest | PASS | Pontos parancs: `npx vitest run src/components/ui/glass-toolbar.test.tsx src/features/dashboard/dashboard.test.ts src/features/projects/project-navigation.test.ts src/features/projects/project-workflow-overview.test.ts src/features/roof-models/gable-roof-form.test.tsx src/features/roof-models/multi-roof-form.test.tsx src/features/roof-models/technical-drawing.test.tsx src/features/roof-models/drawing-viewport.test.ts src/features/roof-models/roof-type-selector.test.tsx src/features/roof-models/standalone-gable-preview.test.ts src/features/roof-models/project-roof-drawings.test.ts src/features/field-surveys/field-survey-editor.test.tsx src/features/roof-models/measurement-guidance.test.tsx src/features/execution/execution-overview.test.ts src/features/field-surveys/field-survey-actions.test.ts`: 15 fájl / 55 teszt PASS. Emellett `npm run typecheck`, `npm run lint`, izolált másolaton `npm run build` Next.js 16.4.0 webpack és `git diff --check` PASS; teljes suite nem futott. |
+| Before/after vizuális bizonyíték | PARTIAL | After állapotok böngészőben megtekintve; összehasonlító screenshot-fájlok nem exportálhatók ebből az in-app browserből. A hét kötelező route megőrzött, azonos állapotú képpárja hiányzik. |
+| Adatkonzisztencia / jogosultság / képlet | UNCHANGED / PARTIAL PROOF | Domain-képletek, sémák, Auth/RLS, mentési action, revízió- és pénzügyi szerződés nem változott. Lokális DEMO save/reopen bizonyított; hosted DB, párhuzamos mentés és Auth/RLS regresszió nem futott. |

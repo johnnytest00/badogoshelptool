@@ -25,6 +25,9 @@ describe("shared roof type selector", () => {
     expect(html.match(/class="roof-type-illustration"/g)).toHaveLength(7);
     expect(html.match(/aria-pressed="true"/g)).toHaveLength(1);
     expect(html.match(/aria-pressed="false"/g)).toHaveLength(6);
+    expect(html).toContain('class="roof-type-card is-selected"');
+    expect(html).toContain("Kiválasztva");
+    for (const option of roofTypeOptions) expect(html).toContain(option.description);
   });
 
   it("draws exactly the calculated plane and edge identities", () => {

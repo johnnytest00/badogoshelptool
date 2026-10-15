@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Plus, Settings2, Trash2 } from "lucide-react";
 import { fieldSurveySemanticTypeLabels, fieldSurveyTemplates, fieldSurveyUnitLabels, fieldSurveyWorkTypeLabels, type FieldSurveyMeasurement, type FieldSurveySemanticType, type FieldSurveyUnit, type FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
 import { surveySections, surveySectionsSchema, type SurveySection, type SurveyCalculationLink, type SurveyFollowup } from "@/domain/field-surveys/workspace";
 import { saveFieldSurveyAction } from "./field-survey-actions";
@@ -22,6 +22,7 @@ import { calculateGableRoof, gableRoofInputSchema } from "@/domain/calculations/
 import { mapFieldSurveyToCalculator } from "@/domain/field-surveys/calculator-handoff";
 import { TechnicalDrawing } from "@/features/roof-models/technical-drawing";
 import { MeasurementGuidance, measurementGuideForSurvey } from "@/features/roof-models/measurement-guidance";
+import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
 
 type MeasurementDraft = { id: string; label: string; value: string; unit: FieldSurveyUnit; semanticType: FieldSurveySemanticType };
 type SectionDraft = Omit<SurveySection, "measurements"> & { measurements: MeasurementDraft[] };
@@ -204,7 +205,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   const selectedVersion = historicalRevision?.version ?? version;
   const revisionSelector = surveyId && revisionVersions.length > 1 && <label className="field-survey-field"><span>Felmérés változata</span><select value={selectedVersion} disabled={blocked} onChange={(event) => navigate(`/felmeresek/${surveyId}?organization=${organizationId}${Number(event.target.value) === version ? "" : `&version=${event.target.value}`}`)}>{[...new Set([version, ...revisionVersions])].map((item) => <option key={item} value={item}>{item === version ? "Aktuális" : "Korábbi"} · V{item}</option>)}</select></label>;
   if (historicalRevision && surveyId) return <section className="field-survey-card"><h1>Korábbi felmérésváltozat · V{historicalRevision.version}</h1>{revisionSelector}<WorkspaceSummary organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} sections={surveySections(historicalRevision)} calculations={relationships.calculations} initialFollowups={relationships.followups.filter((row) => row.surveyRevisionId === historicalRevision.id)} projects={projects} originalProjectId={historicalRevision.projectId} readOnly /><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} historical onVersionChange={() => undefined} onEnsureSaved={async () => null} onUploadComplete={() => undefined} /><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek/${surveyId}?organization=${organizationId}`)}>Aktuális felmérés folytatása</button>{surveySections(historicalRevision).filter((section) => section.workType !== "other").map((section) => <Link key={section.id} className="secondary-button" href={`/felmeresek/${surveyId}/kalkulator/${section.workType}?organization=${organizationId}&version=${historicalRevision.version}&section=${section.id}`}>{section.name} · V{historicalRevision.version} adatai a kalkulátorban</Link>)}</section>;
-  return <section className="field-survey-card">
+  return <section className={`field-survey-card${active.workType === "roof" && active.roofType ? " field-survey-card-roof" : ""}`}>
     <div className="field-survey-heading"><div><p className="section-eyebrow">Helyszíni munka · {surveyId ? `V${version}` : "új felmérés"}</p><h1>{surveyId ? "Felmérés szerkesztése" : "Új felmérés"}</h1><p>Mérj, fotózz, számolj. Ügyfél és projekt nélkül is bármikor menthetsz.</p></div><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek?organization=${organizationId}`)}>Vissza a felmérésekhez</button></div>
     {revisionSelector}
     {recovery && <aside className="survey-handoff-banner"><p>Korábbi nem mentett szerkesztés helyreállítható · alap V{recovery.version}.{recovery.version !== version ? " A mentett felmérés közben változott; a visszaállított piszkozat mentése verzióellenőrzést kap." : ""}</p><button type="button" className="secondary-button" onClick={() => { setSections(recovery.sections); setActiveId(recovery.sections[0].id); setProjectId(recovery.projectId); setVersion(recovery.version); setRecovery(null); }}>Piszkozat visszaállítása</button><button type="button" className="secondary-button" onClick={() => { if (recoveryKey) { try { sessionStorage.removeItem(recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } } setRecovery(null); }}>Korábbi piszkozat elvetése</button></aside>}
@@ -222,20 +223,47 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
         {active.workType === "roof" && active.roofType && survey?.sections?.some((section) => section.id === active.id) && (survey?.sections?.some((section) => section.id === active.id && section.roofType)
           ? <details className="survey-section-settings"><summary>Tetőforma: {roofTypeOptions.find((option) => option.type === active.roofType)?.name ?? "ismeretlen"} · módosítás</summary><RoofTypeSelector selected={active.roofType ?? null} onSelect={selectRoofType} label="Tetőforma módosítása" /></details>
           : <RoofTypeSelector selected={active.roofType ?? null} onSelect={selectRoofType} label="Felmért tetőforma" />)}
-        {active.workType !== "roof" || active.roofType ? <section className="field-survey-measurements"><h2>Mérések</h2><p>Az üres érték hiányzó mérésként menthető. A kalkulátorhoz csak kitöltött, megfelelő egységű adat kerül. A túlnyúlásnál 0 csak ténylegesen ellenőrzött hiányt jelent.</p>{missingRoofTemplates.length > 0 && active.roofType === "gable" && <button type="button" className="secondary-button" onClick={() => patchSection({ measurements: [...active.measurements, ...missingRoofTemplates.map((template) => ({ ...template, id: crypto.randomUUID(), value: "" }))] })}>Nyeregtető alapmérései · {missingRoofTemplates.length} mező hozzáadása</button>}
-          {active.measurements.map((measurement, index) => <div className="field-survey-measurement" key={measurement.id}>
-            <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onFocus={() => active.workType === "roof" && setFocusedRoofMeasurement(measurement.semanticType)} onBlur={() => setFocusedRoofMeasurement(null)} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
-            <details className="field-survey-measurement-settings"><summary>Mérés beállításai</summary><label className="field-survey-field"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} onChange={(event) => patchMeasurement(measurement.id, { label: event.target.value })} /></label><label className="field-survey-field"><span>Egység</span><select aria-label={`Mérés ${index + 1} egysége`} value={measurement.unit} onChange={(event) => patchMeasurement(measurement.id, { unit: event.target.value as FieldSurveyUnit })}>{Object.entries(fieldSurveyUnitLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label className="field-survey-field"><span>Számítási szerep</span><select aria-label={`Mérés ${index + 1} számítási szerepe`} value={measurement.semanticType} onChange={(event) => patchMeasurement(measurement.id, { semanticType: event.target.value as FieldSurveySemanticType })}>{Object.entries(fieldSurveySemanticTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></details>
-            <button type="button" className="field-survey-remove" aria-label={`${measurement.label} törlése`} onClick={() => patchSection({ measurements: active.measurements.filter((item) => item.id !== measurement.id) })}><Trash2 aria-hidden="true" className="size-4" /></button>
-          </div>)}
-          <button type="button" className="field-survey-add" onClick={() => addMeasurement()}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><details className="field-survey-template-details"><summary>Másik sablonmérés hozzáadása</summary>{(active.workType === "roof" && active.roofType && active.roofType !== "gable" ? surveyRoofFields(active.roofType) : fieldSurveyTemplates[active.workType]).map((template) => <button type="button" key={template.label} onClick={() => addMeasurement(template)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</details>
+        {active.workType !== "roof" || active.roofType ? <section className="field-survey-measurements">{active.workType !== "roof" && <><h2>Mérések</h2><p>Az üres érték hiányzó mérésként menthető. A kalkulátorhoz csak kitöltött, megfelelő egységű adat kerül.</p></>}
+          {active.workType === "roof" && active.roofType ? <SurveyRoofPreview
+            roofType={active.roofType}
+            activeDimension={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")?.key ?? null}
+            activeDimensionDescription={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")?.meaning}
+            activeGuide={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")}
+            measurements={serialize([active])[0].measurements.filter((measurement): measurement is FieldSurveyMeasurement => measurement.value !== null)}
+            onDimensionSelect={(key) => {
+              const matches = active.measurements.filter((measurement) => measurementGuideForSurvey(active.roofType!, measurement.semanticType)?.key === key);
+              if (matches.length === 1) document.getElementById(`survey-measurement-${matches[0].id}`)?.focus();
+            }}
+            measurementInputs={
+              <>
+                <div className="roof-survey-measurement-strip">{active.measurements.map((measurement, index) => <div className="field-survey-measurement" key={measurement.id}>
+                  <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input id={`survey-measurement-${measurement.id}`} type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onFocus={() => setFocusedRoofMeasurement(measurement.semanticType)} onBlur={() => setFocusedRoofMeasurement(null)} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
+                  <MeasurementTools measurement={measurement} index={index} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => patchSection({ measurements: active.measurements.filter((item) => item.id !== measurement.id) })} />
+                </div>)}</div>
+              </>
+            }
+            actions={
+              <>
+                <div className="roof-survey-edit-actions">
+                  {missingRoofTemplates.length > 0 && active.roofType === "gable" && <button type="button" className="secondary-button roof-survey-add-required" onClick={() => patchSection({ measurements: [...active.measurements, ...missingRoofTemplates.map((template) => ({ ...template, id: crypto.randomUUID(), value: "" }))] })}>Nyeregtető alapmérései · {missingRoofTemplates.length} mező hozzáadása</button>}
+                  <button type="button" className="field-survey-add" onClick={() => addMeasurement()}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><details className="field-survey-template-details"><summary>Másik sablonmérés hozzáadása</summary>{(active.roofType !== "gable" ? surveyRoofFields(active.roofType) : fieldSurveyTemplates[active.workType]).map((template) => <button type="button" key={template.label} onClick={() => addMeasurement(template)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</details>
+                </div>
+                <div className="field-survey-save-row"><p role="status">{saving ? "Mentés…" : dirty ? "Nem mentett módosítások" : surveyId ? `Mentve · V${version}` : "Új felmérés"}</p><button type="submit" className="primary-button field-survey-save">{saving ? "Mentés…" : "Felmérés mentése"}</button></div>
+              </>
+            }
+          /> : <>
+            {active.measurements.map((measurement, index) => <div className="field-survey-measurement" key={measurement.id}>
+              <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
+              <MeasurementTools measurement={measurement} index={index} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => patchSection({ measurements: active.measurements.filter((item) => item.id !== measurement.id) })} />
+            </div>)}
+            <button type="button" className="field-survey-add" onClick={() => addMeasurement()}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><details className="field-survey-template-details"><summary>Másik sablonmérés hozzáadása</summary>{fieldSurveyTemplates[active.workType].map((template) => <button type="button" key={template.label} onClick={() => addMeasurement(template)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</details>
+          </>}
         </section> : null}
         <details className="field-survey-note-details"><summary>Megjegyzés · opcionális</summary><label className="field-survey-field"><span>Helyszíni megjegyzés</span><textarea value={active.notes} rows={3} maxLength={2000} onChange={(event) => patchSection({ notes: event.target.value })} /></label></details>
         <details><summary>Fotók ehhez a munkaszakaszhoz · {active.photoIds.length}</summary>{photos.length ? photos.map((photo) => <label className="survey-photo-choice" key={photo.id}><input type="checkbox" checked={active.photoIds.includes(photo.id)} onChange={(event) => patchSection({ photoIds: event.target.checked ? [...active.photoIds, photo.id] : active.photoIds.filter((id) => id !== photo.id) })} />{photo.filename}</label>) : <p>Az alábbi fotópanelben tölthetsz fel képet; az új kép automatikusan ehhez a szakaszhoz kerül a következő mentéskor.</p>}</details>
-        <div className="field-survey-save-row"><p role="status">{saving ? "Mentés…" : dirty ? "Nem mentett módosítások" : surveyId ? `Mentve · V${version}` : "Új felmérés"}</p><button type="submit" className="primary-button field-survey-save">{saving ? "Mentés…" : "Felmérés mentése"}</button></div>
+        {(active.workType !== "roof" || !active.roofType) && <div className="field-survey-save-row"><p role="status">{saving ? "Mentés…" : dirty ? "Nem mentett módosítások" : surveyId ? `Mentve · V${version}` : "Új felmérés"}</p><button type="submit" className="primary-button field-survey-save">{saving ? "Mentés…" : "Felmérés mentése"}</button></div>}
       </fieldset>
     </form>
-    {active.workType === "roof" && active.roofType && <><MeasurementGuidance guide={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")} /><SurveyRoofPreview roofType={active.roofType} activeDimension={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")?.key ?? null} activeDimensionDescription={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")?.meaning} measurements={serialize([active])[0].measurements.filter((measurement): measurement is FieldSurveyMeasurement => measurement.value !== null)} /></>}
     {active.workType === "roof" && effectiveProjectId && surveyId && !calculator && !recovery && <SurveyRoofWorkspace organizationId={organizationId} surveyId={surveyId} version={version} sectionId={active.id} sectionName={active.name} projectId={effectiveProjectId} roofType={active.roofType ?? "gable"} links={relationships.calculations} ensureSaved={ensureSaved} onWork={openGeometryWork} onLinked={() => router.refresh()} />}
     {active.workType === "roof" && !effectiveProjectId && !calculator && <div className="detail-surface survey-roof-project"><p>Mentett, más munkához átadható tetőmodellhez projekt kell. Az önálló felmérés és a kézi kalkulátorok továbbra is használhatók.</p><label className="field-survey-field"><span>Új projekt neve</span><input value={newProjectName} maxLength={200} onChange={(event) => setNewProjectName(event.target.value)} /></label><button type="button" className="secondary-button" disabled={blocked || !newProjectName.trim()} onClick={() => void createGeometryProject()}>{followupPending ? "Projekt létrehozása…" : "Projekt létrehozása a tetőmodellhez"}</button></div>}
     <div className="survey-workspace-actions"><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || Boolean(calculator) || photoState.queued || active.workType === "other"} onClick={() => void openCalculator()}>Számítás hozzáadása · {active.name}</button><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || Boolean(calculator) || photoState.queued} onClick={() => void showSummary()}>Felmérés összesítése</button></div>
@@ -247,7 +275,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   </section>;
 }
 
-function SurveyRoofPreview({ roofType, measurements, activeDimension, activeDimensionDescription }: Readonly<{ roofType: RoofGeometryType; measurements: readonly FieldSurveyMeasurement[]; activeDimension?: string | null; activeDimensionDescription?: string }>) {
+function SurveyRoofPreview({ roofType, measurements, activeDimension, activeDimensionDescription, activeGuide, measurementInputs, actions, onDimensionSelect }: Readonly<{ roofType: RoofGeometryType; measurements: readonly FieldSurveyMeasurement[]; activeDimension?: string | null; activeDimensionDescription?: string; activeGuide: ReturnType<typeof measurementGuideForSurvey>; measurementInputs: ReactNode; actions: ReactNode; onDimensionSelect: (key: string) => void }>) {
   let gableOutput: ReturnType<typeof calculateGableRoof> | null = null;
   let multiGeometry: ReturnType<typeof calculateRoofGeometry> | null = null;
   if (roofType === "gable") {
@@ -267,9 +295,27 @@ function SurveyRoofPreview({ roofType, measurements, activeDimension, activeDime
     if (input) multiGeometry = calculateRoofGeometry(input);
   }
   const areaM2 = gableOutput?.areas.combinedRoofM2 ?? (multiGeometry ? multiGeometry.totalAreaMm2 / 1_000_000 : null);
-  if (!measurements.length) return <p className="missing-data" role="status">A rajz és az eredmények a szükséges méretek megadása után jelennek meg.</p>;
-  return <section className="roof-results survey-roof-preview" aria-live="polite"><div className="roof-section-heading"><div><p className="section-eyebrow">Geometriai előnézet</p><h2>Rajz és ellenőrzött eredmények</h2></div></div>{areaM2 === null
-    ? <p className="missing-data" role="status">A rajz és a geometriai eredmény a tetőforma minden szükséges, érvényes méretének megadása után jelenik meg.</p>
-    : <><div className="roof-result-grid"><div className="roof-result-metric"><small>Teljes tetőfelület</small><strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(areaM2)} m²</strong></div><div className="roof-result-metric"><small>Tetősíkok</small><strong>{gableOutput ? gableOutput.planes.length : multiGeometry?.planes.length}</strong></div></div>{gableOutput ? <TechnicalDrawing output={gableOutput} activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} isSaved={false} /> : multiGeometry && <TechnicalDrawing geometry={multiGeometry} activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} isSaved={false} />}</>}
-  </section>;
+  return <RoofWorkspace
+    className="roof-workspace-survey"
+    label="Felmérés tetőmérési munkaterülete"
+    context={<div className="roof-workspace-context"><div className="roof-workspace-context-heading"><p className="section-eyebrow">Felmérés · {roofTypeOptions.find((option) => option.type === roofType)?.name ?? "Tető"}</p><span>Az aktív mező méretvonala a rajzon kiemelve jelenik meg.</span></div><div className="roof-guidance-slot"><MeasurementGuidance compact guide={activeGuide} /></div></div>}
+    measurements={measurementInputs}
+    drawing={areaM2 !== null && (gableOutput || multiGeometry) ? <TechnicalDrawing output={gableOutput ?? undefined} geometry={multiGeometry ?? undefined} compact activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} isSaved={false} /> : null}
+    results={areaM2 === null
+      ? <p className="missing-data" role="status">{measurements.length ? "A rajz a tetőforma minden szükséges, érvényes méretének megadása után jelenik meg." : "A rajz a szükséges méretek megadása után jelenik meg."}</p>
+      : <section className="roof-results" aria-live="polite"><div className="roof-section-heading"><div><p className="section-eyebrow">Geometriai előnézet</p><h2>Ellenőrzött eredmények</h2></div></div><div className="roof-result-grid"><div className="roof-result-metric"><small>Teljes tetőfelület</small><strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(areaM2)} m²</strong></div><div className="roof-result-metric"><small>Tetősíkok</small><strong>{gableOutput ? gableOutput.planes.length : multiGeometry?.planes.length}</strong></div></div></section>}
+    actions={actions}
+  />;
+}
+
+function MeasurementTools({ measurement, index, onPatch, onRemove }: Readonly<{ measurement: MeasurementDraft; index: number; onPatch: (patch: Partial<MeasurementDraft>) => void; onRemove: () => void }>) {
+  return <details className="field-survey-measurement-settings">
+    <summary><Settings2 aria-hidden="true" className="size-3.5" /><span>Beállítások és törlés</span></summary>
+    <div className="field-survey-measurement-tools">
+      <label className="field-survey-field"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} onChange={(event) => onPatch({ label: event.target.value })} /></label>
+      <label className="field-survey-field"><span>Egység</span><select aria-label={`Mérés ${index + 1} egysége`} value={measurement.unit} onChange={(event) => onPatch({ unit: event.target.value as FieldSurveyUnit })}>{Object.entries(fieldSurveyUnitLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+      <label className="field-survey-field"><span>Számítási szerep</span><select aria-label={`Mérés ${index + 1} számítási szerepe`} value={measurement.semanticType} onChange={(event) => onPatch({ semanticType: event.target.value as FieldSurveySemanticType })}>{Object.entries(fieldSurveySemanticTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+      <button type="button" className="field-survey-remove" aria-label={`${measurement.label} törlése`} onClick={onRemove}><Trash2 aria-hidden="true" className="size-4" /><span>Mérés törlése</span></button>
+    </div>
+  </details>;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { calculateRoofGeometry, type RoofGeometryType } from "@/domain/calculations/roof-geometry";
+import { Check } from "lucide-react";
 
 export const roofTypeOptions: readonly { type: RoofGeometryType; name: string; description: string }[] = [
   { type: "shed", name: "Félnyeregtető", description: "Egy lejtő tetősík, alsó eresszel." },
@@ -37,6 +38,13 @@ function RoofTypeIllustration({ type }: { type: RoofGeometryType }) {
 
 export function RoofTypeSelector({ selected, onSelect, label = "Válaszd ki a tető típusát" }: Readonly<{ selected: RoofGeometryType | null; onSelect: (type: RoofGeometryType) => void; label?: string }>) {
   return <section className="roof-type-selector" aria-label={label}><div className="roof-section-heading"><div><p className="section-eyebrow">Új tető</p><h2>{label}</h2></div></div><div className="roof-type-grid">
-    {roofTypeOptions.map((option) => <button type="button" key={option.type} className={`roof-type-card ${selected === option.type ? "is-selected" : ""}`} aria-pressed={selected === option.type} onClick={() => onSelect(option.type)}><RoofTypeIllustration type={option.type} /><strong>{option.name}</strong><span>{option.description}</span></button>)}
+    {roofTypeOptions.map((option) => {
+      const isSelected = selected === option.type;
+      return <button type="button" key={option.type} className={`roof-type-card ${isSelected ? "is-selected" : ""}`} aria-pressed={isSelected} onClick={() => onSelect(option.type)}>
+        <span className="roof-type-card-illustration"><RoofTypeIllustration type={option.type} /></span>
+        <span className="roof-type-card-copy"><strong>{option.name}</strong><span>{option.description}</span></span>
+        {isSelected && <span className="roof-type-selected"><Check aria-hidden="true" className="size-3.5" /> Kiválasztva</span>}
+      </button>;
+    })}
   </div></section>;
 }
