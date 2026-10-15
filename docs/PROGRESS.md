@@ -1178,3 +1178,29 @@ Biztonság: új migráció `20261015050000_gable_metal_tile_covering_persistence
 Ellenőrzés: `npx supabase test db --local supabase/tests/database/022_gable_metal_tile_covering.sql` — 1 fájl / 12 teszt PASS. `RUN_LOCAL_METAL_TILE_TESTS=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run src/domain/calculations/gable-metal-tile-covering.test.ts src/features/roof-models/gable-metal-tile-covering-preview.test.ts src/features/roof-models/gable-metal-tile-covering-persistence.test.ts src/features/roof-models/gable-metal-tile-covering.local.integration.test.ts` — 4 fájl / 18 teszt PASS; benne valódi helyi Auth/RLS és két külön PostgreSQL kapcsolatos konkurenciateszt. Egy első integrációs futás egy túl szigorú RLS UPDATE assertiont talált; javítás után az integráció 3/3 és az összesített suite 18/18 PASS. `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) és `git diff --check` PASS. Hosted DB, reset, frontend UX, commit, push, deploy nem futott. A random azonosítós, DEMO tesztfixture-k a helyi adatbázisban maradtak.
 
 Javasolt commit: `feat(F9.7.7.4b.1): persist metal tile covering revisions`.
+
+## F9.7.7.4b.2 — cserepeslemez mentési és revíziós UX
+
+Állapot: **COMPLETE (FRONTEND IMPLEMENTATION)**. A meglévő panelhez calculation ID-s standalone újranyitás, mentett számításlistás szűrés/link, immutable V1/V2 előzményválasztó, aktuális revízióra visszalépés, stale projektforrás-jelzés, explicit aktuális forrásválasztás és nem mentett standalone kilépési figyelmeztetés készült. A kötelező fedési hossz, eresz-/gerincvégi ráhagyás és átlapolás jól jelzett adat; csak a határértékek és modulparaméterek kerültek a részletek közé. A mentés az authenticated Server Actiont használja.
+
+Ellenőrzés: 5 célzott preview Vitest PASS (revízió saját geometriája/eredménye/SVG-je és változatlan operation ID retry); typecheck, lint, Next.js 16.4.0 production build és `git diff --check` PASS. Valós local Auth munkamenetben standalone V1 → reload → V2 → V1 → V2 és mentett lista → direkt újranyitás PASS. Projekt tetőmodellhez V1/V2 mentés, reload, V1 történeti visszaolvasás PASS; read-only DB ellenőrzés igazolta a `roofModelRevisionId` exact mentett forrását, V2 hasznos szélességét és szerveroldali 28-as darabszámát. Backend/RLS/concurrency nem változott; a 4b.1 valós local Auth/RLS és két PostgreSQL-kapcsolatos bizonyítéka érvényes, DB suite nem futott újra. Külön iPad/iPhone QA nem futott. Helyi DEMO rekordok maradtak.
+
+Javasolt commit: `feat(F9.7.7.4b.2): simplify metal tile save and revisions`.
+
+## F9.7.7.4c.1 — cserepeslemez → anyagkimutatás backend
+
+Állapot: **COMPLETE (TAKEOFF BACKEND)**. A projekt cserepeslemez mentett revíziójából új takeoff draft készül a meglévő trapézlemez restricted-writer/lifecycle mintáján. A transfer validator az exact source snapshotot a TypeScript motorral újraszámolja; az RPC külön ellenőrzi project/org tagságot, saved source/dependencyt, teljes egysoros darabszámot, fizikai/effective méretet, katalógusegyezést és modul-szerződést. A `piece` mennyiség `totalSheetCount`; area-to-piece átváltás nincs. Az item snapshot immutable, ár/approval automatikus hozzárendelése nincs. A takeoff read model részletezi a hosszak, modulok és provenance adatait; új UI nem készült.
+
+Bizonyíték: `20261015060000_gable_metal_tile_takeoff_draft.sql` reset nélkül alkalmazva a helyi Supabase-en. A `022_gable_metal_tile_takeoff.sql` 33/33 és a meglévő `021_gable_covering_takeoff.sql` 33/33 pgTAP assertion PASS; a két független DB-kapcsolatos race 1 create + 1 retry/reuse eredményt és 28 db-ot adott. 5 célzott Vitest fájl / 22 teszt PASS. Typecheck, lint, production build és `git diff --check` PASS. A race teszt a korábban létrehozott helyi projektforrást használja; pgTAP valós local Auth subject/RLS role-t vizsgál. Hosted, reset, commit/push/deploy nem történt.
+
+Korlát: anyagkimutatás UX, standalone → projekt konverzió, több sor/toldás, gyártói kompatibilitási tanúsítás és ár továbbra sincs. A helyi DB-ben a pgTAP fixture-ek tranzakciója rollbackelt; a kétkapcsolatos teszt DEMO katalógusadatát és draftját eltávolította.
+
+Javasolt commit: `feat(F9.7.7.4c.1): transfer metal tile sheets to takeoffs`.
+
+## F9.7.7.4c.2 — cserepeslemez takeoff egyszerűsített UX
+
+Állapot: **COMPLETE (TAKEOFF FRONTEND)**. A projekt cserepeslemez-előnézetéből egy művelettel nyitható draft-készítő párbeszéd készült. Megjeleníti a mentett forrásrevisiont, a szerveroldali mennyiséget, lemezméreteket, moduladatot, termékeredetet és ár-elérhetőséget. Mentetlen tetőgeometriánál explicit megerősítést kér a mentett snapshot használatára. Az aktív `piece` termékvariánsok szűrése az ismert szélesség-, hossz- és moduladatokat veti össze. A meglévő transfer Server Action ment, siker után megnyitja a projekt anyagkimutatását. Az ár nélküli és nem gyártó által igazolt DEMO provenance látható marad; a draft nem kap automatikus jóváhagyást.
+
+Bizonyíték: célzott Vitest 5 fájl / 19 teszt PASS, benne trapéz UI regresszió, exact forrásrevision, darabszám, termékkompatibilitás, retry ID és dialogtartalom. `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) és `git diff --check` PASS. Hitelesített helyi böngészőben a projekt `1340d579-d1b1-496c-a3c5-1f7e75019413` fedési V2 revisionje (`15d60e59-b0a9-461d-92e0-3111ba3bff4d`) exact roof V4 (`d11e0843-91bb-4089-b245-ad0879fbfb4b`) alapján 28 db-ot mutatott; az ár nélküli DEMO variánssal draft `2dc9db5c-ba1a-40dc-af91-927cffc04b25` jött létre és megnyílt a takeoff oldalon. A helyi DEMO termék/variáns és draft megmaradt. A backend nem változott, ezért a 4c.1 valós local Auth/RLS és két DB-kapcsolatos bizonyítékát használjuk; hosted DB, reset, commit, push, deploy nem futott.
+
+Javasolt commit: `feat(F9.7.7.4c.2): simplify metal tile takeoff UX`.

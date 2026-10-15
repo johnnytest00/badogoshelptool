@@ -7,8 +7,9 @@ import { persistedResultMatches } from "@/features/sheet-metal/profile-data";
 import { createClient } from "@/infrastructure/supabase/server";
 import { standaloneCalculatorTypes, type StandaloneCalculatorType } from "./standalone-persistence";
 import { GABLE_TRAPEZOIDAL_COVERING_ID } from "@/features/roof-models/gable-trapezoidal-covering-persistence";
+import { GABLE_METAL_TILE_COVERING_ID } from "@/features/roof-models/gable-metal-tile-covering-persistence";
 
-export type ListedStandaloneCalculatorType = StandaloneCalculatorType | typeof GABLE_TRAPEZOIDAL_COVERING_ID;
+export type ListedStandaloneCalculatorType = StandaloneCalculatorType | typeof GABLE_TRAPEZOIDAL_COVERING_ID | typeof GABLE_METAL_TILE_COVERING_ID;
 
 export type StandaloneCalculationSummary = Readonly<{
   calculationId: string;
@@ -40,7 +41,7 @@ async function assertOrganizationMember(organizationId: string) {
 
 export async function listStandaloneCalculations(organizationId: string, calculatorType?: string): Promise<StandaloneCalculationSummary[]> {
   await assertOrganizationMember(organizationId);
-  if (calculatorType && ![...standaloneCalculatorTypes, GABLE_TRAPEZOIDAL_COVERING_ID].includes(calculatorType as StandaloneCalculatorType)) return [];
+  if (calculatorType && ![...standaloneCalculatorTypes, GABLE_TRAPEZOIDAL_COVERING_ID, GABLE_METAL_TILE_COVERING_ID].includes(calculatorType as StandaloneCalculatorType)) return [];
   const supabase = await createClient();
   let query = supabase.from("calculations").select("id, calculator_type, display_name, current_revision_id, created_at, updated_at")
     .eq("organization_id", organizationId).eq("ownership_scope", "standalone").order("updated_at", { ascending: false }).limit(100);
@@ -52,7 +53,7 @@ export async function listStandaloneCalculations(organizationId: string, calcula
     ? await supabase.from("calculation_revisions").select("id, revision_number").eq("organization_id", organizationId).in("id", ids)
     : { data: [], error: null };
   if (revisionError) throw new Error("A számítások aktuális revíziói nem tölthetők be.");
-  return (calculations ?? []).flatMap((calculation) => [...standaloneCalculatorTypes, GABLE_TRAPEZOIDAL_COVERING_ID].includes(calculation.calculator_type as StandaloneCalculatorType) ? [{
+  return (calculations ?? []).flatMap((calculation) => [...standaloneCalculatorTypes, GABLE_TRAPEZOIDAL_COVERING_ID, GABLE_METAL_TILE_COVERING_ID].includes(calculation.calculator_type as StandaloneCalculatorType) ? [{
     calculationId: calculation.id,
     calculatorType: calculation.calculator_type as ListedStandaloneCalculatorType,
     displayName: calculation.display_name,

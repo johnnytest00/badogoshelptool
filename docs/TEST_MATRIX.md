@@ -1085,3 +1085,36 @@ PostgreSQL kapcsolat segítségével futott; ezek nem hosted környezetek.
 | Teljes célzott Vitest | PASS | 4 fájl / 18 teszt: engine, preview regresszió, persistence contract és valós local Auth/RLS/concurrency. Az első run egy tesztelvárás-hibát jelzett; javítás után célzott suite 18/18 PASS. |
 | Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
 | DB állapot és hosted művelet | PASS / NEM FUTOTT | Migráció `20261015050000` helyi adatbázison reset nélkül alkalmazva. Hosted Supabase, reset, commit, push, deploy nem történt; a teszt DEMO rekordjai helyben maradtak. |
+
+## F9.7.7.4b.2 — cserepeslemez mentési UX
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Preview Vitest | PASS | `npx vitest run src/features/roof-models/gable-metal-tile-covering-preview.test.ts`: 1 fájl / 5 teszt PASS; korábbi revision saját bemenet/eredmény/SVG, standalone geometria és azonos retry operation ID. |
+| Standalone authenticated workflow | PASS | Helyi Auth: kézi geometriás V1, URL-es újranyitás/frissítés, hasznos szélesség 1000→900 mm-es V2, V1 (20 db) visszanézés és V2 (24 db) visszaállítás. A mentett számítások `Cserepeslemez-fedés` listájában V2 látszott; a direkt megnyitás ugyanazt az ID-t, 900 mm-t, 24 db-ot és SVG-t adta vissza. |
+| Projekt authenticated workflow | PASS | Helyi aktív owner-tagság: `roof.gable` V4 forrásból fedés V1 mentés/frissítés, 900 mm-es V2 és V1 saját 1000 mm/26 db/218,4 m² snapshotjának visszaolvasása. DB ellenőrzése: forrás tetőrevízió `d11e0843-91bb-4089-b245-ad0879fbfb4b`, V2 effective width 900 mm, szervereredmény 28 db. |
+| Biztonság / DB / konkurencia | Korábbi 4b.1 bizonyíték | A Server Action/RLS/immutability/idempotency és két független DB-kapcsolat tesztje a backend mérföldkőben futott; ebben az UX-változásban backend és DB-séma nem módosult, ezért nem futott újra. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Mobil QA / hosted / commit | Nem futott | Külön iPad/iPhone QA és hosted DB ellenőrzés nincs. Commit, push, deploy nincs. |
+
+## F9.7.7.4c.1 — cserepeslemez takeoff backend
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Transfer domain + action Vitest | PASS | Öt célzott fájl, 22 teszt: engine/preview regresszió, szerveroldali mennyiség, snapshot reprodukálhatóság, jogosultsági ágak, korábbi trapéz átadási action. |
+| Local database transfer/security | PASS | `supabase test db --local supabase/tests/database/022_gable_metal_tile_takeoff.sql`: 33/33 assertion. Fizikai 5200 mm és effective 5100 mm külön marad; exact történeti calc V1/roof V1 és stale állapot, 20 darabos tesztforrás; hibás modul, dimenzió, projekt/org, authenticated direkt RPC, item módosítás és approval retry lefedve. |
+| Trapéz regression | PASS | `supabase test db --local supabase/tests/database/021_gable_covering_takeoff.sql`: 33/33 assertion. |
+| Auth/RLS | PASS | Helyi authenticated DB role `auth.uid()`-val, nem tag takeoff/item olvasása RLS-szel üres; authenticated direct RPC 42501; cross-org írási kísérlet elutasítva. |
+| Két DB-kapcsolat | PASS | `node scripts/verify-metal-tile-takeoff-concurrency.mjs`: független CLI DB sessionök azonos műveletre 1 létrehozást és 1 reuse-t adtak, 1 draft/1 item/28 piece. A teszt korábbi 4b.2 helyi projektforrás-fixturn használ. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. Az első párhuzamos typecheck a build által újraírt `.next/types` miatt hibázott; build után önállóan újrafuttatva PASS. |
+| UX / hosted / reset | NEM FUTOTT | Csak backend készült. Hosted Supabase, adatbázis-reset, commit, push és deploy nem történt. Következő: F9.7.7.4c.2 simplified takeoff UX. |
+
+## F9.7.7.4c.2 — cserepeslemez takeoff UX
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Célzott Vitest | PASS | 5 fájl / 19 teszt: transfer UI/helper/action és trapéz takeoff UX regresszió. Exact revision, mennyiség, V1/V2 eltérés, ismert méret-/modul-inkompatibilitás, módosított payload új operation ID-ja, mentetlen geometriás megerősítés és dialógustartalom. |
+| Hitelesített local browser | PASS | Projekt `1340d579-d1b1-496c-a3c5-1f7e75019413`; fedési V2 `15d60e59-b0a9-461d-92e0-3111ba3bff4d`, exact roof V4 `d11e0843-91bb-4089-b245-ad0879fbfb4b`, 28 db. Mentetlen preview adat után a dialógus megerősítést kért. Ár nélküli, kézi/DEMO provenance-ú variánssal takeoff draft `2dc9db5c-ba1a-40dc-af91-927cffc04b25` létrejött és megnyílt; provenance és árhiány látható volt. |
+| Katalógusszűrés | RÉSZBEN | Kompatibilitás egységtesztje lefedi az ismert szélesség, hossz és modul eltérésének kizárását, valamint a hiányzó opcionális moduladat elfogadását. Browserben kompatibilis DEMO variánst mentettünk; a selector teljes opciólistáját külön nem vizsgáltuk. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| DB biztonság / mobil / hosted | Korábbi backend bizonyíték / NEM FUTOTT | Sémát/actiont nem módosítottunk, így a 4c.1 local Auth/RLS, forged RPC és két-kapcsolatos concurrency bizonyítéka érvényes. iPad/iPhone QA és hosted DB nem futott; helyi DEMO variáns/draft megmaradt. |

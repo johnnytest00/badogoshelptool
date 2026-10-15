@@ -589,3 +589,24 @@ A `20261015050000_gable_metal_tile_covering_persistence.sql` forward-only, helyi
 A szerveraction aktív szervezeti tagságot követel és a `roof.gable` motort, valamint a cserepeslemez-motort újrafuttatja. Csak `VALID` eredmény lép az írószerephez. Standalone snapshot `created_by` tulajdonost rögzít; project snapshot az adott verified roof-model revisiont, annak ellenőrzött `roof.gable` calculation/revision párját és exact inputját menti dependencyként. Az RPC tranzakcióban újra ellenőrzi az actor tagságát és a pontos project/source kapcsolatot. Expected revision és műveletazonosító advisory lock alatt érvényesül; egyező retry ugyanazt a revisiont adja vissza, eltérő payload vagy stale expected revision elutasított. A shared immutable revision trigger változatlan.
 
 A migráció lokálisan, reset nélkül alkalmazva (`20261015050000`); hosted DB nem érintett. A `022_gable_metal_tile_covering.sql` pgTAP ellenőrzés 12/12 PASS. A valós local Auth/RLS Vitest 3/3 PASS (creator/peer/idegen szervezet, direct forged RPC/table write, project exact source, V1/V2 és history, két külön PostgreSQL kapcsolatú konfliktus és azonos operation retry). A helyi teszt létrehozott, DEMO jelölésű Auth/felhasználó/szervezet/projekt/revízió adatokat hagy; resetet és takarítást nem futtattunk.
+
+## F9.7.7.4c.1 — cserepeslemez takeoff draft
+
+A `20261015060000_gable_metal_tile_takeoff_draft.sql` az existing
+`material_takeoffs` / `material_takeoff_items` lifecycle-t bővíti. A restricted
+`tetopro_covering_writer` hívhatja a `create_gable_metal_tile_takeoff_draft`
+RPC-t; az `authenticated` és `anon` nem. A tranzakció tagságot, projektet,
+exact calculation/revision párt, verified roof revisiont, `roof.gable`
+dependencyt és szervezeti katalógusvariánst ellenőriz. Csak aktív
+`roof_covering`/`sheet_metal`, `piece` variáns fogadható el. A kitöltött fizikai
+méreteknek, valamint a katalógusban szereplő moduladatoknak egyezniük kell.
+
+Az egyetlen takeoff item a mentett `totalSheetCount` darabszámot tárolja.
+Snapshotja megőrzi az exact forrás-inputot/outputot, calc/roof revíziót,
+fizikai és fedési hosszt, méreteket, modulértékeket/provenance-t, katalógust és
+stale állapotot. Ár snapshot nincs. Az operation key azonos payloadra draftot
+ad vissza, módosított payloadot elutasít. A transfer item update-je tiltott;
+meglévő jóváhagyási lifecycle marad érvényben. `022_gable_metal_tile_takeoff.sql`
+33 pgTAP assertion és a `021_gable_covering_takeoff.sql` 33 regression
+assertion PASS; a külön kétkapcsolatos race egy draftot/tételt és egy retry
+reuse-t adott.

@@ -325,3 +325,23 @@ Független példa: 10 000 mm tetőhossz, 6 000 mm épületszélesség, 4 000 mm 
 A `calculateMetalTileSnapshot` újraszámolja a megadott `roof.gable` inputot és a validált `productInput` paramétereket; kizárólag `VALID` teljeshosszú kiosztás menthető. Az immutable revision az exact geometriabemenetet és -eredményt, a fizikai/effective hosszt, modulparamétereket, hosszadat-forrást, számítási outputot és provenance-t rögzíti. Standalone esetben a geometria `manual_user_input`; projektben a szerver a mentett és `verified` tetőrevízió exact inputját olvassa, és megőrzi a `roof.gable` calculation/revision azonosítóját. A kliens geometriaértéke projektmódban nem autoritatív. A `name` csak megjelenítési metaadat, kihagyásakor „Cserepeslemez-fedés” lesz.
 
 A Server Action membershipet ellenőriz, a `tetopro_covering_writer` csak a cél RPC-t hívja; a DB az actor tagságát, standalone creator-t, projektet és exact tetőfüggőséget tranzakcióban ismét ellenőrzi. A visszaolvasás a snapshotból újraszámol, és az output eltérése esetén nem szolgáltat revíziót. Nincs katalógus-, gyártói profil-, ügyfél- vagy ajánlatkövetelmény, és ez a mérföldkő nem ad mentés/újranyitás UX-et.
+
+## F9.7.7.4b.2 — cserepeslemez mentési és revíziós UX
+
+A közös előnézet a meglévő `saveGableMetalTileCovering` Server Actiont használja. Önálló módban a tető- és termékadat egy mentésben kerül átadásra; projekt módban a kliens mentetlen tetőgeometriájánál letiltott a fedésmentés, majd a mentett `roof.gable` revision azonosítóját adja át. A böngésző nem hív író RPC-t és nem küld számított eredményt. A mentett számításlistában megjelenik a standalone típus, a projekt fedései a tetőmodell oldalon érhetők el.
+
+A revision selector kiválasztásakor a panel a revision saját input snapshotjából újraszámol és abból rajzol SVG-t. A stale projektfedés forrásrevíziója és az aktuális tetőrevízió külön látszik; explicit forrásváltás után a mentés a következő revisiont készíti el. Az operation ID azonos, változatlan payloadú retry esetén megmarad, a módosított payload új azonosítót kap. Nincs automatikus termékadat vagy gyártói profil.
+
+Ellenőrzött workflow: standalone mentés URL-je és listából való újranyitása, frissítés utáni V2 értékek, V1 saját darabszáma/rajza és visszalépés V2-re; projekt V1/V2 mentés, frissítés és V1 történeti visszaolvasás. A projekt revision az exact `d11e0843-91bb-4089-b245-ad0879fbfb4b` tetőforrásra hivatkozik. Külön iPad/iPhone QA nem futott.
+
+## F9.7.7.4c.1 — cserepeslemez takeoff átadás
+
+Az átadás csak a mentett projekt-revízió `input_snapshot` és `output_snapshot` értékeiből dolgozik. A TypeScript domain adapter újraszámolja a `roof.gable` geometriát és cserepeslemez-kiosztást, majd a teljes, síkonként egysoros `totalSheetCount` értéket adja át `piece` mennyiségként. Fizikai hossz, effective fedési hossz, névleges/hasznos szélesség, modulbázis, osztás, darabszám, felosztási pozíciók és hosszadat-forrás az item snapshotban maradnak. A mennyiség nem területből származik; a katalógus méretei és a megadott modulparaméterek egyezését az RPC ellenőrzi.
+
+## F9.7.7.4c.2 — cserepeslemez takeoff egyszerűsített UX
+
+A projekt tetőmodell cserepeslemez-előnézetéből egy művelettel indítható új draft. Az átadási forrás a kiválasztott mentett fedési revision; a meglévő Server Action ezt a szerveroldali TypeScript motorral újraszámolja. Mentetlen tetőadatnál a panel a mentett forrásrevision használatát jelzi és explicit megerősítést kér; a történeti fedési forrás és az aktuális tetőrevision külön látszik.
+
+A termékválasztó aktív, `piece` egységű opciókat kínál. A számítás ismert névleges/hasznos szélességével és fizikai hosszával inkompatibilis variáns kiesik; ha moduladat ismert a katalógusban, annak is egyeznie kell. Hiányzó opcionális specifikáció nem követel gyártói profilt. A méret egyezése nem gyártói igazolás. Ár nélküli termékből ár nélküli draft készül. A párbeszéd mutatja a mennyiséget, forrásrevisiont, méreteket, modulforrást, provenance-t és ár-elérhetőséget; a részletes katalógus-eredet összecsukható. A draft nincs automatikusan jóváhagyva vagy beárazva.
+
+Változatlan payloadú retry megtartja az operation ID-t, módosított payload új ID-t kap. Nincs standalone → project átadás, és ebben a mérföldkőben backend vagy séma nem változott.

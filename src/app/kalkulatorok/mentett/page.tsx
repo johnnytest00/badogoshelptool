@@ -8,7 +8,8 @@ import { flashingMaterialCalculator } from "@/domain/calculations/flashing-mater
 import { sheetMetalProfileCalculator } from "@/domain/calculations/sheet-metal-profile";
 import { StandaloneProjectAssociation } from "@/features/calculations/standalone-project-association";
 import { GABLE_TRAPEZOIDAL_COVERING_ID } from "@/features/roof-models/gable-trapezoidal-covering-persistence";
-const types = [{ id: "all", label: "Minden típus" }, { id: GABLE_TRAPEZOIDAL_COVERING_ID, label: "Trapézlemez-fedés", route: "nyeregteto" }, { id: gutterMaterialCalculator.id, label: "Ereszcsatorna", route: "ereszcsatorna" }, { id: flashingMaterialCalculator.id, label: "Bádogos szegélyek", route: "szegelyek" }, { id: sheetMetalProfileCalculator.id, label: "Lemezprofilok és hajtások", route: "lemezprofilok" }];
+import { GABLE_METAL_TILE_COVERING_ID } from "@/features/roof-models/gable-metal-tile-covering-persistence";
+const types = [{ id: "all", label: "Minden típus" }, { id: GABLE_TRAPEZOIDAL_COVERING_ID, label: "Trapézlemez-fedés", route: "nyeregteto" }, { id: GABLE_METAL_TILE_COVERING_ID, label: "Cserepeslemez-fedés", route: "cserepeslemez" }, { id: gutterMaterialCalculator.id, label: "Ereszcsatorna", route: "ereszcsatorna" }, { id: flashingMaterialCalculator.id, label: "Bádogos szegélyek", route: "szegelyek" }, { id: sheetMetalProfileCalculator.id, label: "Lemezprofilok és hajtások", route: "lemezprofilok" }];
 export default async function SavedCalculationsPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string; type?: string }> }>) {
  const params = await searchParams; const selected = await getProjectOrganization(params.organization);
  if (!selected) return null; if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
