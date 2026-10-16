@@ -3,7 +3,7 @@ export const scalingVersion = 1;
 
 export const scalingDefaults = {
   text: 100,
-  ui: 100,
+  ui: 115,
   drawing: 100,
   spacing: 100,
 } as const;
@@ -13,7 +13,7 @@ export type ScalingPreferences = Record<ScalingKey, number>;
 
 export const scalingRanges: Record<ScalingKey, { min: number; max: number; step: number }> = {
   text: { min: 80, max: 200, step: 10 },
-  ui: { min: 90, max: 150, step: 10 },
+  ui: { min: 80, max: 150, step: 5 },
   drawing: { min: 50, max: 250, step: 10 },
   spacing: { min: 75, max: 150, step: 5 },
 };

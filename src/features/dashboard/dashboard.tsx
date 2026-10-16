@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { ArrowRight, FolderKanban, Settings2 } from "lucide-react";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, FolderKanban, Settings2, UserRound, X } from "lucide-react";
+import brandIcon from "@/assets/brand-icon.png";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useTheme } from "@/components/theme/theme-provider";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
@@ -19,6 +21,7 @@ export function Dashboard({ displayName, email, organizationName, organizationId
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [greeting, setGreeting] = useState("Üdv a műhelyben!");
+  const navigationRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const updateGreeting = () => setGreeting(getDashboardGreeting(new Date().getHours()));
@@ -27,11 +30,31 @@ export function Dashboard({ displayName, email, organizationName, organizationId
     return () => window.clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setSettingsOpen(false);
+      document.querySelector<HTMLButtonElement>('[aria-controls="dashboard-settings"]')?.focus({ preventScroll: true });
+    };
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!navigationRef.current?.contains(event.target as Node)) setSettingsOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    };
+  }, [settingsOpen]);
+
   return (
     <main className="dashboard-shell">
       <div className="dashboard-container">
-        <DashboardHeader displayName={displayName} email={email} organizationName={organizationName} settingsOpen={settingsOpen} onToggleSettings={() => setSettingsOpen((current) => !current)} />
-        {settingsOpen && <DashboardSettings onOpenAccount={() => setAccountDialogOpen(true)} />}
+        <div className="dashboard-navigation-wrap" ref={navigationRef}>
+          <DashboardHeader displayName={displayName} email={email} organizationName={organizationName} settingsOpen={settingsOpen} onToggleSettings={() => setSettingsOpen((current) => !current)} onCloseSettings={() => setSettingsOpen(false)} onOpenAccount={() => { setSettingsOpen(false); setAccountDialogOpen(true); }} />
+          {settingsOpen && <DashboardSettings onOpenAccount={() => { setSettingsOpen(false); setAccountDialogOpen(true); }} />}
+        </div>
         <AccountManagementDialog open={accountDialogOpen} onClose={() => setAccountDialogOpen(false)} />
 
         <section className="greeting-section" aria-labelledby="dashboard-title">
@@ -55,12 +78,28 @@ export function Dashboard({ displayName, email, organizationName, organizationId
   );
 }
 
-function DashboardHeader({ displayName, email, organizationName, settingsOpen, onToggleSettings }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; settingsOpen: boolean; onToggleSettings: () => void }>) {
+function DashboardHeader({ displayName, email, organizationName, settingsOpen, onToggleSettings, onCloseSettings, onOpenAccount }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; settingsOpen: boolean; onToggleSettings: () => void; onCloseSettings: () => void; onOpenAccount: () => void }>) {
   const userLabel = displayName || email || "Felhasználó";
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setAccountMenuOpen(false);
+      document.querySelector<HTMLButtonElement>('[aria-controls="mobile-account-menu-panel"]')?.focus({ preventScroll: true });
+    };
+    const closeOnOutsidePointer = (event: PointerEvent) => { if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false); };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => { document.removeEventListener("keydown", closeOnEscape); document.removeEventListener("pointerdown", closeOnOutsidePointer); };
+  }, [accountMenuOpen]);
+
   return (
     <header className="dashboard-header glass-navigation">
-      <div className="brand-label">
-        <span className="brand-mark"><span className="brand-mark-line" aria-hidden="true" /></span>
+      <div className="brand-label" aria-label="TetőPro">
+        <Image className="brand-icon" src={brandIcon} alt="" priority />
         <span>TETŐPRO</span>
       </div>
       <div className="dashboard-account"><span className="dashboard-account-copy"><strong>{userLabel}</strong><span>{organizationName ?? "Helyi műhely"}</span></span><LogoutButton /></div>
@@ -69,6 +108,16 @@ function DashboardHeader({ displayName, email, organizationName, settingsOpen, o
         <button className={`icon-button ${settingsOpen ? "is-active" : ""}`} type="button" onClick={onToggleSettings} aria-expanded={settingsOpen} aria-controls="dashboard-settings" aria-label="Beállítások" title="Beállítások">
           <Settings2 aria-hidden="true" className="size-4" />
         </button>
+        <div className="mobile-account-menu" ref={accountMenuRef}>
+          <button className="icon-button" type="button" onClick={() => { setAccountMenuOpen((open) => !open); onCloseSettings(); }} aria-expanded={accountMenuOpen} aria-controls="mobile-account-menu-panel" aria-label="Fiókmenü" title="Fiókmenü">
+            {accountMenuOpen ? <X aria-hidden="true" className="size-4" /> : <UserRound aria-hidden="true" className="size-4" />}
+          </button>
+          {accountMenuOpen && <div className="mobile-account-menu-panel" id="mobile-account-menu-panel" aria-label="Fiókmenü">
+            <div className="mobile-account-menu-identity"><strong>{userLabel}</strong><span>{email ?? ""}</span><span>{organizationName ?? "Helyi műhely"}</span></div>
+            <button type="button" className="secondary-button" onClick={() => { setAccountMenuOpen(false); onOpenAccount(); }}>Fiókbeállítások</button>
+            <LogoutButton />
+          </div>}
+        </div>
       </div>
     </header>
   );
@@ -76,12 +125,12 @@ function DashboardHeader({ displayName, email, organizationName, settingsOpen, o
 
 function DashboardSettings({ onOpenAccount }: Readonly<{ onOpenAccount: () => void }>) {
   const { mode, setMode } = useTheme();
-  return <aside className="dashboard-settings-panel" id="dashboard-settings" aria-labelledby="dashboard-settings-title">
-    <div className="settings-panel-heading"><div><p className="section-eyebrow">Helyi beállítások</p><h2 id="dashboard-settings-title">Megjelenítés</h2></div></div>
-    <section className="settings-theme-section" aria-labelledby="settings-theme-title"><h3 id="settings-theme-title">Megjelenési mód</h3><label className="settings-theme-select-label" htmlFor="settings-theme-mode">Téma</label><select id="settings-theme-mode" className="settings-theme-select" value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}><option value="system">Rendszer szerint</option><option value="light">Világos</option><option value="dark">Sötét</option></select>{mode === "system" && <p className="settings-theme-help">Az alkalmazás az eszközöd világos vagy sötét megjelenését követi.</p>}</section>
-    <p>A megjelenítési méretek minden nézetben érvényesek és csak ebben a böngészőben tárolódnak.</p>
-    <ScalingControls idPrefix="settings-scale" /><Link className="settings-demo-link" href="/demo/meretezes">Méretezési demo megnyitása <span aria-hidden="true">→</span></Link>
-    <section className="settings-account-section" aria-labelledby="settings-account-title"><div><p className="section-eyebrow">Saját hozzáférés</p><h3 id="settings-account-title">Fiókbeállítások</h3><p>E-mail-cím és jelszó kezelése a hitelesítési szolgáltatásban.</p></div><button className="secondary-button" type="button" onClick={onOpenAccount}>Fiókom kezelése</button></section>
+  return <aside className="dashboard-settings-panel" id="dashboard-settings" role="dialog" aria-modal="false" aria-labelledby="dashboard-settings-title">
+    <div className="settings-panel-heading"><h2 id="dashboard-settings-title">MEGJELENÉS</h2><button className="settings-account-trigger" type="button" onClick={onOpenAccount}>Fiókbeállítások</button></div>
+    <section className="settings-theme-section" aria-labelledby="settings-theme-title"><h3 id="settings-theme-title">Szín</h3><select id="settings-theme-mode" className="settings-theme-select" aria-label="Szín megjelenítési mód" value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}><option value="system">Rendszer szerint</option><option value="light">Világos</option><option value="dark">Sötét</option></select>{mode === "system" && <p className="settings-theme-help">Az eszköz megjelenését követi.</p>}</section>
+    <ScalingControls idPrefix="settings-scale" keys={["text", "ui", "spacing", "drawing"]} />
+    <Link className="settings-demo-link" href="/demo/meretezes">Méretezési demo megnyitása <span aria-hidden="true">→</span></Link>
+    <p className="settings-storage-note">A megjelenítési beállítások ebben a böngészőben tárolódnak.</p>
   </aside>;
 }
 

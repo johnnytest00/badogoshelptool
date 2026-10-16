@@ -1,5 +1,18 @@
 # Tesztmátrix
 
+## F9.15.0 — settings, mobil fejléc és márka
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Settings popover / fiókdialog | BROWSER VERIFIED | Hitelesített helyi dashboardon a Settings felső gombja nyitja a kompakt Appearance popovert; a Fiókbeállítások gomb a meglévő fiókdialogot nyitja. A meglévő session/Auth-űrlapok működtek; jelszó/e-mail küldés nem történt. System magyarázat csak System módban jelenik meg. |
+| Mobil header és fiókmenü | BROWSER VERIFIED (EMULATED) | 390/320 px: egysoros márka, quick theme, settings és account action; fiókmenüben e-mail/szervezet, Fiókbeállítások és Kilépés elérhető. A külön quick-scaling buborék nem azonos a header Settings vezérlővel. |
+| Gyors scaling és végpontok | BROWSER VERIFIED | 320 px-en 80/150% UI értéknél inner/client/document width 320, header magasság 57,2 px, buborék jobb széle 308 px. 200% szövegnél a fejléc egysoros, a beállítások mobilon gördíthető és a percentage oszlop kifér. A 100/115/100/100 érték visszaállítás és reload után is megmaradt. |
+| Responsive mátrix / navigáció | BROWSER VERIFIED (EMULATED) | Dashboard: 1440/1024/768/390/320 CSS px. A `documentElement.scrollWidth` minden ponton megegyezett a viewporttal. Helyi Auth munkamenetben Dashboard → új felmérés és Projektek útvonal read-only megnyitása; survey/project rekord nem mentődött. |
+| Márkaikon / app icon | BROWSER VERIFIED | A felhasználó által adott ikon a fejlécben és loginon; `src/app/icon.png` és `apple-icon.png` generált változat. Brave lapfülön az ikon látható. A generikus Next favicon nincs duplikálva. |
+| Adat, Auth-jogosultság, geometria | UNCHANGED | Csak UI/CSS, ikon és preferences scaling default/range változott; a preference parsing megőrzi az explicit mentett értékeket. Auth modal működése csak vizuálisan változott; Auth-integrációs teszt nem kellett. Nincs migration, hosted DB/auth vagy üzleti adat írás. |
+| Tesztek / build | PASS, FOCUSED | `npx vitest run src/features/preferences/scaling-controls.test.ts src/components/theme/theme-toggle.test.tsx src/features/auth/account-management.test.ts src/features/dashboard/dashboard.test.ts`: 4 fájl / 14 teszt. `npm run typecheck`, `npm run lint`, izolált másolaton `npm run build` Next.js 16.4.0 webpack, `git diff --check` mind PASS. Teljes Vitest suite nem futott. |
+| Korlátok | PARTIAL | Emulált Brave; fizikai eszköz, Safari, screen reader és prefers-reduced-motion browser útvonal nem ellenőrzött. E-mail/jelszó frissítés nem submitolt. |
+
 ## F9.7.6.6.1 — standalone quotation backend
 
 | Ellenőrzés | Állapot | Megjegyzés |

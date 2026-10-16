@@ -16,6 +16,9 @@ export function ScalingBubble() {
   useEffect(() => {
     let frame = 0;
     const updatePlacement = () => {
+      const viewport = window.visualViewport;
+      const rightInset = Math.max(0, window.innerWidth - (viewport?.offsetLeft ?? 0) - (viewport?.width ?? window.innerWidth));
+      bubbleRef.current?.style.setProperty("--tp-visual-viewport-right-inset", `${rightInset}px`);
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const launcher = bubbleRef.current?.querySelector(".scaling-launcher");
@@ -34,12 +37,16 @@ export function ScalingBubble() {
     observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("scroll", updatePlacement, true);
     window.addEventListener("resize", updatePlacement);
+    window.visualViewport?.addEventListener("resize", updatePlacement);
+    window.visualViewport?.addEventListener("scroll", updatePlacement);
     updatePlacement();
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener("scroll", updatePlacement, true);
       window.removeEventListener("resize", updatePlacement);
+      window.visualViewport?.removeEventListener("resize", updatePlacement);
+      window.visualViewport?.removeEventListener("scroll", updatePlacement);
     };
   }, []);
 

@@ -6,10 +6,16 @@ import { ScalingControls } from "./scaling-controls";
 import { parseScalingPreferences, persistScalingPreferences, resetScalingPreferences, scalingDefaults, scalingStorageKey, serializeScalingPreferences, updateScaling } from "./scaling";
 
 describe("F9.7.4 display preferences", () => {
+  it("uses the larger UI default and permits a practical smaller interface scale", () => {
+    expect(scalingDefaults.ui).toBe(115);
+    expect(updateScaling(scalingDefaults, "ui", 80).ui).toBe(80);
+    expect(parseScalingPreferences(serializeScalingPreferences({ ...scalingDefaults, ui: 120 })).ui).toBe(120);
+  });
+
   it("adjusts sliders independently and persists the fourth spacing preference", () => {
     const next = updateScaling(scalingDefaults, "text", 150);
     const adjusted = updateScaling(next, "spacing", 125);
-    expect(adjusted).toEqual({ text: 150, ui: 100, drawing: 100, spacing: 125 });
+    expect(adjusted).toEqual({ text: 150, ui: 115, drawing: 100, spacing: 125 });
     expect(parseScalingPreferences(serializeScalingPreferences(adjusted))).toEqual(adjusted);
     expect(parseScalingPreferences(null)).toEqual(scalingDefaults);
   });

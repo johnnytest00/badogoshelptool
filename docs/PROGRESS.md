@@ -1,5 +1,36 @@
 # F7.3.2 állapot
 
+## F9.15.0 — Settings UX, Mobile Header & Brand Identity
+
+Állapot: **COMPLETE** a helyi alkalmazás elfogadási feltételeire. A dashboard
+megjelenésbeállítása kompakt, rögzített fejléc alatti popover; a fiókkezelés
+meglévő Auth dialógusát nyitja. A mobil fejléc 320 px-en is egy sorban tartja
+az ikont, témaváltót, Beállításokat és fiókmenüt. 320 px-en 200%-os szövegnél
+is megmaradt az egysoros fejléc; a hosszú értékek oszlopa és a fiókgomb
+keskeny nézetre tördel, a lebegő méretező a látható viewport jobb széléhez
+igazodik. A UI-méretező határa 80–150%, alapértéke 115%; 80%, 150% és 200%
+szövegméret böngészőben ellenőrizve. Visszatöltés után a 100/115/100/100
+értékek megmaradtak.
+
+A mellékelt ikonból átlátszó 512 px közös márkaeszköz, 32 px app ikon és 180 px
+Apple ikon készült; a fejléc és a login ugyanazt használja. A tab ikont Brave-ben
+vizuálisan ellenőriztem. A fiók Auth-kérése, megerősítési és jogosultsági
+szerződése, preferenciák localStorage-szerződése, domain és tetőgeometria nem
+változott. Dashboard, felmérés és projektek navigációja helyi Auth sessionnel
+ellenőrizve; meglévő rekordot nem módosítottam.
+
+Responsive böngészőmátrix: 1440/1024/768/390/320 CSS px; document scroll-width
+egyezik a viewporttal. 320 px-en a 80/150% UI-végpontnál a document szélesség
+320, a fejléc magassága 57,2 px, a lebegő gomb jobb széle 308 px. 200% szövegnél
+ugyanezt a fejlécet és popovert vizuálisan ellenőriztem. Fizikai iOS/Safari,
+screen reader és reduced-motion futtatás nem történt.
+
+Fókuszált Vitest: 4 fájl / 14 teszt PASS; `npm run typecheck`, `npm run lint`,
+izolált másolaton Next.js 16.4.0 webpack `npm run build` és dokumentáció után
+`git diff --check` PASS. Teljes regresszió nem futott. DB/Auth táblákhoz,
+képletekhez, tartós üzleti adathoz nem nyúltam. Javasolt commit:
+`feat(F9.15.0): refine settings and mobile header`.
+
 ## F9.7.6.6.3.2d — quotation pénzügyi konzisztencia és PDF hardening
 
 Állapot: **PARTIAL**. A konkrét DEMO V1 eltérés oka az opcionális line mezők

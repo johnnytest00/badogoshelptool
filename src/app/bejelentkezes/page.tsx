@@ -1,3 +1,5 @@
+import Image from "next/image";
+import brandIcon from "@/assets/brand-icon.png";
 import { LoginForm } from "@/features/auth/login-form";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { getSafeReturnTo } from "@/features/auth/redirect";
@@ -11,7 +13,7 @@ export default async function LoginPage({ searchParams }: Readonly<{ searchParam
   return (
     <main className="auth-page-shell">
       <section className="login-card" aria-labelledby="login-title">
-        <div className="auth-brand"><span className="brand-mark"><span className="brand-mark-line" aria-hidden="true" /></span><span>TETŐPRO</span></div>
+        <div className="auth-brand"><Image className="brand-icon" src={brandIcon} alt="" priority /><span>TETŐPRO</span></div>
         <p className="eyebrow">Bádogos HelpTool</p>
         <h1 id="login-title">Üdv újra a műhelyben.</h1>
         <p className="login-lead">Jelentkezz be a helyi munkafelület folytatásához.</p>
