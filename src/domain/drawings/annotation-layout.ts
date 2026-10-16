@@ -1,5 +1,6 @@
 export type AnnotationPoint = Readonly<{ x: number; y: number }>;
 export type AnnotationDimensionKind = "horizontal" | "vertical" | "aligned";
+export type AnnotationLabelCandidate = Readonly<{ id: string; text: string; point: AnnotationPoint; anchor?: "middle" | "start" | "end"; move: AnnotationPoint }>;
 
 /** Screen-space rules keep annotation legibility independent from roof scale. */
 export const technicalAnnotationRules = {
@@ -53,4 +54,33 @@ export function angleScreenGeometry(vertex: AnnotationPoint, startReference: Ann
   const bisector = { x: startUnit.x + endUnit.x, y: startUnit.y + endUnit.y };
   const bisectorUnit = bisector.x === 0 && bisector.y === 0 ? { x: 0, y: -1 } : { x: bisector.x / length(bisector), y: bisector.y / length(bisector) };
   return { start, end, label: add(vertex, bisectorUnit, technicalAnnotationRules.angleLabelRadius) };
+}
+
+/** Nudge colliding technical labels in their local annotation direction without moving geometry. */
+export function resolveAnnotationLabelPositions(labels: readonly AnnotationLabelCandidate[], fontSize = 30): ReadonlyMap<string, AnnotationPoint> {
+  const placed: Array<{ label: AnnotationLabelCandidate; point: AnnotationPoint; width: number; height: number }> = [];
+  const result = new Map<string, AnnotationPoint>();
+  const ordered = [...labels].sort((first, second) => second.text.length - first.text.length || first.id.localeCompare(second.id));
+  const overlaps = (first: { label: AnnotationLabelCandidate; point: AnnotationPoint; width: number; height: number }, second: { label: AnnotationLabelCandidate; point: AnnotationPoint; width: number; height: number }) => {
+    const firstLeft = first.label.anchor === "start" ? first.point.x : first.label.anchor === "end" ? first.point.x - first.width : first.point.x - first.width / 2;
+    const secondLeft = second.label.anchor === "start" ? second.point.x : second.label.anchor === "end" ? second.point.x - second.width : second.point.x - second.width / 2;
+    const gap = 6;
+    return firstLeft < secondLeft + second.width + gap && firstLeft + first.width + gap > secondLeft && first.point.y - first.height / 2 < second.point.y + second.height / 2 + gap && first.point.y + first.height / 2 + gap > second.point.y - second.height / 2;
+  };
+  for (const label of ordered) {
+    const width = Math.max(fontSize, label.text.length * fontSize * .62);
+    const height = fontSize * 1.4;
+    const directionLength = Math.hypot(label.move.x, label.move.y) || 1;
+    const move = { x: label.move.x / directionLength, y: label.move.y / directionLength };
+    const candidates = [0, 1, -1, 2, -2, 3, -3, 4, -4].map((step) => ({
+      label,
+      point: { x: label.point.x + move.x * step * fontSize * 1.2, y: label.point.y + move.y * step * fontSize * 1.2 },
+      width,
+      height,
+    }));
+    const selected = candidates.find((candidate) => placed.every((other) => !overlaps(candidate, other))) ?? candidates.at(-1)!;
+    placed.push(selected);
+    result.set(label.id, selected.point);
+  }
+  return result;
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { validateSurveyPhotoSelection } from "@/domain/field-surveys/photo-file";
+import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 
 type Photo = { id: string; filename: string; mimeType: string; fileSize: number; description: string | null; uploadedAt?: string; url: string | null };
 type QueuedPhoto = { key: string; file: File };
@@ -114,7 +115,7 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
       {!historical && <><button className="field-survey-add" type="button" disabled={uploading || loading || removingPhotoId !== null} onClick={() => inputRef.current?.click()}><Plus aria-hidden="true" className="size-4" />{uploading ? "Feltöltés…" : "Fénykép hozzáadása"}</button>
       <input ref={inputRef} className="sr-only" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple capture="environment" disabled={uploading || removingPhotoId !== null} onChange={(event) => { selectFiles(event.currentTarget.files); event.currentTarget.value = ""; }} /></>}
     </div>
-    {!historical && <><details className="field-survey-photo-details"><summary>Leírás a kiválasztott fényképekhez · opcionális</summary><label><span>Fényképleírás</span><input maxLength={1000} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Például északi ereszcsomópont" /></label></details>
+    {!historical && <><GlassDisclosure className="field-survey-photo-details" summary="Leírás a kiválasztott fényképekhez · opcionális"><label><span>Fényképleírás</span><input maxLength={1000} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Például északi ereszcsomópont" /></label></GlassDisclosure>
     <p className="field-survey-photo-help">JPEG, PNG vagy WebP · legfeljebb 10 MB/kép. HEIC/HEIF képnél az iPhone Kamera beállításaiban válaszd a „Leginkább kompatibilis” formátumot, majd készíts új képet.</p></>}
     {loading && <p role="status">Fényképek betöltése…</p>}
     {uploading && <div role="status"><p>Fénykép feltöltése: {uploadStep}/{uploadTotal}</p><progress className="field-survey-photo-progress" aria-label="Fényképfeltöltés folyamatban" value={Math.max(0, uploadStep - 1)} max={uploadTotal} /></div>}

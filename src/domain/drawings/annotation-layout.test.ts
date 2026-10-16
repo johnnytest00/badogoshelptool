@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleScreenGeometry, dimensionScreenGeometry, technicalAnnotationRules } from "./annotation-layout";
+import { angleScreenGeometry, dimensionScreenGeometry, resolveAnnotationLabelPositions, technicalAnnotationRules } from "./annotation-layout";
 
 describe("technical drawing annotation layout", () => {
   it("keeps dimension offsets in compact screen space", () => {
@@ -23,5 +23,15 @@ describe("technical drawing annotation layout", () => {
     expect(Math.hypot(layout.start.x - 500, layout.start.y - 300)).toBeCloseTo(technicalAnnotationRules.angleRadius);
     expect(Math.hypot(layout.end.x - 500, layout.end.y - 300)).toBeCloseTo(technicalAnnotationRules.angleRadius);
     expect(Math.hypot(layout.label.x - 500, layout.label.y - 300)).toBeCloseTo(technicalAnnotationRules.angleLabelRadius);
+  });
+
+  it("moves a colliding label while preserving its neighboring label position", () => {
+    const labels = [
+      { id: "long", text: "10 000 mm", point: { x: 400, y: 200 }, anchor: "middle" as const, move: { x: 0, y: -1 } },
+      { id: "short", text: "6 000 mm", point: { x: 404, y: 201 }, anchor: "middle" as const, move: { x: 0, y: 1 } },
+    ];
+    const positions = resolveAnnotationLabelPositions(labels);
+    expect(positions.get("long")).toEqual(labels[0].point);
+    expect(positions.get("short")?.y).not.toBe(labels[1].point.y);
   });
 });

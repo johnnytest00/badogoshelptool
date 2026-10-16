@@ -83,9 +83,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
             </>
           }
           drawing={result && <TechnicalDrawing output={result} compact activeDimension={focusedField} activeDimensionDescription={measurementGuideFor("gable", focusedField ?? "")?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} isSaved={false} />}
-          results={result ? <section className="roof-results" aria-live="polite"><div className="roof-result-grid">
-            <div className="roof-result-metric"><small>Teljes tetőfelület</small><strong>{format(result.areas.combinedRoofM2, "m²")}</strong></div>
-            <div className="roof-result-metric"><small>Vízszintes vetület</small><strong>{format(result.areas.horizontalProjectedM2, "m²")}</strong></div>
+          results={result ? <section className="roof-results" aria-live="polite"><div className="roof-result-highlight"><span>Teljes tetőfelület</span><strong>{format(result.areas.combinedRoofM2, "m²")}</strong><small>Vízszintes vetület: {format(result.areas.horizontalProjectedM2, "m²")}</small></div><div className="roof-result-grid">
             <div className="roof-result-metric"><small>Egy tetősík felülete</small><strong>{format(result.areas.individualRoofPlaneM2, "m²")}</strong></div>
             <div className="roof-result-metric"><small>Tetőhajlásszög</small><strong>{format(result.angles.pitchDegrees, "°")}</strong></div>
             <div className="roof-result-metric"><small>Ferde hossz a falig</small><strong>{format(result.lengths.slopeLengthToWallMm / 1000, "m")}</strong></div>

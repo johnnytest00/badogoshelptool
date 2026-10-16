@@ -1974,3 +1974,21 @@ méretek, 300/0/0 mm túlnyúlások, SVG és 93,338 m² eredmény megmaradt. Kiz
 ez az új, egyértelműen DEMO-ként címkézett lokális tesztprojekt módosult.
 
 Javasolt commit: `feat(F9.14.6): refine product workspace UX`.
+
+## F9.14.7 — Final Interface & Workflow Refinement
+
+Állapot: **PARTIAL**. A tetőrajz kezdeti tartalomhoz igazítása most a méretvonalak címkéit és a jelölőszövegeket is figyelembe veszi; a felirat-ütközések rajzi geometria módosítása nélkül rendeződnek. Átméretezéskor csak a még nem kézzel állított nézet illeszkedik újra; a zoom, pásztázás, illesztés és 100%-os visszaállítás külön viselkedés marad. A nyeregtető eredményfelületein a „Teljes tetőfelület” az elsődleges érték, a többi igazolt adat tömörebb technikai sorba került.
+
+A projektoldal felső jobb sarkában elérhető a „Projektműveletek” menü. Az új felmérés a projekt- és szervezeti azonosítóval nyílik meg. Az archiválás a meglévő, verzióellenőrzött és szervezeti jogosultságot alkalmazó műveletet hívja; a megerősítést megnyitottam, majd megszakítottam, ezért archiválás nem történt. Végleges törlés továbbra sem támogatott: a meglévő migráció tiltja, a hivatkozó munkafolyamatok megőrzendők; a menü ezt egyértelműen letiltottként mutatja. A projekt további műveletei az alapadatok között, összecsukott csoportban maradnak.
+
+A kalkulátorok a három kért munkaszándék szerint rendeződnek; a mentett számítások és minden meglévő önálló útvonal megmaradt. A kivitelezési kezdőlap szervezethez tartozó, valódi terv/feladat/napló/fénykép adatokból mutat projektcsoportos áttekintést, számlálót és következő teendőt. A survey alsó műveletei a mentés köré kerültek; a projektkapcsolat, fényképek és egyéb mezők megosztott `GlassDisclosure` elemet használnak.
+
+**Helyi böngészőbizonyíték:** projektmenüben a nyíl-kulcsos fókuszléptetés, törlés indoklása, archiválás megszakítása és új felmérés projekthez kapcsolt megnyitása működött. A meglévő kalkulátorútvonalak és mentett számítások megnyíltak. A kivitelezési áttekintőből a projekt kivitelezési részletei nyíltak meg; a terv 2 valódi feladatából 1 kész és 1 folyamatban volt, továbbá 1 naplóbejegyzés és 2 fénykép jelent meg. Az új, projekt nélküli `DEMO F9.14.7` felmérés `3f32d50f-e47e-44ad-9cf9-29fbb27d576c` azonosítóval V1-ként elment, oldalfrissítés/újranyitás után a munkaszakasz és megjegyzés megmaradt. Fotófeltöltést és üzleti számítást nem indítottam.
+
+A survey oldalon sötét témában, 390 px-en dokumentum-túlcsordulás nélkül megjelent a mentésgomb és a szakaszválasztó; a mérés előtt mindkettőt javítottam. A 320 és 768 px-es survey nézet is 0 px túlcsordulást mutatott. A DevTools által korlátozott 1024/1440-as célméret ténylegesen 799 px-es CSS-nézetet adott; ezért ezeket és a teljes, minden route-ra kiterjedő viewport mátrixot nem tekintem bizonyítottnak. Azonos állapotú, exportált before/after képpárok sem készültek. Világos mód, fizikai eszköz, screen reader, reduced-motion, nagy kontraszt és teljes billentyűzetes dialógus-útvonal nincs ellenőrizve.
+
+Az alkalmazás- és adatarchitektúra változatlan: UI/rajzi megjelenítés és adatból képzett áttekintő változott; képletek, sémák, mentési contract, Auth/RLS, verzió- és snapshot-szabály nem. Meglévő projekt- és roof rekordot nem módosítottam; csak a megnevezett lokális DEMO felmérés készült. Nincs hosted DB, reset, migráció, commit, push vagy deploy.
+
+**Végső ellenőrzések:** a változtatás utáni célzott Vitest 13 fájl / 47 teszt PASS; `npm run typecheck` és `npm run lint` PASS; az izolált, build-only placeholder Supabase környezettel futó Next.js 16.4.0 webpack `npm run build` PASS; dokumentáció frissítése utáni `git diff --check` PASS. Ez nem teljes regresszió.
+
+Javasolt commit: `feat(F9.14.7): refine final workspace workflows`.

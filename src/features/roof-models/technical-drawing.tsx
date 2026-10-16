@@ -9,7 +9,7 @@ import type { MetalSheetLayoutOutput } from "@/domain/calculations/metal-sheet-l
 import { createGableDrawingModel, drawingLayers, drawingViews, filterDrawingModel, type DrawingLayerId, type DrawingPoint, type DrawingView, type GableDrawingModel } from "@/domain/drawings/gable-drawing";
 import { createRoofDrawingModel } from "@/domain/drawings/roof-drawing";
 import { clampDrawingZoom, clientPointToViewBox, drawingInitialViewport, fitDrawingViewport, panViewport, pinchViewport, rebasePanGesture, type ViewportBounds, type ViewportPoint } from "./drawing-viewport";
-import { angleScreenGeometry, dimensionScreenGeometry, technicalAnnotationRules } from "@/domain/drawings/annotation-layout";
+import { angleScreenGeometry, dimensionScreenGeometry, resolveAnnotationLabelPositions, technicalAnnotationRules } from "@/domain/drawings/annotation-layout";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
 
 const SVG_WIDTH = 1000;
@@ -27,33 +27,58 @@ function mapPoint(point: DrawingPoint, model: GableDrawingModel): DrawingPoint {
 
 function pointsString(points: readonly DrawingPoint[], model: GableDrawingModel) { return points.map((item) => { const mapped = mapPoint(item, model); return `${mapped.x},${mapped.y}`; }).join(" "); }
 
+function annotationLabelPositions(model: GableDrawingModel) {
+  const candidates = [
+    ...model.dimensions.map((item, index) => {
+      const start = mapPoint(item.start, model);
+      const end = mapPoint(item.end, model);
+      const layout = dimensionScreenGeometry(item.kind, start, end, item.offset);
+      return { id: `dimension:${index}`, text: item.label, point: layout.label, anchor: layout.labelAnchor, move: layout.normal };
+    }),
+    ...model.angles.map((item, index) => {
+      const vertex = mapPoint(item.vertex, model);
+      const layout = angleScreenGeometry(vertex, mapPoint(item.start, model), mapPoint(item.end, model));
+      return { id: `angle:${index}`, text: item.label, point: layout.label, anchor: "middle" as const, move: { x: layout.label.x - vertex.x, y: layout.label.y - vertex.y } };
+    }),
+  ];
+  return resolveAnnotationLabelPositions(candidates);
+}
+
 function getDrawingBounds(model: GableDrawingModel): ViewportBounds {
   const points: DrawingPoint[] = [];
   const add = (point: DrawingPoint) => points.push(mapPoint(point, model));
   const addPair = (start: DrawingPoint, end: DrawingPoint) => { add(start); add(end); };
+  const addLabel = (point: DrawingPoint, label: string, anchor: "middle" | "start" | "end" = "middle") => {
+    const center = mapPoint(point, model);
+    const width = Math.max(30, label.length * 20);
+    const left = anchor === "middle" ? center.x - width / 2 : anchor === "start" ? center.x : center.x - width;
+    points.push({ x: left, y: center.y - 24 }, { x: left + width, y: center.y + 24 });
+  };
   model.polygons.forEach((item) => item.points.forEach(add));
   model.segments.filter((item) => !item.hidden).forEach((item) => addPair(item.start, item.end));
   model.guides.filter((item) => !item.hidden).forEach((item) => addPair(item.start, item.end));
-  model.dimensions.forEach((item) => { const layout = dimensionScreenGeometry(item.kind, mapPoint(item.start, model), mapPoint(item.end, model), item.offset); points.push(layout.start, layout.end, layout.extensionStart, layout.extensionEnd, layout.label); });
-  model.angles.forEach((item) => { const layout = angleScreenGeometry(mapPoint(item.vertex, model), mapPoint(item.start, model), mapPoint(item.end, model)); points.push(layout.start, layout.end, layout.label); });
+  const labelPositions = annotationLabelPositions(model);
+  model.dimensions.forEach((item, index) => { const layout = dimensionScreenGeometry(item.kind, mapPoint(item.start, model), mapPoint(item.end, model), item.offset); points.push(layout.start, layout.end, layout.extensionStart, layout.extensionEnd); addLabel(labelPositions.get(`dimension:${index}`) ?? layout.label, item.label, layout.labelAnchor); });
+  model.angles.forEach((item, index) => { const layout = angleScreenGeometry(mapPoint(item.vertex, model), mapPoint(item.start, model), mapPoint(item.end, model)); points.push(layout.start, layout.end); addLabel(labelPositions.get(`angle:${index}`) ?? layout.label, item.label); });
   model.sheetStrips.forEach((item) => item.points.forEach(add));
   const xs = points.map((item) => item.x);
   const ys = points.map((item) => item.y);
   return { minX: Math.min(...xs) - technicalAnnotationRules.boundsPadding, minY: Math.min(...ys) - technicalAnnotationRules.boundsPadding, maxX: Math.max(...xs) + technicalAnnotationRules.boundsPadding, maxY: Math.max(...ys) + technicalAnnotationRules.boundsPadding };
 }
 
-function DimensionLine({ model, item, activeDimension, onDimensionSelect }: Readonly<{ model: GableDrawingModel; item: GableDrawingModel["dimensions"][number]; activeDimension?: string | null; onDimensionSelect?: (key: string) => void }>) {
+function DimensionLine({ model, item, labelPosition, activeDimension, onDimensionSelect }: Readonly<{ model: GableDrawingModel; item: GableDrawingModel["dimensions"][number]; labelPosition?: DrawingPoint; activeDimension?: string | null; onDimensionSelect?: (key: string) => void }>) {
   const start = mapPoint(item.start, model);
   const end = mapPoint(item.end, model);
   const layout = dimensionScreenGeometry(item.kind, start, end, item.offset);
   const active = Boolean(item.sourceKey && item.sourceKey === activeDimension);
   const selectable = Boolean(item.sourceKey && onDimensionSelect);
   const select = () => { if (item.sourceKey) onDimensionSelect?.(item.sourceKey); };
-  return <g className={`technical-dimension ${active ? "is-active" : ""} ${selectable ? "is-selectable" : ""}`} data-dimension-key={item.sourceKey} aria-label={item.description ?? item.label} role={selectable ? "button" : undefined} tabIndex={selectable ? 0 : undefined} aria-pressed={selectable ? active : undefined} onPointerDown={selectable ? (event) => { event.preventDefault(); event.stopPropagation(); select(); } : undefined} onPointerUp={selectable ? (event) => event.stopPropagation() : undefined} onClick={selectable ? select : undefined} onKeyDown={selectable ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } } : undefined}><line x1={layout.start.x} y1={layout.start.y} x2={layout.end.x} y2={layout.end.y} /><line x1={layout.extensionStart.x} y1={layout.extensionStart.y} x2={layout.start.x} y2={layout.start.y} className="technical-extension" /><line x1={layout.extensionEnd.x} y1={layout.extensionEnd.y} x2={layout.end.x} y2={layout.end.y} className="technical-extension" /><text x={layout.label.x} y={layout.label.y} textAnchor={layout.labelAnchor} dominantBaseline="middle">{item.label}</text></g>;
+  return <g className={`technical-dimension ${active ? "is-active" : ""} ${selectable ? "is-selectable" : ""}`} data-dimension-key={item.sourceKey} aria-label={item.description ?? item.label} role={selectable ? "button" : undefined} tabIndex={selectable ? 0 : undefined} aria-pressed={selectable ? active : undefined} onPointerDown={selectable ? (event) => { event.preventDefault(); event.stopPropagation(); select(); } : undefined} onPointerUp={selectable ? (event) => event.stopPropagation() : undefined} onClick={selectable ? select : undefined} onKeyDown={selectable ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } } : undefined}><line x1={layout.start.x} y1={layout.start.y} x2={layout.end.x} y2={layout.end.y} /><line x1={layout.extensionStart.x} y1={layout.extensionStart.y} x2={layout.start.x} y2={layout.start.y} className="technical-extension" /><line x1={layout.extensionEnd.x} y1={layout.extensionEnd.y} x2={layout.end.x} y2={layout.end.y} className="technical-extension" /><text x={labelPosition?.x ?? layout.label.x} y={labelPosition?.y ?? layout.label.y} textAnchor={layout.labelAnchor} dominantBaseline="middle">{item.label}</text></g>;
 }
 
 function TechnicalSvg({ model, layers, title, zoom, pan, svgRef, onPointerDown, onPointerMove, onPointerUp, selectedSegmentIds, onSegmentToggle, activeDimension, onDimensionSelect }: Readonly<{ model: GableDrawingModel; layers: VisibleLayers; title: string; zoom: number; pan: { x: number; y: number }; svgRef: React.RefObject<SVGSVGElement | null>; onPointerDown: (event: React.PointerEvent<SVGSVGElement>) => void; onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGSVGElement>) => void; selectedSegmentIds?: readonly string[]; onSegmentToggle?: (id: string) => void; activeDimension?: string | null; onDimensionSelect?: (key: string) => void }>) {
   const filtered = filterDrawingModel(model, layers);
+  const labelPositions = annotationLabelPositions(filtered);
   const showStripLabels = filtered.sheetStrips.length > 0 && filtered.sheetStrips.length <= 64;
   return <svg ref={svgRef} className="technical-drawing-svg" viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} role={onSegmentToggle || onDimensionSelect ? "group" : "img"} aria-labelledby="technical-drawing-title technical-drawing-description" preserveAspectRatio="xMidYMid meet" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onLostPointerCapture={onPointerUp}>
     <title id="technical-drawing-title">{title}</title><desc id="technical-drawing-description">Méretezett, {title.toLowerCase()} az ellenőrzött tetőgeometriából.</desc><defs><marker id="technical-arrow" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto"><path d="M 0 0 L 7 3.5 L 0 7 z" fill="var(--brand)" /></marker></defs>
@@ -66,8 +91,8 @@ function TechnicalSvg({ model, layers, title, zoom, pan, svgRef, onPointerDown, 
       {filtered.polygons.filter((polygon) => polygon.id).map((polygon) => <polygon key={polygon.id} points={pointsString(polygon.points, model)} className={selectedSegmentIds?.includes(polygon.id!) ? "is-selected" : ""} role="button" tabIndex={0} aria-label={`${polygon.label} kiválasztása`} aria-pressed={selectedSegmentIds?.includes(polygon.id!)} onPointerDown={(event) => event.stopPropagation()} onClick={() => onSegmentToggle(polygon.id!)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSegmentToggle(polygon.id!); } }} />)}
       {filtered.segments.filter((segment) => segment.id).map((segment) => <line key={segment.id} x1={mapPoint(segment.start, model).x} y1={mapPoint(segment.start, model).y} x2={mapPoint(segment.end, model).x} y2={mapPoint(segment.end, model).y} className={selectedSegmentIds?.includes(segment.id!) ? "is-selected" : ""} role="button" tabIndex={0} aria-label={`${segment.label} kiválasztása`} aria-pressed={selectedSegmentIds?.includes(segment.id!)} onPointerDown={(event) => event.stopPropagation()} onClick={() => onSegmentToggle(segment.id!)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSegmentToggle(segment.id!); } }} />)}
     </g>}
-    {filtered.dimensions.map((item, index) => <DimensionLine key={`${item.label}-${index}`} model={model} item={item} activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />)}
-    {filtered.angles.map((angle) => { const vertex = mapPoint(angle.vertex, model); const start = mapPoint(angle.start, model); const end = mapPoint(angle.end, model); const layout = angleScreenGeometry(vertex, start, end); const active = Boolean(angle.sourceKey && angle.sourceKey === activeDimension); const selectable = Boolean(angle.sourceKey && onDimensionSelect); const select = () => { if (angle.sourceKey) onDimensionSelect?.(angle.sourceKey); }; return <g key={angle.label} className={`technical-angle ${active ? "is-active" : ""} ${selectable ? "is-selectable" : ""}`} data-dimension-key={angle.sourceKey} aria-label={angle.description ?? angle.label} role={selectable ? "button" : undefined} tabIndex={selectable ? 0 : undefined} aria-pressed={selectable ? active : undefined} onPointerDown={selectable ? (event) => { event.preventDefault(); event.stopPropagation(); select(); } : undefined} onPointerUp={selectable ? (event) => event.stopPropagation() : undefined} onClick={selectable ? select : undefined} onKeyDown={selectable ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } } : undefined}><path d={`M ${layout.start.x} ${layout.start.y} A ${technicalAnnotationRules.angleRadius} ${technicalAnnotationRules.angleRadius} 0 0 1 ${layout.end.x} ${layout.end.y}`} /><text x={layout.label.x} y={layout.label.y} textAnchor="middle" dominantBaseline="middle">{angle.label}</text></g>; })}
+    {filtered.dimensions.map((item, index) => <DimensionLine key={`${item.label}-${index}`} model={model} item={item} labelPosition={labelPositions.get(`dimension:${index}`)} activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />)}
+    {filtered.angles.map((angle, index) => { const vertex = mapPoint(angle.vertex, model); const start = mapPoint(angle.start, model); const end = mapPoint(angle.end, model); const layout = angleScreenGeometry(vertex, start, end); const labelPosition = labelPositions.get(`angle:${index}`) ?? layout.label; const active = Boolean(angle.sourceKey && angle.sourceKey === activeDimension); const selectable = Boolean(angle.sourceKey && onDimensionSelect); const select = () => { if (angle.sourceKey) onDimensionSelect?.(angle.sourceKey); }; return <g key={angle.label} className={`technical-angle ${active ? "is-active" : ""} ${selectable ? "is-selectable" : ""}`} data-dimension-key={angle.sourceKey} aria-label={angle.description ?? angle.label} role={selectable ? "button" : undefined} tabIndex={selectable ? 0 : undefined} aria-pressed={selectable ? active : undefined} onPointerDown={selectable ? (event) => { event.preventDefault(); event.stopPropagation(); select(); } : undefined} onPointerUp={selectable ? (event) => event.stopPropagation() : undefined} onClick={selectable ? select : undefined} onKeyDown={selectable ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } } : undefined}><path d={`M ${layout.start.x} ${layout.start.y} A ${technicalAnnotationRules.angleRadius} ${technicalAnnotationRules.angleRadius} 0 0 1 ${layout.end.x} ${layout.end.y}`} /><text x={labelPosition.x} y={labelPosition.y} textAnchor="middle" dominantBaseline="middle">{angle.label}</text></g>; })}
     </g>
   </svg>;
 }
@@ -79,6 +104,7 @@ export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheet
   const [pan, setPan] = useState<{ x: number; y: number }>(drawingInitialViewport.pan);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const pointers = useRef(new Map<number, ViewportPoint>());
+  const userAdjustedViewport = useRef(false);
   const gesture = useRef<{ kind: "pan" | "pinch"; startPoint?: ViewportPoint; startPan: { x: number; y: number }; startZoom: number; distance?: number; midpoint?: ViewportPoint } | null>(null);
   const viewport = useRef<{ zoom: number; pan: { x: number; y: number } }>({ zoom: drawingInitialViewport.zoom, pan: drawingInitialViewport.pan });
   const model = useMemo(() => geometry ? createRoofDrawingModel(geometry) : createGableDrawingModel(output!, view, sheetLayout), [geometry, output, sheetLayout, view]);
@@ -95,18 +121,25 @@ export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheet
     setZoom(value.zoom);
     setPan(value.pan);
   }, []);
-  const setZoomBounded = useCallback((next: number) => setViewport({ zoom: next, pan: viewport.current.pan }), [setViewport]);
-  const resetViewport = useCallback(() => { const rect = svgRef.current?.getBoundingClientRect(); setViewport(fitDrawingViewport(drawingBounds, { width: rect?.width ?? SVG_WIDTH, height: rect?.height ?? SVG_HEIGHT })); }, [drawingBounds, setViewport]);
+  const setZoomBounded = useCallback((next: number) => { userAdjustedViewport.current = true; setViewport({ zoom: next, pan: viewport.current.pan }); }, [setViewport]);
+  const resetViewport = useCallback(() => { userAdjustedViewport.current = true; setViewport(drawingInitialViewport); }, [setViewport]);
   const fitViewport = useCallback(() => {
+    userAdjustedViewport.current = false;
     const rect = svgRef.current?.getBoundingClientRect();
     setViewport(fitDrawingViewport(drawingBounds, { width: rect?.width ?? SVG_WIDTH, height: rect?.height ?? SVG_HEIGHT }));
   }, [drawingBounds, setViewport]);
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
+    const fitToCurrentSize = () => {
+      if (userAdjustedViewport.current) return;
       const rect = svgRef.current?.getBoundingClientRect();
       setViewport(fitDrawingViewport(drawingBounds, { width: rect?.width ?? SVG_WIDTH, height: rect?.height ?? SVG_HEIGHT }));
-    });
-    return () => window.cancelAnimationFrame(frame);
+    };
+    const frame = window.requestAnimationFrame(fitToCurrentSize);
+    const element = svgRef.current;
+    const observer = typeof ResizeObserver === "undefined" || !element ? null : new ResizeObserver(fitToCurrentSize);
+    observer?.observe(element!);
+    if (!observer) window.addEventListener("resize", fitToCurrentSize);
+    return () => { window.cancelAnimationFrame(frame); observer?.disconnect(); if (!observer) window.removeEventListener("resize", fitToCurrentSize); };
   }, [drawingBounds, setViewport, view]);
   const clientToViewBox = (clientX: number, clientY: number): ViewportPoint => { const rect = svgRef.current?.getBoundingClientRect(); if (!rect) return { x: clientX, y: clientY }; return clientPointToViewBox({ x: clientX, y: clientY }, rect); };
   const midpoint = (first: ViewportPoint, second: ViewportPoint): ViewportPoint => ({ x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 });
@@ -130,9 +163,11 @@ export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheet
     if (!activeGesture) return;
     const activePoints = [...pointers.current.values()];
     if (activeGesture.kind === "pinch" && activePoints.length >= 2 && activeGesture.distance && activeGesture.midpoint) {
+      userAdjustedViewport.current = true;
       const next = pinchViewport({ zoom: activeGesture.startZoom, pan: activeGesture.startPan, distance: activeGesture.distance, midpoint: activeGesture.midpoint }, { distance: distance(activePoints[0], activePoints[1]), midpoint: midpoint(activePoints[0], activePoints[1]) }, { x: SVG_WIDTH / 2, y: SVG_HEIGHT / 2 });
       setViewport(next);
     } else if (activeGesture.kind === "pan" && activeGesture.startPoint && activePoints.length === 1) {
+      userAdjustedViewport.current = true;
       setViewport({ zoom: viewport.current.zoom, pan: panViewport({ pan: activeGesture.startPan, point: activeGesture.startPoint }, activePoints[0], activeGesture.startZoom) });
     }
   };

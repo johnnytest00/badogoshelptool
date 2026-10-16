@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { CalendarDays, ClipboardCheck, ClipboardList, FolderOpen, MapPin, PackageOpen, PencilLine, UserRound } from "lucide-react";
+import { CalendarDays, ClipboardList, FolderOpen, MapPin, PackageOpen, PencilLine, UserRound } from "lucide-react";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { projectStatusLabels, projectTypeLabels } from "@/domain/projects/contracts";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getClientsForOrganization, getProjectForOrganization } from "@/features/projects/project-data";
 import { ProjectEditForm } from "@/features/projects/project-forms";
-import { ProjectLifecycleActions } from "@/features/projects/project-lifecycle";
+import { ProjectActionsMenu, ProjectSecondaryActions } from "@/features/projects/project-lifecycle";
 import { getRoofModelsForProject } from "@/features/roof-models/roof-model-data";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 import { getExecutionPlanningWorkspace } from "@/features/execution/execution-data";
@@ -15,7 +15,7 @@ import { ExecutionSection } from "@/features/execution/execution-section";
 import { ProjectCalculatorLinks } from "@/features/projects/project-calculator-links";
 import { getProjectWorkflowRecords, projectWorkflowRows, ProjectWorkflowOverview } from "@/features/projects/project-workflow-overview";
 import { ProjectRoofDrawings } from "@/features/roof-models/project-roof-drawings";
-import { GlassToolbar } from "@/components/ui/glass-toolbar";
+import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 
 export default async function ProjectDetailPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string }>; searchParams: Promise<{ organization?: string; sourceQuotation?: string; execution?: string }> }>) {
   const { projectId } = await params;
@@ -44,13 +44,10 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
           <span className="project-version-label">v{project.version}</span>
         </div>
       </div>
-      <GlassToolbar ariaLabel="Projektműveletek" className="project-header-actions">
-        <Link className="primary-button" href={`/felmeresek/uj?organization=${organizationId}&project=${projectId}`}><ClipboardCheck aria-hidden="true" className="size-4" /> Új felmérés</Link>
-        <ProjectLifecycleActions organizationId={organizationId} project={project} />
-      </GlassToolbar>
+      <ProjectActionsMenu organizationId={organizationId} project={project} />
     </section>
     <ProjectWorkflowOverview rows={workflowRows} />
-    <div className="project-detail-grid">
+    <div className="project-detail-grid project-detail-grid-single">
       <section className="project-facts-section">
         <p className="section-eyebrow">Projektadatok</p>
         <h2>Alapadatok</h2>
@@ -61,11 +58,11 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
           <Fact icon={<CalendarDays className="size-4" />} label="Módosítva" value={new Date(project.updatedAt).toLocaleDateString("hu-HU")} />
         </div>
         {project.description && <p className="detail-description">{project.description}</p>}
+        <ProjectSecondaryActions organizationId={organizationId} project={project} />
+        <GlassDisclosure className="project-edit-disclosure" summary={<><span><PencilLine aria-hidden="true" className="size-4" /><span><strong>Projektadatok szerkesztése</strong><small>Név, ügyfél, helyszín és leírás</small></span></span><span className="project-edit-disclosure-action">Megnyitás</span></>}>
+          <div className="project-edit-content"><ProjectEditForm organizationId={organizationId} project={project} clients={clients.map((client) => ({ id: client.id, name: client.name }))} /></div>
+        </GlassDisclosure>
       </section>
-      <details className="project-edit-disclosure">
-        <summary><span><PencilLine aria-hidden="true" className="size-4" /><span><strong>Projektadatok szerkesztése</strong><small>Név, ügyfél, helyszín és leírás</small></span></span><span className="project-edit-disclosure-action">Megnyitás</span></summary>
-        <div className="project-edit-content"><ProjectEditForm organizationId={organizationId} project={project} clients={clients.map((client) => ({ id: client.id, name: client.name }))} /></div>
-      </details>
     </div>
     <ExecutionSection defaultOpen={pageQuery.execution === "1"}><ExecutionPlanning organizationId={organizationId} projectId={projectId} projectName={project.name} clientName={project.clientName} location={project.location} plans={execution.plans} acceptedQuotations={execution.acceptedQuotations} timelineByPlan={execution.timelineByPlan} preselectedQuotationId={pageQuery.sourceQuotation} /></ExecutionSection>
     <section id="tetomodellek" className="detail-surface roof-model-list"><div className="roof-list-heading"><div><p className="section-eyebrow">Tetőmodellek</p><h2>Geometriai modellek</h2></div><Link className="primary-button" href={`/projektek/${projectId}/tetomodellek/uj?organization=${organizationId}`}>+ Új tetőmodell</Link></div>{roofModels.length ? <div className="roof-model-cards">{roofModels.map((model) => <Link className="roof-model-card" key={model.id} href={`/projektek/${projectId}/tetomodellek/${model.id}?organization=${organizationId}`}><span className="section-eyebrow">{({ gable: "Nyeregtető", shed: "Félnyeregtető", hip: "Kontytető", pyramid: "Sátortető", halfHip: "Félkontyos tető", lShape: "L alakú tető", tShape: "T alakú tető", other: "Egyéb tető" } as const)[model.roofType]}</span><strong>{model.name}</strong><small>{model.currentRevisionNumber ? `Revízió ${model.currentRevisionNumber} · ${(model.currentOutput?.areas.combinedRoofM2 ?? (model.currentMultiRoofOutput ? model.currentMultiRoofOutput.totalAreaMm2 / 1_000_000 : null))?.toLocaleString("hu-HU", { maximumFractionDigits: 3 }) ?? "eredmény betöltése…"} m²` : "Még nincs mentett revízió"}</small></Link>)}</div> : <p className="detail-description">Ehhez a projekthez még nincs tetőmodell. Hozd létre az első tető geometriai modelljét.</p>}</section>

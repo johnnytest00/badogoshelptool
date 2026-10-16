@@ -75,8 +75,12 @@ describe("field survey editor", () => {
   it("keeps geometry inputs hidden until roof selection and retains survey actions", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} />);
     expect(html).not.toContain('class="field-survey-measurements"');
-    expect(html).toContain('class="field-survey-note-details"');
+    expect(html).toContain('class="glass-disclosure field-survey-note-details"');
     expect(html).toContain('class="primary-button field-survey-save"');
+    expect(html).toContain('form="field-survey-editor-form"');
+    expect(html).toContain("Felmérés és következő lépések");
+    expect(html).toContain("Fotók hozzáadása");
+    expect(html).toContain("Projektkapcsolat");
   });
 
   it("keeps a roof survey's measurement grid immediately ahead of its validated drawing", () => {

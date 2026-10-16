@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase additions await generated database type refresh. */
 import { createClient } from "@/infrastructure/supabase/server";
 import type { ExecutionPhotoCategory } from "@/domain/execution/contracts";
+import { summarizeExecutionIndexTasks } from "./execution-overview-index";
 
 export type ExecutionTaskRecord = { id: string; title: string; description: string | null; status: "todo" | "in_progress" | "done"; priority: "low" | "normal" | "high"; dueDate: string | null; sortOrder: number; version: number };
 export type ExecutionPhotoRecord = { id: string; taskId: string | null; taskTitle: string | null; journalEntryId: string | null; journalDate: string | null; journalContent: string | null; objectKey: string; displayFilename: string; mimeType: string; fileSize: number; caption: string | null; category: ExecutionPhotoCategory; uploadedAt: string; uploaderName: string | null; signedUrl: string | null };
@@ -11,9 +12,30 @@ type LooseClient = { from: (table: string) => any };
 
 export async function getExecutionOverviewForOrganization(organizationId: string) {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("execution_plans").select("id, project_id, title, updated_at").eq("organization_id", organizationId).order("updated_at", { ascending: false }).limit(200);
-  if (error) throw new Error("A kivitelezési áttekintő betöltése nem sikerült.");
-  return (data ?? []).map((plan) => ({ id: plan.id, projectId: plan.project_id, title: plan.title, updatedAt: plan.updated_at }));
+  const db = supabase as unknown as LooseClient;
+  const plansResponse = await db.from("execution_plans").select("id, project_id, title, updated_at").eq("organization_id", organizationId).order("updated_at", { ascending: false }).limit(200);
+  if (plansResponse.error) throw new Error("A kivitelezési áttekintő betöltése nem sikerült.");
+  const plans = plansResponse.data ?? [];
+  const planIds = plans.map((plan: any) => plan.id);
+  if (!planIds.length) return [];
+  const [tasksResponse, journalResponse, photosResponse] = await Promise.all([
+    db.from("execution_tasks").select("id, plan_id, title, status, due_date").eq("organization_id", organizationId).in("plan_id", planIds).order("sort_order", { ascending: true }),
+    db.from("execution_journal_entries").select("id, plan_id").eq("organization_id", organizationId).in("plan_id", planIds),
+    db.from("execution_photos").select("id, plan_id").eq("organization_id", organizationId).in("plan_id", planIds),
+  ]);
+  if (tasksResponse.error || journalResponse.error || photosResponse.error) throw new Error("A kivitelezési feladatok áttekintése nem tölthető be.");
+  const tasks = tasksResponse.data ?? [];
+  const journal = journalResponse.data ?? [];
+  const photos = photosResponse.data ?? [];
+  return plans.map((plan: any) => {
+    const planTasks = tasks.filter((task: any) => task.plan_id === plan.id).map((task: any) => ({ id: task.id, title: task.title, status: task.status, dueDate: task.due_date }));
+    return {
+      id: plan.id, projectId: plan.project_id, title: plan.title, updatedAt: plan.updated_at,
+      tasks: summarizeExecutionIndexTasks(planTasks),
+      journalCount: journal.filter((entry: any) => entry.plan_id === plan.id).length,
+      photoCount: photos.filter((photo: any) => photo.plan_id === plan.id).length,
+    };
+  });
 }
 
 export async function getExecutionPlanningWorkspace(organizationId: string, projectId: string) {
