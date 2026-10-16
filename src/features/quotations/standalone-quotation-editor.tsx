@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ClipboardList } from "lucide-react";
 import { decimalToScaled, lineTotal, scaledToDecimal } from "@/domain/quotations/money";
 import { validateStandaloneLines } from "@/domain/quotations/standalone";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { generateSecureUuid } from "@/lib/secure-uuid";
-import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneNetLabels, type StandaloneSaveOperation } from "./standalone-quotation-ui-state";
+import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneManualRecipient, standaloneNetLabels, type StandaloneSaveOperation } from "./standalone-quotation-ui-state";
 import { quotationRecoveryKey, readQuotationRecovery, writeQuotationRecovery, isQuotationRecoveryCurrent, clearOtherQuotationRecoveryOwners, type QuotationRecovery, type QuotationDraftValues } from "./quotation-draft-recovery";
 import { resolveStandaloneQuotationCatalogItemAction, saveStandaloneQuotationDraftAction, updateStandaloneIssuerProfileAction, validateStandaloneQuotationDocumentAction, type StandaloneDocumentSources, type StandaloneQuotationResult } from "./standalone-quotation-actions";
 import type { MaterialProductRecord } from "@/features/materials/material-data";
@@ -32,8 +33,8 @@ function revisionDocument(revision?: CurrentRevision): { draft: QuotationDocumen
   const recipient = objectValue(document.recipient);
   const draft = {
     ...emptyQuotationDocumentDraft(),
-    recipientSource: recipient.source === "linked_client" ? "client" as const : "manual" as const,
-    recipientClientId: textValue(recipient.clientId), recipientName: textValue(recipient.name), recipientAddress: textValue(recipient.address),
+    recipientSource: "manual" as const,
+    recipientClientId: "", recipientName: textValue(recipient.name), recipientAddress: textValue(recipient.address),
     recipientEmail: textValue(recipient.email), recipientPhone: textValue(recipient.phone), recipientTaxIdentifier: textValue(recipient.taxIdentifier),
     reference: textValue(document.reference), validUntil: textValue(document.validUntil), notes: textValue(document.notes), terms: textValue(document.terms),
   };
@@ -126,10 +127,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const localEstimate = useMemo(() => lines.reduce((sum, line) => {
     try { return sum + lineTotal(line.quantity || "0", line.unitPrice || "0").minor; } catch { return sum; }
   }, BigInt(0)), [lines]);
-  const selectedClient = documentSources.clients.find((client) => client.id === document.recipientClientId);
-  const readinessDocument = !historical && document.recipientSource === "client" && selectedClient ? {
-    ...document, recipientName: selectedClient.name, recipientAddress: selectedClient.address ?? "", recipientEmail: selectedClient.email ?? "", recipientPhone: selectedClient.phone ?? "",
-  } : document;
+  const readinessDocument = document;
   const savedIssuerForReadiness: IssuerDocumentProfile | null = savedDocument.issuer ? {
     businessName: textValue(savedDocument.issuer.businessName) || null,
     businessAddress: textValue(savedDocument.issuer.businessAddress) || null,
@@ -164,7 +162,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const restoreRecovery = () => {
     if (!recovery?.current || historical) return;
     const recovered = recovery.value.values.lines.map((line) => ({ ...line, localId: makeLocalId() }));
-    const nextDocument = recovery.value.values.document ?? document;
+    const nextDocument = standaloneManualRecipient(recovery.value.values.document ?? document);
     const values = { name: recovery.value.values.name, lines: recovered, document: nextDocument };
     setName(values.name); setLines(values.lines); setDocument(nextDocument); setDirtyState(JSON.stringify(values) !== baseline.current); setRecovery(null);
   };
@@ -194,7 +192,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     const form = new FormData();
     form.set("organizationId", organizationId); form.set("operationId", operation.current.id); form.set("version", String(version));
     if (quotationId) form.set("quotationId", quotationId);
-    form.set("name", name.trim()); form.set("clientId", document.recipientSource === "client" ? document.recipientClientId : "");
+    form.set("name", name.trim()); form.set("clientId", "");
     form.set("lines", JSON.stringify(savedLines));
     if (materialSource && lines.some((line) => line.sourceMaterialItemId)) {
       form.set("materialListId", materialSource.materialListId);
@@ -247,8 +245,8 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
 
   return <section className="quotation-editor detail-surface standalone-quotation-editor">
     <Link className="back-link" href={`/ajanlatok?organization=${organizationId}`}>← Vissza az ajánlatokhoz</Link>
-    <div className="section-heading"><div><p className="section-eyebrow">Önálló · csak piszkozat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2></div><span className="status-pill status-draft">Piszkozat</span></div>
-    <p className="missing-data">Projekt és ügyfél nélkül is használható. Nettó HUF összegeket kezel; véglegesítés, ÁFA és hivatalos PDF még nem támogatott.</p>
+    <div className="section-heading standalone-quotation-header glass-bubble"><div className="standalone-quotation-title"><ClipboardList aria-hidden="true" className="standalone-quotation-icon" /><div><p className="section-eyebrow">Önálló ajánlat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2><p className="standalone-quotation-subtitle">Nettó HUF · Menthető piszkozat</p></div></div><span className="status-pill status-draft">Piszkozat</span></div>
+    <p className="standalone-quotation-note">A véglegesítés, az ÁFA-kezelés és a hivatalos PDF még nem támogatott.</p>
     {materialSource && <section className="glass-bubble quotation-material-source" aria-label="Anyaglista forrás"><strong>Anyaglista-forrás · {materialSource.listName}</strong><span>V{materialSource.revisionNumber} revízió · {materialSource.sourceLineMap.length} forrástétel</span>{materialSource.currentRevisionId && materialSource.currentRevisionId !== materialSource.materialRevisionId && <p role="status">A lista azóta V{materialSource.currentVersion} verzióra változott. Az ajánlat a kiválasztott, változtathatatlan V{materialSource.revisionNumber} forrásból indul.</p>}</section>}
     <div className="standalone-revision-bar" aria-label="Ajánlati revíziók">
       {revisions.map((revision) => <Link key={revision.id} className={`secondary-button ${revision.id === (selectedRevisionId ?? currentRevisionId) ? "is-current" : ""}`} href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`} aria-current={revision.id === (selectedRevisionId ?? currentRevisionId) ? "page" : undefined}>v{revision.revisionNumber} · {money(revision.subtotal)}</Link>)}
@@ -277,23 +275,11 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
         <div className="quotation-document-disclosure-body">
         <p className="missing-data">Ez a piszkozat menthető. Az adókezelés és a véglegesítés még nincs támogatva; ez az összegzés nem jelent kiállíthatóságot.</p>
         <div className="quotation-line-grid">
-          <label htmlFor="document-recipient-source">Címzett adatforrása<select id="document-recipient-source" value={document.recipientSource} onChange={(event) => {
-            const source = event.target.value as QuotationDocumentDraft["recipientSource"];
-            const next = source === "client" ? { ...document, recipientSource: source, recipientClientId: "" } : { ...document, recipientSource: source, recipientClientId: "" };
-            setDocument(next); setServerReadiness(null); syncDirty(name, lines, next);
-          }}><option value="manual">Kézi címzett</option><option value="client">Műhely ügyfele</option></select></label>
-          {document.recipientSource === "client" && <label htmlFor="document-recipient-client">Ügyfél<select id="document-recipient-client" value={document.recipientClientId} onChange={(event) => {
-            const next = { ...document, recipientClientId: event.target.value };
-            setDocument(next); setServerReadiness(null); syncDirty(name, lines, next);
-          }}><option value="">Válassz ügyfelet</option>{documentSources.clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select><small>Mentéskor a szerver az ügyfél engedélyezett adataiból immutable címzett-pillanatképet készít.</small></label>}
-          {document.recipientSource === "manual" && <>
             <label htmlFor="document-recipient-name">Címzett neve<input id="document-recipient-name" value={document.recipientName} onChange={(event) => setDocumentField("recipientName", event.target.value)} /></label>
             <label htmlFor="document-recipient-address">Címzett címe<input id="document-recipient-address" value={document.recipientAddress} onChange={(event) => setDocumentField("recipientAddress", event.target.value)} /></label>
             <label htmlFor="document-recipient-email">Címzett e-mail-címe<input id="document-recipient-email" type="email" value={document.recipientEmail} onChange={(event) => setDocumentField("recipientEmail", event.target.value)} /></label>
             <label htmlFor="document-recipient-phone">Címzett telefonszáma<input id="document-recipient-phone" value={document.recipientPhone} onChange={(event) => setDocumentField("recipientPhone", event.target.value)} /></label>
             <label htmlFor="document-recipient-tax">Címzett adóazonosító adata<input id="document-recipient-tax" value={document.recipientTaxIdentifier} onChange={(event) => setDocumentField("recipientTaxIdentifier", event.target.value)} /></label>
-          </>}
-          {document.recipientSource === "client" && <div className="missing-data"><strong>Mentéskor rögzítendő címzett-pillanatkép</strong><br />{readinessDocument.recipientName || "Név nincs megadva"} · {readinessDocument.recipientAddress || "cím nincs megadva"}{readinessDocument.recipientEmail ? ` · ${readinessDocument.recipientEmail}` : ""}</div>}
           <label htmlFor="document-reference">Belső hivatkozás<input id="document-reference" value={document.reference} onChange={(event) => setDocumentField("reference", event.target.value)} /></label>
           <label htmlFor="document-valid-until">Érvényesség dátuma<input id="document-valid-until" type="date" value={document.validUntil} onChange={(event) => setDocumentField("validUntil", event.target.value)} /></label>
           <label htmlFor="document-notes">Ajánlati megjegyzés<textarea id="document-notes" rows={3} value={document.notes} onChange={(event) => setDocumentField("notes", event.target.value)} /></label>

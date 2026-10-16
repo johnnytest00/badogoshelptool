@@ -34,7 +34,7 @@ export function buildExecutionOverview(plan: ExecutionPlanRecord, timeline: Exec
       taskId: task.id,
     }));
   timeline.filter((item) => item.type === "journal" && item.category === "problem").slice(0, 4).forEach((item) => {
-    attentionItems.push({ kind: "blocker", title: item.taskTitle ?? "Munkanapló-bejegyzés", detail: item.content ?? "Probléma / akadály rögzítve", journalId: item.id });
+    attentionItems.push({ kind: "blocker", title: item.taskTitle ?? "Napi bejegyzés", detail: item.content ?? "Probléma / akadály rögzítve", journalId: item.id });
   });
   return {
     totalTasks: plan.tasks.length,

@@ -11,8 +11,8 @@ export type DashboardFunction = {
 
 export const dashboardFunctions: readonly DashboardFunction[] = [
   { id: "field-surveys", label: "Gyors felmérés", description: "Gyors mérések mentése és folytatása", icon: ClipboardCheck, tone: "amber" },
-  { id: "execution", label: "Kivitelezési tervek", description: "Tervek, feladatok és munkanaplók", icon: ClipboardList, tone: "orange" },
-  { id: "material-lists", label: "Anyaglisták", description: "Önálló vagy tervhez kapcsolt anyagok", icon: PackageOpen, tone: "green" },
+  { id: "execution", label: "Munkanaplók", description: "Feladatok és napi bejegyzések", icon: ClipboardList, tone: "orange" },
+  { id: "material-lists", label: "Anyaglisták", description: "Önálló vagy munkanaplóhoz kapcsolt anyagok", icon: PackageOpen, tone: "green" },
   { id: "quotes", label: "Árajánlatok", description: "Szerkeszthető ajánlatpiszkozatok", icon: FileText, tone: "violet" },
   { id: "calculators", label: "Kalkulátorok", description: "Eresz-, szegély- és profilkalkulátorok", icon: Calculator, tone: "blue" },
 ] as const;

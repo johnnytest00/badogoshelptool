@@ -34,13 +34,20 @@ describe("field survey editor", () => {
     expect(html).toContain("Tető");
     expect(html).toContain("Ereszcsatorna");
     expect(html).toContain("Bádogos szegély");
+    expect(html).toContain('<span class="survey-section-tab-name">Tető</span>');
+    expect(html).toContain('aria-label="0 kitöltött mérés"');
+    expect(html).not.toContain("field-survey-active-section-title");
+    expect(html).toContain('class="glass-toolbar survey-section-add"');
+    expect(html).toContain("Új tetőszakasz");
+    expect(html).toContain("Új ereszcsatorna-szakasz");
+    expect(html).toContain("Új bádogos szegélyszakasz");
+    expect(html).toContain("Új egyéb szakasz");
     expect(html).toContain("Név, munkatípus és sorrend");
     expect(html).toContain("Felmért tetőforma");
     expect(html.match(/class="roof-type-illustration"/g)).toHaveLength(7);
     expect(html).not.toContain('class="field-survey-measurements"');
-    expect(html).toContain("Felmérés mentése");
-    expect(html).toContain("Önálló mentés");
-    expect(html).toContain("Kivitelezési terv létrehozása");
+    expect(html).toContain("Önálló felmérés mentése");
+    expect(html).toContain("Munkanapló létrehozása");
     expect(html).not.toContain("Projekt létrehozása / kapcsolása");
     expect(html).toContain("opcionális");
     expect(html).toContain("value=\"roof\"");
@@ -64,7 +71,8 @@ describe("field survey editor", () => {
       ],
     };
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={withSections} initialSectionId={flashingId} />);
-    expect(html).toContain("<h2>Munkaszakasz: Bádogos szegély</h2>");
+    expect(html).toContain('<span class="survey-section-tab-name">Bádogos szegély</span>');
+    expect(html).not.toContain("field-survey-active-section-title");
     expect(html).toContain('value="10"');
   });
 
@@ -77,7 +85,7 @@ describe("field survey editor", () => {
     expect(html).toContain("DEMO nehezen hozzáférhető");
     expect(html).toContain("Korábbi projektkapcsolat");
     expect(html).toContain("DEMO linked project");
-    expect(html).toContain("Felmérés csatolása meglévő tervhez");
+    expect(html).toContain("Felmérés csatolása meglévő munkanaplóhoz");
   });
 
   it("keeps geometry inputs hidden until roof selection and retains survey actions", () => {
@@ -85,10 +93,11 @@ describe("field survey editor", () => {
     expect(html).not.toContain('class="field-survey-measurements"');
     expect(html).toContain('class="glass-disclosure field-survey-note-details"');
     expect(html).toContain('id="field-survey-editor-form"');
-    expect(html).toContain("Felmérés és következő lépések");
+    expect(html).toContain("Következő lépések");
     expect(html).toContain("Fotók hozzáadása");
-    expect(html).toContain("Önálló mentés");
-    expect(html).toContain("Kivitelezési terv létrehozása");
+    expect(html).toContain("Önálló felmérés mentése");
+    expect(html).not.toContain("Terv és ügyfél nélkül");
+    expect(html).toContain("Munkanapló létrehozása");
     expect(html).not.toContain("Projekt létrehozása / kapcsolása");
   });
 

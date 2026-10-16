@@ -147,7 +147,6 @@ export async function getStandaloneQuotationMaterialSourceAction(organizationId:
 
 export type StandaloneDocumentSources = {
   issuer: IssuerDocumentProfile & { organizationName: string };
-  clients: Array<{ id: string; name: string; address: string | null; email: string | null; phone: string | null }>;
   canEditIssuer: boolean;
 };
 
@@ -161,12 +160,8 @@ export async function getStandaloneDocumentSourcesAction(organizationId: string)
     .select("name, business_name, business_address, contact_email, contact_phone, tax_identifier")
     .eq("id", organizationId).maybeSingle();
   if (organizationError || !organization) return failure("INTERNAL", "A kibocsátói adatok nem tölthetők be.");
-  const { data: clients, error: clientsError } = await supabase.from("clients")
-    .select("id, name, billing_address, email, phone").eq("organization_id", organizationId).order("name").limit(100);
-  if (clientsError) return failure("INTERNAL", "A műhely címzettjei nem tölthetők be.");
   return { ok: true, data: {
     issuer: { organizationName: organization.name, businessName: organization.business_name, businessAddress: organization.business_address, contactEmail: organization.contact_email, contactPhone: organization.contact_phone, taxIdentifier: organization.tax_identifier },
-    clients: (clients ?? []).map((client) => ({ id: client.id, name: client.name, address: client.billing_address, email: client.email, phone: client.phone })),
     canEditIssuer: membership.role === "owner" || membership.role === "admin",
   } };
 }

@@ -156,7 +156,7 @@ export async function createExecutionPlanFromSurvey(raw: { organizationId: strin
 
 export async function linkSurveyToExecutionPlan(raw: { organizationId: string; surveyId: string; version: number; executionPlanId: string; requestKey: string }): Promise<{ ok: boolean; linkId?: string; error?: string }> {
   const parsed = ids.extend(executionPlanLinkInput.shape).safeParse(raw);
-  if (!parsed.success) return { ok: false, error: "Válassz egy érvényes kivitelezési tervet." };
+  if (!parsed.success) return { ok: false, error: "Válassz egy érvényes munkanaplót." };
   try {
     const input = parsed.data;
     await authorized(input.organizationId);

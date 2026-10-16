@@ -77,7 +77,7 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, li
 
   return <div className="dashboard-shell"><div className="dashboard-container workflow-material-lists">
     <Link className="back-link" href={`/anyaglistak?organization=${organizationId}`}>← Anyaglisták</Link>
-    <header className="workflow-list-header"><div><p className="section-eyebrow">Anyagkimutatás</p><h1>{list?.name ?? "Új anyaglista"}</h1><p>{list ? `V${list.version} · önálló lista vagy kivitelezési tervhez kapcsolva` : "Önállóan is menthető; tervhez kapcsolás opcionális."}</p></div><details className="workflow-material-settings"><summary aria-label="Anyagkatalógus beállításai" title="Katalógus"><Settings2 aria-hidden="true" /></summary><div className="workflow-material-settings-panel"><strong>Anyagkatalógus</strong><p>A lista tételeihez a szervezet aktív termékei és ismert árverziói használhatók.</p><Link className="secondary-button" href={`/anyagok?organization=${organizationId}`}>Termékek és árak kezelése</Link><Link className="text-action" href={`/anyagok/uj?organization=${organizationId}`}>+ Új termék</Link></div></details></header>
+    <header className="workflow-list-header"><div><p className="section-eyebrow">Anyagkimutatás</p><h1>{list?.name ?? "Új anyaglista"}</h1><p>{list ? `V${list.version} · önálló lista vagy munkanaplóhoz kapcsolva` : "Önállóan is menthető; munkanaplóhoz kapcsolás opcionális."}</p></div><details className="workflow-material-settings"><summary aria-label="Anyagkatalógus beállításai" title="Katalógus"><Settings2 aria-hidden="true" /></summary><div className="workflow-material-settings-panel"><strong>Anyagkatalógus</strong><p>A lista tételeihez a szervezet aktív termékei és ismert árverziói használhatók.</p><Link className="secondary-button" href={`/anyagok?organization=${organizationId}`}>Termékek és árak kezelése</Link><Link className="text-action" href={`/anyagok/uj?organization=${organizationId}`}>+ Új termék</Link></div></details></header>
     <form action={action} className="workflow-material-editor">
       <input type="hidden" name="organizationId" value={organizationId} />
       <input type="hidden" name="listId" value={list?.id ?? ""} />
@@ -86,7 +86,7 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, li
       <input type="hidden" name="items" value={JSON.stringify(lines)} />
       <section className="glass-bubble workflow-material-meta">
         <label>Lista neve<input name="name" maxLength={120} required value={name} onChange={(event) => setName(event.target.value)} placeholder="Például: DEMO tetőfelújítás anyagai" /></label>
-        <label>Kivitelezési terv <span>opcionális</span><select name="executionPlanId" value={planId} disabled={Boolean(list)} onChange={(event) => setPlanId(event.target.value)}><option value="">Önálló anyaglista</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.title}</option>)}</select></label>
+        <label>Munkanapló <span>opcionális</span><select name="executionPlanId" value={planId} disabled={Boolean(list)} onChange={(event) => setPlanId(event.target.value)}><option value="">Önálló anyaglista</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.title}</option>)}</select></label>
         {list && <input type="hidden" name="executionPlanId" value={planId} />}
       </section>
       <section className="glass-bubble workflow-material-lines" aria-labelledby="workflow-material-lines-title">

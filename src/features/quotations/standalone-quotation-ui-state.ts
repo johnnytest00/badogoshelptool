@@ -1,3 +1,5 @@
+import type { QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
+
 export type StandaloneSaveOperation = { id: string; payload: string };
 
 export const standaloneNetLabels = {
@@ -16,4 +18,8 @@ export function getStandaloneSaveOperation(
 
 export function isHistoricalStandaloneRevision(currentRevisionId: string | null, requestedRevisionId?: string): boolean {
   return Boolean(requestedRevisionId && requestedRevisionId !== currentRevisionId);
+}
+
+export function standaloneManualRecipient(document: QuotationDocumentDraft): QuotationDocumentDraft {
+  return { ...document, recipientSource: "manual", recipientClientId: "" };
 }

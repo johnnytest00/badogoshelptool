@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneNetLabels } from "./standalone-quotation-ui-state";
+import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneManualRecipient, standaloneNetLabels } from "./standalone-quotation-ui-state";
 
 describe("standalone quotation UI state", () => {
   it("keeps one operation id for an unchanged retry and rotates it when the payload changes", () => {
@@ -25,5 +25,12 @@ describe("standalone quotation UI state", () => {
       lineTotal: "Nettó tételösszeg (Ft)",
       subtotal: "Összesen nettó (Ft)",
     });
+  });
+
+  it("keeps a saved recipient snapshot while removing its linked-client selection", () => {
+    expect(standaloneManualRecipient({
+      recipientSource: "client", recipientClientId: "client-1", recipientName: "Minta Kft.", recipientAddress: "Minta utca 1.",
+      recipientEmail: "info@example.test", recipientPhone: "", recipientTaxIdentifier: "", reference: "A-1", validUntil: "", notes: "", terms: "",
+    })).toMatchObject({ recipientSource: "manual", recipientClientId: "", recipientName: "Minta Kft.", recipientAddress: "Minta utca 1.", reference: "A-1" });
   });
 });

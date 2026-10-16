@@ -36,9 +36,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ proj
   if (!project) return badRequest("A projekt nem található ebben a műhelyben.", 404);
   const workspace = await getExecutionPlanningWorkspace(organizationId, projectId);
   const plan = (workspace.plans as ExecutionPlanRecord[]).find((candidate) => candidate.id === planId);
-  if (!plan) return badRequest("A kivitelezési terv nem található ebben a projektben.", 404);
+  if (!plan) return badRequest("A munkanapló nem található ebben a projektben.", 404);
   const selectedPhotos = photoIds.map((id) => (plan.photos as ExecutionPhotoRecord[]).find((photo) => photo.id === id)).filter((photo): photo is NonNullable<typeof photo> => Boolean(photo));
-  if (selectedPhotos.length !== photoIds.length) return badRequest("A kiválasztott fénykép nem tartozik ehhez a kivitelezési tervhez.", 403);
+  if (selectedPhotos.length !== photoIds.length) return badRequest("A kiválasztott fénykép nem tartozik ehhez a munkanaplóhoz.", 403);
   let totalBytes = 0;
   const reportPhotos = [];
   const supabase = await createClient();

@@ -18,7 +18,7 @@ const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-
 
 export function ExecutionLinkedSurveys({ organizationId, surveys }: Readonly<{ organizationId: string; surveys: readonly ExecutionLinkedSurvey[] }>) {
   return <GlassDisclosure className="execution-linked-surveys" summary={`Csatolt felmérések · ${surveys.length}`}>
-    {surveys.length ? <div className="execution-linked-survey-list">{surveys.map((survey) => <LinkedSurveyCard key={survey.id} organizationId={organizationId} survey={survey} />)}</div> : <p className="missing-data">Ehhez a tervhez még nincs felmérés csatolva. Felmérésből a pontos mentett változat csatolható.</p>}
+    {surveys.length ? <div className="execution-linked-survey-list">{surveys.map((survey) => <LinkedSurveyCard key={survey.id} organizationId={organizationId} survey={survey} />)}</div> : <p className="missing-data">Ehhez a munkanaplóhoz még nincs felmérés csatolva. Felmérésből a pontos mentett változat csatolható.</p>}
   </GlassDisclosure>;
 }
 

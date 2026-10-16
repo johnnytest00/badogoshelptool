@@ -6,7 +6,7 @@ const data: ExecutionReportData = {
   organizationName: "DEMO műhely",
   generatedAt: "2026-10-13T10:00:00.000Z",
   project: { name: "DEMO tetőprojekt", clientName: "DEMO ügyfél", location: "Budapest" },
-  plan: { title: "DEMO kivitelezési terv", description: "Áttekintő.", tasks: [], timeline: [], sourceQuotationName: null, sourceQuotationStatus: null, sourceRevisionId: null, sourceRevisionNumber: null, sourceSubtotal: null, photos: [] },
+  plan: { title: "DEMO munkanapló", description: "Áttekintő.", tasks: [], timeline: [], sourceQuotationName: null, sourceQuotationStatus: null, sourceRevisionId: null, sourceRevisionNumber: null, sourceSubtotal: null, photos: [] },
   sections: ["overview", "tasks", "journal", "events", "photos", "quotation"],
 };
 

@@ -20,16 +20,16 @@ describe("project overview navigation and execution disclosures", () => {
     const html = renderToStaticMarkup(createElement(ExecutionSection, {
       children: createElement("div", null,
         createElement(ExecutionSubsection, { title: "Dokumentáció", children: "Fotók és jelentés" }),
-        createElement(ExecutionSubsection, { title: "Munkanapló", children: "Bejegyzések" }),
+        createElement(ExecutionSubsection, { title: "Napi bejegyzések", children: "Bejegyzések" }),
       ),
     }));
 
-    expect(html).toContain("<details id=\"kivitelezes\" class=\"project-execution-disclosure\">");
+    expect(html).toContain("<details id=\"kivitelezes\" class=\"glass-disclosure project-execution-disclosure\">");
     expect(html).toContain("<h2>Kivitelezés</h2>");
-    expect(html.match(/<details class="execution-nested-disclosure">/g)).toHaveLength(2);
-    expect(html).toContain("<summary>Dokumentáció</summary>");
-    expect(html).toContain("<summary>Munkanapló</summary>");
-    expect(html).not.toContain("<details class=\"project-execution-disclosure\" open");
+    expect(html.match(/<details class="glass-disclosure execution-nested-disclosure">/g)).toHaveLength(2);
+    expect(html).toMatch(/<summary aria-controls="[^"]+">Dokumentáció<\/summary>/);
+    expect(html).toMatch(/<summary aria-controls="[^"]+">Napi bejegyzések<\/summary>/);
+    expect(html).not.toContain("<details class=\"glass-disclosure project-execution-disclosure\" open");
     expect(html).not.toContain("execution-nested-disclosure\" open");
   });
 

@@ -2611,3 +2611,63 @@ Státusz: **IMPLEMENTED / PARTIAL — UI**.
 **Bizonyíték és korlátok:** fókuszált Vitest 4 fájl / 14 teszt PASS; `npm run typecheck`, `npm run lint`, Next.js 16.4.0 webpack `npm run build` és `git diff --check` PASS. Helyi, hitelesített desktop DEMO dashboardon az öt fő munkafolyamat és az üvegkártyák megjelentek; a `/projektek?organization=…` útvonal a kiválasztott szervezettel a műhelyre irányított. Csak egy desktop sötét felületet ellenőriztem; mobil, világos téma, kontraszt/forced-colors, képernyőolvasó és fizikai iOS mátrix nem futott. DB/Auth/RLS tesztet nem futtattam, mert adattárolóhoz és jogosultsághoz nem nyúltam.
 
 Javasolt commit: `fix(F9.19): apply app-wide liquid glass and retire legacy lists`.
+
+## F9.20 — Globális Liquid Glass és munkanapló
+
+Státusz: **IMPLEMENTED / PARTIAL — LOCAL UI**.
+
+- A felmérés munkaszakasz-fejléce és műveletcsoportja az új Glass fejléc-/toolbar-primitíveket használja; a tetőtípus-választás, hét tetőforma, mérési űrlap és műszaki rajz megmaradt.
+- A munkanapló részlete egyetlen objektumcímet mutat. A napi bejegyzés lett az elsődleges, nyitott munkafelület; a feladatok közvetlenül hozzáadhatók és szerkeszthetők, a kapcsolódó dokumentáció és anyaglisták összecsukva maradtak. A kizárólag nulla értéket mutató statisztikák és a párhuzamos üres összefoglalók eltűntek.
+- A releváns felhasználói feliratok „Munkanapló” terminológiát használnak; a belső előzmény neve „Napi bejegyzések”. A `/kivitelezes` route, táblák, RPC-k, azonosítók, revíziók és szervezeti hozzáférési szerződések változatlanok. Régi projekt-/ügyfélrekordot nem töröltünk.
+- A megjelenés a meglévő `GlassPageHeader`, `GlassSectionHeader`, `GlassDisclosure` és `GlassToolbar` komponenseket, illetve a közös üvegtokeneket használja. Domain-képletet, adatbázissémát, mentési műveletet vagy jogosultságot nem módosítottunk.
+
+**Böngészős bizonyíték és korlát:** helyi, autentikált DEMO felmérésben a nyeregtető választása, a 10 × 6 × 2 m értékek, a 6 m-es előnézeti szélesség és a 72,111 m²-es geometriai előnézet látható volt. Az új felmérési oldalon 320 és 390 CSS px-en, a meglévő DEMO munkanapló oldalon pedig 320, 390, 768, 1024 és 1440 CSS px-en a `documentElement` és a `body` szélessége is megegyezett a viewporttal; vízszintes túlcsordulás nem jelent meg. A mentés-visszanyitási próba a felületen „A felmérés mentése nem érte el a szervert” hibával megállt; mentett azonosító/revízió ezért nincs, az űrlap DEMO adatai mentetlenül maradtak a böngészőben. A meglévő DEMO munkanapló megnyitása read-only ellenőrzés volt. Survey→Munkanapló link, 320/390 px-en túli survey mátrix, világos téma, billentyűzet/képernyőolvasó, increased scaling, reduced-motion/transparency, forced colors, fizikai iOS és exportált screenshot **nem bizonyított**. Hosted DB/Auth/RLS nem futott; tárolási és hozzáférési szerződéshez nem nyúltunk.
+
+Fókuszált Vitest 8 fájl / 28 teszt PASS; `npm run typecheck`, `npm run lint`, Next.js 16.4.0 webpack `npm run build` és `git diff --check` PASS. Teljes Vitest suite nem futott.
+
+Javasolt commit: `fix(F9.20): refine liquid glass survey and diary workspaces`.
+
+## F9.20.1 — Felmérési munkafelület és térközök
+
+Státusz: **IMPLEMENTED / PARTIAL — LOCAL UI**.
+
+- Az aktív munkaszakasz egyszer, választható üvegjelvényen jelenik meg; a kitöltött mérések száma visszafogott jelvény. A szakaszváltás és az új szakasz létrehozása külön látszik, az új műveletek címkéi a típusukat is megnevezik.
+- A hét tetőforma megmaradt. A kártyák, műveletcsoport és lenyílók közös belső rácsra kerültek; megszüntettem a tetőcím és a lenyílók fölösleges külső kereteit. 700 px alatt a tetőkártyák teljes szélességű, tömör sorok.
+- Csak a `FieldSurveyEditor` jelölése és a hozzá tartozó CSS változott; a meglévő `GlassPageHeader`, `GlassToolbar`, `GlassDisclosure`, `GlassSectionHeader` és tetőválasztó maradt. Geometria, validáció, mentési/revíziós, kézbesítési és auth/RLS szerződés nem változott.
+
+**Böngészős bizonyíték / korlát:** autentikált helyi felmérési űrlap 1440, 1024, 768, 390 és 320 CSS px-en: a `documentElement` és a `body` szélessége minden méreten egyezett a viewporttal. 320 px-en 1,25-ös szöveg- és 1,2-es UI-méretezéssel is nulla volt a túlcsordulás; az új szakaszgombok legalább 105 px, a tetőkártyák 112 px magasak. Desktop- és mobilnézet képernyőképét a böngészős vizsgálat rögzítette, fájlba nem exportáltam. A komponensinterakciókat célzott tesztek fedik; mentés/revízió új böngészős próbája nem futott. Az F9.20 helyi mentése korábban szerverhibával állt meg. DB/Auth/RLS, világos téma, képernyőolvasó, billentyűzetes navigáció és fizikai iOS nem futott.
+
+Fókuszált Vitest 2 fájl / 11 teszt PASS; `npm run typecheck`, `npm run lint`, Next.js 16.4.0 webpack `npm run build` és `git diff --check` PASS. Teljes tesztkészlet nem futott.
+
+Javasolt commit: `fix(F9.20.1): refine survey layout and section controls`.
+
+## F9.20.2 — Felmérés folytatása, mentett számítások és önálló ajánlat
+
+Státusz: **IMPLEMENTED / PARTIAL — LOCAL UI**.
+
+- A felmérés alján a következő lépések kompakt üvegpanelbe kerültek; kikerült a fölösleges „Folytatás” címke, az új felmérés ismételt állapotjelzése és az ügyfél/terv nélküli működést magyarázó gombsor. A mentési és munkanapló-műveletek megmaradtak.
+- A mentett számítások szűrői üveges füleket, a számítások lekerekített Liquid Glass kártyákat kaptak; mobilon a kártyaműveletek teljes szélességűek.
+- Az önálló árajánlat fejlécét és tételeit lekerekített üvegfelületek fogják össze. Az ügyfélrekord-választás és az ügyféllista lekérése kikerült az önálló szerkesztőből; kézi címzettmezők opcionálisan maradtak. Régi címzett-pillanatkép betöltéskor kézi címzettként jelenik meg; új mentés üres ügyfélkapcsolattal készül. Régi mentett revízió nem módosul puszta megnyitástól.
+- Meglévő Glass tokenek és komponensek újrahasznosítva. Kalkuláció, sémák, SQL/RLS, Auth, revíziós mentés és dokumentum-kiállítási szabályok nem változtak. Az önálló ajánlat szerveroldali szervezeti jogosultság-ellenőrzése és mentési RPC-je maradt az adatút.
+
+**Ellenőrzés:** a helyi, hitelesített DEMO böngészőben mindhárom érintett felületet vizuálisan ellenőriztem: `/felmeresek/uj`, `/kalkulatorok/mentett` és `/ajanlatok/uj`. A DOM igazolja az önálló ajánlatnál az ügyfélválasztó hiányát; az oldalak adatát nem módosítottam. Célzott Vitest: 3 fájl / 17 teszt PASS; `npm run typecheck`, `npm run lint`, Next.js 16.4.0 webpack `npm run build` és `git diff --check` PASS. Mobil viewport, mentési tranzakció, DB/Auth/RLS és fizikai iOS ellenőrzés nem futott.
+
+Javasolt commit: `fix(F9.20.2): polish standalone liquid glass workflows`.
+
+## F9.20.2 — Globális Vanta.NET háttér
+
+Állapot: **IMPLEMENTED / PARTIAL — HELYI UI**.
+
+- A `GlobalAnimatedBackground` egyszer, a tartós `RootLayout`-ban jelenik meg, a route-váltások során megmarad, és az alkalmazáskód betöltése után, kliensoldalon inicializálódik. Strict Mode takarításkor és lapelrejtéskor lebontja a Vanta példányt és eltávolítja a vásznat; a látható lap újranyitásakor újraindítja.
+- A `vanta@0.5.24`, `three@0.134.0` és `@types/three@0.134.0` verziók rögzítettek. A felhasználói referencia után a NET-háló az eredeti 10 pontos, 15-ös térközű és 20-as kapcsolási távolságú beállításra került; a sötét vászon fekete, 95%-os vizuális erősségű, a WebGL pixel ratio felső korlátja 1,5. A háttér `aria-hidden`, `pointer-events: none` és a teljes viewportot fedi, így nem célpontja a rajz- és űrlapinterakcióknak.
+- A felméréseket `prefers-reduced-motion`, mobil/coarse pointer, Save-Data, legfeljebb 4 CPU-mag, legfeljebb 4 GB jelentett eszközmemória és WebGL-hiány statikus CSS-háttérre állítja. Inicializálási hiba után is statikus marad. A sötét mód a narancs `#ed6100` színt, a világos mód sötétebb narancsot és világos alapot használ; meglévő UI-komponens nem cserélődött le.
+- A Vanta NET tényleges Three.js használata alapján rögzített Three r134 csomagpár készült; a Vanta hivatalos példája is r134-et tölt. A Vanta NET pontpár-frissítése miatt a pontszám csökkentése mérsékli a képkockánkénti páronkénti munkát. A helyi API nem biztosít külön animáció-pause hívást; a rejtett lap animációját biztonságosan destroy/restart ciklus állítja meg.
+- Nem módosult domain- vagy üzleti logika, DB, migráció, Auth/RLS, kalkulációs eredmény, mentés vagy hosted Supabase. A munkafolyamatot nem kellett átalakítani.
+
+**Böngészős bizonyíték:** autentikált, helyi `DEMO TetőPro Kft.` fiókban a Dashboard, Gyors felmérés, tető-kalkulátor lista, mentett számítások, nyeregtető kalkulátor és technikai rajz, Munkanaplók, Anyaglisták és Árajánlatok betöltött. A Dashboard Gyors felmérés linkjére kattintva az App Router kliensoldali navigációt is ellenőriztem: a böngésző navigation entry darabszáma 1 maradt, és a háttérben egyetlen canvas volt. Csak helyi, read-only adatokkal navigáltam. A tetőrajz nagyításvezérlője 108%-ról 118%-ra változott, a nézet-visszaállítás működött; mentés nem történt. 320/390/768/1440 CSS px emulációban a dokumentum szélessége nem haladta meg a viewportot, az animáció coarse/touch emuláció miatt statikus maradt. Asztali, 1900 px-es böngészőnézetben egy vászon jelent meg; a sötét referencia finomítás után a fekete alap, narancs háló és pontsűrűség a csatolt mintához közelebb került. Világos mód továbbra is világos alapon, visszafogott hálóval jelenik meg; sötét módot a smoke végén visszaállítottam.
+
+**Ellenőrzések:** `npx vitest run src/components/background/global-animated-background-policy.test.ts` — 1 fájl / 3 teszt PASS. `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) és build után külön futtatott `npm run typecheck` PASS; `git diff --check` PASS. A párhuzamos build alatt futtatott első typecheck a generálódó `.next/types` fájlok eltűnése miatt hibázott; build után ugyanaz a typecheck hibátlanul lefutott. Teljes Vitest suite nem futott.
+
+**Korlátok:** 1440 px-en az emulátor coarse pointert jelentett, ezért a háttér statikus fallbacken maradt; aktív Vanta-rajzot 1900 px-es valódi desktop böngészőnézetben ellenőriztem. A csökkentett mozgás működését a policy-teszt és a CSS szabály bizonyítja, böngésző médiaemuláció nem futott. 320/390 px-en csak böngészős emuláció történt; fizikai mobil, iOS Safari, valós touch/pinch/scroll egyidejű mérés, alacsony teljesítményű eszközön FPS/WebGL-terhelés és forced-colors nem bizonyított. Böngészős oldalméretekhez nem készült exportált screenshot.
+
+Javasolt commit: `feat(F9.20.2): add global Vanta NET background`.

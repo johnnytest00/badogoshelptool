@@ -8,6 +8,7 @@ import { getWorkflowMaterialLists } from "@/features/material-takeoffs/material-
 import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
+import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 
 export default async function ExecutionPlanPage({ params, searchParams }: Readonly<{ params: Promise<{ planId: string }>; searchParams: Promise<{ organization?: string }> }>) {
   const { planId } = await params;
@@ -28,20 +29,20 @@ export default async function ExecutionPlanPage({ params, searchParams }: Readon
   ]);
   const plan = workspace.plans[0];
   if (!plan) return <NotFound organizationId={organizationId} />;
+  const planMaterialLists = materialLists.filter((list) => list.executionPlanId === plan.id);
   return <main className="dashboard-shell"><div className="dashboard-container">
-    <Link className="back-link" href={`/kivitelezes?organization=${organizationId}`}>← Kivitelezési tervek</Link>
-    <GlassPageHeader title={plan.title} context="Kivitelezési terv" />
-    <ExecutionPlanning organizationId={organizationId} projectId={planOption.projectId} projectName={project?.name ?? ""} clientName={project?.clientName ?? null} location={project?.location ?? null} plans={workspace.plans} acceptedQuotations={workspace.acceptedQuotations} timelineByPlan={workspace.timelineByPlan} initialPlanId={plan.id} showHeading={false} />
-    <section className="glass-bubble execution-workflow-links" aria-labelledby="execution-material-lists-title">
-      <div><p className="section-eyebrow">Következő lépés</p><h2 id="execution-material-lists-title">Anyaglisták</h2></div>
-      {materialLists.filter((list) => list.executionPlanId === plan.id).length > 0 && <ul>{materialLists.filter((list) => list.executionPlanId === plan.id).map((list) => <li key={list.id}><Link href={`/anyaglistak/${list.id}?organization=${organizationId}`}><strong>{list.name}</strong><span>V{list.version} · {list.currentRevision?.items.length ?? 0} tétel</span></Link>{list.currentRevisionId && <Link className="text-action" href={`/ajanlatok/uj?organization=${organizationId}&plan=${plan.id}&materialList=${list.id}&materialRevision=${list.currentRevisionId}`}>Árajánlat ebből</Link>}</li>)}</ul>}
-      <Link className="secondary-button" href={`/anyaglistak/uj?organization=${organizationId}&plan=${plan.id}`}>+ Anyaglista a tervhez</Link>
-      <Link className="text-action" href={`/ajanlatok/uj?organization=${organizationId}&plan=${plan.id}`}>Árajánlat készítése</Link>
-    </section>
+    <Link className="back-link" href={`/kivitelezes?organization=${organizationId}`}>← Munkanaplók</Link>
+    <GlassPageHeader title={plan.title} context="Munkanapló" />
+    <ExecutionPlanning organizationId={organizationId} projectId={planOption.projectId} projectName={project?.name ?? ""} clientName={project?.clientName ?? null} location={project?.location ?? null} plans={workspace.plans} acceptedQuotations={workspace.acceptedQuotations} timelineByPlan={workspace.timelineByPlan} initialPlanId={plan.id} showHeading={false} showDescription={false} showPlanTabs={false} />
+    <GlassDisclosure className="execution-workflow-links" summary={`Anyaglisták · ${planMaterialLists.length}`}>
+      {planMaterialLists.length > 0 && <ul>{planMaterialLists.map((list) => <li key={list.id}><Link href={`/anyaglistak/${list.id}?organization=${organizationId}`}><strong>{list.name}</strong><span>V{list.version} · {list.currentRevision?.items.length ?? 0} tétel</span></Link>{list.currentRevisionId && <Link className="text-action" href={`/ajanlatok/uj?organization=${organizationId}&plan=${plan.id}&materialList=${list.id}&materialRevision=${list.currentRevisionId}`}>Árajánlat ebből</Link>}</li>)}</ul>}
+      {planMaterialLists.length === 0 && <p className="missing-data">Ehhez a munkanaplóhoz még nincs mentett anyaglista.</p>}
+      <div className="execution-workflow-actions"><Link className="secondary-button" href={`/anyaglistak/uj?organization=${organizationId}&plan=${plan.id}`}>Anyaglista készítése</Link><Link className="text-action" href={`/ajanlatok/uj?organization=${organizationId}&plan=${plan.id}`}>Árajánlat készítése</Link></div>
+    </GlassDisclosure>
     <ExecutionLinkedSurveys organizationId={organizationId} surveys={linkedSurveys} />
   </div></main>;
 }
 
 function NotFound({ organizationId }: Readonly<{ organizationId: string }>) {
-  return <main className="dashboard-shell"><div className="dashboard-container"><section className="empty-state"><div><h1>A kivitelezési terv nem található</h1><p>Nincs hozzáférhető terv ezzel az azonosítóval.</p><Link className="primary-button" href={`/kivitelezes?organization=${organizationId}`}>Vissza a kivitelezési tervekhez</Link></div></section></div></main>;
+  return <main className="dashboard-shell"><div className="dashboard-container"><section className="empty-state"><div><h1>A munkanapló nem található</h1><p>Nincs hozzáférhető munkanapló ezzel az azonosítóval.</p><Link className="primary-button" href={`/kivitelezes?organization=${organizationId}`}>Vissza a munkanaplókhoz</Link></div></section></div></main>;
 }

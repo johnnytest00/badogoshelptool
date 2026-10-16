@@ -31,7 +31,7 @@ export async function getSurveyRelationships(organizationId: string, surveyId: s
     planIds.length ? client.from("execution_plans").select("id,title").eq("organization_id", organizationId).in("id", planIds) : Promise.resolve({ data: [], error: null }),
     revisionIds.length ? client.from("field_survey_revisions").select("id,version").eq("organization_id", organizationId).in("id", revisionIds) : Promise.resolve({ data: [], error: null }),
   ]);
-  if (plans.error || surveyRevisions.error) throw new Error("A kapcsolt kivitelezési tervek pontos forrásai nem tölthetők be.");
+  if (plans.error || surveyRevisions.error) throw new Error("A kapcsolt munkanaplók pontos forrásai nem tölthetők be.");
   const executionPlans: SurveyExecutionPlanLink[] = executionPlanLinkRows.flatMap((row) => {
     const plan = plans.data?.find((item) => item.id === row.execution_plan_id);
     const revision = surveyRevisions.data?.find((item) => item.id === row.survey_revision_id);

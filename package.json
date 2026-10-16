@@ -28,6 +28,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sharp": "^0.35.5",
+    "three": "0.134.0",
+    "vanta": "0.5.24",
     "zod": "^4.6.6"
   },
   "devDependencies": {
@@ -37,6 +39,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "0.134.0",
     "eslint": "^10.12.0",
     "postcss": "^8.4.49",
     "supabase": "^2.120.0",

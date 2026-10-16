@@ -45,7 +45,7 @@ export async function getExecutionPlanOptionsForOrganization(organizationId: str
   const supabase = await createClient();
   const db = supabase as unknown as LooseClient;
   const { data, error } = await db.from("execution_plans").select("id,title,project_id,updated_at").eq("organization_id", organizationId).order("updated_at", { ascending: false }).limit(200);
-  if (error) throw new Error("A kivitelezési tervválasztó betöltése nem sikerült.");
+  if (error) throw new Error("A munkanapló-választó betöltése nem sikerült.");
   return (data ?? []).map((plan: any) => ({ id: plan.id, title: plan.title, projectId: plan.project_id, updatedAt: plan.updated_at }));
 }
 
@@ -53,7 +53,7 @@ export async function getExecutionPlanForOrganization(organizationId: string, pl
   const supabase = await createClient();
   const db = supabase as unknown as LooseClient;
   const { data, error } = await db.from("execution_plans").select("id,title,project_id,updated_at").eq("organization_id", organizationId).eq("id", planId).maybeSingle();
-  if (error) throw new Error("A kivitelezési terv betöltése nem sikerült.");
+  if (error) throw new Error("A munkanapló betöltése nem sikerült.");
   return data ? { id: data.id, title: data.title, projectId: data.project_id, updatedAt: data.updated_at } : null;
 }
 
@@ -63,7 +63,7 @@ export async function getExecutionPlanLinkedSurveys(organizationId: string, plan
   const { data: links, error: linksError } = await db.from("field_survey_execution_plan_links")
     .select("id,survey_id,survey_revision_id,created_at")
     .eq("organization_id", organizationId).eq("execution_plan_id", planId).order("created_at", { ascending: false });
-  if (linksError) throw new Error("A kivitelezési tervhez kapcsolt felmérések nem tölthetők be.");
+  if (linksError) throw new Error("A munkanaplóhoz kapcsolt felmérések nem tölthetők be.");
   if (!links?.length) return [];
   const surveyIds = [...new Set(links.map((link: any) => link.survey_id))];
   const revisionIds = [...new Set(links.map((link: any) => link.survey_revision_id))];
@@ -107,7 +107,7 @@ export async function getExecutionPlanningWorkspace(organizationId: string, proj
   else if (projectId) planQuery = planQuery.eq("project_id", projectId);
   else planQuery = planQuery.is("project_id", null);
   const plansResponse = await planQuery;
-  if (plansResponse.error) throw new Error("A kivitelezési tervek betöltése nem sikerült.");
+  if (plansResponse.error) throw new Error("A munkanaplók betöltése nem sikerült.");
   const plans = plansResponse.data ?? [];
   const planIds = plans.map((plan: any) => plan.id);
   if (!planIds.length) return { plans: [], acceptedQuotations: [], timelineByPlan: new Map<string, ExecutionTimelineItem[]>() };
@@ -118,7 +118,7 @@ export async function getExecutionPlanningWorkspace(organizationId: string, proj
     db.from("execution_task_events").select("id, plan_id, task_id, from_status, to_status, changed_by, changed_at").eq("organization_id", organizationId).in("plan_id", planIds).order("changed_at", { ascending: false }).order("id", { ascending: false }).limit(100),
     db.from("execution_photos").select("id, project_id, plan_id, task_id, journal_entry_id, object_key, display_filename, mime_type, file_size, caption, category, uploaded_by, uploaded_at").eq("organization_id", organizationId).in("plan_id", planIds).order("uploaded_at", { ascending: false }).order("id", { ascending: false }).limit(100),
   ]);
-  if (tasksResponse.error || quotesResponse.error || journalResponse.error || eventResponse.error || photosResponse.error) throw new Error("A kivitelezési tervek részletei nem tölthetők be.");
+  if (tasksResponse.error || quotesResponse.error || journalResponse.error || eventResponse.error || photosResponse.error) throw new Error("A munkanaplók részletei nem tölthetők be.");
   const tasks = tasksResponse.data ?? [];
   const quotes = quotesResponse.data ?? [];
   const journal = journalResponse.data ?? [];

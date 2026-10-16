@@ -20,7 +20,7 @@ export async function createExecutionPlanAction(data: FormData) {
   if (!await access(organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
   if (projectId && !z.string().uuid().safeParse(projectId).success) return { ok: false, error: "Érvénytelen projektkapcsolat." };
   const parsed = executionPlanSchema.safeParse({ title: text(data, "title"), description: text(data, "description") });
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ellenőrizd a terv adatait." };
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ellenőrizd a munkanapló adatait." };
   const db = await createClient() as unknown as Rpc;
   const { data: result, error } = await db.rpc("create_execution_plan", { p_organization_id: organizationId, p_project_id: projectId, p_title: parsed.data.title, p_description: parsed.data.description || null, p_source_quotation_id: text(data, "sourceQuotationId") || null, p_source_revision_id: text(data, "sourceRevisionId") || null, p_request_key: text(data, "requestKey") || crypto.randomUUID() });
   if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A terv létrehozása nem sikerült.") };
@@ -46,7 +46,7 @@ export async function createExecutionJournalEntryAction(data: FormData) {
   if (!category.success || !/^\d{4}-\d{2}-\d{2}$/.test(workDate) || !text(data, "content")) return { ok: false, error: "Add meg a munkavégzés dátumát és a bejegyzés tartalmát." };
   const db = await createClient() as unknown as Rpc;
   const { data: result, error } = await db.rpc("create_execution_journal_entry", { p_organization_id: organizationId, p_plan_id: planId, p_task_id: text(data, "taskId") || null, p_work_date: workDate, p_category: category.data, p_content: text(data, "content"), p_problems: text(data, "problems") || null, p_next_steps: text(data, "nextSteps") || null, p_request_key: text(data, "requestKey") || crypto.randomUUID() });
-  if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A naplóbejegyzés mentése nem sikerült.") };
+  if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A napi bejegyzés mentése nem sikerült.") };
   revalidatePath(`/kivitelezes/${planId}`); if (projectId) revalidatePath(`/projektek/${projectId}`); return { ok: true, entryId: result[0].entry_id };
 }
 

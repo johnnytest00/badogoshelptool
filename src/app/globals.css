@@ -1177,6 +1177,52 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
   .primary-button, .secondary-button, .drawing-toolbar-group button { forced-color-adjust: auto; }
 }
 
+/* F9.20.2 — one non-interactive animated layer for the persistent App Router shell. */
+html,
+body { min-height: 100%; }
+html { background: var(--background); }
+body { position: relative; isolation: isolate; }
+.global-animated-background {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  touch-action: auto;
+  user-select: none;
+  contain: strict;
+  background:
+    radial-gradient(ellipse at 78% 6%, color-mix(in srgb, var(--brand) 7%, transparent), transparent 35rem),
+    radial-gradient(ellipse at 12% 38%, rgba(54, 116, 170, .055), transparent 38rem),
+    radial-gradient(ellipse at 90% 80%, rgba(114, 86, 163, .04), transparent 42rem),
+    var(--background);
+}
+html[data-theme="dark"] .global-animated-background {
+  background:
+    radial-gradient(ellipse at 78% 6%, rgba(237, 97, 0, .055), transparent 35rem),
+    #000;
+}
+.global-animated-background canvas.vanta-canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+  opacity: .95;
+}
+html[data-theme="light"] .global-animated-background canvas.vanta-canvas { opacity: .09; }
+@media (prefers-reduced-motion: reduce) {
+  .global-animated-background canvas.vanta-canvas { display: none !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .global-animated-background { background: var(--background); }
+  html[data-theme="dark"] .global-animated-background { background: #000; }
+  .global-animated-background canvas.vanta-canvas { opacity: .055; }
+}
+@media (forced-colors: active) {
+  .global-animated-background { background: Canvas; }
+  .global-animated-background canvas.vanta-canvas { display: none !important; }
+}
+
 /* F9.14.4: the semantic workspace is the only roof measurement/drawing surface. */
 .roof-workspace-surface {
   display: grid;
@@ -2943,4 +2989,400 @@ textarea {
     backdrop-filter: none;
   }
   :is(.roof-workspace-surface, .roof-type-card, .roof-type-card-illustration, .scaling-bubble-panel, .account-management-dialog, .account-management-close, .account-current, .project-filters, .client-search, .filter-search, .empty-state, .project-facts-section, .project-edit-disclosure, .gutter-run, .flashing-run, .execution-overview-list li, .preparation-source-choice, .execution-project-group, .execution-project-group > header, .project-workflow-link, .survey-workflow-tile, .survey-workflow-attach, .execution-direct-plan-list li > a, .execution-linked-survey, .material-product-card, .mobile-filter-close, .mobile-account-menu-panel, .project-action-menu, .project-action-menu-trigger, .project-archive-confirm, .survey-section-add .glass-disclosure-content, .workflow-material-settings-panel) { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* F9.20: align survey controls and the diary workspace with shared glass surfaces. */
+.field-survey-active-heading {
+  width: fit-content;
+  max-width: 100%;
+  min-height: calc(2.8rem * var(--tp-ui-scale));
+  margin: 0;
+  border-color: color-mix(in srgb, var(--brand) 26%, var(--glass-border));
+  border-radius: 999px;
+  padding-inline: calc(.9rem * var(--tp-ui-scale));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand-soft) 38%, var(--surface-glass)), color-mix(in srgb, var(--surface-glass) 90%, transparent));
+}
+.field-survey-active-heading h2 { font-size: calc(1rem * var(--tp-text-scale)); }
+.survey-section-add.glass-toolbar {
+  width: fit-content;
+  max-width: 100%;
+  justify-content: flex-start;
+  gap: calc(.35rem * var(--tp-ui-scale));
+  margin: 0;
+  border-radius: 1rem;
+  padding: calc(.3rem * var(--tp-ui-scale));
+}
+.survey-section-add > .secondary-button { flex: 0 1 auto; min-width: 0; min-height: calc(2.75rem * var(--tp-ui-scale)); }
+.survey-section-add > .secondary-button:first-child { border-color: color-mix(in srgb, var(--brand) 25%, var(--glass-border)); }
+.field-survey-form > fieldset > .survey-roof-type-heading { margin-block: .2rem 0; }
+
+.execution-planning { min-width: 0; }
+.execution-planning > .detail-description { margin-top: 0; }
+.execution-plan-panel { gap: calc(.8rem * var(--tp-spacing-scale)); min-width: 0; }
+.execution-plan-description { margin: 0; color: var(--muted); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.execution-overview { gap: .55rem; border: 0; border-radius: 0; background: transparent; padding: 0; }
+.execution-overview-stats { display: flex; flex-wrap: wrap; gap: .45rem; }
+.execution-overview-stats > div {
+  display: grid;
+  min-width: 5rem;
+  flex: 0 1 auto;
+  gap: .1rem;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 85%, var(--border));
+  border-radius: .85rem;
+  background: color-mix(in srgb, var(--surface-glass) 88%, transparent);
+  padding: .42rem .7rem;
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(calc(var(--glass-blur) * .7)) saturate(var(--glass-saturation));
+}
+.execution-overview-stats strong { color: var(--brand-ink); font-size: calc(1.05rem * var(--tp-text-scale)); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.execution-overview-stats span { color: var(--muted); font-size: calc(.7rem * var(--tp-text-scale)); line-height: 1.3; }
+.execution-overview-context { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: .55rem 1rem; margin: 0; }
+.execution-overview-context > div { display: grid; min-width: 0; gap: .16rem; }
+.execution-overview-context dt { color: var(--muted); font-size: .75rem; font-weight: 650; }
+.execution-overview-context dd { display: grid; min-width: 0; gap: .15rem; margin: 0; color: var(--foreground); font-size: .86rem; overflow-wrap: anywhere; }
+.execution-overview-context dd span { color: var(--muted); font-size: .78rem; }
+.execution-overview-legal-note { margin: 0; color: var(--muted); font-size: .76rem; line-height: 1.45; }
+.execution-overview .execution-overview-list { gap: .35rem; }
+.execution-overview .execution-overview-list li { border: 1px solid color-mix(in srgb, var(--glass-border) 78%, var(--border)); border-left: 3px solid var(--brand); border-radius: .75rem; background: color-mix(in srgb, var(--surface-glass) 85%, transparent); padding: .55rem .7rem; }
+.execution-overview .glass-disclosure { margin: 0; }
+.execution-journal { gap: .8rem; border-top: 0; padding-top: 0; }
+.execution-journal > h2, .execution-timeline > h3, .execution-photos > h3 { margin: 0; color: var(--foreground); font-size: calc(1rem * var(--tp-text-scale)); }
+.execution-empty-hint { margin: 0; border-left: 2px solid color-mix(in srgb, var(--brand) 68%, transparent); padding: .25rem 0 .25rem .65rem; color: var(--muted); font-size: .86rem; line-height: 1.5; }
+.execution-timeline { border-top: 1px solid color-mix(in srgb, var(--glass-border) 70%, var(--border)); padding-top: .8rem; }
+.execution-tasks { display: grid; min-width: 0; gap: .55rem; }
+.execution-tasks > .glass-section-header { margin-bottom: .1rem; }
+.execution-task-count { display: grid; min-width: 2rem; min-height: 2rem; place-items: center; border-radius: 999px; background: color-mix(in srgb, var(--brand-soft) 76%, var(--surface-glass)); color: var(--brand-ink); padding-inline: .55rem; font-size: .78rem; font-variant-numeric: tabular-nums; font-weight: 800; }
+.execution-task-add { align-items: center; border-top-color: color-mix(in srgb, var(--glass-border) 68%, var(--border)); }
+.execution-task-add input[name="title"] { min-height: max(2.75rem, calc(2.75rem * var(--tp-ui-scale))); border-color: var(--glass-border); border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-glass) 82%, transparent); padding-inline: .75rem; }
+.execution-task-add input[name="title"]:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 52%, transparent); outline-offset: 2px; }
+.execution-task-list { gap: .45rem; }
+.execution-task-row { border: 1px solid color-mix(in srgb, var(--glass-border) 74%, var(--border)); border-radius: .9rem; background: color-mix(in srgb, var(--surface-glass) 78%, transparent); padding: .5rem; }
+.execution-workflow-links { margin-top: .15rem; }
+.execution-workflow-links .glass-disclosure-content > div { gap: .55rem; }
+.execution-workflow-links ul { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.execution-workflow-links li { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .55rem; border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 62%, var(--border)); padding: .45rem 0 .65rem; }
+.execution-workflow-links li > a:first-child { display: grid; min-width: 0; gap: .12rem; color: var(--foreground); text-decoration: none; }
+.execution-workflow-links li > a:first-child span { color: var(--muted); font-size: .78rem; }
+.execution-workflow-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; padding-top: .1rem; }
+
+@media (max-width: 700px) {
+  .survey-section-add.glass-toolbar { width: 100%; }
+  .survey-section-add > .secondary-button { flex: 1 1 calc(50% - .4rem); }
+  .execution-task-add input[name="title"], .execution-task-add button { width: 100%; flex: 1 1 100%; }
+  .execution-workflow-actions > * { width: 100%; justify-content: center; }
+  .execution-workflow-links li { align-items: flex-start; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .execution-overview-stats > div, .execution-overview .execution-overview-list li, .execution-task-row, .execution-task-add input[name="title"] { background: var(--surface-strong); backdrop-filter: none; }
+}
+
+@media (forced-colors: active) {
+  .execution-overview-stats > div, .execution-task-count, .execution-task-row { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; backdrop-filter: none; }
+}
+
+/* F9.20.1 — shared survey content grid, concise section context and responsive choices. */
+.field-survey-card-roof { gap: calc(.85rem * var(--tp-spacing-scale)); }
+.field-survey-editor-workspace,
+.field-survey-card-roof > .survey-roof-workspace,
+.field-survey-card-roof > .survey-completion-area {
+  --survey-content-gutter: calc(1rem * var(--tp-ui-scale));
+  min-width: 0;
+  padding-inline: var(--survey-content-gutter);
+}
+.field-survey-editor-workspace { display: grid; gap: calc(.8rem * var(--tp-spacing-scale)); }
+.field-survey-editor-workspace .survey-section-tabs {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  align-items: center;
+  gap: calc(.4rem * var(--tp-spacing-scale));
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.field-survey-editor-workspace .survey-section-tabs > button {
+  display: inline-flex;
+  min-width: 0;
+  min-height: max(3rem, calc(3rem * var(--tp-ui-scale)));
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: .55rem;
+  border-radius: 999px;
+  padding: .45rem .85rem;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.field-survey-editor-workspace .survey-section-tabs > button.primary-button {
+  border-color: color-mix(in srgb, var(--brand) 52%, var(--glass-border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand-soft) 76%, var(--surface-glass)), color-mix(in srgb, var(--surface-glass) 88%, transparent));
+  color: var(--brand-ink);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 .2rem .6rem rgba(4, 12, 22, .08);
+}
+.survey-section-tab-name { min-width: 0; overflow-wrap: anywhere; }
+.survey-section-tab-count {
+  display: inline-grid;
+  min-width: 1.65rem;
+  min-height: 1.65rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 74%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-strong) 72%, transparent);
+  color: var(--muted);
+  padding-inline: .35rem;
+  font-size: calc(.7rem * var(--tp-text-scale));
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+.field-survey-editor-workspace .field-survey-form { min-width: 0; gap: calc(.75rem * var(--tp-spacing-scale)); }
+.field-survey-editor-workspace .field-survey-form > fieldset {
+  gap: calc(.75rem * var(--tp-spacing-scale));
+  padding: 0;
+}
+.field-survey-editor-workspace .survey-section-add.glass-toolbar {
+  display: grid;
+  width: 100%;
+  max-width: none;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: calc(.5rem * var(--tp-spacing-scale));
+  margin: 0;
+  border-radius: 1.1rem;
+  padding: calc(.45rem * var(--tp-spacing-scale));
+}
+.field-survey-editor-workspace .survey-section-add > .secondary-button {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: max(3rem, calc(3rem * var(--tp-ui-scale)));
+  align-items: center;
+  justify-content: flex-start;
+  gap: .5rem;
+  border-color: color-mix(in srgb, var(--glass-border) 88%, var(--border));
+  border-radius: .85rem;
+  background: color-mix(in srgb, var(--surface-glass) 84%, transparent);
+  padding: .55rem .75rem;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: calc(.82rem * var(--tp-text-scale));
+  line-height: 1.3;
+}
+.field-survey-editor-workspace .survey-section-add > .secondary-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--brand) 48%, var(--glass-border));
+  background: color-mix(in srgb, var(--brand-soft) 24%, var(--surface-glass));
+}
+.field-survey-editor-workspace .survey-section-add > .secondary-button:focus-visible,
+.field-survey-editor-workspace .survey-section-tabs > button:focus-visible,
+.field-survey-editor-workspace .roof-type-card:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.field-survey-editor-workspace .survey-section-settings,
+.field-survey-editor-workspace .field-survey-note-details,
+.field-survey-editor-workspace fieldset > details.glass-disclosure {
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.field-survey-editor-workspace .survey-section-settings > summary,
+.field-survey-editor-workspace .field-survey-note-details > summary,
+.field-survey-editor-workspace fieldset > details.glass-disclosure > summary {
+  min-height: max(2.85rem, calc(2.85rem * var(--tp-ui-scale)));
+  gap: .6rem;
+  overflow-wrap: anywhere;
+}
+.field-survey-editor-workspace .survey-section-settings[open],
+.field-survey-editor-workspace .field-survey-note-details[open],
+.field-survey-editor-workspace fieldset > details.glass-disclosure[open] { gap: .55rem; padding-bottom: 0; }
+.field-survey-editor-workspace .roof-type-selector {
+  min-width: 0;
+  gap: .7rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: .15rem 0;
+}
+.field-survey-editor-workspace .roof-type-selector-heading {
+  min-height: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.field-survey-editor-workspace .roof-type-selector-heading h2 { font-size: calc(1.05rem * var(--tp-text-scale)); }
+.field-survey-editor-workspace .roof-type-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; }
+.field-survey-editor-workspace .roof-type-card {
+  min-width: 0;
+  min-height: 7.5rem;
+  grid-template-columns: minmax(3.8rem, .62fr) minmax(0, 1fr);
+  align-items: start;
+  gap: .35rem .65rem;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 82%, var(--border));
+  border-radius: 1rem;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 92%, var(--glass-highlight)), color-mix(in srgb, var(--surface-glass) 78%, transparent));
+  padding: .7rem;
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  overflow-wrap: anywhere;
+}
+.field-survey-editor-workspace .roof-type-card:hover { border-color: color-mix(in srgb, var(--brand) 54%, var(--glass-border)); }
+.field-survey-editor-workspace .roof-type-card.is-selected {
+  border-color: color-mix(in srgb, var(--brand) 66%, var(--glass-border));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--brand-soft) 50%, var(--surface-glass)), color-mix(in srgb, var(--surface-glass) 84%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 22%, transparent), inset 0 1px 0 var(--glass-highlight);
+}
+.field-survey-editor-workspace .roof-type-card .roof-type-card-illustration {
+  min-height: 4.25rem;
+  grid-row: 1 / span 2;
+  border-color: color-mix(in srgb, var(--glass-border) 78%, var(--border));
+  border-radius: .75rem;
+}
+.field-survey-editor-workspace .roof-type-card .roof-type-card-copy { gap: .28rem; }
+.field-survey-editor-workspace .roof-type-card .roof-type-card-copy strong { font-size: calc(.9rem * var(--tp-text-scale)); line-height: 1.3; overflow-wrap: anywhere; }
+.field-survey-editor-workspace .roof-type-card .roof-type-card-copy > span { font-size: calc(.75rem * var(--tp-text-scale)); line-height: 1.4; overflow-wrap: anywhere; }
+.field-survey-editor-workspace .roof-type-card .roof-type-illustration { max-height: 4.3rem; }
+.field-survey-editor-workspace .roof-type-selected { grid-column: 2; align-self: start; }
+.field-survey-card-roof > .survey-completion-area { margin-top: .25rem; }
+
+@media (max-width: 1000px) {
+  .field-survey-editor-workspace .roof-type-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .field-survey-editor-workspace .roof-type-card { grid-template-columns: minmax(3.5rem, .58fr) minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  .field-survey-editor-workspace .survey-section-add.glass-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .field-survey-editor-workspace .roof-type-grid { grid-template-columns: minmax(0, 1fr); }
+  .field-survey-editor-workspace .roof-type-card { min-height: 5.4rem; grid-template-columns: 4rem minmax(0, 1fr); align-items: center; gap: .3rem .65rem; padding: .55rem .65rem; }
+  .field-survey-editor-workspace .roof-type-card .roof-type-card-illustration { min-height: 3.75rem; grid-row: 1; }
+  .field-survey-editor-workspace .roof-type-card .roof-type-card-copy { grid-column: 2; grid-row: 1; align-self: center; }
+  .field-survey-editor-workspace .roof-type-illustration { max-height: 3.75rem; }
+}
+@media (max-width: 360px) {
+  .field-survey-editor-workspace { --survey-content-gutter: .75rem; }
+  .field-survey-editor-workspace .survey-section-add > .secondary-button { padding-inline: .6rem; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .field-survey-editor-workspace .survey-section-tabs,
+  .field-survey-editor-workspace .survey-section-add > .secondary-button,
+  .field-survey-editor-workspace .survey-section-settings,
+  .field-survey-editor-workspace .field-survey-note-details,
+  .field-survey-editor-workspace fieldset > details.glass-disclosure,
+  .field-survey-editor-workspace .roof-type-card { background: var(--surface-strong); backdrop-filter: none; }
+}
+@media (forced-colors: active) {
+  .field-survey-editor-workspace .survey-section-tabs,
+  .field-survey-editor-workspace .survey-section-add > .secondary-button,
+  .field-survey-editor-workspace .survey-section-settings,
+  .field-survey-editor-workspace .field-survey-note-details,
+  .field-survey-editor-workspace fieldset > details.glass-disclosure,
+  .field-survey-editor-workspace .roof-type-card,
+  .field-survey-editor-workspace .survey-section-tab-count {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+  .field-survey-editor-workspace .survey-section-tabs > button:focus-visible,
+  .field-survey-editor-workspace .survey-section-add > .secondary-button:focus-visible,
+  .field-survey-editor-workspace .roof-type-card:focus-visible { outline: 2px solid Highlight; }
+}
+
+/* F9.20.2 — rounded glass surfaces for standalone workflows. */
+.field-survey-card-roof > .survey-completion-area {
+  display: grid;
+  gap: .9rem;
+  margin-top: 1rem;
+  padding: clamp(.9rem, 2vw, 1.25rem);
+  border: 1px solid var(--glass-border);
+  border-radius: 1.35rem;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 94%, var(--glass-highlight)), color-mix(in srgb, var(--surface-glass) 84%, transparent));
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevation);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+}
+.survey-completion-heading { min-width: 0; }
+.survey-completion-heading h2 { font-size: clamp(1.1rem, 2vw, 1.35rem); letter-spacing: -.02em; }
+.survey-completion-primary p { max-width: 100%; padding: .4rem .7rem; border: 1px solid color-mix(in srgb, var(--glass-border) 75%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--surface-glass) 84%, transparent); }
+.survey-workflow-actions { margin-block: 0; }
+.survey-workflow-tiles { gap: .75rem; }
+.survey-workflow-tile { min-height: 6.25rem; border-radius: 1.1rem; }
+.survey-completion-toolbar.glass-toolbar { width: 100%; border-color: color-mix(in srgb, var(--glass-border) 76%, transparent); border-radius: 1rem; background: color-mix(in srgb, var(--surface-glass) 70%, transparent); }
+.survey-completion-disclosure { width: 100%; max-width: none; }
+.survey-completion-area .survey-photo-save { justify-self: stretch; }
+
+.saved-calculation-filters { justify-content: flex-start; gap: .55rem; margin-block: 1rem 1.25rem; padding: .45rem; border: 1px solid var(--glass-border); border-radius: 1.15rem; background: color-mix(in srgb, var(--surface-glass) 72%, transparent); box-shadow: inset 0 1px 0 var(--glass-highlight); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.saved-calculation-filters a { min-height: 2.75rem; justify-content: center; border-color: transparent; border-radius: 999px; padding-inline: .9rem; }
+.saved-calculation-filters a[aria-current="page"] { border-color: color-mix(in srgb, var(--brand) 50%, var(--glass-border)); background: color-mix(in srgb, var(--brand-soft) 65%, var(--surface-glass)); color: var(--brand-ink); box-shadow: inset 0 1px 0 var(--glass-highlight); }
+.saved-calculation-list { gap: .8rem; }
+.saved-calculation-card { grid-template-columns: minmax(0, 1fr) auto; min-height: 7rem; gap: 1rem; padding: 1.15rem 1.25rem; border: 1px solid var(--glass-border); border-radius: 1.25rem; background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 95%, var(--glass-highlight)), color-mix(in srgb, var(--surface-glass) 82%, transparent)); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevation); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.saved-calculation-card > div:first-child { min-width: 0; }
+.saved-calculation-card h2 { overflow-wrap: anywhere; }
+.saved-calculation-card .project-module-actions { justify-content: flex-end; }
+
+.standalone-quotation-editor > .standalone-quotation-header { align-items: center; gap: 1rem; margin: 0; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid var(--glass-border); border-radius: 1.35rem; background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 96%, var(--glass-highlight)), color-mix(in srgb, var(--surface-glass) 82%, transparent)); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevation); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.standalone-quotation-title { display: flex; align-items: center; gap: .9rem; min-width: 0; }
+.standalone-quotation-icon { width: 2rem; height: 2rem; flex: 0 0 auto; color: var(--brand-ink); }
+.standalone-quotation-header .section-eyebrow { margin-bottom: .3rem; }
+.standalone-quotation-header h2 { font-size: clamp(1.5rem, 4vw, 2rem); }
+.standalone-quotation-subtitle { margin: .35rem 0 0; color: var(--muted); font-size: .9rem; }
+.standalone-quotation-note { margin: -.25rem 0 0; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.standalone-quotation-editor .quotation-lines { gap: .9rem; }
+.standalone-quotation-editor .quotation-lines > .section-heading { align-items: center; gap: .75rem; padding-bottom: .25rem; }
+.standalone-quotation-editor .quotation-line { padding: 1rem; border: 1px solid var(--glass-border); border-radius: 1.15rem; background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 93%, var(--glass-highlight)), color-mix(in srgb, var(--surface-glass) 82%, transparent)); box-shadow: inset 0 1px 0 var(--glass-highlight), 0 .35rem 1rem rgba(4, 12, 22, .06); }
+.standalone-quotation-editor .quotation-document-disclosure,
+.standalone-quotation-editor .issuer-profile { border-color: var(--glass-border); border-radius: 1.15rem; background: color-mix(in srgb, var(--surface-glass) 86%, transparent); box-shadow: inset 0 1px 0 var(--glass-highlight); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.standalone-quotation-editor .quotation-document-summary { min-height: 3.5rem; padding: .25rem .2rem; }
+.standalone-quotation-editor .quotation-summary { align-items: stretch; gap: .75rem; padding: 0; border: 0; }
+.standalone-quotation-editor .quotation-summary > div { min-height: 5.5rem; align-content: center; gap: .35rem; padding: .9rem 1rem; border: 1px solid var(--glass-border); border-radius: 1rem; background: color-mix(in srgb, var(--surface-glass) 86%, transparent); box-shadow: inset 0 1px 0 var(--glass-highlight); }
+.standalone-quotation-editor .standalone-save { border-radius: 999px; }
+
+@media (max-width: 760px) {
+  .saved-calculation-card { grid-template-columns: minmax(0, 1fr); }
+  .saved-calculation-card .project-module-actions { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; }
+  .saved-calculation-card .project-module-actions > * { width: 100%; justify-content: center; }
+  .saved-calculation-filters { justify-content: flex-start; }
+  .standalone-quotation-editor > .standalone-quotation-header { align-items: flex-start; }
+  .standalone-quotation-editor .quotation-summary > div { min-height: 0; }
+}
+@media (max-width: 520px) {
+  .survey-completion-heading { align-items: flex-start; }
+  .survey-completion-primary { width: auto; }
+  .survey-workflow-tiles { grid-template-columns: minmax(0, 1fr); }
+  .survey-workflow-tile { min-height: 5.5rem; }
+  .survey-completion-area .survey-photo-save { width: 100%; }
+  .saved-calculation-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .saved-calculation-filters a { min-width: 0; text-align: center; }
+  .saved-calculation-card { padding: 1rem; }
+  .standalone-quotation-editor > .standalone-quotation-header { flex-direction: row; }
+  .standalone-quotation-title { align-items: flex-start; gap: .65rem; }
+  .standalone-quotation-icon { width: 1.5rem; height: 1.5rem; margin-top: .25rem; }
+  .standalone-quotation-editor .quotation-lines > .section-heading { align-items: stretch; flex-direction: column; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .field-survey-card-roof > .survey-completion-area, .saved-calculation-filters, .saved-calculation-card,
+  .standalone-quotation-editor > .standalone-quotation-header, .standalone-quotation-editor .quotation-line,
+  .standalone-quotation-editor .quotation-document-disclosure, .standalone-quotation-editor .issuer-profile,
+  .standalone-quotation-editor .quotation-summary > div { background: var(--surface-strong); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (forced-colors: active) {
+  .field-survey-card-roof > .survey-completion-area, .survey-workflow-tile, .survey-completion-primary p,
+  .saved-calculation-filters, .saved-calculation-filters a, .saved-calculation-card,
+  .standalone-quotation-editor > .standalone-quotation-header, .standalone-quotation-editor .quotation-line,
+  .standalone-quotation-editor .quotation-document-disclosure, .standalone-quotation-editor .issuer-profile,
+  .standalone-quotation-editor .quotation-summary > div { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }

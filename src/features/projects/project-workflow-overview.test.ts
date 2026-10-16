@@ -10,7 +10,7 @@ describe("projektfolyamat összefoglaló", () => {
     const rows = projectWorkflowRows(base);
     expect(rows.find((row) => row.label === "Ereszcsatorna")?.href).toBe("/projektek/p1/ereszcsatorna?organization=org1");
     expect(rows.find((row) => row.label === "Anyagkimutatások")?.detail).toBe("Nincs anyagkimutatás");
-    expect(rows.find((row) => row.label === "Dokumentáció és munkanapló")?.detail).toContain("0 belső naplóbejegyzés");
+    expect(rows.find((row) => row.label === "Dokumentáció és bejegyzések")?.detail).toContain("0 belső bejegyzés");
     expect(rows.map((row) => row.detail).join(" ")).not.toMatch(/100%|kész|teljesítve/i);
   });
 

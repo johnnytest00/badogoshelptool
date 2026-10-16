@@ -25,8 +25,8 @@ export function projectWorkflowRows({ projectId, organizationId, roofCount, calc
     { label: "Lemezprofilok", count: calc("sheet_metal.profiles.flat-pattern").length, detail: calcDetail(calc("sheet_metal.profiles.flat-pattern")), href: `/projektek/${projectId}/lemezprofilok${query}` },
     { label: "Anyagkimutatások", count: takeoffs.length, detail: takeoffs.length ? `${latest(takeoffs)} · ${statuses(takeoffs, { approved: "jóváhagyott", draft: "piszkozat" })}` : "Nincs anyagkimutatás", href: `/projektek/${projectId}/anyagkimutatas${query}` },
     { label: "Árajánlatok", count: quotations.length, detail: quotations.length ? `${latest(quotations)} · ${statuses(quotations, quoteStatus)}` : "Nincs ajánlat", href: `/projektek/${projectId}/ajanlatok${query}` },
-    { label: "Kivitelezési tervek", count: planCount, detail: planCount ? `${planCount} terv` : "Nincs kivitelezési terv", href: `#kivitelezes` },
-    { label: "Dokumentáció és munkanapló", count: journalCount + photoCount, detail: `${journalCount} belső naplóbejegyzés · ${photoCount} fénykép`, href: `#kivitelezes` },
+    { label: "Munkanaplók", count: planCount, detail: planCount ? `${planCount} munkanapló` : "Nincs munkanapló", href: `#kivitelezes` },
+    { label: "Dokumentáció és bejegyzések", count: journalCount + photoCount, detail: `${journalCount} belső bejegyzés · ${photoCount} fénykép`, href: `#kivitelezes` },
   ];
 }
 
@@ -43,6 +43,6 @@ export async function getProjectWorkflowRecords(organizationId: string, projectI
 }
 
 export function ProjectWorkflowOverview({ rows }: { rows: WorkflowRow[] }) {
-  const icons: Record<string, LucideIcon> = { "Tetőmodellek": House, "Ereszcsatorna": Waves, "Szegélyek": PanelTop, "Lemezprofilok": Ruler, "Anyagkimutatások": Boxes, "Árajánlatok": FileText, "Kivitelezési tervek": ClipboardCheck, "Dokumentáció és munkanapló": NotebookPen };
+  const icons: Record<string, LucideIcon> = { "Tetőmodellek": House, "Ereszcsatorna": Waves, "Szegélyek": PanelTop, "Lemezprofilok": Ruler, "Anyagkimutatások": Boxes, "Árajánlatok": FileText, "Munkanaplók": ClipboardCheck, "Dokumentáció és bejegyzések": NotebookPen };
   return <section className="project-workflow-overview" aria-labelledby="project-workflow-title"><div className="roof-list-heading"><div><h2 id="project-workflow-title">Munka áttekintése</h2></div></div><nav className="project-workflow-grid" aria-label="Projektmunkák"><ul>{rows.map((row) => { const Icon = icons[row.label] ?? FileText; return <li key={row.label}><Link className="project-workflow-link" href={row.href}><span className="project-workflow-icon"><Icon aria-hidden="true" /></span><span className="project-workflow-copy"><strong>{row.label}</strong><small>{row.detail}</small></span><ArrowUpRight aria-hidden="true" className="project-workflow-open" /></Link></li>; })}</ul></nav><p className="project-workflow-note">Az állapotok a mentett adatok összefoglalói. A kalkulációk előzetes eredményei nem jelentenek szakmai jóváhagyást; az elfogadott ajánlat nem aláírt szerződés, a napló belső nyilvántartás.</p></section>;
 }

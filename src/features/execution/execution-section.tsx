@@ -13,9 +13,9 @@ export function ExecutionSection({ children, defaultOpen = false }: Readonly<{ c
   );
 }
 
-export function ExecutionSubsection({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
+export function ExecutionSubsection({ title, children, defaultOpen = false }: Readonly<{ title: string; children: React.ReactNode; defaultOpen?: boolean }>) {
   return (
-    <GlassDisclosure className="execution-nested-disclosure" summary={title} contentClassName="execution-nested-content">{children}</GlassDisclosure>
+    <GlassDisclosure className="execution-nested-disclosure" defaultOpen={defaultOpen} summary={title} contentClassName="execution-nested-content">{children}</GlassDisclosure>
   );
 }
 

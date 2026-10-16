@@ -64,7 +64,7 @@ export function SurveyExecutionActions({ organizationId, surveyId, version, plan
           return;
         }
         requestKey.renew();
-        setMessage("A felmérés pontos revíziója a tervhez kapcsolódik.");
+        setMessage("A felmérés pontos revíziója a munkanaplóhoz kapcsolódik.");
         setMode(null);
         router.refresh();
       } finally { lock.current = false; }
@@ -78,21 +78,21 @@ export function SurveyExecutionActions({ organizationId, surveyId, version, plan
     <div className="survey-workflow-tiles">
       <button type="button" className="survey-workflow-tile" disabled={!canSave || pending} onClick={onStandaloneSave}>
         <Save aria-hidden="true" className="size-5" />
-        <span>{surveyId ? "Felmérés mentése" : "Önálló mentés"}</span>
-        <small>{surveyId ? `Aktuális változat · V${version}` : "Terv és ügyfél nélkül"}</small>
+        <span>{surveyId ? "Felmérés mentése" : "Önálló felmérés mentése"}</span>
+        <small>{surveyId ? `Aktuális változat · V${version}` : "Később is folytatható"}</small>
       </button>
       <button type="button" className="survey-workflow-tile is-primary" disabled={!canSave || pending} onClick={() => { setMessage(""); setMode((current) => current === "create" ? null : "create"); }}>
         <ClipboardList aria-hidden="true" className="size-5" />
-        <span>Kivitelezési terv létrehozása</span>
+        <span>Munkanapló létrehozása</span>
         <small>A mentett felmérésrevízióval</small>
       </button>
     </div>
     {surveyId && <button type="button" className="survey-workflow-attach" disabled={!canSave || pending} onClick={() => { setMessage(""); setMode((current) => current === "attach" ? null : "attach"); }}>
-      <Link2 aria-hidden="true" className="size-4" /> Felmérés csatolása meglévő tervhez
+      <Link2 aria-hidden="true" className="size-4" /> Felmérés csatolása meglévő munkanaplóhoz
     </button>}
     {currentLinks.map((link) => <p key={link.id} className="survey-workflow-linked">Kapcsolódó terv: <Link href={`/kivitelezes/${link.executionPlanId}?organization=${organizationId}`}>{link.planTitle} · a felmérés V{link.surveyVersion} változata{link.surveyVersion !== version ? " · korábbi forrásrevízió" : ""}</Link></p>)}
-    {mode === "create" && <div className="survey-workflow-panel"><label className="field-survey-field"><span>Kivitelezési terv neve</span><input autoFocus value={title} maxLength={200} onChange={(event) => { if (event.target.value !== title) requestKey.renew(); setTitle(event.target.value); }} placeholder="Például: Tetőfelújítás" /></label><button type="button" className="primary-button" disabled={!title.trim() || !canSave || pending} onClick={() => void createPlan()}>{pending ? "Mentés és létrehozás…" : "Felmérés mentése és terv megnyitása"}</button></div>}
-    {mode === "attach" && <div className="survey-workflow-panel"><label className="field-survey-field"><span>Kivitelezési terv</span><select value={planId} onChange={(event) => setPlanId(event.target.value)}><option value="">Válassz tervet</option>{availablePlans.map((plan) => <option value={plan.id} key={plan.id}>{plan.title}{plan.projectId ? " · korábbi projektkapcsolat" : ""}</option>)}</select></label><button type="button" className="secondary-button" disabled={!planId || !canSave || pending} onClick={() => void attachPlan()}>{pending ? "Csatolás…" : `V${version} csatolása a tervhez`}</button>{availablePlans.length === 0 && <p>Minden elérhető tervhez már csatoltad ezt a felmérést.</p>}</div>}
+    {mode === "create" && <div className="survey-workflow-panel"><label className="field-survey-field"><span>Munkanapló neve</span><input autoFocus value={title} maxLength={200} onChange={(event) => { if (event.target.value !== title) requestKey.renew(); setTitle(event.target.value); }} placeholder="Például: Tetőfelújítás" /></label><button type="button" className="primary-button" disabled={!title.trim() || !canSave || pending} onClick={() => void createPlan()}>{pending ? "Mentés és létrehozás…" : "Felmérés mentése és munkanapló megnyitása"}</button></div>}
+    {mode === "attach" && <div className="survey-workflow-panel"><label className="field-survey-field"><span>Munkanapló</span><select value={planId} onChange={(event) => setPlanId(event.target.value)}><option value="">Válassz munkanaplót</option>{availablePlans.map((plan) => <option value={plan.id} key={plan.id}>{plan.title}{plan.projectId ? " · korábbi projektkapcsolat" : ""}</option>)}</select></label><button type="button" className="secondary-button" disabled={!planId || !canSave || pending} onClick={() => void attachPlan()}>{pending ? "Csatolás…" : `V${version} csatolása a munkanaplóhoz`}</button>{availablePlans.length === 0 && <p>Minden elérhető munkanaplóhoz már csatoltad ezt a felmérést.</p>}</div>}
     {message && <p className="form-message" role="status">{message}</p>}
   </section>;
 }

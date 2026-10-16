@@ -14,7 +14,7 @@ describe("dashboard foundation", () => {
   it("contains only implemented Hungarian launchers", () => {
     expect(dashboardFunctions).toHaveLength(5);
     expect(dashboardFunctions.map((item) => item.label)).toEqual([
-      "Gyors felmérés", "Kivitelezési tervek", "Anyaglisták", "Árajánlatok", "Kalkulátorok",
+      "Gyors felmérés", "Munkanaplók", "Anyaglisták", "Árajánlatok", "Kalkulátorok",
     ]);
   });
 
