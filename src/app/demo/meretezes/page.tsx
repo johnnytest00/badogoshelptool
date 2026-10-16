@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { ArrowLeft, Ruler, Sparkles } from "lucide-react";
 import { DemoRoofDrawing } from "@/drawings/demo-roof";
 import { ScalingBubble } from "@/components/accessibility/scaling-bubble";

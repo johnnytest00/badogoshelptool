@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, Archive, CalendarDays, Filter, MapPin, Plus, RotateCcw, Search, UserRound, X } from "lucide-react";
 import { projectStatusLabels, projectTypeLabels, type ProjectStatus, type ProjectType } from "@/domain/projects/contracts";

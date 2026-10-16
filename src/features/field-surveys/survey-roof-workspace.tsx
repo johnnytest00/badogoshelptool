@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { TechnicalDrawing } from "@/features/roof-models/technical-drawing";
 import { gableSegments, selectedGableLength } from "@/domain/calculations/gable-segments";
 import type { SurveyCalculationLink, SavedSurveyCalculation } from "@/domain/field-surveys/workspace";

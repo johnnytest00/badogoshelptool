@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { aggregateMaterialRequirements, type MaterialSourceTakeoff } from "@/domain/material-takeoffs/aggregation";
@@ -8,6 +7,8 @@ import { materialPurchasingUnitLabels, materialProvenanceLabels, type MaterialPu
 import { preparationStatusLabel, purchasingStatuses, workshopStatuses, type MaterialPreparationItem, type PreparationCategory } from "@/domain/material-preparations/contracts";
 import { saveMaterialPreparationAction, type MaterialPreparationActionState } from "./material-preparation-actions";
 import type { MaterialPreparationList } from "./material-preparation-data";
+import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 
 type Props = Readonly<{
   organizationId: string;
@@ -64,6 +65,7 @@ function defaultStatus(category: PreparationCategory) {
 
 export function MaterialPreparationWorkspace(props: Props) {
   const router = useRouter();
+  const { notify } = useAppInteraction();
   const selectedList = props.lists.find((list) => list.id === props.selectedListId) ?? null;
   const savedItems = selectedList?.currentRevision?.items ?? [];
   const [actionState, action, pending] = useActionState(saveMaterialPreparationAction, initialActionState);
@@ -80,32 +82,25 @@ export function MaterialPreparationWorkspace(props: Props) {
   const fingerprint = JSON.stringify({ name, sourceIds, items });
   const initialFingerprint = useRef(fingerprint);
   const dirty = fingerprint !== initialFingerprint.current;
-
-  useEffect(() => {
-    if (!dirty) return;
-    const warnBeforeLeave = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
-    const confirmInternalNavigation = (event: MouseEvent) => {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const anchor = target.closest("a[href]");
-      if (!(anchor instanceof HTMLAnchorElement) || anchor.target === "_blank") return;
-      if (!window.confirm("A nem mentett módosítások elvesznek. Folytatod?")) event.preventDefault();
-    };
-    window.addEventListener("beforeunload", warnBeforeLeave);
-    window.addEventListener("click", confirmInternalNavigation, true);
-    return () => { window.removeEventListener("beforeunload", warnBeforeLeave); window.removeEventListener("click", confirmInternalNavigation, true); };
-  }, [dirty]);
+  useUnsavedChangeGuard({ dirty, pending });
 
   useEffect(() => {
     if (!actionState.ok || !actionState.listId || actionState.version === undefined) return;
     const operation = `${actionState.listId}:${actionState.version}`;
     if (handledSave.current === operation) return;
     handledSave.current = operation;
+    notify({ kind: "success", message: "Előkészítési lista mentve" });
     const url = `/projektek/${props.projectId}/beszerzes?organization=${props.organizationId}&lista=${actionState.listId}`;
     router.replace(url, { scroll: false });
     router.refresh();
-  }, [actionState, props.organizationId, props.projectId, router]);
+  }, [actionState, notify, props.organizationId, props.projectId, router]);
+
+  const handledError = useRef("");
+  useEffect(() => {
+    if (!actionState.error || handledError.current === actionState.error) return;
+    handledError.current = actionState.error;
+    notify({ kind: "error", message: actionState.error });
+  }, [actionState.error, notify]);
 
   const approved = props.takeoffs.filter((takeoff) => takeoff.status === "approved");
   const preliminary = props.takeoffs.filter((takeoff) => takeoff.status === "draft");

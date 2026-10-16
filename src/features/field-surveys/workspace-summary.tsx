@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useEffect, useRef, useState } from "react";
 import { fieldSurveyUnitLabels } from "@/domain/field-surveys/contracts";
 import { mapFieldSurveyToCalculator } from "@/domain/field-surveys/calculator-handoff";

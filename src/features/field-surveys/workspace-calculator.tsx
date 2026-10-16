@@ -7,12 +7,14 @@ import { StandaloneGableMetalTilePreview } from "@/features/roof-models/gable-me
 import { linkSurveyCalculation, loadSurveyCalculator } from "./workspace-actions";
 import type { SavedSurveyCalculation } from "@/domain/field-surveys/workspace";
 import { gutterInputFromSelectedEaves } from "@/features/gutters/gutter-handoff";
+import { useAppInteraction } from "@/components/feedback/app-interaction-provider";
 
 type Context = Awaited<ReturnType<typeof loadSurveyCalculator>>;
 export function WorkspaceCalculator({ organizationId, surveyId, sectionId, version, context, onClose, onLinked, onState }: {
   organizationId: string; surveyId: string; sectionId: string; version: number; context: Context;
   onClose: () => void; onLinked: () => void; onState: (state: { dirty: boolean; pending: boolean }) => void;
 }) {
+  const { requestConfirmation, notify } = useAppInteraction();
   const [kind, setKind] = useState<"roof" | "metal">("roof");
   const [receipt, setReceipt] = useState<SavedSurveyCalculation | null>(null);
   const [linked, setLinked] = useState(false);
@@ -31,27 +33,30 @@ export function WorkspaceCalculator({ organizationId, surveyId, sectionId, versi
     lock.current = true; setReceipt(saved); setPending(true); setError(""); report({ dirty: true, pending: true });
     try {
       const result = await linkSurveyCalculation({ organizationId, surveyId, sectionId, version, saved });
-      if (!result.ok) { setError(result.error ?? "A számítás mentve, de a kapcsolás még nem sikerült."); report({ dirty: true, pending: false }); return; }
-      setLinked(true); report({ dirty: false, pending: false }); onLinked();
-    } catch { setError("A számítás mentve, a kapcsolat válasza bizonytalan. Próbáld újra a kapcsolást."); report({ dirty: true, pending: false }); }
+      if (!result.ok) { const message = result.error ?? "A számítás mentve, de a kapcsolás még nem sikerült."; setError(message); notify({ kind: "error", message }); report({ dirty: true, pending: false }); return; }
+      setLinked(true); report({ dirty: false, pending: false }); notify({ kind: "success", message: "Számítás a felméréshez kapcsolva" }); onLinked();
+    } catch { const message = "A számítás mentve, a kapcsolat válasza bizonytalan. Próbáld újra a kapcsolást."; setError(message); notify({ kind: "error", message }); report({ dirty: true, pending: false }); }
     finally { setPending(false); lock.current = false; }
   }
   // Keep callbacks stable so editor state reports do not retrigger effects on every render.
   const reportRef = useRef(report); reportRef.current = report;
   const stableReport = useRef((next: { dirty: boolean; pending: boolean }) => reportRef.current(next)).current;
-  function close() {
+  async function close() {
     if (pending || state.current.pending) return;
-    if ((state.current.dirty || (receipt && !linked)) && !window.confirm("Nem mentett kalkulátoradat vagy befejezetlen kapcsolat van. Bezárod?")) return;
+    if (state.current.dirty || (receipt && !linked)) {
+      const accepted = await requestConfirmation({ title: "Mentetlen módosítások", message: "A kalkulátor bezárásakor a nem mentett adatok vagy a befejezetlen felméréskapcsolat elveszhetnek.", cancelLabel: "Maradok", actions: [{ label: "Kalkulátor bezárása", tone: "danger", run: () => undefined }] });
+      if (!accepted) return;
+    }
     report({ dirty: false, pending: false }); onClose();
   }
   return <section className="survey-workspace-calculator" aria-label="Számítás a munkaszakaszhoz">
-    <div className="field-survey-section-heading"><h2>Számítás hozzáadása</h2><button type="button" className="secondary-button" onClick={close} disabled={pending || state.current.pending}>Kalkulátor bezárása</button></div>
+    <div className="field-survey-section-heading"><h2>Számítás hozzáadása</h2><button type="button" className="secondary-button" onClick={() => void close()} disabled={pending || state.current.pending}>Kalkulátor bezárása</button></div>
     {handoff.missing.length > 0 && !(handoff.calculator === "gutter" && gutterInput?.gutterStockLengthMm) && <p className="missing-data">Hiányzó adatok: {handoff.missing.join(", ")}. A kalkulátorban pótolhatók.</p>}
     {receipt ? <div role="status"><p>Számítás mentve · V{receipt.revisionNumber} · {receipt.calculationId} · revízió: {receipt.revisionId}</p><p>{linked ? "A pontos számításrevízió a munkaszakaszhoz kapcsolva." : "A mentett számítás kapcsolása folyamatban vagy újrapróbálásra vár."}</p>{!linked && <button className="primary-button" type="button" disabled={pending} onClick={() => void associate(receipt)}>Kapcsolás újrapróbálása</button>}</div> : <>
       {handoff.calculator === "gutter" && <GutterCalculator organizationId={organizationId} projectId={context.projectId ?? undefined} saved={context.savedGutter} suggestions={context.availableGutter} selectedSuggestions={context.selectedGutter} catalogVariants={context.gutterCatalog} initialInput={gutterInput ?? handoff.input} handoffSource={handoff.source} onSaved={associate} onWorkspaceState={stableReport} />}
       {handoff.calculator === "flashing" && <FlashingCalculator organizationId={organizationId} projectId={context.projectId ?? undefined} saved={context.savedFlashing} suggestions={context.availableFlashing} selectedSuggestions={context.selectedFlashing} catalogVariants={context.flashingCatalog} initialHandoff={handoff.input} handoffSource={handoff.source} onSaved={associate} onWorkspaceState={stableReport} />}
       {handoff.calculator === "roof" && <>
-        <label className="field-survey-field"><span>Kalkulátor</span><select value={kind} onChange={(event) => { if (state.current.pending || (state.current.dirty && !window.confirm("Elveted a nem mentett kalkulátoradatokat?"))) return; setKind(event.target.value as "roof" | "metal"); }}><option value="roof">Nyeregtető-geometria és trapézlemez-fedés</option><option value="metal">Cserepeslemez-fedés</option></select></label>
+        <label className="field-survey-field"><span>Kalkulátor</span><select value={kind} onChange={async (event) => { if (state.current.pending) return; if (state.current.dirty) { const accepted = await requestConfirmation({ title: "Mentetlen módosítások", message: "A másik kalkulátor megnyitásával a jelenlegi nem mentett adatok elvesznek.", cancelLabel: "Maradok", actions: [{ label: "Kalkulátor váltása", tone: "danger", run: () => undefined }] }); if (!accepted) return; } setKind(event.target.value as "roof" | "metal"); }}><option value="roof">Nyeregtető-geometria és trapézlemez-fedés</option><option value="metal">Cserepeslemez-fedés</option></select></label>
         <p>A geometria előnézet. A fedési számítás termékadatok megadása után külön menthető. Névleges lemezfelületből nem készül beszerzési mennyiség.</p>
         {kind === "roof" ? <StandaloneGablePreview embedded organizationId={organizationId} initialHandoff={handoff.input} handoffSource={handoff.source} missingHandoffFields={handoff.missing} onSaved={associate} onWorkspaceState={stableReport} /> : <StandaloneGableMetalTilePreview organizationId={organizationId} initialHandoff={handoff.input} handoffSource={handoff.source} onSaved={associate} onWorkspaceState={stableReport} />}
       </>}

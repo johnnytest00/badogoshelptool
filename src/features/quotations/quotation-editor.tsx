@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { lineTotal, scaledToDecimal } from "@/domain/quotations/money";
-import { guardUnsavedNavigation, warnBeforeUnloadIfDirty } from "@/lib/unsaved-changes";
+import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { saveQuotationDraftAction, type QuotationActionResult } from "./quotation-actions";
 import type { QuotationRecord } from "./quotation-data";
 import type { QuotationVariant } from "./quotation-data";
@@ -24,12 +24,16 @@ function quoteLine(line: Record<string, unknown>): Line {
 }
 
 export function QuotationEditor({ userId, organizationId, projectId, clients, variants, takeoffItems, quote, preparedLines = [], transferError = "", operationId = "", alreadyIncludedCount = 0 }: Readonly<{ userId: string; organizationId: string; projectId: string; clients: Array<{ id: string; name: string }>; variants: QuotationVariant[]; takeoffItems: Array<{ id: string; quantity: string; unit: string; materialSnapshot: unknown }>; quote?: QuotationRecord; preparedLines?: readonly PreparedQuotationMaterialLine[]; transferError?: string; operationId?: string; alreadyIncludedCount?: number }>) {
-  const router = useRouter(); const [pending, startTransition] = useTransition(); const [result, setResult] = useState<QuotationActionResult>({ ok: false }); const [dirty, setDirty] = useState(false); const dirtyRef = useRef(false);
-  const updateDirty = (value: boolean) => { dirtyRef.current = value; setDirty(value); };
-  useEffect(() => { const handler = (event: BeforeUnloadEvent) => warnBeforeUnloadIfDirty(dirtyRef.current, event); window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler); }, []);
+  const router = useRouter(); const { notify } = useAppInteraction(); const [saving, setSaving] = useState(false); const [result, setResult] = useState<QuotationActionResult>({ ok: false });
   const [name, setName] = useState(quote?.name ?? "Belső ajánlati piszkozat"); const [clientId, setClientId] = useState(quote?.clientId ?? "");
   const [lines, setLines] = useState<Line[]>(() => [...(quote?.lines.map(quoteLine) ?? []), ...preparedLines.map((line) => ({ ...line }))]);
-  const baseline = useRef(JSON.stringify({ name, clientId, lines }));
+  const savedBaseline = useMemo(() => ({ name: quote?.name ?? "Belső ajánlati piszkozat", clientId: quote?.clientId ?? "", lines: quote?.lines.map(quoteLine) ?? [] }), [quote]);
+  const baseline = useRef(JSON.stringify(savedBaseline));
+  const [dirty, setDirty] = useState(() => JSON.stringify({ name, clientId, lines }) !== JSON.stringify(savedBaseline));
+  const dirtyRef = useRef(dirty);
+  const [pending, setPending] = useState(false);
+  const updateDirty = (value: boolean) => { dirtyRef.current = value; setDirty(value); };
+  useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
   const recoveryKey = quotationRecoveryKey(userId, organizationId, projectId, quote?.id ?? null);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const [recovery, setRecovery] = useState<{ value: QuotationRecovery; current: boolean } | null>(null);
@@ -50,26 +54,39 @@ export function QuotationEditor({ userId, organizationId, projectId, clients, va
       else window.sessionStorage.removeItem(recoveryKey);
     } catch { /* Storage quota/privacy settings must not break editing. */ }
   }, [clientId, dirty, lines, name, quote?.currentRevisionId, quote?.version, recovery, recoveryKey, recoveryReady]);
-  const discardRecovery = () => { try { window.sessionStorage.removeItem(recoveryKey); } catch { /* Best effort. */ } setRecovery(null); };
+  const discardRecovery = useCallback(() => { try { window.sessionStorage.removeItem(recoveryKey); } catch { /* Best effort. */ } setRecovery(null); }, [recoveryKey]);
   const restoreRecovery = () => {
     if (!recovery?.current) return;
     const values = recovery.value.values;
     setName(values.name); setClientId(values.clientId); setLines(values.lines.map((line) => quoteLine(line as unknown as Record<string, unknown>))); updateDirty(JSON.stringify(values) !== baseline.current); setRecovery(null);
   };
   const syncDirty = (nextName = name, nextClientId = clientId, nextLines = lines) => updateDirty(JSON.stringify({ name: nextName, clientId: nextClientId, lines: nextLines }) !== baseline.current);
+  const discardChanges = useCallback(() => {
+    const restored = { name: savedBaseline.name, clientId: savedBaseline.clientId, lines: [...savedBaseline.lines] };
+    setName(restored.name); setClientId(restored.clientId); setLines(restored.lines); updateDirty(false); discardRecovery();
+  }, [discardRecovery, savedBaseline]);
+  const persist = useCallback(async () => {
+    if (saveLock.current || saving || transferError) return false;
+    saveLock.current = true; setSaving(true); setPending(true);
+    const data = new FormData(); data.set("organizationId", organizationId); data.set("projectId", projectId); if (quote) { data.set("quotationId", quote.id); data.set("version", String(quote.version)); } if (operationId) data.set("operationId", operationId); data.set("name", name); data.set("clientId", clientId); data.set("lines", JSON.stringify(lines)); setResult({ ok: false });
+    try {
+      const next = await saveQuotationDraftAction(data); setResult(next);
+      if (!next.ok) { notify({ kind: "error", message: next.error ?? "Nem sikerült menteni. Próbáld újra." }); throw new Error(next.error ?? "Nem sikerült menteni. Próbáld újra."); }
+      try { window.sessionStorage.removeItem(recoveryKey); } catch { /* Best effort. */ }
+      setRecovery(null); baseline.current = JSON.stringify({ name, clientId, lines }); updateDirty(false);
+      notify({ kind: "success", message: "Ajánlati piszkozat mentve" });
+      return true;
+    } finally { saveLock.current = false; setSaving(false); setPending(false); }
+  }, [clientId, lines, name, notify, operationId, projectId, quote, recoveryKey, saving, transferError, organizationId]);
+  useUnsavedChangeGuard({ dirty, pending, save: persist, discard: discardChanges });
   const update = (index: number, change: Partial<Line>) => { const next = lines.map((line, itemIndex) => itemIndex === index ? { ...line, ...change } : line); setLines(next); syncDirty(name, clientId, next); };
   const allPricesEntered = lines.every((line) => line.unitPrice.trim() !== "");
   const totals = lines.reduce((sum, line) => { if (!line.unitPrice.trim()) return sum; try { return sum + lineTotal(line.quantity || "0", line.unitPrice).minor; } catch { return sum; } }, BigInt(0));
   const importedCount = preparedLines.reduce((count, line) => count + line.takeoffSourceItemIds.length, 0);
-  const save = () => {
-    if (saveLock.current || pending || transferError) return;
-    saveLock.current = true;
-    const data = new FormData(); data.set("organizationId", organizationId); data.set("projectId", projectId); if (quote) { data.set("quotationId", quote.id); data.set("version", String(quote.version)); } if (operationId) data.set("operationId", operationId); data.set("name", name); data.set("clientId", clientId); data.set("lines", JSON.stringify(lines)); setResult({ ok: false });
-    startTransition(async () => { try { const next = await saveQuotationDraftAction(data); setResult(next); if (next.ok) { try { window.sessionStorage.removeItem(recoveryKey); } catch { /* Best effort. */ } setRecovery(null); baseline.current = JSON.stringify({ name, clientId, lines }); updateDirty(false); router.push(`/projektek/${projectId}/ajanlatok?organization=${organizationId}`); } } finally { saveLock.current = false; } });
-  };
+  const save = async () => { try { if (await persist()) router.push(`/projektek/${projectId}/ajanlatok?organization=${organizationId}`); } catch { /* The inline result and shared notification explain the failure. */ } };
   return <section className="quotation-editor detail-surface">
     <div className="section-heading"><div><p className="section-eyebrow">Belső ajánlati piszkozat</p><h2>{quote ? `Ajánlat szerkesztése · v${quote.version}` : "Új ajánlati piszkozat"}</h2></div><span className="status-pill">HUF</span></div>
-    <Link className="back-link" href={`/projektek/${projectId}?organization=${organizationId}`} onNavigate={(event) => guardUnsavedNavigation(event, { dirty, pending, confirmDiscard: () => window.confirm("A nem mentett ajánlati módosítások elvesznek. Elveted őket és visszatérsz a projekthez?"), onDiscard: () => { updateDirty(false); discardRecovery(); } })}>← Vissza a projekthez</Link>
+    <Link className="back-link" href={`/projektek/${projectId}?organization=${organizationId}`}>← Vissza a projekthez</Link>
     {transferError && <p className="form-message is-error" role="alert">{transferError}</p>}
     {(importedCount > 0 || alreadyIncludedCount > 0) && <p className="form-message" role="status">{importedCount > 0 ? `${importedCount} kimutatási anyagtétel összevonva.` : "Minden kiválasztott tétel már szerepel az ajánlatban."} {alreadyIncludedCount > 0 ? `${alreadyIncludedCount} már átvett forrás kimaradt a duplikáció elkerülésére. ` : ""}{importedCount > 0 ? "Ellenőrizd az árat, majd egészítsd ki a munkadíjjal és az egyéb tételekkel." : ""}</p>}
     {recovery && <section className="form-message" role="status"><p>{recovery.current ? "Korábban nem mentett ajánlati változat található ebben a munkamenetben." : "A helyi változat alapjául szolgáló ajánlati revízió azóta megváltozott. A mentett szerveradatokat nem írjuk felül."}</p>{recovery.current && <button className="secondary-button" type="button" onClick={restoreRecovery}>Változat visszaállítása</button>}<button className="text-button" type="button" onClick={discardRecovery}>Helyi változat elvetése</button></section>}
@@ -90,5 +107,5 @@ export function QuotationEditor({ userId, organizationId, projectId, clients, va
       {line.takeoffSourceItemIds.length > 0 && <details><summary>Forráskimutatások ({line.takeoffSourceItemIds.length} tétel)</summary><p>A sor jóváhagyott, változatlan kimutatási tételekből készült. Az egységár csak egyező rögzített ár esetén jelenik meg.</p></details>}</div>)}</div>
     <div className="quotation-summary"><div><span>Összesítés</span><strong>{!lines.length ? "Nincs összesítés · még nincsenek tételek" : allPricesEntered ? `${scaledToDecimal(totals, 2)} HUF` : `Hiányzó ár · még ${lines.filter((line) => !line.unitPrice.trim()).length} tételhez`}</strong></div><small>Az összegek forintban szerepelnek; a rendszer nem számít ÁFÁ-t és nem vált pénznemet.</small></div></fieldset>
     {dirty && <p className="form-message" role="status">Mentetlen módosításaid vannak.</p>}{result.error && <p className="form-message is-error" role="alert">{result.error}</p>}{result.ok && <p className="form-message is-success" role="status">Az ajánlati revízió mentve.</p>}
-    <button className="primary-button" type="button" disabled={pending || !recoveryReady || Boolean(transferError)} onClick={save}>{pending ? "Mentés…" : "Piszkozat mentése"}</button></section>;
+    <button className="primary-button" type="button" disabled={pending || saving || !recoveryReady || Boolean(transferError)} onClick={() => void save()}>{pending || saving ? "Mentés…" : "Piszkozat mentése"}</button></section>;
 }

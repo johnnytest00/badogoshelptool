@@ -1,5 +1,148 @@
 # F7.3.2 állapot
 
+## F9.17 — Globális Liquid Glass interakció és visszajelzés
+
+Állapot: **PARTIAL — a közös helyi interakciós rendszer elkészült, az offline
+mentési hiba és a hálózati throttling böngészős ellenőrzése nem futott le.** A
+gyökér `AppInteractionProvider` egyesíti a megerősítő dialógust, deduplikált
+live toastokat, valódi dirty/pending guard-regisztert és a kizárólag dirty
+állapotban aktív `beforeunload` fallbacket. A támogatott Next.js 16
+`Link.onNavigate` API-ra épülő `GuardedLink` védi az app-linkeket; `router.push`
+és `router.replace` műveletek is a közös guardot használják. Meglévő survey,
+projekt-, tetőgeometria-, eresz-/szegély-, anyagkimutatás-, ajánlat- és profil
+szerkesztők kerültek bekötésre. A mentéshez biztonságosan használható editorok
+felkínálják a „Mentés és kilépés” műveletet, de csak sikeres mentés után
+navigálnak. A survey sikeres mentése „Felmérés mentve” státuszüzenetet ad.
+
+A survey mentetlen módosításai, fotókapcsolatai, session draft recovery-je,
+idempotens mentései és elvárt verzióellenőrzései megmaradtak. Az ismételt
+megerősítő műveletet action lock tiltja. A route-ok dashboard, survey, projekt,
+kalkulátor, anyagkimutatás, ajánlat és kivitelezés skeleton boundaryt kaptak;
+140 ms-os késleltetés csökkenti a gyors route-ok skeleton villanását, mesterséges
+betöltési késés nincs. A mozgás és rajz animáció csökkentése a meglévő
+`prefers-reduced-motion` szabályokat követi.
+
+Hitelesített helyi DEMO böngészőben meglévő survey-n ellenőriztem: szerkesztés
+után a „Maradok” a 10 001 mm piszkozatértéket az oldalon tartotta; a „Kilépés
+mentés nélkül” a listára navigált, a mentett érték nem változott. Külön mentési
+ellenőrzésben az érték 10 002 mm-re ment V2-ként, majd visszaállítottam 10 000
+mm-re és V3-ként elmentettem; újranyitáskor a V3/10 000 mm jelent meg, a mentés
+toastja látszott, és ezután nem jelent meg felesleges elhagyási figyelmeztetés.
+Ez a helyi DEMO rekord két új revíziót kapott, de az eredeti aktuális mérési
+értékét visszaállítottam. A projekt archiválási közös dialógusát megnyitottam,
+majd megszakítottam; archiválási művelet nem történt.
+
+A párbeszéd címe, leírása és gombjai accessibility tree-ben megjelentek. Friss
+oldalbetöltés után Tab a fókuszt a dialóguson belül mozgatta, Escape bezárta az
+ablakot, a fókusz pedig a megnyitó gombra tért vissza. Világos/sötét témát
+dashboardon váltottam, majd a meglévő sötét beállítást visszaállítottam. Survey
+nézetben 1440/768/390/320 CSS px-en a `documentElement.scrollWidth` és a
+`body.scrollWidth` a viewporttal egyezett. A 320 px-en talált mérési disclosure
+túlcsordulást a mobil summary tördelésével javítottam; 390 px-en a 192 px-es
+minimális summary-szélesség is kilógott, ezért a javítás a teljes 600 px alatti
+mobil tartományra érvényes.
+
+`tab.reload()` alatt dirty szerkesztőben a lap és a piszkozat megmaradt, de az
+in-app böngésző nem tette elérhetővé a natív `beforeunload` dialógust; a közös
+fallback unit tesztje igazolja a szabványos esemény megelőzését és üres
+`returnValue` beállítását. A natív böngészőfigyelmeztetés szövege/stílusa nem
+szabályozható. A Next.js 16 App Router nem ad támogatott SPA history-back
+blokkoló API-t; ezt nem helyettesítettem törékeny History API hackkel. A
+`prefers-reduced-motion` böngészőemuláció, sikertelen hálózati mentés/retry,
+throttling, fotótörlés, tetőgeometria-guard, fizikai eszköz és screen reader nem
+lett ebben a körben végigpróbálva. Hosted DB/Auth/RLS, számítási logika és séma
+nem változott; hosted művelet, DB reset, e-mail, commit, push vagy deploy nem
+történt. A F9.16 e-mail-ellenőrzési funkció továbbra is **NINCS IMPLEMENTÁLVA /
+HATÓKÖRÖN KÍVÜL**.
+
+Javasolt commit: `feat(F9.17): add unified interaction feedback`.
+
+## F9.16 — Mobile Acceptance & Closed Beta Readiness
+
+Állapot: **PARTIAL — a helyi béta-előkészítés nincs lezárva.** Nem készült
+új üzleti funkció vagy kódmódosítás. A már meglévő rajzszekció továbbra is
+kompakt tetőmodell-kártyákat, kiválasztott rajzot, revíziót és on-demand SVG-t
+használ; a zoom/pan/rétegek és a geometriakalkuláció nem változott.
+
+Hatókör: e-mail megerősítés és e-mail alapú ellenőrzés **NINCS IMPLEMENTÁLVA /
+HATÓKÖRÖN KÍVÜL**. Nem teszteltük, nem küldtünk tesztlevelet, nem implementáltuk,
+és Supabase e-mail beállítást nem módosítottunk; ezek hiánya nem elfogadási hiba.
+
+Hitelesített, helyi DEMO böngészőben új nyeregtető-felmérést hoztam létre:
+10×6 m, 3 m emelkedés, 0 mm túlnyúlások → előnézeti SVG és 84,853 m² / két
+tetősík. Mentés után frissítettem és újranyitottam; a V1 és a beírt méretek
+visszatöltődtek. Egy új, elkülönített DEMO projektben (`b068a91c-b134-454d-a43e-1e3bdf9a4b80`)
+mentett roof modelt (`84d286b5-f7aa-40b2-9cc3-5684a600947f`) hoztam létre.
+A bal eresz 10 000 mm-es geometriáját átvette az eresz-kalkulátor; 4 000 mm-es
+DEMO szálhosszal 3 szál / 2 000 mm maradékbecslést mentettem V1-ként
+(`182925f6-9675-4f38-9605-3ef504ed8155`), majd az összesítőből újranyitottam;
+az adat és a forrás megmaradt. A bal első ferde oromél 4 243 mm-es hossza
+„Oromszegély” kategóriával átkerült a szegélykalkulátorba. Kereskedelmi
+szálhossz és termék szerinti hasznos fedés nélkül az előnézet helyesen nem
+adott eredményt, a mentés letiltva maradt; szakmai értéket nem találtam ki.
+Külön ereszcsatorna-felmérésben 8,5 m-es szakaszt mentettem,
+4 000 mm-es kereskedelmi szálhosszal 3 szál / 500 mm maradék becslést kaptam,
+mentettem, majd az összesítőből V1-ként visszanyitottam. A felület jelezte, hogy
+a kereskedelmi szálhossz a kalkulátorban lett pótolva, a forrásfelmérés
+változatlan maradt; a tető nélküli felmérés külön hiányzó tetőmérést jelzett.
+Ezek a tesztrekordok helyi DEMO adatok, nem jóváhagyott üzleti rekordok.
+
+Biztonsági bizonyíték: `RUN_LOCAL_SURVEY_WORKSPACE_TESTS=1 ...
+workspace.local.integration.test.ts` 3/3 PASS, két külön teszt-identityvel
+és RLS/creator-scope ellenőrzésekkel; a `023_field_surveys.sql`,
+`024_field_survey_photos_handoff.sql`, `025_field_survey_mobile_retry.sql`,
+`026_unified_field_survey_workspace.sql` helyi pgTAP csomag 109/109 PASS.
+Mind a 4 fájl PASS, de ez nem a teljes adatbázis-regresszió. A helyi
+migrációlista a repó `20261015161100` végéig szinkron volt; hosted sémát nem
+olvastam/módosítottam. A task-futás közben a lokális Supabase CLI leállította a
+nem szükséges imgproxy/edge/analytics/vector/pooler szolgáltatásokat; Auth/API/
+DB/Storage elérhető maradt és a tesztek lefutottak.
+
+Mobil emulációban a felmérési szerkesztő 390 és 320 CSS px-en, az anyagkimutatás
+320/390 px-en volt megtekintve; az utóbbi kettőn a `clientWidth`, `scrollWidth`
+és `body.scrollWidth` egyezett, látható horizontális kilógás nem volt. Survey
+fotó UI-val érvényes, szintetikus 64×64 PNG-t töltöttem fel a
+`28b500b5-fa5a-4a9a-acf7-619d190bb4b1` DEMO felméréshez; V3-ként ment,
+frissítés/újranyitás után a kép és a munkaszakasz-kapcsolat megmaradt. A hibás
+PNG-t a validáció visszautasította. Hálózati DevTools Offline állapotban egy új
+felmérés mentése a „A mentés válasza bizonytalan. Azonos adatokkal biztonságosan
+újrapróbálható.” üzenetet adta; kapcsolat visszaállítása után azonos adatokkal
+újrapróbálva egyetlen `9ef7d945-aae8-4a4c-ab25-85fc9a2e0853` felmérés jött
+létre V1-ként. Ezen a körön 1024/768-as felmérési nézet, mindkét téma, növelt
+skála, numerikus soft keyboard és SVG touch nem lett végigtesztelve.
+Az Auth-olt böngészős workflow-k a már futó `localhost:3000` fejlesztői
+szervert használták, nem külön izolált/prod-szerű helyi acceptance szervert.
+Workflow B tető → SVG, tetőél → eresz kézi jóváhagyású handoff és mentett/
+újranyitott downstream ereszkalkuláció igazolt; szegély-handoff is igazolt,
+de hiányos kereskedelmi adatok miatt nincs mentett szegélybecslés. Workflow C-ből a projekt
+mentett tetőmodelljei, anyagkimutatás oldala és egy meglévő belső ajánlati
+piszkozat V1 megnyílt; a refresh után is ugyanaz a 2 forrástétel és HUF nettó
+piszkozatösszeg jelent meg. Meglévő adatot nem mentettem, új ajánlatot nem
+hoztam létre; a kiválasztott aktuális takeoff és ajánlatsor közti import/handoff
+nem lett igazolva. D: képfeltöltés és újranyitás sikeres. E: beállítás/téma/
+skála/fiókhozzáférés ebben a milestone-ban nem lett végigfuttatva.
+
+Ellenőrzött konfiguráció: a szerver publikus Supabase URL + publishable key
+értéket igényel; a helyi Auth `site_url` 127.0.0.1:3000. Éles redirect allowlist,
+hosted Storage policy, backup/restore gyakorlat, monitoring, rollback és célzott
+deployment runbook nincs ezzel bizonyítva. A korábbi `PRODUCT_READINESS_AUDIT.md`
+korlátozott pilot előtti adatkezelési és visszaállítási kapui továbbra is
+blokkolják a zárt béta lezárását. Nem azonosítottam P0/P1 hibát a két ténylegesen
+végigjárt helyi workflow-ban; a többi lényeges workflow státusza **nem
+ellenőrzött**, tehát nincs bizonyíték arra, hogy nem maradt P0/P1 blocker.
+
+Érzékeny naplózás kódellenőrzése: `src/` alatt egy `console.error` találat van,
+amely csak képfeltöltési HTTP státuszkódokat logol; logban token, jelszó,
+feltöltött bájt vagy signed URL nem látszik. Hosted monitoring/logtárolás nincs
+vizsgálva.
+
+Az iPhone/iPad Safari és biztonságos LAN teszt lépései:
+[`F9.16_MOBILE_ACCEPTANCE_CHECKLIST.md`](F9.16_MOBILE_ACCEPTANCE_CHECKLIST.md).
+Fizikai eszköz-, hosted Auth/RLS/Storage-, backup/restore- és deploy-teszt nem
+történt. A helyi emuláció nem zárt béta-engedély.
+
+Javasolt commit: `test(F9.16): record mobile beta acceptance gaps`.
+
 ## F9.15.3 — Unified Liquid Glass Project Workspace
 
 Állapot: **COMPLETE (HELYI UI-ELFOGADÁS)**. A projekt részletező oldalon a

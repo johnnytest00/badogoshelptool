@@ -29,7 +29,7 @@ describe("continuous project gable workspace", () => {
     expect(html).toContain('class="roof-workspace roof-workspace-surface roof-workspace-project"');
     expect(html).not.toContain('class="roof-workspace-surface"><div');
     expect(html).toContain('role="group" aria-label="Rajz vezérlők"');
-    expect(html).toContain('<details class="drawing-advanced-controls">');
+    expect(html).toContain('<details class="glass-disclosure drawing-advanced-controls">');
     expect(html).toContain('name="buildingLengthMm"');
   });
 });

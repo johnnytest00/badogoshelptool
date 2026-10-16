@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import type { RoofModelRecord } from "./roof-model-data";
 import { TechnicalDrawing } from "./technical-drawing";
 

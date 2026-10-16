@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { validateSurveyPhotoSelection } from "@/domain/field-surveys/photo-file";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
+import { useAppInteraction } from "@/components/feedback/app-interaction-provider";
 
 type Photo = { id: string; filename: string; mimeType: string; fileSize: number; description: string | null; uploadedAt?: string; url: string | null };
 type QueuedPhoto = { key: string; file: File };
@@ -18,6 +19,7 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
   onPhotoUploaded?: (photoId: string) => void;
   onPendingChange?: (state: { busy: boolean; queued: boolean }) => void;
 }>) {
+  const { requestConfirmation, notify } = useAppInteraction();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [queue, setQueue] = useState<QueuedPhoto[]>([]);
   const [description, setDescription] = useState("");
@@ -76,6 +78,7 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
       }
       setDescription("");
       onUploadComplete(activeSurveyId);
+      notify({ kind: "success", message: items.length === 1 ? "Fénykép feltöltve és mentve." : `${items.length} fénykép feltöltve és mentve.` });
     } catch (cause) {
       setError(photoErrorMessage(cause, "A kapcsolat megszakadt. A kép várakozik; kapcsolódás után próbáld újra.", "A fénykép feltöltése nem sikerült. A mérési adatok megmaradtak."));
       if (activeSurveyId && !(cause instanceof TypeError)) await refreshPhotos(activeSurveyId, versionRef.current);
@@ -98,7 +101,13 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
 
   async function removePhoto(photo: Photo) {
     if (busyRef.current || historical) return;
-    if (!window.confirm("Eltávolítod ezt a fényképet a felmérés aktuális változatából? A korábbi változatok fényképhivatkozása megmarad.")) return;
+    const accepted = await requestConfirmation({
+      title: "Fénykép eltávolítása",
+      message: "A fénykép kikerül az aktuális felmérésváltozatból. A korábbi változatok fényképhivatkozása megmarad.",
+      cancelLabel: "Mégse",
+      actions: [{ label: "Fénykép eltávolítása", tone: "danger", run: () => undefined }],
+    });
+    if (!accepted) return;
     busyRef.current = true; setRemovingPhotoId(photo.id); setError("");
     try {
       const response = await fetch(`/api/felmeresek/${surveyId}/photos`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId, photoId: photo.id, expectedVersion: versionRef.current }) });
@@ -106,6 +115,7 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
       if (!response.ok || !result.ok) throw new Error(result.error ?? "A fénykép eltávolítása nem sikerült.");
       versionRef.current = result.version; onVersionChange(result.version); setPhotos((current) => current.filter((item) => item.id !== photo.id));
       if (surveyId) onUploadComplete(surveyId);
+      notify({ kind: "success", message: "Fénykép eltávolítva az aktuális változatból." });
     } catch (cause) { setError(cause instanceof Error ? cause.message : "A fénykép eltávolítása nem sikerült."); }
     finally { busyRef.current = false; setRemovingPhotoId(null); }
   }

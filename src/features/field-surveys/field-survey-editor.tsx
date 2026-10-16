@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Plus, Settings2, Trash2 } from "lucide-react";
@@ -25,6 +25,7 @@ import { mapFieldSurveyToCalculator } from "@/domain/field-surveys/calculator-ha
 import { TechnicalDrawing } from "@/features/roof-models/technical-drawing";
 import { MeasurementGuidance, measurementGuideForSurvey } from "@/features/roof-models/measurement-guidance";
 import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
+import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 
 type MeasurementDraft = { id: string; label: string; value: string; unit: FieldSurveyUnit; semanticType: FieldSurveySemanticType };
 type SectionDraft = Omit<SurveySection, "measurements"> & { measurements: MeasurementDraft[] };
@@ -41,6 +42,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   relationships?: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[] };
 }>) {
   const router = useRouter();
+  const { requestConfirmation, requestNavigation, notify } = useAppInteraction();
   const [sections, setSections] = useState(() => initialSections(survey));
   const [activeId, setActiveId] = useState(() => initialSections(survey).find((section) => section.id === initialSectionId)?.id ?? initialSections(survey)[0].id);
   const [projectId, setProjectId] = useState(survey?.projectId ?? initialProjectId ?? "");
@@ -82,6 +84,27 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   const [recovery, setRecovery] = useState<{ sections: SectionDraft[]; projectId: string; version: number } | null>(null);
   const recoveryChecked = useRef(false);
   const [recoveryReady, setRecoveryReady] = useState(false);
+  const persistCurrentRef = useRef<() => Promise<{ surveyId: string; version: number } | null>>(async () => null);
+  const saveForNavigation = useCallback(async () => {
+    if (recovery || photoState.queued || calculatorState.dirty) return false;
+    if (surveyId && workspacePersisted && !dirty) return true;
+    return Boolean(await persistCurrentRef.current());
+  }, [calculatorState.dirty, dirty, photoState.queued, recovery, surveyId, workspacePersisted]);
+  const discardForNavigation = useCallback(() => {
+    if (recoveryKey) { try { sessionStorage.removeItem(recoveryKey); } catch { /* Best effort. */ } }
+    setRecovery(null); setCalculator(null); setError("");
+    try {
+      const saved = JSON.parse(baseline) as { sections: SectionDraft[]; projectId: string };
+      setSections(saved.sections); setProjectId(saved.projectId);
+    } catch { /* Keep the current editor state if the saved baseline is malformed. */ }
+    setPhotoAssociationPending(false);
+  }, [baseline, recoveryKey]);
+  useUnsavedChangeGuard({
+    dirty: !historicalRevision && (dirty || photoState.queued || photoAssociationPending || calculatorState.dirty),
+    pending: blocked,
+    save: !blocked && !photoState.queued && !calculatorState.dirty ? saveForNavigation : undefined,
+    discard: discardForNavigation,
+  });
   useEffect(() => {
     if (!recoveryKey || historicalRevision || recoveryChecked.current) return;
     recoveryChecked.current = true;
@@ -97,35 +120,35 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     if (!recoveryKey || !recoveryReady || historicalRevision || recovery) return;
     try { if (dirty) sessionStorage.setItem(recoveryKey, JSON.stringify({ sections, projectId, version })); else sessionStorage.removeItem(recoveryKey); } catch { /* The user still receives an unload warning. */ }
   }, [recoveryKey, recoveryReady, historicalRevision, recovery, dirty, sections, projectId, version]);
-  useEffect(() => {
-    if (!dirty && !blocked && !photoState.queued && !calculatorState.dirty) return;
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
-    const navigate = (event: MouseEvent) => {
-      const anchor = (event.target as Element | null)?.closest("a[href]");
-      if (!anchor || event.defaultPrevented) return;
-      if (blocked || !window.confirm("Nem mentett módosítás vagy várakozó művelet van. Elhagyod a felmérést?")) { event.preventDefault(); event.stopPropagation(); }
-    };
-    const currentHref = window.location.href;
-    const currentHistoryState: unknown = window.history.state;
-    const traverse = (event: PopStateEvent) => {
-      if (blocked || !window.confirm("Nem mentett módosítás vagy várakozó művelet van. Elhagyod a felmérést?")) {
-        event.stopImmediatePropagation();
-        window.history.pushState(currentHistoryState, "", currentHref);
-      }
-    };
-    window.addEventListener("beforeunload", warn); document.addEventListener("click", navigate, true); window.addEventListener("popstate", traverse, true);
-    return () => { window.removeEventListener("beforeunload", warn); document.removeEventListener("click", navigate, true); window.removeEventListener("popstate", traverse, true); };
-  }, [dirty, blocked, photoState.queued, calculatorState.dirty]);
+  async function removeActiveSection() {
+    if (sections.length === 1) return;
+    const accepted = await requestConfirmation({
+      title: "Munkaszakasz eltávolítása",
+      message: "A szakasz kikerül az aktuális piszkozatból. A már mentett korábbi felmérésváltozatok, fotók és számításkapcsolatok megmaradnak.",
+      cancelLabel: "Mégse",
+      actions: [{ label: "Szakasz eltávolítása", tone: "danger", run: () => {
+        const next = sections.filter((section) => section.id !== active.id);
+        setSections(next); setActiveId(next[0].id);
+      } }],
+    });
+    if (accepted) notify({ kind: "info", message: "A munkaszakasz az aktuális piszkozatból eltávolítva." });
+  }
   function patchSection(patch: Partial<SectionDraft>) { setSections((current) => current.map((section) => section.id === active.id ? { ...section, ...patch } : section)); setError(""); setSummary(false); }
   function patchMeasurement(id: string, patch: Partial<MeasurementDraft>) { patchSection({ measurements: active.measurements.map((measurement) => measurement.id === id ? { ...measurement, ...patch } : measurement) }); }
-  function selectRoofType(type: RoofGeometryType) {
+  async function selectRoofType(type: RoofGeometryType) {
     if (active.roofType === type) return;
-    if (active.measurements.some((measurement) => measurement.value !== "") && !window.confirm("A jelenlegi tetőmérések megmaradnak a korábbi felmérésváltozatban, de ebben a munkaszakaszban új mezők nyílnak. Folytatod?")) return;
+    if (active.measurements.some((measurement) => measurement.value !== "")) {
+      const accepted = await requestConfirmation({ title: "Tetőforma módosítása", message: "A jelenlegi mérések megmaradnak a korábbi felmérésváltozatban; ebben a munkaszakaszban az új tetőformához tartozó mezők nyílnak meg.", cancelLabel: "Mégse", actions: [{ label: "Tetőforma módosítása", tone: "primary", run: () => undefined }] });
+      if (!accepted) return;
+    }
     const templates = type === "gable" ? fieldSurveyTemplates.roof : surveyRoofFields(type);
     patchSection({ roofType: type, measurements: templates.map((template) => ({ id: crypto.randomUUID(), label: template.label, unit: template.unit, semanticType: template.semanticType, value: "" })) });
   }
-  function returnToRoofSelection() {
-    if (active.measurements.some((measurement) => measurement.value !== "") && !window.confirm("A megadott tetőmérések elvesznek. Visszatérsz a tetőformákhoz?")) return;
+  async function returnToRoofSelection() {
+    if (active.measurements.some((measurement) => measurement.value !== "")) {
+      const accepted = await requestConfirmation({ title: "Tetőforma törlése", message: "A megadott tetőmérések elvesznek ebből az aktuális piszkozatból. Visszatérsz a tetőformákhoz?", cancelLabel: "Maradok", actions: [{ label: "Vissza a tetőformákhoz", tone: "danger", run: () => undefined }] });
+      if (!accepted) return;
+    }
     patchSection({ roofType: undefined, measurements: [emptyMeasurement("roof", crypto.randomUUID())] });
   }
   function addSection(workType: FieldSurveyWorkType) {
@@ -149,20 +172,22 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     saveLock.current = true; setSaving(true); setError("");
     try {
       const parsed = surveySectionsSchema.safeParse(serialize(nextSections));
-      if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Ellenőrizd a munkaszakaszokat."); return null; }
+      if (!parsed.success) { const message = parsed.error.issues[0]?.message ?? "Ellenőrizd a munkaszakaszokat."; setError(message); notify({ kind: "error", message }); return null; }
       const data = new FormData();
       data.set("organizationId", organizationId); data.set("surveyId", surveyId ?? (createIdRef.current ??= crypto.randomUUID()));
       data.set("projectId", projectId); data.set("workType", parsed.data[0].workType); data.set("notes", parsed.data[0].notes);
       data.set("sections", JSON.stringify(parsed.data)); data.set("measurements", JSON.stringify(parsed.data.flatMap((section) => section.measurements.filter((measurement) => measurement.value !== null)))); data.set("expectedVersion", String(version));
       const result = await saveFieldSurveyAction(data);
-      if (!result.ok || !result.surveyId || !result.version) { setError(result.error ?? "A mentés nem sikerült."); return null; }
+      if (!result.ok || !result.surveyId || !result.version) { const message = result.error ?? "Nem sikerült menteni. Próbáld újra."; setError(message); notify({ kind: "error", message }); return null; }
       if (recoveryKey) { try { sessionStorage.removeItem(recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } }
       setWorkspacePersisted(true); setSections(nextSections); setBaseline(JSON.stringify({ sections: nextSections, projectId })); setSurveyId(result.surveyId); setVersion(result.version); setPhotoAssociationPending(false);
       if (!surveyId) { window.history.replaceState(null, "", `/felmeresek/${result.surveyId}?organization=${organizationId}&section=${active.id}`); }
+      notify({ kind: "success", message: "Felmérés mentve" });
       return { surveyId: result.surveyId, version: result.version };
-    } catch { setError("A mentés válasza bizonytalan. Azonos adatokkal biztonságosan újrapróbálható."); return null; }
+    } catch { const message = "A mentés válasza bizonytalan. Azonos adatokkal biztonságosan újrapróbálható."; setError(message); notify({ kind: "error", message }); return null; }
     finally { saveLock.current = false; setSaving(false); }
   }
+  useEffect(() => { persistCurrentRef.current = () => persistCurrent(); });
   async function ensureSaved() { if (recovery) { setError("Előbb állítsd vissza vagy vesd el a korábbi piszkozatot."); return null; } return surveyId && workspacePersisted && !dirty ? { surveyId, version } : persistCurrent(); }
   async function showSummary() { const saved = await ensureSaved(); if (saved) { setSummary(true); router.refresh(); } }
   async function openCalculator() {
@@ -199,11 +224,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     } catch { setError("A projekt létrehozásának válasza bizonytalan. Frissítsd a felmérést, mielőtt újrapróbálod."); }
     finally { setFollowupPending(false); }
   }
-  function navigate(href: string) {
-    if (blocked) return;
-    if ((dirty || photoState.queued || calculatorState.dirty) && !window.confirm("A nem mentett módosítások vagy várakozó képek elvesznek. Biztosan kilépsz?")) return;
-    router.push(href);
-  }
+  function navigate(href: string) { void requestNavigation(href); }
   const selectedVersion = historicalRevision?.version ?? version;
   const revisionSelector = surveyId && revisionVersions.length > 1 && <label className="field-survey-field"><span>Felmérés változata</span><select value={selectedVersion} disabled={blocked} onChange={(event) => navigate(`/felmeresek/${surveyId}?organization=${organizationId}${Number(event.target.value) === version ? "" : `&version=${event.target.value}`}`)}>{[...new Set([version, ...revisionVersions])].map((item) => <option key={item} value={item}>{item === version ? "Aktuális" : "Korábbi"} · V{item}</option>)}</select></label>;
   if (historicalRevision && surveyId) return <section className="field-survey-card"><h1>Korábbi felmérésváltozat · V{historicalRevision.version}</h1>{revisionSelector}<WorkspaceSummary organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} sections={surveySections(historicalRevision)} calculations={relationships.calculations} initialFollowups={relationships.followups.filter((row) => row.surveyRevisionId === historicalRevision.id)} projects={projects} originalProjectId={historicalRevision.projectId} readOnly /><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} historical onVersionChange={() => undefined} onEnsureSaved={async () => null} onUploadComplete={() => undefined} /><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek/${surveyId}?organization=${organizationId}`)}>Aktuális felmérés folytatása</button>{surveySections(historicalRevision).filter((section) => section.workType !== "other").map((section) => <Link key={section.id} className="secondary-button" href={`/felmeresek/${surveyId}/kalkulator/${section.workType}?organization=${organizationId}&version=${historicalRevision.version}&section=${section.id}`}>{section.name} · V{historicalRevision.version} adatai a kalkulátorban</Link>)}</section>;
@@ -216,7 +237,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
       <fieldset disabled={blocked || Boolean(calculator) || Boolean(recovery)}>
         <div className="field-survey-section-heading"><h2>Munkaszakasz: {active.name}</h2></div>
         <div className="survey-section-add" aria-label="Munkaszakasz hozzáadása">{(["roof", "gutter", "flashing"] as const).map((type) => <button type="button" className="secondary-button" key={type} onClick={() => addSection(type)}><Plus aria-hidden="true" className="size-4" />{fieldSurveyWorkTypeLabels[type]}</button>)}<GlassDisclosure summary="Egyéb szakasz" className="survey-add-disclosure"><button type="button" className="secondary-button" onClick={() => addSection("other")}>Egyéb hozzáadása</button></GlassDisclosure></div>
-        <GlassDisclosure className="survey-section-settings" summary="Név, munkatípus és sorrend"><label className="field-survey-field"><span>Munkaszakasz neve</span><input value={active.name} maxLength={120} onChange={(event) => patchSection({ name: event.target.value })} /></label><label className="field-survey-field"><span>Munkatípus</span><select value={active.workType} onChange={(event) => changeType(event.target.value as FieldSurveyWorkType)}>{Object.entries(fieldSurveyWorkTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><div className="survey-section-settings-actions"><button type="button" className="secondary-button" disabled={sections[0].id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setSections(next); }}>Előrébb</button><button type="button" className="secondary-button" disabled={sections.at(-1)?.id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index], next[index + 1]] = [next[index + 1], next[index]]; setSections(next); }}>Hátrébb</button><button type="button" className="secondary-button" disabled={sections.length === 1} onClick={() => { if (!window.confirm("Eltávolítod ezt a munkaszakaszt? A mentett történeti változatok, fotók és számításkapcsolatok megmaradnak.")) return; const next = sections.filter((section) => section.id !== active.id); setSections(next); setActiveId(next[0].id); }}>Munkaszakasz eltávolítása</button></div></GlassDisclosure>
+        <GlassDisclosure className="survey-section-settings" summary="Név, munkatípus és sorrend"><label className="field-survey-field"><span>Munkaszakasz neve</span><input value={active.name} maxLength={120} onChange={(event) => patchSection({ name: event.target.value })} /></label><label className="field-survey-field"><span>Munkatípus</span><select value={active.workType} onChange={(event) => changeType(event.target.value as FieldSurveyWorkType)}>{Object.entries(fieldSurveyWorkTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><div className="survey-section-settings-actions"><button type="button" className="secondary-button" disabled={sections[0].id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setSections(next); }}>Előrébb</button><button type="button" className="secondary-button" disabled={sections.at(-1)?.id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index], next[index + 1]] = [next[index + 1], next[index]]; setSections(next); }}>Hátrébb</button><button type="button" className="secondary-button" disabled={sections.length === 1} onClick={() => void removeActiveSection()}>Munkaszakasz eltávolítása</button></div></GlassDisclosure>
         {active.workType === "roof" && !active.roofType && !survey?.sections?.some((section) => section.id === active.id) && <RoofTypeSelector selected={null} onSelect={selectRoofType} label="Felmért tetőforma" />}
         {active.workType === "roof" && active.roofType && !survey?.sections?.some((section) => section.id === active.id) && <div className="survey-roof-type-heading"><p className="section-eyebrow">Kiválasztott tetőforma · {roofTypeOptions.find((option) => option.type === active.roofType)?.name}</p><button className="secondary-button" type="button" onClick={returnToRoofSelection}>← Tetőtípus kiválasztása</button></div>}
         {active.workType === "roof" && !active.roofType && <p className="form-message">A felmérés tetőforma nélkül is menthető. Tetőszámításhoz válassz tetőformát.</p>}

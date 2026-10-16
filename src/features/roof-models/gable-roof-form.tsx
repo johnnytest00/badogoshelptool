@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Check, Save } from "lucide-react";
 import { executeCalculator } from "@/domain/calculations/engine";
@@ -22,6 +21,8 @@ import { createSheetLayoutTakeoffAction, saveSheetLayoutAction } from "./sheet-l
 import { gableSegments, selectedGableLength } from "@/domain/calculations/gable-segments";
 import { MeasurementGuidance, measurementGuideFor } from "./measurement-guidance";
 import { RoofWorkspace } from "./roof-workspace";
+import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 
 type FormValues = Record<string, string> & { inputMode: "height" | "angle" };
 const defaults: FormValues = { inputMode: "height", buildingLengthMm: "", buildingWidthMm: "", roofRiseMm: "", roofPitchDegrees: "", eaveOverhangMm: "", frontGableOverhangMm: "", rearGableOverhangMm: "" };
@@ -67,16 +68,20 @@ function valuesFromRevision(revision: SavedSheetLayoutRevision | undefined, mate
   return { productId: material?.productId ?? "", variantId: material?.variantId ?? revision.input.material.catalogSnapshot.variantId, effectiveCoveringWidthMm: manual("effectiveCoveringWidthMm"), nominalSheetWidthMm: manual("nominalSheetWidthMm"), minimumSheetLengthMm: manual("minimumSheetLengthMm"), maximumSheetLengthMm: manual("maximumSheetLengthMm"), endAllowanceMm: manual("endAllowanceMm"), alignment: revision.input.calculatorInput.alignment, takeoffAllowancePercent: "0" };
 }
 
-export function GableRoofCalculatorForm({ organizationId, projectId, projectName = "Projekt", model, sheetLayoutMaterials = [], savedSheetLayout = null, savedCoverings = [], coveringTakeoffOptions = [], savedMetalTileCoverings = [] }: Readonly<{ organizationId: string; projectId: string; projectName?: string; model?: RoofModelRecord | null; sheetLayoutMaterials?: readonly SheetLayoutMaterialOption[]; savedSheetLayout?: SavedSheetLayout | null; savedCoverings?: readonly SavedGableCovering[]; coveringTakeoffOptions?: readonly GableCoveringTakeoffOption[]; savedMetalTileCoverings?: readonly SavedMetalTileCovering[] }>) {
+export function GableRoofCalculatorForm({ organizationId, projectId, projectName = "Projekt", model, sheetLayoutMaterials = [], savedSheetLayout = null, savedCoverings = [], coveringTakeoffOptions = [], savedMetalTileCoverings = [], onWorkspaceState }: Readonly<{ organizationId: string; projectId: string; projectName?: string; model?: RoofModelRecord | null; sheetLayoutMaterials?: readonly SheetLayoutMaterialOption[]; savedSheetLayout?: SavedSheetLayout | null; savedCoverings?: readonly SavedGableCovering[]; coveringTakeoffOptions?: readonly GableCoveringTakeoffOption[]; savedMetalTileCoverings?: readonly SavedMetalTileCovering[]; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void }>) {
   const [values, setValues] = useState<FormValues>(() => initialValues(model));
   const [name, setName] = useState(model?.name ?? "Új nyeregtető");
+  const [baselineValues, setBaselineValues] = useState<FormValues>(() => initialValues(model));
+  const [baselineName, setBaselineName] = useState(model?.name ?? "Új nyeregtető");
+  const formRef = useRef<HTMLFormElement>(null);
   const [message, setMessage] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [operationId, setOperationId] = useState(() => crypto.randomUUID());
   const [newRoofModelId] = useState(() => crypto.randomUUID());
-  const [dirty, setDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const dirty = JSON.stringify(values) !== JSON.stringify(baselineValues) || name !== baselineName;
   const [coveringDirty, setCoveringDirty] = useState(false);
   const [selectedSegmentIds, setSelectedSegmentIds] = useState<string[]>([]);
   const currentSavedRevision = savedSheetLayout?.revisions.find((revision) => revision.current);
@@ -85,6 +90,7 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
   const [layoutMessage, setLayoutMessage] = useState("");
   const [layoutPending, startLayoutTransition] = useTransition();
   const router = useRouter();
+  const { requestConfirmation, notify } = useAppInteraction();
   const input = useMemo(() => toInput(values), [values]);
   const inputValidation = useMemo(() => gableRoofInputSchema.safeParse(rawInput(values)), [values]);
   const inputError = (key: string) => fieldErrors[key] ?? (values[key]?.trim() ? (inputValidation.success ? undefined : inputValidation.error.issues.find((issue) => issue.path.includes(key))?.message) : undefined);
@@ -111,20 +117,52 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
   }, [output, sheetLayoutMaterials, sheetLayoutValues]);
   const sheetLayout = viewedRevision?.output ?? (sheetLayoutCalculation?.ok ? sheetLayoutCalculation.output : null);
   useEffect(() => { const latest = savedSheetLayout?.revisions.find((revision) => revision.current); if (latest) { setViewedRevision(latest); setSheetLayoutValues(valuesFromRevision(latest, sheetLayoutMaterials)); } }, [savedSheetLayout?.currentRevisionNumber, sheetLayoutMaterials, savedSheetLayout?.revisions]);
-  useEffect(() => { const handler = (event: BeforeUnloadEvent) => { if (dirty || coveringDirty) { event.preventDefault(); event.returnValue = ""; } }; window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler); }, [dirty, coveringDirty]);
-  const setValue = (key: string, value: string) => { setDirty(true); setViewedRevision(null); setValues((current) => ({ ...current, [key]: value })); setMessage(""); };
-  const switchMode = (mode: "height" | "angle") => { setDirty(true); setValues((current) => ({ ...current, inputMode: mode, ...(mode === "height" ? { roofPitchDegrees: "" } : { roofRiseMm: "" }) })); };
-  const submit = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (coveringDirty && !window.confirm("A fedési számítás módosításai nincsenek mentve. Mented a tetőmodellt és eldobod a fedési módosításokat?")) return; setMessage(""); setFieldErrors({}); if (!output || !input) { setMessage("A mentéshez töltsd ki helyesen a szükséges mezőket."); return; } const formData = new FormData(event.currentTarget); formData.set("organizationId", organizationId); formData.set("projectId", projectId); formData.set("roofModelId", model?.id ?? ""); formData.set("newRoofModelId", newRoofModelId); formData.set("operationId", operationId); formData.set("expectedRevisionNumber", String(model?.currentRevisionNumber ?? 0)); formData.set("inputMode", input.inputMode); formData.set("name", name); startTransition(async () => { const result = await saveGableRoofAction(formData); if (!result.ok) { setMessage(result.error ?? "A mentés nem sikerült."); setFieldErrors(result.fieldErrors ?? {}); } else { setOperationId(crypto.randomUUID()); setDirty(false); router.push(`/projektek/${projectId}/tetomodellek/${result.roofModelId}?organization=${organizationId}`); } }); };
+  const setValue = (key: string, value: string) => { setViewedRevision(null); setValues((current) => ({ ...current, [key]: value })); setMessage(""); };
+  const switchMode = (mode: "height" | "angle") => { setValues((current) => ({ ...current, inputMode: mode, ...(mode === "height" ? { roofPitchDegrees: "" } : { roofRiseMm: "" }) })); };
+  const buildSaveData = useCallback(() => {
+    const form = formRef.current;
+    if (!form || !output || !input) return null;
+    const formData = new FormData(form); formData.set("organizationId", organizationId); formData.set("projectId", projectId); formData.set("roofModelId", model?.id ?? ""); formData.set("newRoofModelId", newRoofModelId); formData.set("operationId", operationId); formData.set("expectedRevisionNumber", String(model?.currentRevisionNumber ?? 0)); formData.set("inputMode", input.inputMode); formData.set("name", name);
+    return formData;
+  }, [input, model, name, newRoofModelId, operationId, organizationId, output, projectId]);
+  const persistGeometry = useCallback(async (formData: FormData) => {
+    setMessage(""); setFieldErrors({}); setIsSaving(true);
+    try {
+      const result = await saveGableRoofAction(formData);
+      if (!result.ok) { const error = result.error ?? "A mentés nem sikerült. Próbáld újra."; setMessage(error); setFieldErrors(result.fieldErrors ?? {}); notify({ kind: "error", message: error }); throw new Error(error); }
+      setBaselineValues(values); setBaselineName(name); setOperationId(crypto.randomUUID());
+      notify({ kind: "success", message: "Tetőmodell mentve" });
+      return result.roofModelId;
+    } finally { setIsSaving(false); }
+  }, [name, notify, values]);
+  const saveForNavigation = useCallback(async () => {
+    const formData = buildSaveData();
+    if (!formData) throw new Error("A tetőmodell mentéséhez töltsd ki helyesen a szükséges mezőket.");
+    await persistGeometry(formData);
+    return true;
+  }, [buildSaveData, persistGeometry]);
+  useUnsavedChangeGuard({ dirty: dirty || coveringDirty, pending: isPending || isSaving, save: coveringDirty ? undefined : saveForNavigation });
+  useEffect(() => { onWorkspaceState?.({ dirty: dirty || coveringDirty, pending: isPending || isSaving }); }, [coveringDirty, dirty, isPending, isSaving, onWorkspaceState]);
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (coveringDirty) {
+      const accepted = await requestConfirmation({ title: "Fedési módosítások elvetése", message: "A tetőmodell mentése után a nem mentett fedési számítás módosításai elvesznek.", cancelLabel: "Vissza a szerkesztéshez", actions: [{ label: "Tetőmodell mentése és folytatás", tone: "danger", run: () => undefined }] });
+      if (!accepted) return;
+    }
+    const formData = buildSaveData();
+    if (!formData) { setMessage("A mentéshez töltsd ki helyesen a szükséges mezőket."); return; }
+    startTransition(async () => { try { const roofModelId = await persistGeometry(formData); router.push(`/projektek/${projectId}/tetomodellek/${roofModelId}?organization=${organizationId}`); } catch { /* The inline error and shared notification explain the failure. */ } });
+  };
   const changeSheetValue = (key: keyof MetalSheetLayoutFormValues, value: string) => { setViewedRevision(null); setLayoutMessage(""); setSheetLayoutValues((current) => ({ ...current, [key]: value })); };
   const saveLayout = () => { if (!model) return; const data = new FormData(); data.set("organizationId", organizationId); data.set("projectId", projectId); data.set("roofModelId", model.id); data.set("variantId", sheetLayoutValues.variantId); data.set("layoutCalculationId", savedSheetLayout?.calculationId ?? ""); data.set("expectedRevisionNumber", String(savedSheetLayout?.currentRevisionNumber ?? 0)); data.set("displayName", `${model.name} lemezkiosztás`); data.set("alignment", sheetLayoutValues.alignment); for (const key of ["effectiveCoveringWidthMm", "nominalSheetWidthMm", "minimumSheetLengthMm", "maximumSheetLengthMm", "endAllowanceMm"] as const) data.set(key, sheetLayoutValues[key]); startLayoutTransition(async () => { const result = await saveSheetLayoutAction({ ok: false }, data); if (!result.ok) setLayoutMessage(result.error ?? "A mentés nem sikerült."); else { setLayoutMessage(result.revisionCreated ? `A kiosztás ${result.revisionNumber}. revíziója sikeresen mentve.` : "A kiosztás változatlan; nem készült duplikált revízió."); router.refresh(); } }); };
   const createTakeoff = (revision: SavedSheetLayoutRevision) => { if (!savedSheetLayout) return; const data = new FormData(); data.set("organizationId", organizationId); data.set("projectId", projectId); data.set("layoutCalculationId", savedSheetLayout.calculationId); data.set("layoutRevisionId", revision.id); data.set("allowancePercent", sheetLayoutValues.takeoffAllowancePercent); startLayoutTransition(async () => { const result = await createSheetLayoutTakeoffAction({ ok: false }, data); setLayoutMessage(result.ok ? "Az anyagkimutatás-tervezet sikeresen létrejött; jóváhagyás nem történt." : result.error ?? "Az átadás nem sikerült."); if (result.ok) router.refresh(); }); };
 
   return (
     <>
-      <Link className="back-navigation glass-navigation" href={`/projektek/${projectId}?organization=${organizationId}`} onClick={(event) => { if ((dirty || coveringDirty) && !window.confirm("A nem mentett módosítások elvesznek. Továbbmész?")) event.preventDefault(); }}>
+      <Link className="back-navigation glass-navigation" href={`/projektek/${projectId}?organization=${organizationId}`}>
         <ArrowLeft aria-hidden="true" className="size-4" /><span>Vissza a projekthez</span>
       </Link>
-      <form className="roof-calculator" onSubmit={submit}>
+      <form ref={formRef} className="roof-calculator" onSubmit={submit}>
         <header className="roof-calculator-toolbar glass-toolbar">
           <div><p className="section-eyebrow">{model ? `Mentett nyeregtető · revízió ${model.currentRevisionNumber}` : "Új tetőmodell"}</p><h1>{model ? "Nyeregtető szerkesztése" : "Nyeregtető kalkulátor"}</h1></div>
         </header>
@@ -157,8 +195,8 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
           }
           actions={
             <section className="roof-surface roof-measurement-actions">
-              <label className="roof-field roof-name-field"><span>Megnevezés</span><input name="displayName" value={name} onChange={(event) => { setName(event.target.value); setDirty(true); }} /></label>
-              <div className="roof-workspace-action-bar"><p role="status">{message || (dirty ? "Nem mentett módosítások" : `Mentve · V${model?.currentRevisionNumber ?? 0}`)}</p><button id="roof-model-save-button" className="primary-button" type="submit" disabled={isPending || !output}><Save aria-hidden="true" className="size-4" />{isPending ? "Mentés…" : "Tetőmodell mentése"}</button></div>
+              <label className="roof-field roof-name-field"><span>Megnevezés</span><input name="displayName" value={name} onChange={(event) => setName(event.target.value)} /></label>
+              <div className="roof-workspace-action-bar"><p role="status">{message || (dirty ? "Nem mentett módosítások" : `Mentve · V${model?.currentRevisionNumber ?? 0}`)}</p><button id="roof-model-save-button" className="primary-button" type="submit" disabled={isPending || isSaving || !output}><Save aria-hidden="true" className="size-4" />{isPending || isSaving ? "Mentés…" : "Tetőmodell mentése"}</button></div>
             </section>
           }
         />

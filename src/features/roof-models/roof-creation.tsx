@@ -7,22 +7,30 @@ import { RoofTypeSelector } from "./roof-type-selector";
 import { GableRoofCalculatorForm } from "./gable-roof-form";
 import { StandaloneGablePreview } from "./standalone-gable-preview";
 import { MultiRoofCalculatorForm } from "./multi-roof-form";
+import { useAppInteraction } from "@/components/feedback/app-interaction-provider";
 
 export function RoofCreation({ organizationId, projectId, sheetLayoutMaterials = [] }: Readonly<{ organizationId: string; projectId?: string; sheetLayoutMaterials?: readonly SheetLayoutMaterialOption[] }>) {
   const [selected, setSelected] = useState<RoofGeometryType | null>(null);
-  const choose = (type: RoofGeometryType) => {
-    if (selected && selected !== type && !window.confirm("A megadott, nem mentett tetőméretek elvesznek. Tetőformát váltasz?")) return;
+  const [workspaceState, setWorkspaceState] = useState({ dirty: false, pending: false });
+  const { requestConfirmation, notify } = useAppInteraction();
+  const canLeaveEditor = async (message: string, action: string) => {
+    if (workspaceState.pending) { notify({ kind: "warning", message: "Mentés folyamatban. Várd meg a művelet végét." }); return false; }
+    if (!workspaceState.dirty) return true;
+    return requestConfirmation({ title: "Mentetlen módosítások", message, cancelLabel: "Maradok", actions: [{ label: action, tone: "danger", run: () => undefined }] });
+  };
+  const choose = async (type: RoofGeometryType) => {
+    if (selected && selected !== type && !await canLeaveEditor("A nem mentett tetőméretek elvesznek. Tetőformát váltasz?", "Tetőforma váltása")) return;
     setSelected(type);
   };
   if (!selected) return <div className="roof-calculator"><RoofTypeSelector selected={null} onSelect={choose} /></div>;
-  const changeType = () => {
-    if (!window.confirm("A megadott, nem mentett tetőméretek elvesznek. Visszatérsz a tetőformákhoz?")) return;
+  const changeType = async () => {
+    if (!await canLeaveEditor("A nem mentett tetőméretek elvesznek. Visszatérsz a tetőformákhoz?", "Vissza a tetőformákhoz")) return;
     setSelected(null);
   };
   return <div className="roof-calculator">
     {selected === "gable" && (projectId
-      ? <><button className="secondary-button" type="button" onClick={changeType}>← Tetőtípus kiválasztása</button><GableRoofCalculatorForm organizationId={organizationId} projectId={projectId} sheetLayoutMaterials={sheetLayoutMaterials} /></>
-      : <StandaloneGablePreview organizationId={organizationId} onChangeRoofType={changeType} />)}
-    {selected !== "gable" && <MultiRoofCalculatorForm key={selected} type={selected} organizationId={organizationId} projectId={projectId} onChangeRoofType={changeType} />}
+      ? <><button className="secondary-button" type="button" onClick={() => void changeType()}>← Tetőtípus kiválasztása</button><GableRoofCalculatorForm organizationId={organizationId} projectId={projectId} sheetLayoutMaterials={sheetLayoutMaterials} onWorkspaceState={setWorkspaceState} /></>
+      : <StandaloneGablePreview organizationId={organizationId} onWorkspaceState={setWorkspaceState} onChangeRoofType={() => void changeType()} />)}
+    {selected !== "gable" && <MultiRoofCalculatorForm key={selected} type={selected} organizationId={organizationId} projectId={projectId} onChangeRoofType={() => void changeType()} onWorkspaceState={setWorkspaceState} />}
   </div>;
 }

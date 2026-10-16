@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { Calculator, Ruler, Waves } from "lucide-react";
 
 type Props = { projectId: string; organizationId: string };

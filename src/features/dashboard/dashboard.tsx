@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, FolderKanban, Settings2, UserRound, X } from "lucide-react";

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase schema additions await generated database types. */
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { ArrowUpRight, Boxes, ClipboardCheck, FileText, House, NotebookPen, PanelTop, Ruler, Waves, type LucideIcon } from "lucide-react";
 import { createClient } from "@/infrastructure/supabase/server";
 

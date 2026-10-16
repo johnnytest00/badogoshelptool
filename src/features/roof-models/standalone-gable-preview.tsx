@@ -3,7 +3,6 @@
 import type { SavedSurveyCalculation } from "@/domain/field-surveys/workspace";
 
 
-import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput } from "@/domain/calculations/gable-roof";
@@ -13,6 +12,8 @@ import { RoofWorkspace } from "./roof-workspace";
 import { GableTrapezoidalCoveringPanel } from "./gable-trapezoidal-covering-panel";
 import type { SavedGableCovering } from "./gable-trapezoidal-covering-data";
 import type { RoofPrefill, SurveyHandoffSource } from "@/domain/field-surveys/calculator-handoff";
+import { useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 
 type Draft = Record<string, string> & { inputMode: "height" | "angle" };
 const emptyDraft: Draft = {
@@ -47,7 +48,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
   const [savePending, setSavePending] = useState(false);
   const [coveringDirty, setCoveringDirty] = useState(false);
   const geometryDirty = !historical && (handoffSource ? handoffModified : JSON.stringify(draft) !== JSON.stringify(savedGeometry ? draftFromInput(savedGeometry) : emptyDraft));
-  useEffect(() => { const handler = (event: BeforeUnloadEvent) => { if (geometryDirty) { event.preventDefault(); event.returnValue = ""; } }; window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler); }, [geometryDirty]);
+  useUnsavedChangeGuard({ dirty: !embedded && (geometryDirty || coveringDirty), pending: savePending });
   useEffect(() => { onWorkspaceState?.({ dirty: geometryDirty || coveringDirty, pending: savePending }); }, [geometryDirty, coveringDirty, savePending, onWorkspaceState]);
   const input = useMemo(() => toInput(draft), [draft]);
   const result = useMemo(() => input ? calculateGableRoof(input) : null, [input]);
@@ -64,7 +65,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
   ];
   return (
     <>
-      {!embedded && <Link className="back-navigation glass-navigation" href={`/kalkulatorok?organization=${organizationId}`} onClick={(event) => { if ((geometryDirty || coveringDirty) && !window.confirm("A nem mentett módosítások elvesznek. Továbbmész?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" className="size-4" /><span>Vissza a kalkulátorokhoz</span></Link>}
+      {!embedded && <Link className="back-navigation glass-navigation" href={`/kalkulatorok?organization=${organizationId}`}><ArrowLeft aria-hidden="true" className="size-4" /><span>Vissza a kalkulátorokhoz</span></Link>}
       <section className="standalone-roof-page" aria-labelledby="standalone-gable-title">
         <header className="section-heading">
           <div><p className="section-eyebrow">Tetők és tetőfedés · projekt nélküli számítás</p><h1 id="standalone-gable-title">Nyeregtető geometria</h1><p>A meglévő `roof.gable` motor számítja az eredményeket. A fedési eredmény külön menthető; anyagkimutatás és statikai méretezés nem készül.</p></div>

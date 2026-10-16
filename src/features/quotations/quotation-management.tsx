@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { duplicateFinalizedQuotationAction, finalizeQuotationAction, transitionQuotationStatusAction, type QuotationFinalizeResult, type QuotationStatusActionResult } from "./quotation-actions";

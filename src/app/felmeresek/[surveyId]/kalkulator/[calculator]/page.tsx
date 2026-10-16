@@ -1,5 +1,5 @@
 import { surveySections, completeSectionMeasurements } from "@/domain/field-surveys/workspace";
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 import { mapFieldSurveyToCalculator } from "@/domain/field-surveys/calculator-handoff";
 import { getFieldSurveyRevision } from "@/features/field-surveys/field-survey-data";

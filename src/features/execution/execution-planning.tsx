@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useRouter } from "next/navigation";
 import { createExecutionJournalEntryAction, createExecutionPhotoAction, createExecutionPlanAction, saveExecutionTaskAction, setExecutionPhotoCategoryAction } from "./execution-actions";
 import type { AcceptedQuotationOption, ExecutionPhotoRecord, ExecutionPlanRecord, ExecutionTimelineItem } from "./execution-data";

@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { decimalToScaled, lineTotal, scaledToDecimal } from "@/domain/quotations/money";
 import { validateStandaloneLines } from "@/domain/quotations/standalone";
-import { guardUnsavedNavigation, warnBeforeUnloadIfDirty } from "@/lib/unsaved-changes";
+import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneNetLabels, type StandaloneSaveOperation } from "./standalone-quotation-ui-state";
 import { quotationRecoveryKey, readQuotationRecovery, writeQuotationRecovery, isQuotationRecoveryCurrent, clearOtherQuotationRecoveryOwners, type QuotationRecovery, type QuotationDraftValues } from "./quotation-draft-recovery";
@@ -45,6 +45,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   currentRevision?: CurrentRevision; revisions: Revision[]; selectedRevisionId?: string; products: MaterialProductRecord[]; documentSources: StandaloneDocumentSources;
 }>) {
   const router = useRouter();
+  const { requestConfirmation } = useAppInteraction();
   const lineKeyCounter = useRef(0);
   const makeLocalId = () => { lineKeyCounter.current += 1; return `line-${lineKeyCounter.current}`; };
   const historical = isHistoricalStandaloneRevision(currentRevisionId, selectedRevisionId);
@@ -100,10 +101,8 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     const next = lines.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line);
     setLines(next); syncDirty(name, next); setResult({ ok: false, code: "INTERNAL", error: "" });
   };
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => warnBeforeUnloadIfDirty(dirtyRef.current || issuerDirtyRef.current, event);
-    window.addEventListener("beforeunload", handler); return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  const discardRecovery = () => { try { window.sessionStorage.removeItem(recoveryKey); } catch { /* Best effort. */ } setRecovery(null); };
+  useUnsavedChangeGuard({ dirty: (dirty || issuerDirty) && !historical, pending, discard: () => { setDirtyState(false); issuerDirtyRef.current = false; setIssuerDirty(false); discardRecovery(); } });
   useEffect(() => {
     try {
       clearOtherQuotationRecoveryOwners(window.sessionStorage, userId);
@@ -158,7 +157,6 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     const next = [...lines]; [next[index], next[target]] = [next[target], next[index]];
     setLines(next); syncDirty(name, next);
   };
-  const discardRecovery = () => { try { window.sessionStorage.removeItem(recoveryKey); } catch { /* Best effort. */ } setRecovery(null); };
   const restoreRecovery = () => {
     if (!recovery?.current || historical) return;
     const recovered = recovery.value.values.lines.map((line) => ({ ...line, localId: makeLocalId() }));
@@ -239,11 +237,11 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   };
 
   return <section className="quotation-editor detail-surface standalone-quotation-editor">
-    <Link className="back-link" href={`/ajanlatok?organization=${organizationId}`} onNavigate={(event) => guardUnsavedNavigation(event, { dirty: (dirty || issuerDirty) && !historical, pending, confirmDiscard: () => window.confirm("A mentetlen ajánlati vagy kibocsátói módosítások elvesznek. Elveted őket és visszatérsz az ajánlatokhoz?"), onDiscard: () => { setDirtyState(false); issuerDirtyRef.current = false; setIssuerDirty(false); discardRecovery(); } })}>← Vissza az ajánlatokhoz</Link>
+    <Link className="back-link" href={`/ajanlatok?organization=${organizationId}`}>← Vissza az ajánlatokhoz</Link>
     <div className="section-heading"><div><p className="section-eyebrow">Önálló · csak piszkozat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2></div><span className="status-pill status-draft">Piszkozat</span></div>
     <p className="missing-data">Projekt és ügyfél nélkül is használható. Nettó HUF összegeket kezel; véglegesítés, ÁFA és hivatalos PDF még nem támogatott.</p>
     <div className="standalone-revision-bar" aria-label="Ajánlati revíziók">
-      {revisions.map((revision) => <Link key={revision.id} className={`secondary-button ${revision.id === (selectedRevisionId ?? currentRevisionId) ? "is-current" : ""}`} href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`} aria-current={revision.id === (selectedRevisionId ?? currentRevisionId) ? "page" : undefined} onNavigate={(event) => guardUnsavedNavigation(event, { dirty: (dirty || issuerDirty) && !historical, pending, confirmDiscard: () => window.confirm("A mentetlen módosítások elvesznek. Elveted őket és megnyitod a kiválasztott immutable revíziót?"), onDiscard: () => { setDirtyState(false); issuerDirtyRef.current = false; setIssuerDirty(false); discardRecovery(); } })}>v{revision.revisionNumber} · {money(revision.subtotal)}</Link>)}
+      {revisions.map((revision) => <Link key={revision.id} className={`secondary-button ${revision.id === (selectedRevisionId ?? currentRevisionId) ? "is-current" : ""}`} href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`} aria-current={revision.id === (selectedRevisionId ?? currentRevisionId) ? "page" : undefined}>v{revision.revisionNumber} · {money(revision.subtotal)}</Link>)}
       {historical && <Link className="primary-button" href={latestUrl}>Legfrissebb revízió megnyitása (v{version})</Link>}
       {historical && <span className="form-message" role="status">Történeti, változtathatatlan revízió megtekintése.</span>}
     </div>
@@ -325,7 +323,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
       <div className="quotation-summary"><div><span>{historical ? `${savedAmountLabel} (Ft)` : standaloneNetLabels.subtotal}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "A változtathatatlan szerver-pillanatkép összege." : "Nem mentett becslés; a szerver számítja és adja vissza az irányadó összeget."}</small></div>{!historical && <div><span>Legutóbbi mentett árbesorolási összeg</span><strong>{money(savedSubtotal === null ? null : String(savedSubtotal))}</strong></div>}</div>
     </fieldset>
     {!historical && dirty && <p className="form-message" role="status">Mentetlen módosításaid vannak.</p>}
-    {!historical && !result.ok && result.error && <div className="form-message is-error" role="alert">{result.error}{result.code === "CONFLICT" && quotationId && <button type="button" className="secondary-button" onClick={() => { if (window.confirm("A legfrissebb revízió betöltése elveti ezt a helyi módosításcsomagot. Megnyitod a szerver legfrissebb változatát?")) { discardRecovery(); window.location.assign(latestUrl); } }}>Legfrissebb revízió megnyitása</button>}</div>}
+    {!historical && !result.ok && result.error && <div className="form-message is-error" role="alert">{result.error}{result.code === "CONFLICT" && quotationId && <button type="button" className="secondary-button" onClick={async () => { const accepted = await requestConfirmation({ title: "Helyi változat elvetése", message: "A legfrissebb revízió megnyitása elveti ezt a helyi módosításcsomagot.", cancelLabel: "Maradok", actions: [{ label: "Legfrissebb revízió megnyitása", tone: "danger", run: () => undefined }] }); if (accepted) { discardRecovery(); router.replace(latestUrl); } }}>Legfrissebb revízió megnyitása</button>}</div>}
     {!historical && result.ok && <p className="form-message is-success" role="status">A piszkozat v{result.data.revision_number} revíziója mentve.</p>}
     {!historical && <button className="primary-button standalone-save" type="button" disabled={pending || !recoveryReady} onClick={() => save()}>{pending ? "Mentés folyamatban…" : "Piszkozat mentése"}</button>}
   </section>;

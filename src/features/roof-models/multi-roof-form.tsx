@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { calculateRoofGeometry, roofGeometryInputSchema, type RoofGeometryType } from "@/domain/calculations/roof-geometry";
 import type { RoofModelRecord } from "./roof-model-data";
 import { saveMultiRoofAction } from "./multi-roof-actions";
@@ -12,6 +11,8 @@ import { roofTypeOptions } from "./roof-type-selector";
 import type { StandaloneRoofRecord } from "./standalone-roof-data";
 import { MeasurementGuidance, measurementGuideFor } from "./measurement-guidance";
 import { RoofWorkspace } from "./roof-workspace";
+import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 
 type MultiType = Exclude<RoofGeometryType, "gable">;
 type Field = { key: string; label: string; unit: string; help: string };
@@ -33,11 +34,12 @@ function fieldsFor(type: MultiType): Field[] {
   ];
 }
 
-export function MultiRoofCalculatorForm({ type, organizationId, projectId, model = null, standalone = null, onChangeRoofType }: Readonly<{ type: MultiType; organizationId?: string; projectId?: string; model?: RoofModelRecord | null; standalone?: StandaloneRoofRecord | null; onChangeRoofType?: () => void }>) {
+export function MultiRoofCalculatorForm({ type, organizationId, projectId, model = null, standalone = null, onChangeRoofType, onWorkspaceState }: Readonly<{ type: MultiType; organizationId?: string; projectId?: string; model?: RoofModelRecord | null; standalone?: StandaloneRoofRecord | null; onChangeRoofType?: () => void; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void }>) {
   const fields = fieldsFor(type);
   const savedInput = model?.currentMultiRoofInput ?? standalone?.input;
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((field) => [field.key, savedInput && field.key in savedInput ? String(savedInput[field.key as keyof typeof savedInput]) : ""])));
   const [name, setName] = useState(model?.name ?? standalone?.name ?? `Új ${names[type].toLowerCase()}`);
+  const interactionBaseline = useRef({ values, name });
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [viewedHistoryId, setViewedHistoryId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -47,10 +49,14 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
   const [roofModelId] = useState(() => model?.id ?? crypto.randomUUID());
   const [calculationId] = useState(() => standalone?.id ?? crypto.randomUUID());
   const router = useRouter();
+  const { notify } = useAppInteraction();
   const parsed = useMemo(() => roofGeometryInputSchema.safeParse({ type, ...Object.fromEntries(fields.map((field) => [field.key, num(values[field.key] ?? "")])) }), [fields, type, values]);
   const fieldError = (key: string) => values[key]?.trim() ? (parsed.success ? undefined : parsed.error.issues.find((issue) => issue.path.includes(key))?.message) : undefined;
   const validationMessage = !parsed.success && Object.values(values).some(Boolean) ? `${fields.find((field) => field.key === parsed.error.issues[0]?.path[0])?.label ?? "Tetőméret"}: ${parsed.error.issues[0]?.message ?? "Ellenőrizd a méretet."}` : null;
   const dirty = (!model && !standalone) || JSON.stringify(parsed.success ? parsed.data : values) !== JSON.stringify(savedInput) || name !== (model?.name ?? standalone?.name);
+  const interactionDirty = JSON.stringify(values) !== JSON.stringify(interactionBaseline.current.values) || name !== interactionBaseline.current.name;
+  useEffect(() => { onWorkspaceState?.({ dirty: interactionDirty, pending }); }, [interactionDirty, onWorkspaceState, pending]);
+  useUnsavedChangeGuard({ dirty: interactionDirty, pending, discard: () => { setValues(interactionBaseline.current.values); setName(interactionBaseline.current.name); } });
   const geometry = useMemo(() => parsed.success ? !dirty && (model?.currentMultiRoofOutput || standalone?.output) ? (model?.currentMultiRoofOutput ?? standalone?.output)! : calculateRoofGeometry(parsed.data) : null, [parsed, dirty, model, standalone]);
   const selectedEaves = geometry?.edges.filter((edge) => edge.kind === "eave" && selectedIds.includes(edge.id)) ?? [];
   const selectedFlashings = geometry?.edges.filter((edge) => edge.kind !== "upper" && selectedIds.includes(edge.id)) ?? [];
@@ -65,7 +71,9 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
       const saved = projectId
         ? await saveMultiRoofAction({ organizationId, projectId, roofModelId, operationId, expectedRevisionNumber: model?.currentRevisionNumber ?? 0, name, input: parsed.data })
         : await saveStandaloneMultiRoofAction({ organizationId, calculationId, operationId, expectedRevisionNumber: standalone?.revisionNumber ?? 0, name, input: parsed.data });
-      if (!saved.ok) { setMessage(saved.error ?? "A mentés nem sikerült."); return; }
+      if (!saved.ok) { const error = saved.error ?? "A mentés nem sikerült."; setMessage(error); notify({ kind: "error", message: error }); return; }
+      interactionBaseline.current = { values, name };
+      notify({ kind: "success", message: "Tetőgeometria mentve" });
       setOperationId(crypto.randomUUID());
       setMessage(`A tetőgeometria mentve · V${saved.revisionNumber}.`);
       router.replace(projectId ? `/projektek/${projectId}/tetomodellek/${roofModelId}?organization=${organizationId}` : `/kalkulatorok/nyeregteto?organization=${organizationId}&calculation=${calculationId}`);

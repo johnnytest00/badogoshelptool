@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { redirect } from "next/navigation";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { getProjectOrganization } from "@/features/projects/organization";

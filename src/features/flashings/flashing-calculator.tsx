@@ -17,6 +17,8 @@ import { FlashingTechnicalDrawing } from "./flashing-technical-drawing";
 import { createIdempotencyKey, generateSecureUuid } from "@/lib/secure-uuid";
 import { selectFlashingDrawingPreview } from "./drawing-preview";
 import type { FlashingPrefill, SurveyHandoffSource } from "@/domain/field-surveys/calculator-handoff";
+import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
+import { GuardedLink } from "@/components/navigation/guarded-link";
 
 type RunDraft = { id: string; category: FlashingCategory; name: string; lengthMm: string; lengthSource: FlashingMaterialInput["runs"][number]["lengthSource"]; roofEdgeReference: FlashingMaterialInput["runs"][number]["roofEdgeReference"]; startExtensionMm: string; endExtensionMm: string; reserveMm: string };
 type Draft = { name: string; nominalLengthMm: string; nominalLengthLabel: string; connectionMode: "unknown" | "no_overlap_confirmed" | "explicit_overlap" | "effective_length_supplied"; overlapMm: string; effectiveLengthMm: string; runs: RunDraft[] };
@@ -70,6 +72,7 @@ function toDomainInput(draft: Draft): unknown {
 
 export function FlashingCalculator({ organizationId, projectId, suggestions, selectedSuggestions = [], saved, catalogVariants, initialHandoff, handoffSource, onSaved, onWorkspaceState }: Readonly<{ organizationId: string; projectId?: string; suggestions: FlashingGeometrySuggestion[]; selectedSuggestions?: FlashingGeometrySuggestion[]; saved: FlashingCalculationRecord | null; catalogVariants: FlashingCatalogVariant[]; initialHandoff?: FlashingPrefill; handoffSource?: SurveyHandoffSource; onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void }>) {
   const router = useRouter();
+  const { notify, requestConfirmation } = useAppInteraction();
   const [draft, setDraft] = useState<Draft>(() => {
     if (saved) {
       const existing = draftFromInput(saved.input, saved.displayName);
@@ -79,6 +82,7 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sel
     return selectedSuggestions.length ? { ...base, runs: selectedSuggestions.map((suggestion) => ({ id: generateSecureUuid(), category: suggestion.category, name: suggestion.label.split(" · ").slice(1).join(" · "), lengthMm: String(suggestion.lengthMm), lengthSource: "geometry" as const, roofEdgeReference: suggestion.reference, startExtensionMm: "0", endExtensionMm: "0", reserveMm: "0" })) } : base;
   });
   const handoffBaseline = useRef(initialHandoff ? JSON.stringify(draftFromSurvey(initialHandoff)) : "");
+  const [interactionBaseline, setInteractionBaseline] = useState<Draft>(() => saved ? draftFromInput(saved.input, saved.displayName) : createInitialDraft());
   const handoffModified = Boolean(handoffSource && JSON.stringify(draft) !== handoffBaseline.current);
   const [expectedRevision, setExpectedRevision] = useState(saved?.revisionNumber ?? 0);
   const [baseline, setBaseline] = useState(() => saved ? JSON.stringify(saved.input) : "");
@@ -97,6 +101,7 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sel
   const calculated = useMemo(() => parsed.success ? executeCalculator(flashingMaterialCalculator, parsed.data) : null, [parsed]);
   const currentJson = parsed.success ? JSON.stringify(parsed.data) : "";
   const dirty = isFlashingDraftDirty(currentJson, baseline, draft.name, baselineName);
+  const interactionDirty = JSON.stringify(draft) !== JSON.stringify(interactionBaseline);
   const validationMessages = parsed.success ? [] : parsed.error.issues.map((issue) => `${validationField(issue.path)}: ${issue.message.startsWith("Invalid") ? "Hiányzó vagy érvénytelen érték." : issue.message}`);
   const domainErrors = calculated && !calculated.ok ? calculated.errors.map((issue) => issue.message) : [];
   const selectedRevision = history.find((revision) => revision.revisionId === selectedRevisionId) ?? null;
@@ -107,6 +112,7 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sel
   const hasDuplicateGroup = new Set(selectedGroups).size !== selectedGroups.length;
   const drawing = selectFlashingDrawingPreview(dirty, selectedRevision, parsed.success ? parsed.data : null, calculated?.ok ? calculated.output : null);
   useEffect(() => { onWorkspaceState?.({ dirty, pending: isPending }); }, [dirty, isPending, onWorkspaceState]);
+  useUnsavedChangeGuard({ dirty: !onWorkspaceState && interactionDirty, pending: isPending, discard: () => setDraft(interactionBaseline) });
   const transferReady = Boolean(saved && selectedRevision && selectedRevision.revisionId === saved.revisionId && !selectedRevision.stale && !dirty && selectedMappings.length > 0 && !hasDuplicateGroup && mappingChecks.filter((check) => selectedMappings.some((item) => item.candidateId === check.candidate.id)).every((check) => check.status === "compatible"));
 
   const update = (change: (current: Draft) => Draft) => setDraft((current) => change(current));
@@ -134,17 +140,17 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sel
       const data = new FormData(); data.set("organizationId", organizationId); data.set("calculationId", saved?.calculationId ?? standaloneId.current);
       data.set("calculatorType", flashingMaterialCalculator.id); data.set("name", draft.name.trim() || "Bádogos szegély számítás");
       data.set("input", JSON.stringify(parsed.data)); data.set("expectedRevisionNumber", String(expectedRevision)); setFeedback("");
-      startTransition(async () => { let response; try { response = await saveStandaloneCalculationAction(data); } catch { setFeedback("A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."); return; } if (!response.ok) { setFeedback(response.error); return; }
-        setExpectedRevision(response.revisionNumber); setBaseline(currentJson); setBaselineName(draft.name); setFeedback(`Mentve · V${response.revisionNumber}`); if (onSaved) { await onSaved(response); return; } router.replace(`/kalkulatorok/szegelyek?organization=${organizationId}&calculation=${response.calculationId}`); router.refresh(); }); return;
+      startTransition(async () => { let response; try { response = await saveStandaloneCalculationAction(data); } catch { const error = "A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."; setFeedback(error); notify({ kind: "error", message: error }); return; } if (!response.ok) { setFeedback(response.error); notify({ kind: "error", message: response.error }); return; }
+        setExpectedRevision(response.revisionNumber); setBaseline(currentJson); setBaselineName(draft.name); setInteractionBaseline(draft); setFeedback(`Mentve · V${response.revisionNumber}`); notify({ kind: "success", message: "Szegélyszámítás mentve" }); if (onSaved) { await onSaved(response); return; } router.replace(`/kalkulatorok/szegelyek?organization=${organizationId}&calculation=${response.calculationId}`); router.refresh(); }); return;
     }
     const data = new FormData();
     data.set("organizationId", organizationId); data.set("projectId", projectId); data.set("name", draft.name);
     data.set("input", JSON.stringify(parsed.data)); data.set("expectedRevisionNumber", String(expectedRevision)); data.set("operationId", flashingOperationId);
     setFeedback("");
     startTransition(async () => {
-      let result; try { result = await saveFlashingCalculationAction(data); } catch { setFeedback("A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."); return; }
-      if (!result.ok || !result.revisionNumber) { setFeedback(result.error ?? "A mentés nem sikerült."); return; }
-      setFlashingOperationId(generateSecureUuid()); setExpectedRevision(result.revisionNumber); setBaseline(currentJson); setBaselineName(draft.name); setFeedback(`Mentve · V${result.revisionNumber}`); if (onSaved && result.calculationId && result.revisionId) await onSaved({ calculationId: result.calculationId, revisionId: result.revisionId, revisionNumber: result.revisionNumber }); else router.refresh();
+      let result; try { result = await saveFlashingCalculationAction(data); } catch { const error = "A kapcsolat megszakadt. Ellenőrizd a hálózatot, majd próbáld újra."; setFeedback(error); notify({ kind: "error", message: error }); return; }
+      if (!result.ok || !result.revisionNumber) { const error = result.error ?? "A mentés nem sikerült."; setFeedback(error); notify({ kind: "error", message: error }); return; }
+      setFlashingOperationId(generateSecureUuid()); setExpectedRevision(result.revisionNumber); setBaseline(currentJson); setBaselineName(draft.name); setInteractionBaseline(draft); setFeedback(`Mentve · V${result.revisionNumber}`); notify({ kind: "success", message: "Szegélyszámítás mentve" }); if (onSaved && result.calculationId && result.revisionId) await onSaved({ calculationId: result.calculationId, revisionId: result.revisionId, revisionNumber: result.revisionNumber }); else router.refresh();
     });
   };
 
@@ -185,7 +191,7 @@ export function FlashingCalculator({ organizationId, projectId, suggestions, sel
     </section>
 
     </>}
-    {saved && <section className="detail-surface flashing-section" aria-labelledby="history-title"><div className="section-heading"><div><p className="section-eyebrow">Mentett előzmények</p><h2 id="history-title">Mentett revíziók</h2></div></div>{history.map((revision) => <button type="button" className={selectedRevisionId === revision.revisionId ? "primary-button" : "secondary-button"} key={revision.revisionId} onClick={() => { if (dirty && !window.confirm("A nem mentett módosítások elvesznek. Betöltöd ezt a változatot?")) return; setSelectedRevisionId(revision.revisionId); setDraft(draftFromInput(revision.input, revision.displayName)); setBaseline(JSON.stringify(revision.input)); setBaselineName(revision.displayName); setFeedback(`V${revision.revisionNumber} betöltve.`); }}>{`V${revision.revisionNumber}${revision.revisionId === saved.revisionId ? " · aktuális" : " · történeti"} · ${new Date(revision.createdAt).toLocaleString("hu-HU")}`}</button>)}</section>}
-    <div className="form-actions"><button className="primary-button" type="button" disabled={isPending || !dirty || !parsed.success || !calculated?.ok} onClick={save}>{isPending ? "Mentés folyamatban…" : projectId ? `Mentés új revízióként · V${expectedRevision + 1}` : saved ? `Új változat mentése · V${expectedRevision + 1}` : "Számítás mentése"}</button>{!projectId && !onSaved && <a className="secondary-button" href={`/kalkulatorok/mentett?organization=${organizationId}`}>Mentett számításaim</a>}{feedback && <p role="status" className={`form-message ${feedback.startsWith("Mentve") ? "is-success" : "is-error"}`}>{feedback}</p>}</div>
+    {saved && <section className="detail-surface flashing-section" aria-labelledby="history-title"><div className="section-heading"><div><p className="section-eyebrow">Mentett előzmények</p><h2 id="history-title">Mentett revíziók</h2></div></div>{history.map((revision) => <button type="button" className={selectedRevisionId === revision.revisionId ? "primary-button" : "secondary-button"} key={revision.revisionId} onClick={async () => { if (isPending) return; if (interactionDirty && !await requestConfirmation({ title: "Szegélymódosítások elvetése", message: "A jelenlegi nem mentett szegélyadatok elvesznek. Betöltöd ezt a mentett változatot?", cancelLabel: "Maradok", actions: [{ label: "Változat betöltése", tone: "danger", run: () => undefined }] })) return; const loaded = draftFromInput(revision.input, revision.displayName); setSelectedRevisionId(revision.revisionId); setDraft(loaded); setInteractionBaseline(loaded); setBaseline(JSON.stringify(revision.input)); setBaselineName(revision.displayName); setFeedback(`V${revision.revisionNumber} betöltve.`); }}>{`V${revision.revisionNumber}${revision.revisionId === saved.revisionId ? " · aktuális" : " · történeti"} · ${new Date(revision.createdAt).toLocaleString("hu-HU")}`}</button>)}</section>}
+    <div className="form-actions"><button className="primary-button" type="button" disabled={isPending || !dirty || !parsed.success || !calculated?.ok} onClick={save}>{isPending ? "Mentés folyamatban…" : projectId ? `Mentés új revízióként · V${expectedRevision + 1}` : saved ? `Új változat mentése · V${expectedRevision + 1}` : "Számítás mentése"}</button>{!projectId && !onSaved && <GuardedLink className="secondary-button" href={`/kalkulatorok/mentett?organization=${organizationId}`}>Mentett számításaim</GuardedLink>}{feedback && <p role="status" className={`form-message ${feedback.startsWith("Mentve") ? "is-success" : "is-error"}`}>{feedback}</p>}</div>
   </div>;
 }

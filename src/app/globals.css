@@ -287,6 +287,46 @@ body[data-editing="true"] .scaling-bubble { display: none; }
 @media (max-width: 560px) { .drawing-view-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }.technical-drawing-svg { min-height: 15rem; }.drawing-toolbar-hint { width: 100%; margin-left: 0; }.technical-dimension text, .technical-angle text { font-size: 22px; } }
 @media (prefers-reduced-motion: reduce) { .technical-drawing *, .technical-drawing *::before, .technical-drawing *::after { transition: none !important; animation: none !important; } }
 
+/* F9.17 shared feedback and route loading primitives */
+.glass-confirmation-dialog { width: min(34rem, calc(100vw - 2rem)); max-width: none; max-height: min(86dvh, 48rem); overflow: auto; margin: auto; border: 1px solid var(--glass-border); border-radius: 1.15rem; background: color-mix(in srgb, var(--surface-glass) 96%, var(--surface-strong)); color: var(--foreground); padding: 1.2rem; box-shadow: var(--shadow-surface), inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(1rem) saturate(125%); }
+.glass-confirmation-dialog::backdrop { background: rgba(8, 15, 28, .42); }
+.glass-confirmation-heading { display: flex; align-items: flex-start; gap: .85rem; }
+.glass-confirmation-heading h2 { margin: .1rem 0 .35rem; font-size: calc(1.1rem * var(--tp-text-scale)); }
+.glass-confirmation-heading p { margin: 0; color: var(--muted); font-size: calc(.88rem * var(--tp-text-scale)); line-height: 1.55; }
+.glass-confirmation-icon { display: grid; width: 2.7rem; height: 2.7rem; flex: 0 0 auto; place-items: center; border: 1px solid var(--glass-border); border-radius: .85rem; background: color-mix(in srgb, var(--warning) 12%, var(--surface-strong)); color: var(--warning); }
+.glass-confirmation-icon svg { width: 1.3rem; height: 1.3rem; }
+.glass-confirmation-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .55rem; margin-top: 1.15rem; }
+.glass-confirmation-actions > button { min-height: 2.75rem; }
+.glass-confirmation-actions .is-danger { border-color: color-mix(in srgb, var(--danger) 42%, var(--glass-border)); background: color-mix(in srgb, var(--danger) 10%, var(--surface-strong)); color: var(--danger); }
+.glass-confirmation-actions .is-danger:hover { background: color-mix(in srgb, var(--danger) 16%, var(--surface-strong)); }
+.glass-confirmation-error { margin: .85rem 0 0; color: var(--danger); font-size: calc(.82rem * var(--tp-text-scale)); }
+.glass-confirmation-dialog :focus-visible, .glass-toast button:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.glass-toast-stack { position: fixed; z-index: 120; inset: auto max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) auto; display: grid; width: min(25rem, calc(100vw - 2rem)); gap: .5rem; pointer-events: none; }
+.glass-toast { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .65rem; border: 1px solid var(--glass-border); border-radius: 1rem; background: var(--surface-glass); color: var(--foreground); padding: .7rem .75rem; box-shadow: var(--shadow-surface); backdrop-filter: blur(.8rem); pointer-events: auto; }
+.glass-toast p { margin: 0; font-size: calc(.82rem * var(--tp-text-scale)); line-height: 1.45; overflow-wrap: anywhere; }
+.glass-toast-icon { width: 1.15rem; height: 1.15rem; color: var(--info); }
+.glass-toast.is-success .glass-toast-icon { color: var(--success); }.glass-toast.is-error .glass-toast-icon { color: var(--danger); }.glass-toast.is-warning .glass-toast-icon { color: var(--warning); }
+.glass-toast button { display: grid; width: 2rem; height: 2rem; place-items: center; border: 0; border-radius: .6rem; background: transparent; color: var(--muted); cursor: pointer; }
+.glass-toast button:hover { background: color-mix(in srgb, var(--foreground) 8%, transparent); color: var(--foreground); }.glass-toast button svg { width: 1rem; height: 1rem; }
+.interaction-pending-indicator { display: inline-flex; align-items: center; gap: .45rem; color: var(--muted); font-size: calc(.8rem * var(--tp-text-scale)); }
+.interaction-spinner { width: 1rem; height: 1rem; flex: 0 0 auto; animation: interaction-spin .85s linear infinite; }
+@keyframes interaction-spin { to { transform: rotate(360deg); } }
+.glass-route-loading { min-height: 100vh; }
+.route-skeleton-heading { display: grid; width: min(32rem, 100%); gap: .65rem; margin-bottom: 1.5rem; }
+.route-skeleton-heading i, .route-skeleton-line, .route-skeleton-row i { display: block; border-radius: 999px; background: linear-gradient(100deg, var(--surface-subtle) 20%, color-mix(in srgb, var(--surface-strong) 72%, var(--glass-highlight)) 38%, var(--surface-subtle) 56%); background-size: 220% 100%; animation: route-skeleton-shimmer 1.5s ease-in-out .55s infinite; }
+.route-skeleton-heading i:nth-child(1) { width: 7rem; height: .6rem; }.route-skeleton-heading i:nth-child(2) { width: min(20rem, 90%); height: 1.65rem; }.route-skeleton-heading i:nth-child(3) { width: min(30rem, 100%); height: .75rem; }
+.route-skeleton-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.route-skeleton-grid.is-dashboard { grid-template-columns: repeat(3, minmax(0, 1fr)); }.route-skeleton-grid.is-form { grid-template-columns: minmax(0, 1fr); }
+.route-skeleton-surface { display: grid; align-content: start; gap: .8rem; min-height: 8rem; border: 1px solid var(--glass-border); border-radius: var(--radius-card); background: color-mix(in srgb, var(--surface-glass) 84%, transparent); padding: 1rem; box-shadow: inset 0 1px 0 var(--glass-highlight); }
+.route-skeleton-grid.is-form .route-skeleton-surface { min-height: 4.75rem; }.route-skeleton-line { height: .72rem; }.route-skeleton-line.is-short { width: 28%; }.route-skeleton-line.is-wide { width: 76%; }
+.route-skeleton-row { display: flex; gap: .6rem; margin-top: .25rem; }.route-skeleton-row i { width: 3.2rem; height: 2rem; border-radius: .65rem; }
+ .glass-route-loading > .dashboard-container { animation: route-skeleton-appear .12s ease-out .14s both; }
+@keyframes route-skeleton-appear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes route-skeleton-shimmer { 0%, 55% { background-position: 100% 0; } 100% { background-position: -120% 0; } }
+@media (max-width: 720px) { .route-skeleton-grid, .route-skeleton-grid.is-dashboard { grid-template-columns: minmax(0, 1fr); }.glass-confirmation-dialog { padding: 1rem; }.glass-confirmation-actions { display: grid; grid-template-columns: minmax(0, 1fr); }.glass-confirmation-actions > button { width: 100%; }.glass-toast-stack { inset-inline: max(.65rem, env(safe-area-inset-left)) max(.65rem, env(safe-area-inset-right)); bottom: max(.65rem, env(safe-area-inset-bottom)); width: auto; } }
+@media (max-width: 360px) { .glass-confirmation-heading { gap: .6rem; }.glass-confirmation-icon { width: 2.25rem; height: 2.25rem; } }
+@media (prefers-reduced-motion: reduce) { .interaction-spinner { animation: none; opacity: .72; }.glass-route-loading > .dashboard-container { animation: none; opacity: 1; }.route-skeleton-heading i, .route-skeleton-line, .route-skeleton-row i { animation: none; } }
+
 .technical-dimension.is-active line, .technical-angle.is-active path { stroke: var(--accent); stroke-width: 4; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 65%, transparent)); }
 .technical-dimension.is-active text, .technical-angle.is-active text { fill: var(--accent); stroke-width: 7px; }
 .technical-drawing-active-guide { margin: 0; border-left: 4px solid var(--accent); border-radius: .35rem; background: color-mix(in srgb, var(--accent) 10%, transparent); padding: .65rem .8rem; color: var(--foreground); font-size: calc(.8rem * var(--tp-text-scale)); font-weight: 700; }
@@ -1789,6 +1829,10 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
 .field-survey-measurement-settings > summary { width: fit-content; min-width: 12rem; }
 .field-survey-measurement-settings[open] > .glass-disclosure-content { grid-column: 1 / -1; }
 .field-survey-measurement-settings .field-survey-measurement-tools { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
+@media (max-width: 600px) {
+  .roof-survey-measurement-strip .field-survey-measurement-settings > summary { width: 100%; min-width: 0; white-space: normal; }
+  .roof-survey-measurement-strip .field-survey-measurement-settings > summary > span { min-width: 0; overflow-wrap: anywhere; }
+}
 
 @media (max-width: 700px) {
   .project-detail-header { padding-inline-end: 0; padding-top: 4rem; }
