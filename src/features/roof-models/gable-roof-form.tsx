@@ -24,6 +24,7 @@ import { RoofWorkspace } from "./roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { generateSecureUuid } from "@/lib/secure-uuid";
+import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
 type FormValues = Record<string, string> & { inputMode: "height" | "angle" };
 const defaults: FormValues = { inputMode: "height", buildingLengthMm: "", buildingWidthMm: "", roofRiseMm: "", roofPitchDegrees: "", eaveOverhangMm: "", frontGableOverhangMm: "", rearGableOverhangMm: "" };
@@ -161,9 +162,7 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
   return (
     <>
       <form ref={formRef} className="roof-calculator" onSubmit={submit}>
-        <header className="roof-calculator-toolbar glass-toolbar">
-          <div><h1>Nyeregtető</h1>{model && <span className="status-pill">Mentve · V{model.currentRevisionNumber}</span>}</div>
-        </header>
+        <GlassPageHeader title="Nyeregtető" context={model ? `Mentve · V${model.currentRevisionNumber}` : undefined} className="roof-calculator-toolbar" />
         <details className="roof-measurement-details">
           <summary>Mérési alapelv</summary>
           <p>Add meg a tényleges méreteket; túlnyúlás hiányában írj 0-t. A tizedes vessző és pont is elfogadott.</p>

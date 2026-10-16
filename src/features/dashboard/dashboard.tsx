@@ -11,7 +11,7 @@ import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { LogoutButton } from "@/features/auth/auth-controls";
 import { AccountManagementDialog } from "@/features/auth/account-management-dialog";
 import { dashboardFunctionHref, dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
-import { getDashboardGreeting, getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
+import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 import type { DashboardTab } from "@/features/dashboard/dashboard.types";
 import type { ProjectRecord } from "@/features/projects/project-data";
 import { projectTypeLabels } from "@/domain/projects/contracts";
@@ -20,15 +20,7 @@ export function Dashboard({ displayName, email, organizationName, organizationId
   const [activeTab, setActiveTab] = useState<DashboardTab>("functions");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
-  const [greeting, setGreeting] = useState("Üdv a műhelyben!");
   const navigationRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const updateGreeting = () => setGreeting(getDashboardGreeting(new Date().getHours()));
-    updateGreeting();
-    const interval = window.setInterval(updateGreeting, 60_000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     if (!settingsOpen) return;
@@ -57,11 +49,7 @@ export function Dashboard({ displayName, email, organizationName, organizationId
         </div>
         <AccountManagementDialog open={accountDialogOpen} onClose={() => setAccountDialogOpen(false)} />
 
-        <section className="greeting-section dashboard-greeting" aria-labelledby="dashboard-title">
-          <p className="eyebrow">TetőPro · műhely</p>
-          <h1 id="dashboard-title" className="dashboard-title">{greeting}</h1>
-          <p className="dashboard-subtitle">Miben segíthetünk ma?</p>
-        </section>
+        <h1 className="sr-only">Műhely</h1>
 
         <DashboardTabs activeTab={activeTab} onChange={setActiveTab} />
 
@@ -142,13 +130,9 @@ function DashboardTabs({ activeTab, onChange }: Readonly<{ activeTab: DashboardT
 
 function FunctionsView({ organizationId }: Readonly<{ organizationId?: string }>) {
   return (
-    <section aria-labelledby="functions-title">
-      <SectionHeading eyebrow="Gyorsindító" title="Munkafolyamatok egy helyen" description="Válassz egy területet a következő lépéshez." />
+    <section aria-label="Funkciók">
       <div className="function-grid">
         {dashboardFunctions.map((item) => <FunctionLauncher item={item} key={item.id} organizationId={organizationId} />)}
-      </div>
-      <div className="dashboard-tip">
-        <p><strong>Jelenlegi működés:</strong> önálló felméréssel vagy közvetlenül a kalkulátorokkal és ajánlatokkal is kezdhetsz.</p>
       </div>
     </section>
   );
@@ -168,8 +152,7 @@ function FunctionLauncher({ item, organizationId }: Readonly<{ item: DashboardFu
 
 function ProjectsView({ projects, organizationId }: Readonly<{ projects: readonly ProjectRecord[]; organizationId?: string }>) {
   return (
-    <section aria-labelledby="projects-title">
-      <SectionHeading eyebrow="Saját munkák" title="Aktuális munkák" description="A kiválasztott műhely aktív projektjei." />
+    <section aria-label="Aktuális munkák">
       {projects.length === 0 ? <div className="empty-state"><span className="empty-state-icon"><FolderKanban aria-hidden="true" className="size-5" /></span><div><h3>Még nincs aktív projekt</h3><p>Hozd létre az első munkát, és innen bármikor folytathatod.</p>{organizationId && <Link className="text-action" href={`/projektek/uj?organization=${organizationId}`}>Új projekt <ArrowRight aria-hidden="true" className="size-3.5" /></Link>}</div></div> : <div className="project-grid real-dashboard-project-grid">{projects.slice(0, 6).map((project) => <RealProjectPreview project={project} organizationId={organizationId} key={project.id} />)}</div>}
       {organizationId && <Link className="dashboard-projects-link" href={`/projektek?organization=${organizationId}`}>Összes projekt megnyitása <ArrowRight aria-hidden="true" className="size-4" /></Link>}
     </section>
@@ -178,8 +161,4 @@ function ProjectsView({ projects, organizationId }: Readonly<{ projects: readonl
 
 function RealProjectPreview({ project, organizationId }: Readonly<{ project: ProjectRecord; organizationId?: string }>) {
   return <article className="project-preview"><div className="project-preview-top"><span className={`status-pill status-${project.status}`}>{project.status}</span></div><h3>{project.name}</h3><p className="project-type">{projectTypeLabels[project.projectType]}{project.clientName ? ` · ${project.clientName}` : ""}</p><div className="project-preview-bottom"><span className="project-updated">v{project.version}</span>{organizationId && <Link className="text-action" href={`/projektek/${project.id}?organization=${organizationId}`}>Folytatás <ArrowRight aria-hidden="true" className="size-3.5" /></Link>}</div></article>;
-}
-
-function SectionHeading({ eyebrow, title, description }: Readonly<{ eyebrow: string; title: string; description: string }>) {
-  return <div className="section-heading"><p className="section-eyebrow">{eyebrow}</p><h2>{title}</h2><p>{description}</p></div>;
 }

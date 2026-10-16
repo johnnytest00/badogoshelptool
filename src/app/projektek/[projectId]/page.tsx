@@ -16,6 +16,7 @@ import { ProjectCalculatorLinks } from "@/features/projects/project-calculator-l
 import { getProjectWorkflowRecords, projectWorkflowRows, ProjectWorkflowOverview } from "@/features/projects/project-workflow-overview";
 import { ProjectRoofDrawings } from "@/features/roof-models/project-roof-drawings";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
+import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
 export default async function ProjectDetailPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string }>; searchParams: Promise<{ organization?: string; sourceQuotation?: string; execution?: string }> }>) {
   const { projectId } = await params;
@@ -34,18 +35,13 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
   const organizationId = selected.organization.id;
   return <main className="dashboard-shell"><div className="dashboard-container project-workspace">
     <BackNavigation href={`/projektek?organization=${organizationId}`} label="Vissza a projektekhez" />
-    <section className="project-detail-header">
-      <div className="project-identity">
-        <p className="section-eyebrow">Projektmunkaterület</p>
-        <h1>{project.name}</h1>
+    <GlassPageHeader className="project-detail-header" title={project.name} context={
         <div className="project-identity-meta">
           <span className="project-type-label">{projectTypeLabels[project.projectType]}</span>
           <span className={`status-pill status-${project.status}`}>{projectStatusLabels[project.status]}</span>
           <span className="project-version-label">v{project.version}</span>
         </div>
-      </div>
-      <ProjectActionsMenu organizationId={organizationId} project={project} />
-    </section>
+      } actions={<ProjectActionsMenu organizationId={organizationId} project={project} />} />
     <ProjectWorkflowOverview rows={workflowRows} />
     <div className="project-detail-grid project-detail-grid-single">
       <section className="project-facts-section">

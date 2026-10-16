@@ -29,6 +29,8 @@ describe("shared roof type selector", () => {
     expect(html.match(/aria-pressed="false"/g)).toHaveLength(6);
     expect(html).toContain('class="roof-type-card is-selected"');
     expect(html).toContain("Kiválasztva");
+    expect(html).toContain('class="glass-section-header roof-type-selector-heading"');
+    expect(html).not.toContain("Új tető");
     for (const option of roofTypeOptions) expect(html).toContain(option.description);
   });
 

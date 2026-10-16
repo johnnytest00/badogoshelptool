@@ -3,6 +3,7 @@ import { ArrowUpRight, Calculator, House, Ruler, Waves } from "lucide-react";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
+import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
 export default async function CalculatorsPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string }> }>) {
   const selected = await getProjectOrganization((await searchParams).organization);
@@ -12,7 +13,7 @@ export default async function CalculatorsPage({ searchParams }: Readonly<{ searc
   const organizationId = selected.organization.id;
   return <main className="dashboard-shell"><div className="dashboard-container">
     <Link className="back-link" href={`/?organization=${organizationId}`}>← Műhely áttekintése</Link>
-    <header className="module-page-header calculator-overview-header"><div><p className="section-eyebrow">Kalkulátorok</p><h1>Válassz számítást</h1><p>Önálló vagy projekthez kapcsolt számítások.</p></div><Link className="secondary-button" href={`/kalkulatorok/mentett?organization=${organizationId}`}>Mentett számításaim →</Link></header>
+    <GlassPageHeader title="Kalkulátorok" actions={<Link className="secondary-button" href={`/kalkulatorok/mentett?organization=${organizationId}`}>Mentett számításaim →</Link>} />
     <section className="calculator-category"><div className="calculator-category-heading"><h2>Tető és tetőfedés</h2></div>
       <div className="project-module-list calculator-entry-grid"><Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/nyeregteto?organization=${organizationId}`}><span className="future-module-icon"><House aria-hidden="true" /></span><span><strong>Tetőgeometria és tetőfedés</strong><small>Hét tetőforma, méretezett rajz és menthető előnézet.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link><Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/cserepeslemez?organization=${organizationId}`}><span className="future-module-icon"><House aria-hidden="true" /></span><span><strong>Cserepeslemez-fedés</strong><small>Nyeregtető-méretek és sematikus lemezkiosztás.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link></div>
     </section>

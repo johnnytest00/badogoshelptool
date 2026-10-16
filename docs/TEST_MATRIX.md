@@ -35,6 +35,24 @@
 | Adat, szervezet, geometria | VÁLTOZATLAN SZERZŐDÉS | Helyi authenticated DEMO és a meglévő survey mentési/verziókezelési útvonal. Nincs migration, hosted művelet, formula/domain/Auth/RLS változás. A tesztfelmérés megőrzött DEMO adat; tetőmodell nem mentődött. |
 | Korlátok | PARTIAL | Desktop Brave/Chromium emuláció; fizikai iOS/Safari, külön screen reader és teljes Vitest / minden főmodul vizuális regresszió nem futott. A QA capture-ek külön fájlként nem lettek exportálva. |
 
+## F9.18.3 — Globális oldalcímek és tetőelőnézet
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Dashboard / főcímsorok | PASS, FOCUSED TEST + LOCAL BROWSER | A dekoratív dashboard-szövegek kikerültek, a 6 kártya sorrendje és a két fül megmaradt. A dashboard- és GlassPageHeader-tesztek egy H1-et, címet és műveletet ellenőriznek. A fő route-ok címeit közös komponensre állítottam. |
+| Projektek / keresés / szűrők | PASS, CODE + FOCUSED TEST + BROWSER | `Projektek` egyetlen H1 és az Ügyfelek/Új projekt műveletek látszottak; kereső, státusz/munkatípus/rendezés/archív szűrők és mobil filter markup, URL-állapot megmaradt. A lista tesztje ezeket ellenőrzi; szűrőűrlapot ezen a smoke-on nem küldtem el. |
+| Cím-buborékok és hierarchia | PASS, FOCUSED TEST + BROWSER | A megosztott `GlassSectionHeader` cím-only üvegbuborékot ad az ajánlatcsoportoknak; a felmért tetőforma és anyaglista/gyártó szekció is ezt használja. A „Projekt nélküli”, „Meglévő munkák”, „Projekt” és redundáns csoportos „Piszkozat” címkék kikerültek. Projektek, ajánlatok és új felmérés oldalon vizuálisan ellenőriztem a buborékokat. A soronkénti ajánlatstátusz megmaradt. |
+| Survey cím és workflow | PASS, LOCAL DEMO | `Új felmérés` → nyeregtető kiválasztás. Az `Új felmérés`, szerkesztési és történeti cím különválik; mérés, mentés, visszalépés és piszkozatguard változatlan. |
+| Root cause / 100-40-10-30 | PASS, CODE + TEST + LOCAL BROWSER | A régi preview eldobta a mapper rise+pitch konfliktusát, ezért üres rajz mellett csak általános hiányzó adatot mutatott. A domain rise/pitch kizárólagos; 40 m szélesség és 10 m emelkedés ≈26,565°, tehát 30°-kal konfliktus. Mindkét mező `aria-invalid` és pontos inline hibát kap; SVG nincs, érték megmarad. |
+| Geometria / mértékegység | PASS, EXISTING ENGINE | 100×40 m, 10 m rise és 0 mm túlnyúlások: böngészőben 4472,136 m²; pitch-only 26,565°: rajz és 4472,134 m². A számítás a meglévő mapper/schema/`calculateGableRoof` motorral fut; formula nem változott. |
+| Hiányos / hibás / módváltás | PASS, FOCUSED UNIT | Segédtesztek fedi a hiányzó szélességet, nullás/hibás bemenetet, rise-only, pitch-only és konfliktust; hibás bemenetből nincs output és a draft értéke nem módosul. Nem futtattam minden alternatív tetőformát böngészőben. |
+| Mentés / frissítés / újranyitás | PASS, AUTHENTICATED LOCAL DEMO | `279811c1-b527-46b7-a576-50402b145371` V1: a `DEMO F9.18.3 tetőelőnézet` 6 mérését, SVG-jét és 4472,136 m² eredményét mentés, oldalfrissítés és URL-es újranyitás után visszaolvastam. Csak helyi Auth szervezet `00000000-0000-4000-8000-000000000010`; hosted adat nem változott. |
+| Projekt / anyag / kalkulátor / kivitelezés fejlécek | IMPLEMENTED, NOT ALL BROWSER-VERIFIED | Közös H1 a felsorolt főoldalakon, valós projekt/anyagnév, revízió/típus kontextus és meglévő akciók. Csak dashboard, projektlista és felmérés vizuális smoke; minden route-ot nem jártam végig. |
+| Responsive / téma / scaling / capture | PARTIAL | Dashboard/projektek/felmérés helyi 1280×720 browser capture; a felhasználó előtte-képei külön, mobil nézetűek. Nincs azonos before/after fájlpár, 1440/1024/768/390/320 viewport-mátrix, minden route-ra light/dark/skála ellenőrzés. A böngészővezérlő viewport override-ot nem adott. |
+| Automated quality gates | PASS, FOCUSED | 10 Vitest fájl / 31 teszt (`glass-page-header`, `glass-section-header`, `dashboard-controls`, `gable-survey-preview`, `field-survey-editor`, `project-list`, `gable-roof-form`, `multi-roof-form`, `roof-type-selector`, `quotation-overview`); `npm run typecheck`, `npm run lint`, izolált Next.js 16.4.0 webpack `npm run build`, `git diff --check` ténylegesen lefutott. Teljes Vitest/DB/Auth/RLS suite nem futott. |
+| Adat, jogosultság, revízió | CONTRACT UNCHANGED | A már meglévő survey save/revision és geometry action útvonalak; a geometry action mapper- és geometry-validációja változatlan. Új backend/schema/Auth/RLS/migration nincs. A V1 helyi DEMO rekord megmaradt; konkurencia/RLS újraellenőrzés nem történt. |
+| Javasolt commit | — | `fix(F9.18.3): unify glass title hierarchy and survey preview validation` |
+
 ## F9.18.2 — iOS rajzstabilitás és interakció
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |
@@ -51,7 +69,7 @@
 | Fókuszált Vitest | PASS | `npx vitest run src/features/roof-models/drawing-viewport.test.ts src/features/roof-models/technical-drawing.test.tsx src/features/roof-models/project-roof-drawings.test.ts src/features/field-surveys/measurement-creation.test.ts src/features/field-surveys/field-survey-editor.test.tsx`: 5 fájl / 24 teszt. |
 | Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, izolált `/private/tmp/f9182-build.8oR4AU` Next.js 16.4.0 webpack production build, `git diff --check` mind ténylegesen lefutott a végső változtatások után. Teljes Vitest és DB/Auth/RLS nem futott. |
 | Adat / hozzáférés | SZERZŐDÉS VÁLTOZATLAN | Csak helyi authenticated DEMO survey V4 változott; az explicit tesztmérés 1234 mm-ként megmaradt. Hosted adatbázis, migration, Auth/RLS, schema, formula és revision contract nem módosult. |
-| Fizikai eszköz / korlátok | UNVERIFIED | iPhone/iPad Safari/WebKit, valódi touch pinch, LAN HTTP, screen reader és WebKit GPU repaint nem igazolt. A `window.ethereum` hiba eredete nem ismert. |
+| Fizikai eszköz / korlátok | iPhone PASS — USER REPORTED; LEZÁRVA | A felhasználó 2026-10-16-án jelezte a fizikai iPhone-próba sikerét. A tesztet lezártam; a konkrét iPhone/iOS/Safari buildet és a részletes próbajegyzőkönyvet nem láttam. iPad, touch pinch, LAN HTTP, screen reader és WebKit GPU repaint külön nem igazolt. A `window.ethereum` hiba eredete nem ismert. |
 
 ## F9.17 — globális Liquid Glass interakció és visszajelzés
 

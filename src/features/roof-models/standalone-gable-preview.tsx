@@ -13,6 +13,7 @@ import type { SavedGableCovering } from "./gable-trapezoidal-covering-data";
 import type { RoofPrefill, SurveyHandoffSource } from "@/domain/field-surveys/calculator-handoff";
 import { useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
+import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
 type Draft = Record<string, string> & { inputMode: "height" | "angle" };
 const emptyDraft: Draft = {
@@ -66,10 +67,8 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
     <>
       {showBackNavigation && <Link className="back-navigation glass-navigation" href={`/kalkulatorok?organization=${organizationId}`}><span aria-hidden="true">←</span><span>Vissza a kalkulátorokhoz</span></Link>}
       <section className="standalone-roof-page" aria-labelledby="standalone-gable-title">
-        <header className="section-heading">
-          <div><p className="section-eyebrow">Tetők és tetőfedés · projekt nélküli számítás</p><h1 id="standalone-gable-title">Nyeregtető geometria</h1><p>A meglévő `roof.gable` motor számítja az eredményeket. A fedési eredmény külön menthető; anyagkimutatás és statikai méretezés nem készül.</p></div>
-          {onChangeRoofType && <button className="secondary-button" type="button" onClick={onChangeRoofType}>← Tetőtípus kiválasztása</button>}
-        </header>
+        <GlassPageHeader title="Nyeregtető" context="Önálló tetőgeometria" actions={onChangeRoofType && <button className="secondary-button" type="button" onClick={onChangeRoofType}>← Tetőtípus kiválasztása</button>} />
+        <p className="roof-disclaimer">A meglévő roof.gable motor számítja az eredményeket. A fedési eredmény külön menthető; anyagkimutatás és statikai méretezés nem készül.</p>
         {handoffSource && <div className={`survey-handoff-banner ${handoffModified ? "is-modified" : ""}`} role="status"><strong>{handoffModified ? "A kalkuláció módosított adatokat tartalmaz" : "Adatok átvéve a felmérésből"}</strong><small>Felmérés: {handoffSource.surveyId} · V{handoffSource.version} · revízió: {handoffSource.revisionId}. A forrás változatlan marad.</small>{missingHandoffFields.length > 0 && <span>Ehhez a számításhoz még add meg: {missingHandoffFields.join(", ")}.</span>}</div>}
         <RoofWorkspace
           className="roof-workspace-standalone"

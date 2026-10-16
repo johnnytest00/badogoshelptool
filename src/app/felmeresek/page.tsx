@@ -6,6 +6,7 @@ import { BackNavigation } from "@/components/navigation/back-navigation";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getFieldSurveys } from "@/features/field-surveys/field-survey-data";
 import { fieldSurveyUnitLabels, fieldSurveyWorkTypeLabels } from "@/domain/field-surveys/contracts";
+import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
 export default async function FieldSurveysPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string }> }>) {
   const selected = await getProjectOrganization((await searchParams).organization);
@@ -16,7 +17,7 @@ export default async function FieldSurveysPage({ searchParams }: Readonly<{ sear
   const surveys = await getFieldSurveys(organizationId);
   return <main className="dashboard-shell"><div className="dashboard-container">
     <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
-    <section className="field-survey-list-heading"><div><p className="section-eyebrow">Helyszíni munka</p><h1>Felmérések</h1><p>Gyors, visszanyitható mérési jegyzetek.</p></div><Link className="primary-button" href={`/felmeresek/uj?organization=${organizationId}`}><Plus aria-hidden="true" className="size-4" /> Új felmérés</Link></section>
+    <GlassPageHeader title="Felmérések" actions={<Link className="primary-button" href={`/felmeresek/uj?organization=${organizationId}`}><Plus aria-hidden="true" className="size-4" /> Új felmérés</Link>} />
     {surveys.length ? <div className="field-survey-list">{surveys.map((survey) => <Link className="field-survey-list-card" key={survey.id} href={`/felmeresek/${survey.id}?organization=${organizationId}`}>
       <span className="field-survey-list-icon"><ClipboardCheck aria-hidden="true" className="size-5" /></span><span className="field-survey-list-copy"><strong>{fieldSurveyWorkTypeLabels[survey.workType]} felmérés{survey.projectId ? " · projekt" : " · önálló"}</strong><span>{survey.measurements.length} mérés{survey.notes ? " · megjegyzéssel" : ""} · V{survey.version}</span><small>{survey.measurements.slice(0, 2).map((measurement) => `${measurement.label}: ${measurement.value} ${fieldSurveyUnitLabels[measurement.unit]}`).join(" · ")}</small></span><time dateTime={survey.updatedAt}>{new Date(survey.updatedAt).toLocaleDateString("hu-HU")}</time>
     </Link>)}</div> : <section className="field-survey-empty"><ClipboardCheck aria-hidden="true" className="size-7" /><h2>Még nincs mentett felmérés</h2><p>Kezdj egy méréssel, és folytasd később ugyanitt.</p><Link className="primary-button" href={`/felmeresek/uj?organization=${organizationId}`}>Első felmérés indítása</Link></section>}

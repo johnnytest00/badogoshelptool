@@ -5,6 +5,7 @@ import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getExecutionOverviewForOrganization } from "@/features/execution/execution-data";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getProjectsForOrganization } from "@/features/projects/project-data";
+import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
 type ExecutionOverviewPlan = Awaited<ReturnType<typeof getExecutionOverviewForOrganization>>[number];
 type ProjectRecord = Awaited<ReturnType<typeof getProjectsForOrganization>>[number];
@@ -23,7 +24,7 @@ export default async function ExecutionIndexPage({ searchParams }: Readonly<{ se
   });
   const plansByProject = new Map<string, Array<{ plan: ExecutionOverviewPlan; project: ProjectRecord }>>();
   visiblePlans.forEach((row) => plansByProject.set(row.project.id, [...(plansByProject.get(row.project.id) ?? []), row]));
-  return <main className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/?organization=${organizationId}`}>← Műhely áttekintése</Link><header className="module-page-header"><p className="section-eyebrow">Kivitelezés</p><h1>Projektmunka áttekintése</h1><p>A rögzített feladatok, munkanaplók és fotók rövid áttekintése. Minden terv és módosítás a saját projektjében nyílik meg.</p></header>{plansByProject.size ? <div className="execution-project-overview">{[...plansByProject.entries()].map(([projectId, rows]) => {
+  return <main className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/?organization=${organizationId}`}>← Műhely áttekintése</Link><GlassPageHeader title="Kivitelezés" context="Tervek, feladatok és munkanaplók" />{plansByProject.size ? <div className="execution-project-overview">{[...plansByProject.entries()].map(([projectId, rows]) => {
     const project = rows[0].project;
     return <section className="execution-project-group" key={projectId} aria-labelledby={`execution-project-${projectId}`}>
       <header><div><p className="section-eyebrow">Projekt</p><h2 id={`execution-project-${projectId}`}>{project.name}</h2></div><Link href={`/projektek/${projectId}?organization=${organizationId}&execution=1#kivitelezes`}>Projekt kivitelezésének megnyitása <ArrowRight aria-hidden="true" className="size-4" /></Link></header>

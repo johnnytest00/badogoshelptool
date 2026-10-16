@@ -111,6 +111,30 @@ describe("field survey editor", () => {
     expect(html).toContain("Interaktív műszaki rajz");
   });
 
+  it("preserves the reported rise and pitch but explains their conflict instead of drawing", () => {
+    const conflictSurvey: FieldSurveyRecord = {
+      ...survey, workType: "roof", projectId: null,
+      sections: [{
+        id: "123e4567-e89b-42d3-a456-426614174020", name: "Nyeregtető", workType: "roof", roofType: "gable", notes: "", photoIds: [],
+        measurements: [
+          { id: "123e4567-e89b-42d3-a456-426614174021", label: "Épület hossza", value: 100, unit: "m", semanticType: "roof_building_length" },
+          { id: "123e4567-e89b-42d3-a456-426614174022", label: "Épület szélessége", value: 40, unit: "m", semanticType: "roof_building_width" },
+          { id: "123e4567-e89b-42d3-a456-426614174023", label: "Tetőemelkedés", value: 10, unit: "m", semanticType: "roof_rise" },
+          { id: "123e4567-e89b-42d3-a456-426614174024", label: "Tetőhajlásszög", value: 30, unit: "degree", semanticType: "roof_pitch" },
+          { id: "123e4567-e89b-42d3-a456-426614174025", label: "Eresztúlnyúlás", value: 0, unit: "mm", semanticType: "roof_eave_overhang" },
+          { id: "123e4567-e89b-42d3-a456-426614174026", label: "Első oromtúlnyúlás", value: 0, unit: "mm", semanticType: "roof_front_gable_overhang" },
+          { id: "123e4567-e89b-42d3-a456-426614174027", label: "Hátsó oromtúlnyúlás", value: 0, unit: "mm", semanticType: "roof_rear_gable_overhang" },
+        ],
+      }],
+    };
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={conflictSurvey} />);
+    expect(html).toContain("A nyeregtető rajzához vagy tetőemelkedést, vagy hajlásszöget adj meg");
+    expect(html).toContain('value="10"');
+    expect(html).toContain('value="30"');
+    expect(html.match(/aria-invalid="true"/g)).toHaveLength(2);
+    expect(html).not.toContain('class="technical-drawing is-compact"');
+  });
+
   it("renders a historical revision with its exact measurements and calculator handoff", () => {
     const revision: FieldSurveyRevisionRecord = {
       id: "revision-1", surveyId: survey.id, organizationId: survey.organizationId, projectId: survey.projectId,
@@ -118,7 +142,8 @@ describe("field survey editor", () => {
       notes: "DEMO V1", photosSnapshot: [], createdAt: survey.createdAt,
     };
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={survey} revisionVersions={[2, 1]} historicalRevision={revision} />);
-    expect(html).toContain("Korábbi felmérésváltozat");
+    expect(html).toContain("<h1>Korábbi felmérés</h1>");
+    expect(html.match(/<h1\b/g)).toHaveLength(1);
     expect(html).toContain("7,5");
     expect(html).toContain("DEMO V1");
     expect(html).toContain("version=1");

@@ -6,6 +6,7 @@ import { ArrowRight, Archive, CalendarDays, Filter, MapPin, Plus, RotateCcw, Sea
 import { projectStatusLabels, projectTypeLabels, type ProjectStatus, type ProjectType } from "@/domain/projects/contracts";
 import type { ProjectRecord } from "./project-data";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
+import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
 const dateFormatter = new Intl.DateTimeFormat("hu-HU", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
@@ -49,18 +50,13 @@ export function ProjectList({ organizationId, projects, filters }: Readonly<{ or
   const hasFilters = Boolean(filters.status || filters.projectType || filters.includeArchived || filters.sort === "oldest");
 
   return (
-    <section className="projects-workspace" aria-labelledby="projects-page-title">
-      <div className="projects-toolbar">
-        <div>
-          <p className="section-eyebrow">Műhelymunka</p>
-          <h1 id="projects-page-title">Projektek</h1>
-          <p>Az aktív munkáid és ügyfeleid egy helyen.</p>
-        </div>
+    <section className="projects-workspace">
+      <GlassPageHeader title="Projektek" actions={
         <div className="toolbar-actions">
           <Link className="secondary-button" href={`/ugyfelek?organization=${organizationId}`}><UserRound className="size-4" /> Ügyfelek</Link>
           <Link className="primary-button" href={`/projektek/uj?organization=${organizationId}`}><Plus className="size-4" /> Új projekt</Link>
         </div>
-      </div>
+      } />
 
       <form className="project-filter-form project-filter-desktop" method="get">
         <input type="hidden" name="organization" value={organizationId} />

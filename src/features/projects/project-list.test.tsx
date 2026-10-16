@@ -23,6 +23,12 @@ describe("projektlista és mobil szűrőállapot", () => {
 
   it("a külön mobil kereső az alkalmazott szűrőkkel és szervezeti kontextussal együtt küldi a lekérdezést", () => {
     const html = renderToStaticMarkup(createElement(ProjectList, { organizationId: "org-demo", projects: [project], filters: applied }));
+    expect(html.match(/<h1\b/g)).toHaveLength(1);
+    expect(html).toContain("<h1>Projektek</h1>");
+    expect(html).not.toContain("Műhelymunka");
+    expect(html).not.toContain("Az aktív munkáid és ügyfeleid egy helyen.");
+    expect(html).toContain("Új projekt");
+    expect(html).toContain("Ügyfelek");
     expect(html).toContain('class="project-filter-form project-filter-desktop"');
     expect(html).toContain('class="project-filter-mobile"');
     expect(html).toContain('aria-label="Szűrők"');

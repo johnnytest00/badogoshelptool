@@ -56,9 +56,11 @@ megjelentek; 768 px-en a `documentElement`, body és visual viewport egyaránt
 kilépés-űrlap megjelent; logoutot nem futtattam.
 
 Fókuszált Vitest (10 fájl / 39 teszt), typecheck, lint és production build
-PASS; ez nem teljes regresszió. Fizikai iPhone/iPad, LAN HTTP és Safari
-fallback, touch/pinch SVG artifact, soft keyboard és izolált külső wallet reprodukció nincs
-bizonyítva. A csatolmány csak feladatleírást tartalmazott screenshotok és
+PASS; ez nem teljes regresszió. A fizikai iPhone-próba sikeres volt a
+felhasználó 2026-10-16-i visszajelzése szerint; ezt a tesztelemet lezártnak
+rögzítem, a készülék- és Safari-build részletei nem állnak rendelkezésre. iPad,
+LAN HTTP és Safari fallback, touch/pinch SVG artifact, soft keyboard és izolált
+külső wallet reprodukció továbbra sincs bizonyítva. A csatolmány csak feladatleírást tartalmazott screenshotok és
 stack trace nélkül. Ethereum hibát nem reprodukáltam; a Brave Wallet jelenléte
 csak megfigyelés, külső eredet nem bizonyított. Hosted DB/Auth/RLS, migráció,
 formula és jogosultsági contract nem változott; helyi, új DEMO survey rekord
@@ -106,10 +108,53 @@ eszköz nem volt ellenőrizve.
 
 Javasolt commit: `fix(F9.18.1): harden measurement UX and headings`.
 
+## F9.18.3 — Globális oldalcímek és tetőelőnézet
+
+Állapot: **PARTIAL (LOCAL)**. A redundáns dashboard-bevezetők eltűntek; a
+hat funkciókártya és a két fül sorrendje megmaradt. Az új `GlassPageHeader`
+egységes, egyetlen H1-es fejléc a projektek, felmérések, kalkulátorok, anyagok,
+ajánlatok, kivitelezés, projektadatok és tetőszerkesztők fő nézetein. A projektek
+keresése, mobil szűrője, query-paraméterei, rendezése és műveletei változatlanok;
+a projektlista célzott tesztje ezeket és az új egycímsoros elrendezést fedi.
+
+A felmérési előnézet hibája a meglévő szerződés eldobott hibaválasza volt:
+`mapFieldSurveyToCalculator` egyszerre megadott tetőemelkedést és hajlásszöget
+elutasít, a régi nézet mégis csak általános „hiányzó méretek” szöveget mutatott.
+40 m fesztávnál 10 m emelkedés ≈26,565°, ezért a 30°-kal együtt nem adható
+egyetlen egyértelmű nyeregtető-geometria. Az új ellenőrzés megőrzi a nyers
+értékeket, mindkét mezőt jelöli, pontos üzenetet ad, és nem rajzol konfliktusra.
+Az érvényes emelkedés- és szögmód a meglévő `gableRoofInputSchema` és
+`calculateGableRoof` motoron fut; képlet és domain contract nem változott.
+
+A megosztott oldalfejléc mellé `GlassSectionHeader` cím-buborék került a
+felmért tetőforma, az anyagkatalógus és az ajánlatcsoportok fő szekcióihoz.
+Ezekből kikerültek a redundáns kategória-előcímkék; az ajánlatcsoport státusza
+nem ismétlődik a cím mellett, a piszkozatok státusza az egyes ajánlatsorokon
+megmaradt. A kivitelezési projektcsoportok ugyanezt a buborékstílust használják.
+
+Helyi authenticated DEMO böngészőben dashboard → projektek → új felmérés útvonal,
+konfliktus, hiányos mezők, 100/40/10 m és önálló 26,565° előnézet ellenőrizve.
+V1-es felmérés `279811c1-b527-46b7-a576-50402b145371` mentés, frissítés és
+újranyitás után a 6 mérés, SVG és 4472,136 m² eredmény visszajött. Ez felmérési
+revízió; érvénytelen tetőgeometriát nem mentett. Auth/action, szervezet- és
+revízióellenőrzés változatlan; hosted DB, migration, Auth/RLS és schema nem
+módosult. Nincs teljes viewport-mátrix, minden főoldalra kiterjedő vizuális QA,
+screen reader vagy teljes Vitest suite; a megadott böngészővezérlőben külön
+viewport-méret nem volt beállítható. A felhasználói előtte-képek és a helyi
+böngésző utána-capture megtekinthető volt, de azonos méretű fájlpár nem lett
+exportálva.
+
+Fókuszált Vitest: 10 fájl / 31 teszt PASS; `npm run typecheck`, `npm run lint`,
+Next.js 16.4.0 webpack production build izolált munkapéldányban és
+`git diff --check` PASS. Teljes Vitest/DB regresszió nem futott; ezért a státusz
+PARTIAL. Javasolt commit: `fix(F9.18.3): unify glass title hierarchy and survey preview validation`.
+
 ## F9.18.2 — iOS rajzstabilitás és interakció
 
 Állapot: **PARTIAL — a helyi implementáció és authenticated DEMO smoke kész;
-viewport-mátrix és fizikai iOS/WebKit elfogadás UNVERIFIED.** A műszaki rajz dimenzió-nyílhegyei SVG `marker` helyett explicit,
+teljes viewport-mátrix UNVERIFIED. A fizikai iPhone-próba a felhasználó
+2026-10-16-i visszajelzése alapján PASS és lezárt; a próbát önállóan nem
+figyeltem meg.** A műszaki rajz dimenzió-nyílhegyei SVG `marker` helyett explicit,
 brand színű nyílgeometriák; a rajzpanel hátteréből kikerült a kompozitálást
 érintő blur. A zoom véges tartományban marad, a pointer-koordináta
 `preserveAspectRatio` letterboxát beszámítja, a nullméretű viewportot elutasítja,
@@ -150,8 +195,8 @@ formula és revision contract nem változott.
 Fókuszált Vitest: 5 fájl / 24 teszt PASS; typecheck, lint, Next.js 16.4.0
 webpack production build PASS (izolált `/private/tmp/f9182-build.8oR4AU`
 munkapéldány) és `git diff --check` PASS a végső dokumentációval. Teljes
-Vitest, DB/Auth/RLS, screen reader, reduced-motion emuláció, fizikai iPhone/iPad
-Safari és pinch-teszt nem futott.
+Vitest, DB/Auth/RLS, screen reader, reduced-motion emuláció, fizikai iPad Safari
+és WebKit touch-pinch nem futott. Az iPhone próba user-reported PASS.
 
 Javasolt commit: `fix(F9.18.2): stabilize iOS drawings and measurement input`.
 

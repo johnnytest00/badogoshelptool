@@ -1,6 +1,7 @@
 "use client";
 
 import { calculateRoofGeometry, type RoofGeometryType } from "@/domain/calculations/roof-geometry";
+import { GlassSectionHeader } from "@/components/ui/glass-section-header";
 import { Check } from "lucide-react";
 
 export const roofTypeOptions: readonly { type: RoofGeometryType; name: string; description: string }[] = [
@@ -37,7 +38,7 @@ function RoofTypeIllustration({ type }: { type: RoofGeometryType }) {
 }
 
 export function RoofTypeSelector({ selected, onSelect, label = "Válaszd ki a tető típusát" }: Readonly<{ selected: RoofGeometryType | null; onSelect: (type: RoofGeometryType) => void; label?: string }>) {
-  return <section className="roof-type-selector" aria-label={label}><div className="roof-section-heading"><div><p className="section-eyebrow">Új tető</p><h2>{label}</h2></div></div><div className="roof-type-grid">
+  return <section className="roof-type-selector" aria-label={label}><GlassSectionHeader title={label} className="roof-type-selector-heading" /><div className="roof-type-grid">
     {roofTypeOptions.map((option) => {
       const isSelected = selected === option.type;
       return <button type="button" key={option.type} className={`roof-type-card ${isSelected ? "is-selected" : ""}`} aria-pressed={isSelected} onClick={() => onSelect(option.type)}>

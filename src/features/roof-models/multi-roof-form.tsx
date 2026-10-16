@@ -14,6 +14,7 @@ import { RoofWorkspace } from "./roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { generateSecureUuid } from "@/lib/secure-uuid";
+import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
 type MultiType = Exclude<RoofGeometryType, "gable">;
 type Field = { key: string; label: string; unit: string; help: string };
@@ -87,7 +88,7 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
     });
   };
   return <div className="roof-calculator">
-    <header className="roof-calculator-toolbar"><div><h1>{names[type]}</h1></div>{onChangeRoofType && <button className="secondary-button" type="button" onClick={onChangeRoofType}>← Tetőtípus kiválasztása</button>}</header>
+    <GlassPageHeader title={names[type]} context={model ? `Mentve · V${model.currentRevisionNumber}` : standalone ? `Mentve · V${standalone.revisionNumber}` : undefined} actions={onChangeRoofType && <button className="secondary-button" type="button" onClick={onChangeRoofType}>← Tetőtípus kiválasztása</button>} className="roof-calculator-toolbar" />
     <RoofWorkspace
       context={<div className="roof-workspace-context"><div className="roof-guidance-slot"><MeasurementGuidance compact guide={measurementGuideFor(type, focusedField ?? "")} /></div></div>}
       measurements={<section className="roof-surface roof-measurement-inputs"><p className="roof-technical-note">{geometryAssumption}</p><div className="roof-form-grid roof-form-grid-compact">{fields.map((field) => <label key={field.key} className="roof-field"><span>{field.label} <small>{field.unit}</small></span><input id={field.key} inputMode="decimal" value={values[field.key] ?? ""} onFocus={() => setFocusedField(field.key)} onBlur={() => setFocusedField(null)} onChange={(event) => update(field.key, event.target.value)} aria-invalid={Boolean(fieldError(field.key))} aria-label={`${field.label} (${field.unit})`} />{fieldError(field.key) && <b className="roof-field-error">{fieldError(field.key)}</b>}</label>)}</div>{validationMessage && <p className="missing-data" role="status">{validationMessage}</p>}</section>}
