@@ -3,7 +3,6 @@
 import type { SavedSurveyCalculation } from "@/domain/field-surveys/workspace";
 
 
-import { ArrowLeft } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput } from "@/domain/calculations/gable-roof";
 import { TechnicalDrawing } from "./technical-drawing";
@@ -36,7 +35,7 @@ function toInput(draft: Draft): GableRoofInput | null {
   return parsed.success ? parsed.data : null;
 }
 
-export function StandaloneGablePreview({ organizationId, saved = null, initialHandoff, handoffSource, missingHandoffFields = [], onSaved, onWorkspaceState, embedded = false, onChangeRoofType }: Readonly<{ organizationId: string; saved?: SavedGableCovering | null; initialHandoff?: RoofPrefill; handoffSource?: SurveyHandoffSource; missingHandoffFields?: readonly string[]; onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void; embedded?: boolean; onChangeRoofType?: () => void }>) {
+export function StandaloneGablePreview({ organizationId, saved = null, initialHandoff, handoffSource, missingHandoffFields = [], onSaved, onWorkspaceState, embedded = false, showBackNavigation = !embedded, onChangeRoofType }: Readonly<{ organizationId: string; saved?: SavedGableCovering | null; initialHandoff?: RoofPrefill; handoffSource?: SurveyHandoffSource; missingHandoffFields?: readonly string[]; onSaved?: (saved: SavedSurveyCalculation) => Promise<void>; onWorkspaceState?: (state: { dirty: boolean; pending: boolean }) => void; embedded?: boolean; showBackNavigation?: boolean; onChangeRoofType?: () => void }>) {
   const current = saved?.revisions.find((revision) => revision.revisionId === saved.currentRevisionId);
   const source = (current?.input as { source?: { geometryInput?: GableRoofInput } } | undefined)?.source?.geometryInput;
   const [draft, setDraft] = useState(() => source ? draftFromInput(source) : initialHandoff ? draftFromPrefill(initialHandoff) : emptyDraft);
@@ -65,7 +64,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
   ];
   return (
     <>
-      {!embedded && <Link className="back-navigation glass-navigation" href={`/kalkulatorok?organization=${organizationId}`}><ArrowLeft aria-hidden="true" className="size-4" /><span>Vissza a kalkulátorokhoz</span></Link>}
+      {showBackNavigation && <Link className="back-navigation glass-navigation" href={`/kalkulatorok?organization=${organizationId}`}><span aria-hidden="true">←</span><span>Vissza a kalkulátorokhoz</span></Link>}
       <section className="standalone-roof-page" aria-labelledby="standalone-gable-title">
         <header className="section-heading">
           <div><p className="section-eyebrow">Tetők és tetőfedés · projekt nélküli számítás</p><h1 id="standalone-gable-title">Nyeregtető geometria</h1><p>A meglévő `roof.gable` motor számítja az eredményeket. A fedési eredmény külön menthető; anyagkimutatás és statikai méretezés nem készül.</p></div>
@@ -74,7 +73,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
         {handoffSource && <div className={`survey-handoff-banner ${handoffModified ? "is-modified" : ""}`} role="status"><strong>{handoffModified ? "A kalkuláció módosított adatokat tartalmaz" : "Adatok átvéve a felmérésből"}</strong><small>Felmérés: {handoffSource.surveyId} · V{handoffSource.version} · revízió: {handoffSource.revisionId}. A forrás változatlan marad.</small>{missingHandoffFields.length > 0 && <span>Ehhez a számításhoz még add meg: {missingHandoffFields.join(", ")}.</span>}</div>}
         <RoofWorkspace
           className="roof-workspace-standalone"
-          context={<div className="roof-workspace-context"><div className="roof-workspace-context-heading"><p className="section-eyebrow">Nyeregtető · projekt nélküli számítás</p><span>Az aktív méret a rajzon is kiemelve jelenik meg.</span></div><div className="roof-guidance-slot"><MeasurementGuidance compact guide={measurementGuideFor("gable", focusedField ?? "")} /></div></div>}
+          context={<div className="roof-workspace-context"><div className="roof-guidance-slot"><MeasurementGuidance compact guide={measurementGuideFor("gable", focusedField ?? "")} /></div></div>}
           measurements={
             <>
               <form className="roof-form roof-measurement-inputs roof-form-grid-compact" onSubmit={(event) => event.preventDefault()}>

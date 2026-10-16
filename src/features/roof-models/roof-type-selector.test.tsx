@@ -14,6 +14,8 @@ describe("shared roof type selector", () => {
     const html = renderToStaticMarkup(createElement(RoofCreation, { organizationId: "123e4567-e89b-42d3-a456-426614174000" }));
     expect(html.match(/class="roof-type-illustration"/g)).toHaveLength(7);
     expect(html).toContain("Válaszd ki a tető típusát");
+    expect(html).toContain('href="/kalkulatorok?organization=123e4567-e89b-42d3-a456-426614174000"');
+    expect(html).toContain("Vissza a kalkulátorokhoz");
     for (const option of roofTypeOptions) expect(html).toContain(option.name);
     expect(html).not.toContain("Tetőmodell neve");
     expect(html).not.toContain("Tető külső hossza");

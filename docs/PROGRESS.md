@@ -66,6 +66,46 @@ maradt meg, hosted művelet, reset, commit, push vagy deploy nem történt.
 
 Javasolt commit: `fix(F9.18): harden iOS mobile workflows`.
 
+## F9.18.1 — Mérési UX és globális információhierarchia
+
+Állapot: **COMPLETE — helyi, hitelesített DEMO és emulált böngésző alapján**.
+Az iOS Safari és fizikai eszköz nem volt része az ellenőrzésnek.
+
+A felmérési mérés neve, egysége és számítási szerepe a mérés melletti,
+viewporthoz igazodó Liquid Glass popoverben szerkeszthető; a beállítás nem
+bontja meg a mérési rácsot. Escape, külső kattintás és bezárógomb zárja, a
+billentyűzetes bezárás visszaadja a fókuszt a triggernek. A törlés külön,
+veszélyes műveletként a meglévő megerősítést használja, kizárólag a piszkozatot
+módosítja. Helyi DEMO felmérés `8522219d-51fd-491a-9b21-ec2f65360073` V1
+változata mentés és újratöltés után is megőrizte a tesztmérés mezőit; a törlési
+megerősítés megszakítása után a mérés megmaradt. A korábbi mentett változatok
+immutábilisak, a mentési és verzióellenőrzési szerződés nem változott.
+
+A főoldalak H1 tipográfiája közös skálát használ. A felmérés és a tetőszerkesztők
+ismétlődő címkéi rövidültek; mind a hét tetőforma egy főcímet és a mezőhöz kötött
+mérési útmutatót kapott. A modellkorlátozások a beviteli mezők előtt láthatók.
+A megosztott `BackNavigation` / `GuardedLink` projektben a helyes projekthez és
+szervezeti kontextushoz, önálló tetőmunkánál a kalkulátorlistához, felmérési
+handoffnál a felméréshez vezet. A meglévő piszkozatvédelmi útvonal megmaradt.
+Geometriai képlet, domain, jogosultság, adatbázisséma és migráció nem változott.
+
+Helyi Brave-ben ellenőriztem a tetőformákat és az önálló, illetve projekthez
+kapcsolt visszalépést. 1440, 1024, 768, 390 és 320 CSS px nézetben nem volt
+vízszintes túlcsordulás. 320 px-en 130%-os szöveg- és kezelőfelület-méretezés
+mellett is használható maradt az oldal; az eredeti 100% / 115% értékeket
+visszaállítottam. Világos és sötét téma, Escape és fókusz-visszaállítás
+ellenőrizve. Vizuális capture készült a QA menetben, külön fájlként nem lett
+exportálva.
+
+Fókuszált Vitest: 4 fájl / 13 teszt PASS (`multi-roof-form`,
+`gable-roof-form`, `roof-type-selector`, `viewport-menu-placement`).
+`npm run typecheck`, `npm run lint`, `git diff --check` és Next.js 16.4.0
+production build PASS; a build elkülönített `/private/tmp/f9181-build-20261016-1748`
+munkapéldányban futott. Teljes Vitest-regresszió, hosted adatbázis és fizikai
+eszköz nem volt ellenőrizve.
+
+Javasolt commit: `fix(F9.18.1): harden measurement UX and headings`.
+
 ## F9.17 — Globális Liquid Glass interakció és visszajelzés
 
 Állapot: **PARTIAL — a közös helyi interakciós rendszer elkészült, az offline

@@ -20,6 +20,21 @@
 | Browser / platform | PARTIAL / EMULATED | Helyi authenticated Brave/Chromium workflow; 320/390 menü, 390/1024 settings, 768 gutter és offline save/retry. LAN HTTP és fizikai iOS/iPadOS/Safari nem futott; touch pinch és soft keyboard nincs ellenőrizve. |
 | `git diff --check` | PASS | Friss dokumentációval és forrásdiff-fel lefutott, üres kimenettel. |
 
+## F9.18.1 — Mérési UX és globális információhierarchia
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Mérési beállítások és rács | BROWSER VERIFIED (LOCAL DEMO, EMULATED) | A mérés melletti popover megnyílt anélkül, hogy a mérési sorokat átrendezte volna; a beviteli mezők és rajz kapcsolata megmaradt. A név, egység és számítási szerep módosítása mentés és újratöltés után visszajött. |
+| Törlés és revízió | PASS, BROWSER + CONTRACT REVIEW | A külön törlésgomb meglévő megerősítést nyitott; megszakítás után a mérés megmaradt. Csak a piszkozatot érintheti, a mentett régi revíziók és optimistic version contract változatlan. Helyi Auth DEMO felmérés: `8522219d-51fd-491a-9b21-ec2f65360073`, szervezet: `00000000-0000-4000-8000-000000000010`; V1 tesztmérés mezői mentés/újratöltés után ellenőrizve. |
+| Popover billentyűzet és elhelyezés | PASS, BROWSER + SHARED PLACEMENT | Escape és külső kattintás bezárja; bezárógomb elérhető, Escape után a fókusz a triggerhez tér vissza. A viewport/safe-area pozíció a megosztott placement helperrel számol. Fizikai iOS touch és screen reader nem ellenőrzött. |
+| Tetőszerkesztők és útmutatás | BROWSER VERIFIED (LOCAL DEMO) | Mind a hét tetőforma egy H1-et, mezőhöz tartozó útmutatást és látható geometriai feltételezést kapott. Projekt linked `Vissza a projekthez` a megfelelő projektre, önálló T alakú tető `Vissza a kalkulátorokhoz` a szervezeti query-t megtartva navigált. Dirty guard tesztelve korábbi DEMO workflow-ban; itt nem mentettem tetőmodellt. |
+| Főoldali címsorhierarchia | PASS, CODE + BROWSER SPOT CHECK | Közös H1 méretskála a dashboard, projekt-, modul-, ajánlat-, anyag-, felmérés- és tetőszerkesztő címsoraira. Dashboard, felmérés, projekt és kalkulátor képernyőn vizuálisan ellenőrizve; a nem módosított modulok teljes útvonalas vizuális auditja nem történt meg. |
+| Responsive / téma / méretezés | PASS, EMULATED | 1440/1024/768/390/320 CSS px-en a dokumentum szélessége a viewporthoz illeszkedett. 320 px-en szöveg és UI 130%-on megtekintve; a visszaállított érték 100% / 115%. Világos/sötét téma megtekintve, végül sötét és a korábbi skálák visszaállítva. |
+| Vitest | PASS, FOCUSED | `npx vitest run src/features/roof-models/multi-roof-form.test.tsx src/features/roof-models/gable-roof-form.test.tsx src/features/roof-models/roof-type-selector.test.tsx src/lib/viewport-menu-placement.test.ts`: 4 fájl / 13 teszt. Teljes Vitest-suite nem futott. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `git diff --check`; `npm run build` Next.js 16.4.0 webpack elkülönített `/private/tmp/f9181-build-20261016-1748` munkapéldányon. |
+| Adat, szervezet, geometria | VÁLTOZATLAN SZERZŐDÉS | Helyi authenticated DEMO és a meglévő survey mentési/verziókezelési útvonal. Nincs migration, hosted művelet, formula/domain/Auth/RLS változás. A tesztfelmérés megőrzött DEMO adat; tetőmodell nem mentődött. |
+| Korlátok | PARTIAL | Desktop Brave/Chromium emuláció; fizikai iOS/Safari, külön screen reader és teljes Vitest / minden főmodul vizuális regresszió nem futott. A QA capture-ek külön fájlként nem lettek exportálva. |
+
 ## F9.17 — globális Liquid Glass interakció és visszajelzés
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

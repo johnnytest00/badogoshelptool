@@ -30,6 +30,9 @@ describe("compact multi-roof measurement layout", () => {
     expect(inputPosition).toBeLessThan(drawingPosition);
     expect(drawingPosition).toBeLessThan(resultsPosition);
     expect(html).toContain(`aria-label="${input.type === "pyramid" ? "Tető külső oldalhossza" : "Tető külső hossza"} (mm)"`);
-    if (input.type === "lShape" || input.type === "tShape") expect(html.indexOf("Geometriai feltételezés")).toBeGreaterThan(resultsPosition);
+    expect(html.match(/<h1\b/g)).toHaveLength(1);
+    expect(html.indexOf("roof-technical-note")).toBeLessThan(inputPosition);
+    if (input.type === "lShape" || input.type === "tShape") expect(html.indexOf("A főtető X irányú")).toBeLessThan(inputPosition);
+    if (input.type === "pyramid") expect(html.indexOf("négyzetes ereszkontúrt")).toBeLessThan(inputPosition);
   });
 });

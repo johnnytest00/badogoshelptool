@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Save } from "lucide-react";
+import { Check, Save } from "lucide-react";
 import { executeCalculator } from "@/domain/calculations/engine";
 import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput, type GableRoofOutput } from "@/domain/calculations/gable-roof";
 import { metalSheetLayoutCalculator } from "@/domain/calculations/metal-sheet-layout";
@@ -160,12 +160,9 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
 
   return (
     <>
-      <Link className="back-navigation glass-navigation" href={`/projektek/${projectId}?organization=${organizationId}`}>
-        <ArrowLeft aria-hidden="true" className="size-4" /><span>Vissza a projekthez</span>
-      </Link>
       <form ref={formRef} className="roof-calculator" onSubmit={submit}>
         <header className="roof-calculator-toolbar glass-toolbar">
-          <div><p className="section-eyebrow">{model ? `Mentett nyeregtető · revízió ${model.currentRevisionNumber}` : "Új tetőmodell"}</p><h1>{model ? "Nyeregtető szerkesztése" : "Nyeregtető kalkulátor"}</h1></div>
+          <div><h1>Nyeregtető</h1>{model && <span className="status-pill">Mentve · V{model.currentRevisionNumber}</span>}</div>
         </header>
         <details className="roof-measurement-details">
           <summary>Mérési alapelv</summary>
@@ -173,7 +170,7 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
         </details>
         <RoofWorkspace
           className="roof-workspace-project"
-          context={<div className="roof-workspace-context"><div className="roof-workspace-context-heading"><p className="section-eyebrow">Tetőmodell · Nyeregtető</p><span>Válassz egy méretet a rajz kapcsolódó méretvonalának kiemeléséhez.</span></div><div className="roof-guidance-slot"><MeasurementGuidance compact guide={measurementGuideFor("gable", focusedField ?? "")} /></div></div>}
+          context={<div className="roof-workspace-context"><div className="roof-guidance-slot"><MeasurementGuidance compact guide={measurementGuideFor("gable", focusedField ?? "")} /></div></div>}
           measurements={
             <section className="roof-surface roof-measurement-inputs">
               <div className="roof-form-grid roof-form-grid-compact">

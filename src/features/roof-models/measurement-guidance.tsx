@@ -2,6 +2,7 @@
 
 import type { FieldSurveySemanticType, FieldSurveyUnit } from "@/domain/field-surveys/contracts";
 import type { RoofGeometryType } from "@/domain/calculations/roof-geometry";
+import { AnchoredPopover } from "@/components/ui/anchored-popover";
 
 export type MeasurementGuide = Readonly<{
   key: string;
@@ -52,13 +53,15 @@ export function measurementGuideForSurvey(type: RoofGeometryType, semanticType: 
 
 export function MeasurementGuidance({ guide: activeGuide, compact = false }: Readonly<{ guide: MeasurementGuide | null; compact?: boolean }>) {
   if (!activeGuide) return compact ? null : <p className="measurement-guidance measurement-guidance-empty" role="status">Fókuszálj egy méretmezőre: a rajz megmutatja, hol mérd, és a szöveg jelzi, milyen méretről van szó.</p>;
+  const detail = <><p>{activeGuide.meaning}</p><p><strong>Mérési alapelv</strong><br />{activeGuide.convention}</p>{activeGuide.secondaryView && <p><strong>Rajzi támpont</strong><br />{activeGuide.secondaryView}.</p>}</>;
   if (compact) return <aside className="measurement-guidance is-compact" aria-live="polite" aria-atomic="true" data-active-measurement={activeGuide.key}>
     <div><strong>{activeGuide.title} · {activeGuide.unit}</strong><p title={activeGuide.meaning}>{activeGuide.meaning}</p></div>
-    <details className="measurement-guidance-detail"><summary aria-label={`Részletes mérési útmutató: ${activeGuide.title}`}>?</summary><div><p>{activeGuide.meaning}</p><small>{activeGuide.convention}{activeGuide.secondaryView ? ` ${activeGuide.secondaryView}.` : ""}</small></div></details>
+    <AnchoredPopover className="measurement-guidance-detail" label={`Részletes mérési útmutató: ${activeGuide.title}`} heading={`${activeGuide.title} · mérési útmutató`}>{detail}</AnchoredPopover>
   </aside>;
-  return <aside className={`measurement-guidance${compact ? " is-compact" : ""}`} aria-live="polite" aria-atomic="true" data-active-measurement={activeGuide.key}>
+  return <aside className="measurement-guidance" aria-live="polite" aria-atomic="true" data-active-measurement={activeGuide.key}>
     <div><p className="section-eyebrow">Aktív mérési útmutató</p><strong>{activeGuide.title} · {activeGuide.unit}</strong></div>
     <p>{activeGuide.meaning}</p>
     <small>{activeGuide.convention}{activeGuide.secondaryView ? ` ${activeGuide.secondaryView}.` : ""}</small>
+    <AnchoredPopover className="measurement-guidance-detail" label={`Részletes mérési útmutató: ${activeGuide.title}`} heading={`${activeGuide.title} · mérési útmutató`}>{detail}</AnchoredPopover>
   </aside>;
 }

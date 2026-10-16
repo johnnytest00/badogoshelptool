@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Plus, Settings2, Trash2 } from "lucide-react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
+import { AnchoredPopover } from "@/components/ui/anchored-popover";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
 import { fieldSurveySemanticTypeLabels, fieldSurveyTemplates, fieldSurveyUnitLabels, fieldSurveyWorkTypeLabels, type FieldSurveyMeasurement, type FieldSurveySemanticType, type FieldSurveyUnit, type FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
 import { surveySections, surveySectionsSchema, type SurveySection, type SurveyCalculationLink, type SurveyFollowup } from "@/domain/field-surveys/workspace";
@@ -141,6 +142,19 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     });
     if (accepted) notify({ kind: "info", message: "A munkaszakasz az aktuális piszkozatból eltávolítva." });
   }
+  async function removeMeasurement(id: string) {
+    const measurement = active.measurements.find((item) => item.id === id);
+    if (!measurement) return;
+    const accepted = await requestConfirmation({
+      title: "Mérés törlése",
+      message: `A(z) „${measurement.label}” mérés kikerül az aktuális felmérés piszkozatából. A már mentett korábbi változatok változatlanok maradnak.`,
+      cancelLabel: "Mégse",
+      actions: [{ label: "Mérés törlése", tone: "danger", run: () => {
+        patchSection({ measurements: active.measurements.filter((item) => item.id !== id) });
+      } }],
+    });
+    if (accepted) notify({ kind: "info", message: "A mérés az aktuális piszkozatból eltávolítva." });
+  }
   function persistDraftSnapshot(nextSections: SectionDraft[], nextProjectId = projectId, nextVersion = version) {
     if (!recoveryKey || !recoveryReady || historicalRevision) return;
     const nextFingerprint = JSON.stringify({ sections: nextSections, projectId: nextProjectId });
@@ -260,7 +274,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   const revisionSelector = surveyId && revisionVersions.length > 1 && <label className="field-survey-field"><span>Felmérés változata</span><select value={selectedVersion} disabled={blocked} onChange={(event) => navigate(`/felmeresek/${surveyId}?organization=${organizationId}${Number(event.target.value) === version ? "" : `&version=${event.target.value}`}`)}>{[...new Set([version, ...revisionVersions])].map((item) => <option key={item} value={item}>{item === version ? "Aktuális" : "Korábbi"} · V{item}</option>)}</select></label>;
   if (historicalRevision && surveyId) return <section className="field-survey-card"><h1>Korábbi felmérésváltozat · V{historicalRevision.version}</h1>{revisionSelector}<WorkspaceSummary organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} sections={surveySections(historicalRevision)} calculations={relationships.calculations} initialFollowups={relationships.followups.filter((row) => row.surveyRevisionId === historicalRevision.id)} projects={projects} originalProjectId={historicalRevision.projectId} readOnly /><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} historical onVersionChange={() => undefined} onEnsureSaved={async () => null} onUploadComplete={() => undefined} /><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek/${surveyId}?organization=${organizationId}`)}>Aktuális felmérés folytatása</button>{surveySections(historicalRevision).filter((section) => section.workType !== "other").map((section) => <Link key={section.id} className="secondary-button" href={`/felmeresek/${surveyId}/kalkulator/${section.workType}?organization=${organizationId}&version=${historicalRevision.version}&section=${section.id}`}>{section.name} · V{historicalRevision.version} adatai a kalkulátorban</Link>)}</section>;
   return <section className={`field-survey-card${active.workType === "roof" && active.roofType ? " field-survey-card-roof" : ""}`}>
-    <div className="field-survey-heading"><div><p className="section-eyebrow">Helyszíni munka · {surveyId ? `V${version}` : "új felmérés"}</p><h1>{surveyId ? "Felmérés szerkesztése" : "Új felmérés"}</h1><p>Mérj, fotózz, számolj. Ügyfél és projekt nélkül is bármikor menthetsz.</p></div><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek?organization=${organizationId}`)}>Vissza a felmérésekhez</button></div>
+    <div className="field-survey-heading"><div><p className="section-eyebrow">Helyszíni felmérés{surveyId ? ` · V${version}` : ""}</p><h1>{surveyId ? "Felmérés szerkesztése" : "Új felmérés"}</h1><p>Az ügyfél- és projektkapcsolat opcionális.</p></div><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek?organization=${organizationId}`)}>Vissza a felmérésekhez</button></div>
     {revisionSelector}
     {recovery && <aside className="survey-handoff-banner"><p>Korábbi nem mentett szerkesztés helyreállítható · alap V{recovery.version}.{recovery.version !== version ? " A mentett felmérés közben változott; a visszaállított piszkozat mentése verzióellenőrzést kap." : ""}</p><button type="button" className="secondary-button" onClick={() => { createIdRef.current = recovery.requestSurveyId; setSections(recovery.sections); setActiveId(recovery.activeSectionId); setProjectId(recovery.projectId); setVersion(recovery.version); setRecovery(null); }}>Piszkozat visszaállítása</button><button type="button" className="secondary-button" onClick={() => { if (recoveryKey) { try { removeSurveyDraftRecovery(sessionStorage, recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } } setRecovery(null); }}>Korábbi piszkozat elvetése</button></aside>}
     {dirty && !recovery && !draftStorageAvailable && <p className="form-message is-error" role="alert">A böngésző helyi tárhelye nem elérhető. A mentetlen módosítás frissítéskor elveszhet; mentsd el a felmérést.</p>}
@@ -291,7 +305,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
               <>
                 <div className="roof-survey-measurement-strip">{active.measurements.map((measurement, index) => <div className="field-survey-measurement" key={measurement.id}>
                   <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input id={`survey-measurement-${measurement.id}`} type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onFocus={() => setFocusedRoofMeasurement(measurement.semanticType)} onBlur={() => setFocusedRoofMeasurement(null)} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
-                  <MeasurementTools measurement={measurement} index={index} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => patchSection({ measurements: active.measurements.filter((item) => item.id !== measurement.id) })} />
+                  <MeasurementTools measurement={measurement} index={index} disabled={blocked || Boolean(calculator) || Boolean(recovery)} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => void removeMeasurement(measurement.id)} />
                 </div>)}</div>
               </>
             }
@@ -306,7 +320,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
           /> : <>
             {active.measurements.map((measurement, index) => <div className="field-survey-measurement" key={measurement.id}>
               <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
-              <MeasurementTools measurement={measurement} index={index} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => patchSection({ measurements: active.measurements.filter((item) => item.id !== measurement.id) })} />
+              <MeasurementTools measurement={measurement} index={index} disabled={blocked || Boolean(calculator) || Boolean(recovery)} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => void removeMeasurement(measurement.id)} />
             </div>)}
             <button type="button" className="field-survey-add" onClick={() => addMeasurement()}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><GlassDisclosure className="field-survey-template-details" summary="Másik sablonmérés hozzáadása">{fieldSurveyTemplates[active.workType].map((template) => <button type="button" key={template.label} onClick={() => addMeasurement(template)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</GlassDisclosure>
           </>}
@@ -357,7 +371,7 @@ function SurveyRoofPreview({ roofType, measurements, activeDimension, activeDime
   return <RoofWorkspace
     className="roof-workspace-survey"
     label="Felmérés tetőmérési munkaterülete"
-    context={<div className="roof-workspace-context"><div className="roof-workspace-context-heading"><p className="section-eyebrow">Felmérés · {roofTypeOptions.find((option) => option.type === roofType)?.name ?? "Tető"}</p><span>Az aktív mező méretvonala a rajzon kiemelve jelenik meg.</span></div><div className="roof-guidance-slot"><MeasurementGuidance compact guide={activeGuide} /></div></div>}
+    context={<div className="roof-workspace-context"><div className="roof-guidance-slot"><MeasurementGuidance compact guide={activeGuide} /></div></div>}
     measurements={measurementInputs}
     drawing={areaM2 !== null && (gableOutput || multiGeometry) ? <TechnicalDrawing output={gableOutput ?? undefined} geometry={multiGeometry ?? undefined} compact activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} isSaved={false} /> : null}
     results={areaM2 === null
@@ -367,13 +381,15 @@ function SurveyRoofPreview({ roofType, measurements, activeDimension, activeDime
   />;
 }
 
-function MeasurementTools({ measurement, index, onPatch, onRemove }: Readonly<{ measurement: MeasurementDraft; index: number; onPatch: (patch: Partial<MeasurementDraft>) => void; onRemove: () => void }>) {
-  return <GlassDisclosure className="field-survey-measurement-settings" summary={<><Settings2 aria-hidden="true" className="size-3.5" /><span>Beállítások és törlés</span></>}>
-    <div className="field-survey-measurement-tools">
-      <label className="field-survey-field"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} onChange={(event) => onPatch({ label: event.target.value })} /></label>
-      <label className="field-survey-field"><span>Egység</span><select aria-label={`Mérés ${index + 1} egysége`} value={measurement.unit} onChange={(event) => onPatch({ unit: event.target.value as FieldSurveyUnit })}>{Object.entries(fieldSurveyUnitLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-      <label className="field-survey-field"><span>Számítási szerep</span><select aria-label={`Mérés ${index + 1} számítási szerepe`} value={measurement.semanticType} onChange={(event) => onPatch({ semanticType: event.target.value as FieldSurveySemanticType })}>{Object.entries(fieldSurveySemanticTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-      <button type="button" className="field-survey-remove" aria-label={`${measurement.label} törlése`} onClick={onRemove}><Trash2 aria-hidden="true" className="size-4" /><span>Mérés törlése</span></button>
-    </div>
-  </GlassDisclosure>;
+function MeasurementTools({ measurement, index, disabled, onPatch, onRemove }: Readonly<{ measurement: MeasurementDraft; index: number; disabled: boolean; onPatch: (patch: Partial<MeasurementDraft>) => void; onRemove: () => void }>) {
+  return <div className="field-survey-measurement-settings">
+    <AnchoredPopover label={`Beállítások: ${measurement.label}`} heading={`${measurement.label} · beállítások`} icon={Settings2} disabled={disabled} focusFirst>
+      <div className="field-survey-measurement-tools">
+        <label className="field-survey-field"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} disabled={disabled} onChange={(event) => onPatch({ label: event.target.value })} /></label>
+        <label className="field-survey-field"><span>Egység</span><select aria-label={`Mérés ${index + 1} egysége`} value={measurement.unit} disabled={disabled} onChange={(event) => onPatch({ unit: event.target.value as FieldSurveyUnit })}>{Object.entries(fieldSurveyUnitLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <label className="field-survey-field"><span>Számítási szerep</span><select aria-label={`Mérés ${index + 1} számítási szerepe`} value={measurement.semanticType} disabled={disabled} onChange={(event) => onPatch({ semanticType: event.target.value as FieldSurveySemanticType })}>{Object.entries(fieldSurveySemanticTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+      </div>
+    </AnchoredPopover>
+    <button type="button" className="field-survey-remove" aria-label={`${measurement.label} törlése`} title="Mérés törlése" disabled={disabled} onClick={onRemove}><Trash2 aria-hidden="true" className="size-4" /></button>
+  </div>;
 }

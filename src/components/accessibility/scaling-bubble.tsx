@@ -24,7 +24,7 @@ export function ScalingBubble() {
         const launcher = bubbleRef.current?.querySelector(".scaling-launcher");
         if (!launcher) return;
         const launcherRect = launcher.getBoundingClientRect();
-        const protectedElements = document.querySelectorAll(".drawing-toolbar, input:not([type=range]):not([type=hidden]), textarea, select, button.primary-button, button.secondary-button, a.primary-button, a.secondary-button, [role=dialog], nav");
+        const protectedElements = document.querySelectorAll(".drawing-toolbar, input:not([type=range]):not([type=hidden]), textarea, select, .field-survey-measurement button, .field-survey-add, button.primary-button, button.secondary-button, a.primary-button, a.secondary-button, [role=dialog], nav");
         const covered = Array.from(protectedElements).some((element) => {
           if (bubbleRef.current?.contains(element)) return false;
           const rect = element.getBoundingClientRect();

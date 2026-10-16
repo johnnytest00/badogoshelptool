@@ -38,7 +38,7 @@ export default async function FieldSurveyCalculatorHandoffPage({ params, searchP
   const backHref = `/felmeresek/${surveyId}?organization=${encodeURIComponent(organizationId)}`;
   const source = { surveyId, version: revision.version, revisionId: revision.id };
 
-  if (handoff.calculator === "roof") return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={backHref} label="Vissza a felméréshez" /><FieldSurveyHandoffNotice missing={handoff.missing} /><StandaloneGablePreview organizationId={organizationId} initialHandoff={handoff.input} handoffSource={source} missingHandoffFields={handoff.missing} /></div></main>;
+  if (handoff.calculator === "roof") return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={backHref} label="Vissza a felméréshez" /><FieldSurveyHandoffNotice missing={handoff.missing} /><StandaloneGablePreview organizationId={organizationId} initialHandoff={handoff.input} handoffSource={source} missingHandoffFields={handoff.missing} showBackNavigation={false} /></div></main>;
 
   if (handoff.calculator === "gutter") {
     const products = await getMaterialProductsForOrganization(organizationId, { includeArchived: false });

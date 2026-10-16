@@ -10,6 +10,7 @@ import { getSavedSheetLayout, getSheetLayoutMaterials } from "@/features/roof-mo
 import { listGableTrapezoidalCoverings } from "@/features/roof-models/gable-trapezoidal-covering-data";
 import { listGableMetalTileCoverings } from "@/features/roof-models/gable-metal-tile-covering-data";
 import { getGableCoveringTakeoffOptions } from "@/features/material-takeoffs/takeoff-data";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 export default async function RoofModelPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string; roofModelId: string }>; searchParams: Promise<{ organization?: string }> }>) {
   const { projectId, roofModelId } = await params;
@@ -22,8 +23,8 @@ export default async function RoofModelPage({ params, searchParams }: Readonly<{
   if (!project || !model) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A tetőmodell nem található.</h1><Link className="login-secondary-link" href={`/projektek/${projectId}?organization=${selected.organization.id}`}>Vissza a projekthez</Link></section></main>;
   if (model.roofType !== "gable") {
     if (model.roofType === "other") return <main className="auth-state-shell"><section className="auth-state-card"><h1>Ismeretlen tetőmodell-típus.</h1></section></main>;
-    return <main className="dashboard-shell"><div className="dashboard-container"><MultiRoofCalculatorForm type={model.roofType} organizationId={selected.organization.id} projectId={projectId} model={model} /></div></main>;
+    return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${selected.organization.id}`} label="Vissza a projekthez" /><MultiRoofCalculatorForm type={model.roofType} organizationId={selected.organization.id} projectId={projectId} model={model} /></div></main>;
   }
   const [sheetLayoutMaterials, savedSheetLayout, coveringCalculations, takeoffOptions, metalTileCalculations] = await Promise.all([getSheetLayoutMaterials(selected.organization.id), getSavedSheetLayout(selected.organization.id, projectId, roofModelId, model.currentRevisionId), listGableTrapezoidalCoverings(selected.organization.id, projectId), getGableCoveringTakeoffOptions(selected.organization.id), listGableMetalTileCoverings(selected.organization.id, projectId)]);
-  return <main className="dashboard-shell"><div className="dashboard-container"><GableRoofCalculatorForm organizationId={selected.organization.id} projectId={projectId} projectName={project.name} model={model} sheetLayoutMaterials={sheetLayoutMaterials} savedSheetLayout={savedSheetLayout} savedCoverings={coveringCalculations.filter((item) => item.roofModelId === roofModelId)} coveringTakeoffOptions={takeoffOptions} savedMetalTileCoverings={metalTileCalculations.filter((item) => item.roofModelId === roofModelId)} /></div></main>;
+  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${selected.organization.id}`} label="Vissza a projekthez" /><GableRoofCalculatorForm organizationId={selected.organization.id} projectId={projectId} projectName={project.name} model={model} sheetLayoutMaterials={sheetLayoutMaterials} savedSheetLayout={savedSheetLayout} savedCoverings={coveringCalculations.filter((item) => item.roofModelId === roofModelId)} coveringTakeoffOptions={takeoffOptions} savedMetalTileCoverings={metalTileCalculations.filter((item) => item.roofModelId === roofModelId)} /></div></main>;
 }
