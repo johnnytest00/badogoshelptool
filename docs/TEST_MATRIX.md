@@ -1656,3 +1656,16 @@ dinamikus kategóriakezelés, közvetlen survey-forrásos quote, valamint több
 A–G útvonal és a teljes viewport/téma/méretezési/fizikai iOS ellenőrzés.
 
 Javasolt commit: feat(F9.19): add standalone workflows and quote provenance.
+
+### F9.19 UI follow-up — Liquid Glass és régi route-ok
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Liquid Glass desktop | PASS, LOCAL BROWSER | Hitelesített DEMO dashboard betöltött; az öt fő workflow-kártya látható az üvegfelülettel. Egyetlen sötét desktop állapot; nincs teljes oldal-/komponensmátrix. |
+| Régi Projektek route | PASS, LOCAL BROWSER | `/projektek?organization=00000000-0000-4000-8000-000000000010` → `/?organization=00000000-0000-4000-8000-000000000010`; dashboard betöltött. Ügyfél és létrehozó redirect útvonalak buildelték, külön böngészős navigáció nem futott. |
+| Adat és jogosultság | NEM VÁLTOZOTT | Csak UI/CSS/route-váltás. DB, szervezeti RLS/Auth, rekordok és revíziók nem módosultak; nincs adatbázis-ellenőrzés ebben a follow-upban. |
+| Fókuszált Vitest | PASS | `npx vitest run src/features/dashboard/dashboard.test.ts src/features/dashboard/dashboard-controls.test.tsx src/features/projects/project-list.test.tsx src/features/projects/project-workflow-overview.test.ts`: 4 fájl / 14 teszt. |
+| Statikus ellenőrzések | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. Teljes Vitest suite nem futott. |
+| Nem ellenőrzött | PARTIAL | Mobil, világos téma, text/UI scaling, forced colors/reduced transparency, screen reader és fizikai iOS nem futott. A meglévő projektfüggő mély útvonalak szándékosan kompatibilisek maradtak. |
+
+Javasolt commit: `fix(F9.19): apply app-wide liquid glass and retire legacy lists`.

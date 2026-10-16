@@ -26,7 +26,7 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
   if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt a projekthez.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const project = await getProjectForOrganization(selected.organization.id, projectId);
-  if (!project) return <main className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Projekt</p><h1>A projekt nem található.</h1><p>Azonosító alapján nincs elérhető projekt ebben a műhelyben.</p><Link className="login-secondary-link" href={`/projektek?organization=${selected.organization.id}`}>Vissza a projektekhez</Link></section></main>;
+  if (!project) return <main className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Projekt</p><h1>A projekt nem található.</h1><p>Azonosító alapján nincs elérhető projekt ebben a műhelyben.</p><Link className="login-secondary-link" href={`/?organization=${selected.organization.id}`}>Vissza a műhelyhez</Link></section></main>;
   const clients = await getClientsForOrganization(selected.organization.id);
   const roofModels = await getRoofModelsForProject(selected.organization.id, projectId);
   const execution = await getExecutionPlanningWorkspace(selected.organization.id, projectId);
@@ -34,7 +34,7 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
   const workflowRows = projectWorkflowRows({ projectId, organizationId: selected.organization.id, roofCount: roofModels.length, ...workflow, planCount: execution.plans.length, journalCount: execution.plans.reduce((n: number, plan: { id: string; photos: unknown[] }) => n + (execution.timelineByPlan.get(plan.id)?.filter((item) => item.type === "journal").length ?? 0), 0), photoCount: execution.plans.reduce((n: number, plan: { id: string; photos: unknown[] }) => n + plan.photos.length, 0) });
   const organizationId = selected.organization.id;
   return <main className="dashboard-shell"><div className="dashboard-container project-workspace">
-    <BackNavigation href={`/projektek?organization=${organizationId}`} label="Vissza a projektekhez" />
+    <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
     <GlassPageHeader className="project-detail-header" title={project.name} context={
         <div className="project-identity-meta">
           <span className="project-type-label">{projectTypeLabels[project.projectType]}</span>

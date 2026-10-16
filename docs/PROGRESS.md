@@ -2599,3 +2599,15 @@ bizonyít; fizikai mobil és viewport/téma mátrix nincs ellenőrizve.
 Részletes séma- és migrációs döntések: [F9.19_WORKFLOW_MIGRATION.md](F9.19_WORKFLOW_MIGRATION.md).
 
 Javasolt commit: feat(F9.19): add standalone workflows and quote provenance.
+
+## F9.19 folytatás — Liquid Glass és régi gyűjtőoldalak
+
+Státusz: **IMPLEMENTED / PARTIAL — UI**.
+
+- A közös felületek áttetszőbbek, 22 px háttérelmosást, telítettebb üveg-hatást, világos peremet és finom környezeti színeket kaptak. A címsorok, kártyák, panelek, másodlagos gombok és űrlapvezérlők közös üveg-tokeneket használnak; a kiemelt elsődleges műveletek narancssárgák maradnak. A műszaki rajzot maga az elmosás nem érinti.
+- A Projektek és Ügyfelek lista-, létrehozó- és ügyfélrészlet-route-jai a műhelyre irányítanak. Az egyedi `/projektek/[projectId]` és alútvonalai kompatibilitásból megmaradnak, mert régi projektadatokhoz, ajánlatokhoz és kalkulációkhoz még szükségesek. A kalkulátorokból a Kivitelezési tervek nyílik.
+- Projekt- és ügyfélrekord, migráció, jogosultság és üzleti adat nem változott; a módosítás csak UI, stílus és útválasztás.
+
+**Bizonyíték és korlátok:** fókuszált Vitest 4 fájl / 14 teszt PASS; `npm run typecheck`, `npm run lint`, Next.js 16.4.0 webpack `npm run build` és `git diff --check` PASS. Helyi, hitelesített desktop DEMO dashboardon az öt fő munkafolyamat és az üvegkártyák megjelentek; a `/projektek?organization=…` útvonal a kiválasztott szervezettel a műhelyre irányított. Csak egy desktop sötét felületet ellenőriztem; mobil, világos téma, kontraszt/forced-colors, képernyőolvasó és fizikai iOS mátrix nem futott. DB/Auth/RLS tesztet nem futtattam, mert adattárolóhoz és jogosultsághoz nem nyúltam.
+
+Javasolt commit: `fix(F9.19): apply app-wide liquid glass and retire legacy lists`.

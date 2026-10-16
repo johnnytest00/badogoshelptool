@@ -7,13 +7,13 @@
   --surface: #ffffff;
   --surface-strong: #ffffff;
   --surface-subtle: #f5f7fa;
-  --surface-glass: rgba(255, 255, 255, 0.88);
-  --glass-border: rgba(255, 255, 255, 0.82);
-  --glass-highlight: rgba(255, 255, 255, 0.72);
-  --glass-blur: 12px;
-  --glass-saturation: 118%;
+  --surface-glass: rgba(247, 250, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.76);
+  --glass-highlight: rgba(255, 255, 255, 0.88);
+  --glass-blur: 22px;
+  --glass-saturation: 155%;
   --glass-radius: 999px;
-  --glass-elevation: 0 0.45rem 1.1rem rgba(15, 23, 42, 0.09);
+  --glass-elevation: 0 1rem 2.4rem rgba(15, 23, 42, 0.13);
   --border: #d9e0e8;
   --brand: #e85d04;
   --brand-ink: #c2410c;
@@ -45,9 +45,9 @@ html[data-theme="dark"] {
   --surface: #141f2d;
   --surface-strong: #192637;
   --surface-subtle: #101923;
-  --surface-glass: rgba(20, 31, 45, 0.93);
-  --glass-border: rgba(209, 225, 243, 0.2);
-  --glass-highlight: rgba(236, 244, 253, 0.12);
+  --surface-glass: rgba(22, 32, 46, 0.72);
+  --glass-border: rgba(220, 234, 250, 0.28);
+  --glass-highlight: rgba(246, 250, 255, 0.22);
   --border: #2a3a4d;
   --brand-soft: #38291f;
   --brand-ink: #ffad70;
@@ -57,7 +57,7 @@ html[data-theme="dark"] {
   --info: #91bfff;
   --shadow-surface: 0 0.8rem 1.8rem rgba(0, 0, 0, 0.24);
   --shadow-control: 0 0.45rem 1.1rem rgba(0, 0, 0, 0.25);
-  --glass-elevation: 0 0.45rem 1.1rem rgba(0, 0, 0, 0.25);
+  --glass-elevation: 0 1rem 2.6rem rgba(0, 0, 0, 0.34);
 }
 
 * { box-sizing: border-box; }
@@ -963,7 +963,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 /* F9.14.2 — shared, restrained Liquid Glass system and roof workspace */
 body {
-  background: radial-gradient(ellipse at 78% -12%, color-mix(in srgb, var(--brand) 8%, transparent), transparent 36rem), var(--background);
+  background:
+    radial-gradient(ellipse at 78% -12%, color-mix(in srgb, var(--brand) 13%, transparent), transparent 36rem),
+    radial-gradient(ellipse at 14% 34%, rgba(54, 116, 170, 0.11), transparent 38rem),
+    radial-gradient(ellipse at 91% 76%, rgba(114, 86, 163, 0.08), transparent 42rem),
+    var(--background);
   color: var(--foreground);
   font-family: "Noto Sans", Arial, Helvetica, sans-serif;
 }
@@ -2639,4 +2643,304 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
   .glass-page-header { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; backdrop-filter: none; }
   .glass-section-header, .execution-project-group > header { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; backdrop-filter: none; }
   .field-survey-measurement.has-geometry-error { outline: 1px solid Mark; }
+}
+
+/* App-wide Liquid Glass surfaces: keep text grouped in readable panes, with a bright rim and a soft, blurred backdrop. */
+.surface-card,
+.login-card,
+.auth-state-card,
+.dashboard-header.glass-navigation,
+.dashboard-tabs,
+.dashboard-settings-panel,
+.function-launcher,
+.project-preview,
+.real-project-card,
+.client-card,
+.form-page-card,
+.detail-surface,
+.future-module,
+.field-survey-card,
+.field-survey-list-card,
+.roof-surface:not(.roof-measurement-inputs):not(.roof-measurement-actions),
+.roof-results,
+.roof-model-list,
+.quotation-overview-section,
+.quotation-overview-card,
+.quotation-review,
+.project-execution-disclosure,
+.execution-nested-disclosure,
+.preparation-items-panel,
+.preparation-overview,
+.glass-navigation,
+.glass-toolbar,
+.glass-page-header,
+.project-detail-header.glass-page-header,
+.glass-section-header,
+.glass-bubble,
+.glass-disclosure,
+.workflow-list-header,
+.workflow-material-lines,
+.quotation-document-disclosure,
+.module-page-header,
+.calculator-category-heading {
+  border-color: var(--glass-border);
+  background-color: var(--surface-glass);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevation);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+}
+
+:is(
+  .roof-workspace-surface,
+  .roof-type-card,
+  .roof-type-card-illustration,
+  .scaling-bubble-panel,
+  .account-management-dialog,
+  .account-management-close,
+  .account-current,
+  .project-filters,
+  .client-search,
+  .filter-search,
+  .empty-state,
+  .project-facts-section,
+  .project-edit-disclosure,
+  .gutter-run,
+  .flashing-run,
+  .execution-overview-list li,
+  .preparation-source-choice,
+  .execution-project-group,
+  .execution-project-group > header,
+  .project-workflow-link,
+  .survey-workflow-tile,
+  .survey-workflow-attach,
+  .execution-direct-plan-list li > a,
+  .execution-linked-survey,
+  .material-product-card,
+  .mobile-filter-close,
+  .mobile-account-menu-panel,
+  .project-action-menu,
+  .project-action-menu-trigger,
+  .project-archive-confirm,
+  .survey-section-add .glass-disclosure-content,
+  .workflow-material-settings-panel
+) {
+  border-color: var(--glass-border);
+  background-color: var(--surface-glass);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevation);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+}
+
+.roof-calculator-toolbar.glass-toolbar { border: 1px solid var(--glass-border); border-radius: var(--radius-card); background: var(--surface-glass); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevation); padding: .75rem 1rem; }
+.roof-workspace > .roof-surface.roof-measurement-inputs,
+.roof-workspace > .roof-surface.roof-measurement-actions,
+.roof-workspace > .technical-drawing,
+.roof-workspace > .roof-results {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  background: var(--surface-glass);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevation);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  padding: clamp(.75rem, 2.5vw, 1.1rem);
+}
+.roof-workspace > .roof-surface.roof-measurement-actions { border-top: 1px solid var(--glass-border); }
+.glass-page-header { border-radius: 1.35rem; }
+.workflow-list-header,
+.module-page-header,
+.calculator-category-heading { border: 1px solid var(--glass-border); border-radius: 1.15rem; padding: .75rem 1rem; }
+.glass-page-header h1, .module-page-header h1, .workflow-list-header h1 { text-wrap: pretty; }
+
+.secondary-button,
+.icon-button,
+.logout-button,
+.theme-select,
+.theme-toggle,
+.settings-theme-select,
+.project-module-links a,
+.calculator-project-access a {
+  border-color: var(--glass-border);
+  background-color: color-mix(in srgb, var(--surface-glass) 88%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+}
+.secondary-button:hover:not(:disabled),
+.icon-button:hover,
+.logout-button:hover,
+.project-module-links a:hover,
+.calculator-project-access a:hover { border-color: color-mix(in srgb, var(--brand) 58%, var(--glass-border)); }
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="search"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+select,
+textarea {
+  border-color: color-mix(in srgb, var(--glass-border) 76%, var(--border));
+  background-color: color-mix(in srgb, var(--surface-glass) 78%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 65%, transparent);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * .65)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(calc(var(--glass-blur) * .65)) saturate(var(--glass-saturation));
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .surface-card,
+  .login-card,
+  .auth-state-card,
+  .dashboard-header.glass-navigation,
+  .dashboard-tabs,
+  .dashboard-settings-panel,
+  .function-launcher,
+  .project-preview,
+  .real-project-card,
+  .client-card,
+  .form-page-card,
+  .detail-surface,
+  .future-module,
+  .field-survey-card,
+  .field-survey-list-card,
+  .roof-surface,
+  .roof-results,
+  .roof-model-list,
+  .quotation-overview-section,
+  .quotation-overview-card,
+  .quotation-review,
+  .project-execution-disclosure,
+  .execution-nested-disclosure,
+  .preparation-items-panel,
+  .preparation-overview,
+  .glass-navigation,
+  .glass-toolbar,
+  .glass-page-header,
+  .glass-section-header,
+  .glass-bubble,
+  .glass-disclosure,
+  .workflow-list-header,
+  .workflow-material-lines,
+  .quotation-document-disclosure,
+  .module-page-header,
+  .calculator-category-heading,
+  .secondary-button,
+  .icon-button,
+  .logout-button,
+  .theme-select,
+  .theme-toggle,
+  .settings-theme-select,
+  .roof-calculator-toolbar.glass-toolbar,
+  .roof-workspace > .roof-surface.roof-measurement-inputs,
+  .roof-workspace > .roof-surface.roof-measurement-actions,
+  .roof-workspace > .technical-drawing,
+  .roof-workspace > .roof-results,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="search"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  select,
+  textarea { background-color: var(--surface-strong); }
+  :is(.roof-workspace-surface, .roof-type-card, .roof-type-card-illustration, .scaling-bubble-panel, .account-management-dialog, .account-management-close, .account-current, .project-filters, .client-search, .filter-search, .empty-state, .project-facts-section, .project-edit-disclosure, .gutter-run, .flashing-run, .execution-overview-list li, .preparation-source-choice, .execution-project-group, .execution-project-group > header, .project-workflow-link, .survey-workflow-tile, .survey-workflow-attach, .execution-direct-plan-list li > a, .execution-linked-survey, .material-product-card, .mobile-filter-close, .mobile-account-menu-panel, .project-action-menu, .project-action-menu-trigger, .project-archive-confirm, .survey-section-add .glass-disclosure-content, .workflow-material-settings-panel) { background-color: var(--surface-strong); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .surface-card,
+  .login-card,
+  .auth-state-card,
+  .dashboard-header.glass-navigation,
+  .dashboard-tabs,
+  .dashboard-settings-panel,
+  .function-launcher,
+  .project-preview,
+  .real-project-card,
+  .client-card,
+  .form-page-card,
+  .detail-surface,
+  .future-module,
+  .field-survey-card,
+  .field-survey-list-card,
+  .roof-surface,
+  .roof-results,
+  .roof-model-list,
+  .quotation-overview-section,
+  .quotation-overview-card,
+  .quotation-review,
+  .project-execution-disclosure,
+  .execution-nested-disclosure,
+  .preparation-items-panel,
+  .preparation-overview,
+  .glass-navigation,
+  .glass-toolbar,
+  .glass-page-header,
+  .glass-section-header,
+  .glass-bubble,
+  .glass-disclosure,
+  .workflow-list-header,
+  .workflow-material-lines,
+  .quotation-document-disclosure,
+  .module-page-header,
+  .calculator-category-heading,
+  .roof-calculator-toolbar.glass-toolbar,
+  .roof-workspace > .roof-surface.roof-measurement-inputs,
+  .roof-workspace > .roof-surface.roof-measurement-actions,
+  .roof-workspace > .technical-drawing,
+  .roof-workspace > .roof-results,
+  .secondary-button,
+  .icon-button,
+  .logout-button,
+  .theme-select,
+  .theme-toggle,
+  .settings-theme-select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="search"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  select,
+  textarea {
+    background-color: var(--surface-strong);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  :is(.roof-workspace-surface, .roof-type-card, .roof-type-card-illustration, .scaling-bubble-panel, .account-management-dialog, .account-management-close, .account-current, .project-filters, .client-search, .filter-search, .empty-state, .project-facts-section, .project-edit-disclosure, .gutter-run, .flashing-run, .execution-overview-list li, .preparation-source-choice, .execution-project-group, .execution-project-group > header, .project-workflow-link, .survey-workflow-tile, .survey-workflow-attach, .execution-direct-plan-list li > a, .execution-linked-survey, .material-product-card, .mobile-filter-close, .mobile-account-menu-panel, .project-action-menu, .project-action-menu-trigger, .project-archive-confirm, .survey-section-add .glass-disclosure-content, .workflow-material-settings-panel) { background-color: var(--surface-strong); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+@media (forced-colors: active) {
+  .surface-card,
+  .login-card,
+  .auth-state-card,
+  .dashboard-header.glass-navigation,
+  .dashboard-tabs,
+  .dashboard-settings-panel,
+  .function-launcher,
+  .project-preview,
+  .real-project-card,
+  .client-card,
+  .form-page-card,
+  .detail-surface,
+  .future-module,
+  .field-survey-card,
+  .field-survey-list-card,
+  .roof-surface,
+  .roof-results,
+  .roof-model-list,
+  .quotation-overview-section,
+  .quotation-overview-card,
+  .quotation-review,
+  .project-execution-disclosure,
+  .execution-nested-disclosure,
+  .preparation-items-panel,
+  .preparation-overview,
+  .glass-navigation,
+  .glass-toolbar,
+  .glass-page-header,
+  .glass-section-header,
+  .glass-bubble,
+  .glass-disclosure,
+  .workflow-list-header,
+  .workflow-material-lines,
+  .quotation-document-disclosure,
+  .module-page-header,
+  .calculator-category-heading,
+  .roof-calculator-toolbar.glass-toolbar,
+  .roof-workspace > .roof-surface.roof-measurement-inputs,
+  .roof-workspace > .roof-surface.roof-measurement-actions,
+  .roof-workspace > .technical-drawing,
+  .roof-workspace > .roof-results {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  :is(.roof-workspace-surface, .roof-type-card, .roof-type-card-illustration, .scaling-bubble-panel, .account-management-dialog, .account-management-close, .account-current, .project-filters, .client-search, .filter-search, .empty-state, .project-facts-section, .project-edit-disclosure, .gutter-run, .flashing-run, .execution-overview-list li, .preparation-source-choice, .execution-project-group, .execution-project-group > header, .project-workflow-link, .survey-workflow-tile, .survey-workflow-attach, .execution-direct-plan-list li > a, .execution-linked-survey, .material-product-card, .mobile-filter-close, .mobile-account-menu-panel, .project-action-menu, .project-action-menu-trigger, .project-archive-confirm, .survey-section-add .glass-disclosure-content, .workflow-material-settings-panel) { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }

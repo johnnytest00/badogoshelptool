@@ -24,6 +24,6 @@ export default async function CalculatorsPage({ searchParams }: Readonly<{ searc
       <Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/szegelyek?organization=${organizationId}`}><span className="future-module-icon"><Calculator aria-hidden="true" /></span><span><strong>Bádogos szegélyek</strong><small>Kézi szakaszok és előzetes mennyiségek.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link>
       <Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/lemezprofilok?organization=${organizationId}`}><span className="future-module-icon"><Ruler aria-hidden="true" /></span><span><strong>Lemezprofilok és hajtások</strong><small>Profilgeometria és nettó teríték.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link>
     </div></section>
-    <nav className="calculator-project-access" aria-label="Kapcsolódó munkaterületek"><Link href={`/projektek?organization=${organizationId}`}>Projektmunka megnyitása →</Link><span>Az önálló számítás nem igényel projektet.</span></nav>
+    <nav className="calculator-project-access" aria-label="Kapcsolódó munkaterületek"><Link href={`/kivitelezes?organization=${organizationId}`}>Kivitelezési tervek →</Link><span>Az önálló számítás nem igényel projektet.</span></nav>
   </div></main>;
 }
