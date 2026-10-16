@@ -6,7 +6,7 @@ import { projectStatusLabels, projectTypeLabels } from "@/domain/projects/contra
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getClientsForOrganization, getProjectForOrganization } from "@/features/projects/project-data";
 import { ProjectEditForm } from "@/features/projects/project-forms";
-import { ProjectActionsMenu, ProjectSecondaryActions } from "@/features/projects/project-lifecycle";
+import { ProjectActionsMenu } from "@/features/projects/project-lifecycle";
 import { getRoofModelsForProject } from "@/features/roof-models/roof-model-data";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 import { getExecutionPlanningWorkspace } from "@/features/execution/execution-data";
@@ -58,7 +58,6 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
           <Fact icon={<CalendarDays className="size-4" />} label="Módosítva" value={new Date(project.updatedAt).toLocaleDateString("hu-HU")} />
         </div>
         {project.description && <p className="detail-description">{project.description}</p>}
-        <ProjectSecondaryActions organizationId={organizationId} project={project} />
         <GlassDisclosure className="project-edit-disclosure" summary={<><span><PencilLine aria-hidden="true" className="size-4" /><span><strong>Projektadatok szerkesztése</strong><small>Név, ügyfél, helyszín és leírás</small></span></span><span className="project-edit-disclosure-action">Megnyitás</span></>}>
           <div className="project-edit-content"><ProjectEditForm organizationId={organizationId} project={project} clients={clients.map((client) => ({ id: client.id, name: client.name }))} /></div>
         </GlassDisclosure>

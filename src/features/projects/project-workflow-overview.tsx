@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase schema additions await generated database types. */
 import Link from "next/link";
+import { ArrowUpRight, Boxes, ClipboardCheck, FileText, House, NotebookPen, PanelTop, Ruler, Waves, type LucideIcon } from "lucide-react";
 import { createClient } from "@/infrastructure/supabase/server";
 
 type WorkflowRow = { label: string; count: number; detail: string; href: string };
@@ -42,5 +43,6 @@ export async function getProjectWorkflowRecords(organizationId: string, projectI
 }
 
 export function ProjectWorkflowOverview({ rows }: { rows: WorkflowRow[] }) {
-  return <section className="project-workflow-overview" aria-labelledby="project-workflow-title"><div className="roof-list-heading"><div><p className="section-eyebrow">Projektfolyamat</p><h2 id="project-workflow-title">Munka áttekintése</h2></div></div><nav className="project-workflow-grid" aria-label="Projektmunkák"><ul>{rows.map((row) => <li key={row.label}><Link className="project-workflow-link" href={row.href}><span><strong>{row.label}</strong><small>{row.detail}</small></span><span className="project-workflow-open">Megnyitás <span aria-hidden="true">→</span></span></Link></li>)}</ul></nav><p className="project-workflow-note">Az állapotok a mentett adatok összefoglalói. A kalkulációk előzetes eredményei nem jelentenek szakmai jóváhagyást; az elfogadott ajánlat nem aláírt szerződés, a napló belső nyilvántartás.</p></section>;
+  const icons: Record<string, LucideIcon> = { "Tetőmodellek": House, "Ereszcsatorna": Waves, "Szegélyek": PanelTop, "Lemezprofilok": Ruler, "Anyagkimutatások": Boxes, "Árajánlatok": FileText, "Kivitelezési tervek": ClipboardCheck, "Dokumentáció és munkanapló": NotebookPen };
+  return <section className="project-workflow-overview" aria-labelledby="project-workflow-title"><div className="roof-list-heading"><div><p className="section-eyebrow">Projektfolyamat</p><h2 id="project-workflow-title">Munka áttekintése</h2></div></div><nav className="project-workflow-grid" aria-label="Projektmunkák"><ul>{rows.map((row) => { const Icon = icons[row.label] ?? FileText; return <li key={row.label}><Link className="project-workflow-link" href={row.href}><span className="project-workflow-icon"><Icon aria-hidden="true" /></span><span className="project-workflow-copy"><strong>{row.label}</strong><small>{row.detail}</small></span><ArrowUpRight aria-hidden="true" className="project-workflow-open" /></Link></li>; })}</ul></nav><p className="project-workflow-note">Az állapotok a mentett adatok összefoglalói. A kalkulációk előzetes eredményei nem jelentenek szakmai jóváhagyást; az elfogadott ajánlat nem aláírt szerződés, a napló belső nyilvántartás.</p></section>;
 }

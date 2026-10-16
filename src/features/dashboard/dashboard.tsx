@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useTheme } from "@/components/theme/theme-provider";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { LogoutButton } from "@/features/auth/auth-controls";
+import { AccountManagementDialog } from "@/features/auth/account-management-dialog";
 import { dashboardFunctionHref, dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
 import { getDashboardGreeting, getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 import type { DashboardTab } from "@/features/dashboard/dashboard.types";
@@ -16,8 +17,8 @@ import { projectTypeLabels } from "@/domain/projects/contracts";
 export function Dashboard({ displayName, email, organizationName, organizationId, projects = [] }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; organizationId?: string; projects?: readonly ProjectRecord[]; recentSurveys?: readonly { id: string; version: number; updatedAt: string }[] }>) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("functions");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [greeting, setGreeting] = useState("Üdv a műhelyben!");
-  const { setMode } = useTheme();
 
   useEffect(() => {
     const updateGreeting = () => setGreeting(getDashboardGreeting(new Date().getHours()));
@@ -26,15 +27,12 @@ export function Dashboard({ displayName, email, organizationName, organizationId
     return () => window.clearInterval(interval);
   }, []);
 
-  const resetTheme = () => {
-    setMode("system");
-  };
-
   return (
     <main className="dashboard-shell">
       <div className="dashboard-container">
         <DashboardHeader displayName={displayName} email={email} organizationName={organizationName} settingsOpen={settingsOpen} onToggleSettings={() => setSettingsOpen((current) => !current)} />
-        {settingsOpen && <DashboardSettings onResetTheme={resetTheme} />}
+        {settingsOpen && <DashboardSettings onOpenAccount={() => setAccountDialogOpen(true)} />}
+        <AccountManagementDialog open={accountDialogOpen} onClose={() => setAccountDialogOpen(false)} />
 
         <section className="greeting-section" aria-labelledby="dashboard-title">
           <p className="eyebrow">TetőPro · műhely</p>
@@ -76,8 +74,15 @@ function DashboardHeader({ displayName, email, organizationName, settingsOpen, o
   );
 }
 
-function DashboardSettings({ onResetTheme }: Readonly<{ onResetTheme: () => void }>) {
-  return <aside className="dashboard-settings-panel" id="dashboard-settings" aria-labelledby="dashboard-settings-title"><div className="settings-panel-heading"><div><p className="section-eyebrow">Helyi beállítások</p><h2 id="dashboard-settings-title">Megjelenítés</h2></div><button className="settings-reset-theme" type="button" onClick={onResetTheme}>Rendszer szerint</button></div><p>A megjelenítési méretek minden nézetben érvényesek és csak ebben a böngészőben tárolódnak.</p><ScalingControls /><Link className="settings-demo-link" href="/demo/meretezes">Méretezési demo megnyitása <span aria-hidden="true">→</span></Link></aside>;
+function DashboardSettings({ onOpenAccount }: Readonly<{ onOpenAccount: () => void }>) {
+  const { mode, setMode } = useTheme();
+  return <aside className="dashboard-settings-panel" id="dashboard-settings" aria-labelledby="dashboard-settings-title">
+    <div className="settings-panel-heading"><div><p className="section-eyebrow">Helyi beállítások</p><h2 id="dashboard-settings-title">Megjelenítés</h2></div></div>
+    <section className="settings-theme-section" aria-labelledby="settings-theme-title"><h3 id="settings-theme-title">Megjelenési mód</h3><label className="settings-theme-select-label" htmlFor="settings-theme-mode">Téma</label><select id="settings-theme-mode" className="settings-theme-select" value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}><option value="system">Rendszer szerint</option><option value="light">Világos</option><option value="dark">Sötét</option></select>{mode === "system" && <p className="settings-theme-help">Az alkalmazás az eszközöd világos vagy sötét megjelenését követi.</p>}</section>
+    <p>A megjelenítési méretek minden nézetben érvényesek és csak ebben a böngészőben tárolódnak.</p>
+    <ScalingControls idPrefix="settings-scale" /><Link className="settings-demo-link" href="/demo/meretezes">Méretezési demo megnyitása <span aria-hidden="true">→</span></Link>
+    <section className="settings-account-section" aria-labelledby="settings-account-title"><div><p className="section-eyebrow">Saját hozzáférés</p><h3 id="settings-account-title">Fiókbeállítások</h3><p>E-mail-cím és jelszó kezelése a hitelesítési szolgáltatásban.</p></div><button className="secondary-button" type="button" onClick={onOpenAccount}>Fiókom kezelése</button></section>
+  </aside>;
 }
 
 function DashboardTabs({ activeTab, onChange }: Readonly<{ activeTab: DashboardTab; onChange: (tab: DashboardTab) => void }>) {

@@ -34,6 +34,10 @@ describe("projektfolyamat összefoglaló", () => {
     expect(html).toContain("<strong>Tetőmodellek</strong>");
     expect(html).toContain('href="/projektek/p1/ereszcsatorna?organization=org1"');
     expect(html).toContain('href="#kivitelezes">');
+    expect(html).toContain('class="project-workflow-icon"');
+    expect(html).toContain('class="project-workflow-copy"');
+    expect(html).toMatch(/class="[^"]*project-workflow-open/);
+    expect((html.match(/class="project-workflow-link"/g) ?? []).length).toBe(8);
     expect(html).not.toContain("<article class=\"project-workflow-card\"");
   });
 });

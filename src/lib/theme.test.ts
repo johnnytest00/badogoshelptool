@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getEffectiveTheme, getNextMode, getToggleLabel, isThemeMode } from "@/lib/theme";
+import { getEffectiveTheme, getNextMode, getQuickToggleMode, getToggleLabel, isThemeMode } from "@/lib/theme";
 
 describe("theme foundation", () => {
   it("cycles through system, light and dark modes", () => {
@@ -20,5 +20,10 @@ describe("theme foundation", () => {
     expect(isThemeMode("dark")).toBe(true);
     expect(isThemeMode("sepia")).toBe(false);
     expect(isThemeMode(null)).toBe(false);
+  });
+
+  it("makes the quick toggle explicit when system mode is active", () => {
+    expect(getQuickToggleMode("dark")).toBe("light");
+    expect(getQuickToggleMode("light")).toBe("dark");
   });
 });

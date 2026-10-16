@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings2, X } from "lucide-react";
+import { Scaling } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { closeBubbleOnKey, closeBubbleOnOutsideClick, toggleBubble } from "@/components/accessibility/scaling-bubble.utils";
@@ -10,6 +10,8 @@ export function ScalingBubble() {
   const [open, setOpen] = useState(false);
   const [obstructed, setObstructed] = useState(false);
   const bubbleRef = useRef<HTMLDivElement>(null);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
 
   useEffect(() => {
     let frame = 0;
@@ -50,14 +52,20 @@ export function ScalingBubble() {
     return () => { document.removeEventListener("keydown", onKeyDown); document.removeEventListener("pointerdown", onPointerDown); };
   }, [open]);
 
+  useEffect(() => {
+    if (open) wasOpen.current = true;
+    else if (wasOpen.current) { launcherRef.current?.focus({ preventScroll: true }); wasOpen.current = false; }
+  }, [open]);
+
   return (
     <div className={`scaling-bubble ${open ? "is-open" : ""} ${obstructed ? "is-obstructed" : ""}`} ref={bubbleRef}>
-        <div className="scaling-bubble-panel" id="scaling-bubble-panel" aria-hidden={!open} inert={!open}>
-        <div className="scaling-bubble-heading"><div><span className="section-eyebrow">Megjelenítés</span><h2>Megjelenítési beállítások</h2></div><button type="button" className="scaling-close" onClick={() => setOpen(false)} aria-label="Beállítások bezárása"><X aria-hidden="true" className="size-4" /></button></div>
-        <ScalingControls compact />
-      </div>
-      <button className="scaling-launcher" type="button" onClick={() => setOpen(toggleBubble)} aria-expanded={open} aria-controls="scaling-bubble-panel" aria-label={open ? "Beállítások bezárása" : "Megjelenítési beállítások"}>
-        <Settings2 aria-hidden="true" className="size-5" />
+      {open && <div className="scaling-quick-cluster" id="scaling-quick-cluster" aria-label="Gyors méretezés">
+        <button type="button" className="scaling-quick-close" onClick={() => setOpen(false)} aria-label="Méretező bezárása"><span aria-hidden="true">×</span></button>
+        <section className="scaling-quick-bubble"><h2>Szövegméret</h2><ScalingControls compact keys={["text"]} labels={{ text: "Szövegméret" }} showReset={false} idPrefix="quick-scale" /></section>
+        <section className="scaling-quick-bubble"><h2>Felületméret</h2><ScalingControls compact keys={["ui"]} labels={{ ui: "Felületméret" }} showReset={false} idPrefix="quick-scale" /></section>
+      </div>}
+      <button ref={launcherRef} className="scaling-launcher" type="button" onClick={() => setOpen(toggleBubble)} aria-expanded={open} aria-controls="scaling-quick-cluster" aria-label={open ? "Méretező bezárása" : "Méretezés és megjelenítés"}>
+        <Scaling aria-hidden="true" className="size-5" />
       </button>
     </div>
   );

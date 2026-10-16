@@ -1,4 +1,5 @@
 export const themeModes = ["system", "light", "dark"] as const;
+export const themeStorageKey = "tetopro-theme";
 
 export type ThemeMode = (typeof themeModes)[number];
 
@@ -17,4 +18,8 @@ export function getEffectiveTheme(mode: ThemeMode, systemIsDark: boolean): Exclu
 
 export function getToggleLabel(effectiveTheme: Exclude<ThemeMode, "system">): string {
   return effectiveTheme === "dark" ? "Világos" : "Sötét";
+}
+
+export function getQuickToggleMode(effectiveTheme: Exclude<ThemeMode, "system">): Exclude<ThemeMode, "system"> {
+  return effectiveTheme === "dark" ? "light" : "dark";
 }

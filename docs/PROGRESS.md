@@ -1992,3 +1992,68 @@ Az alkalmazás- és adatarchitektúra változatlan: UI/rajzi megjelenítés és 
 **Végső ellenőrzések:** a változtatás utáni célzott Vitest 13 fájl / 47 teszt PASS; `npm run typecheck` és `npm run lint` PASS; az izolált, build-only placeholder Supabase környezettel futó Next.js 16.4.0 webpack `npm run build` PASS; dokumentáció frissítése utáni `git diff --check` PASS. Ez nem teljes regresszió.
 
 Javasolt commit: `feat(F9.14.7): refine final workspace workflows`.
+
+## F9.14.8 — Project & Calculator UI Refinement
+
+Állapot: **PARTIAL**. A projekt részlet egyetlen felső `Projektműveletek` menüt használ: az új felmérés, archiválás és másolás meglévő művelet maradt; a nem támogatott törlés indoklással letiltott. A korábbi további műveletek menüpontjai ugyanebbe a menübe kerültek, a projektadat-szerkesztő elérhető maradt. A nyolc munkafolyamat ikonozott, rövid állapotot leíró, teljes felületen kattintható Liquid Glass csempét kapott. Az alapadatok négy oszlopban tömörödtek, a szerkesztő külön maradt.
+
+A kalkulátoroldal meglévő három kategóriáját és mind az öt önálló kalkulátort egységes ikonozott, teljes felületen kattintható csempék rendezik; a mentett számítások linkje és a szervezeti kontextus megmaradt. Csak meglévő route-ok és komponensek, CSS design tokenek, valamint a Lucide ikonok használatosak; új függőség, üzleti funkció, kalkulátor vagy domain-/jogosultsági-/adatbázis-változás nincs.
+
+**Böngészőbizonyíték:** hitelesített helyi Brave nézetben mindkét oldalt módosítás előtt és után megtekintettem. A projektből munkafolyamat-csempe, adat-szerkesztő és egyetlen műveletmenü működött; menüben a törlés letiltott. A kalkulátoroldal öt eszközcsempéje, tetőgeometria, mentett számítások útvonala és a maradék négy kalkulátor útvonala megnyílt. Üzleti műveletet és rekordmódosítást nem indítottam. Mindkét oldal DOM-szélessége 1440/1024/768/390/320 CSS px-en azonos volt a viewport szélességével, vízszintes túlcsordulás nélkül. A böngészőből nem készült exportált, megőrzött before/after képfájl, ezért a vizuális artefaktum követelménye részleges.
+
+**Automatizált ellenőrzések:** `npx vitest run src/features/projects/project-lifecycle.test.tsx src/features/projects/project-workflow-overview.test.ts src/features/projects/project-workflow-data.test.ts src/features/projects/project-navigation.test.ts src/features/projects/project-actions.test.ts src/components/ui/glass-disclosure.test.tsx` — 6 fájl / 13 teszt PASS. `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0, webpack) és `git diff --check` PASS. Teljes regressziós suite, DB/Auth/RLS teszt nem futott; szerződés nem változott.
+
+Javasolt commit: `feat(F9.14.8): refine project and calculator UI`.
+
+## F9.14.9 — Settings, Account Management & Mobile Quick Scaling
+
+Állapot: **PARTIAL**. A fejlécben külön megmaradt a gyors téma-váltó, a
+Beállítások gomb és a munkamenet-kilépés; a Rendszer/Világos/Sötét választó a
+meglévő Beállítások panelen van. A téma és a méretezés a már meglévő
+localStorage/provider rendszert használja. A mobil-only lebegő ikon fölött két
+önálló, százalékértéket mutató buborék szabályozza a globális szöveg- és
+felületméretet. A teljes desktop méretezés négy meglévő beállítása megmaradt.
+
+A `Fiókom kezelése` külön, natív modal dialogban mutatja a bejelentkezett
+felhasználó címét, az Auth szolgáltatóit, az e-mail-kérés és a jelszócsere
+űrlapját. Az Auth kliens az aktuális munkamenetet használja; célfelhasználó-ID
+vagy admin jogosultság nem kerül a UI útvonalra. A Supabase hibaüzenetei között
+van invalid/duplicate, rate-limit, lejárt munkamenet/link, gyenge jelszó és
+újrahitelesítési hiba.
+
+**Böngészőben bizonyított:** hitelesített helyi dashboardon desktopon a fejléc
+vezérlői, a három témamód, System módból a quick-toggle explicit felülírása és
+az újratöltés utáni témamegőrzés működött; az eredeti System preferenciát
+visszaállítottam. A fiókdialog current e-mailt és mindkét űrlapot mutatott,
+hibás e-mailt kliensoldalon elutasított, Escape után a nyitógomb kapta vissza a
+fókuszt. E-mailt vagy jelszót a böngészőben nem küldtem be.
+
+Mobil emulációban 390 és 320 CSS px-en `innerWidth`, dokumentum- és body-
+szélesség azonos volt; a fejléc `position: static`, a lebegő trigger a jobb alsó
+safe-area margón belül jelent meg. 390 px-en a két slider buborék kinyílt és
+bezárható volt; a szövegcsúszka 130→140→130%, a felületcsúszka 90→100→90%-ra
+állt, a desktop beállításokban azonnal látszott a változás. A gyors témaváltó,
+a teljes Beállítások és a fiókdialog is működött 390 px-es nézeten. Tablet,
+soft keyboard, más route-ra navigálás utáni méretezés-perzisztencia, illetve
+fizikai iOS Safari nem ellenőrzött. A 320 px-es trigger és a nyitott bubblesor
+vizuálisan megjelent; a fiókdialog és mobil teljes munkafolyamat 320 px-en nem
+kapott külön végigpróbát.
+
+A dashboard → projektek lista → dashboard navigáció a szervezeti query
+megtartásával működött; a meglévő lokális projekteket csak megtekintettem.
+
+**Lokális Auth-integráció:** a `RUN_LOCAL_AUTH_ACCOUNT_TESTS=1` engedélyező
+teszt két véletlen lokális fiókot hozott létre és törölt; az egyik saját
+jelszófrissítése után a régi jelszó sikertelen, az új sikeres volt, az e-mail-
+módosítási kérést az Auth elfogadta, a másik fiók adatai változatlanok maradtak.
+Ez nem igazolja az e-mailes megerősítő levél kézbesítését/megnyitását, a hosted
+Supabase konfigurációt vagy a lejáró link tényleges feldolgozását.
+
+**Végső ellenőrzések:** fókuszált Vitest 7 fájl / 20 teszt PASS, 1 lokális Auth
+integrációs teszt PASS (külön, opt-in futtatás), `npm run typecheck`,
+`npm run lint`, Next.js 16.4.0 webpack `npm run build` és `git diff --check`
+PASS. Teljes suite és hosted Auth/DB/RLS nem futott. Képletszámítás,
+geometria, DB-séma és tartós üzleti adat nem változott; új éles/hitelesített
+felhasználói adatot nem írtam át.
+
+Javasolt commit: `feat(F9.14.9): add account settings and mobile quick scaling`.

@@ -32,4 +32,15 @@ describe("F9.7.4 display preferences", () => {
     expect(html).toContain("Műszaki rajz megjelenítése");
     expect(html).toContain("Alapértelmezett beállítások");
   });
+
+  it("can render only the two independent quick controls without a reset action", () => {
+    const html = renderToStaticMarkup(createElement(ScalingProvider, null, createElement(ScalingControls, { compact: true, keys: ["text", "ui"], labels: { text: "Szövegméret", ui: "Felületméret" }, showReset: false, idPrefix: "quick-scale" })));
+    expect((html.match(/type="range"/g) ?? []).length).toBe(2);
+    expect(html).toContain("Szövegméret");
+    expect(html).toContain("Felületméret");
+    expect(html).not.toContain("Műszaki rajz");
+    expect(html).not.toContain("Alapértelmezett beállítások");
+    expect(html).toContain('id="quick-scale-text"');
+    expect(html).toContain('id="quick-scale-ui"');
+  });
 });

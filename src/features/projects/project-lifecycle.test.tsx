@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("./project-actions", () => ({ archiveProjectAction: vi.fn(), duplicateProjectAction: vi.fn(), restoreProjectAction: vi.fn() }));
 
-import { ProjectActionsMenu, ProjectSecondaryActions } from "./project-lifecycle";
+import { ProjectActionsMenu } from "./project-lifecycle";
 import type { ProjectRecord } from "./project-data";
 
 const project: ProjectRecord = {
@@ -25,10 +25,12 @@ describe("project lifecycle controls", () => {
     expect(html).toContain("Archiválás");
   });
 
-  it("keeps duplication and archived-project restoration in secondary project actions", () => {
-    const html = renderToStaticMarkup(<ProjectSecondaryActions organizationId="shop-2" project={{ ...project, status: "archived", previousStatus: "in_progress" }} />);
-    expect(html).toContain("További projektműveletek");
+  it("keeps existing duplication and restoration actions in the single project menu", () => {
+    const html = renderToStaticMarkup(<ProjectActionsMenu organizationId="shop-2" project={{ ...project, status: "archived", previousStatus: "in_progress" }} />);
+    expect(html).toContain('aria-label="Projektműveletek"');
     expect(html).toContain("Másolat készítése");
     expect(html).toContain("Visszaállítás");
+    expect(html).not.toContain("További projektműveletek");
+    expect(html).toContain('aria-disabled="true" aria-describedby=');
   });
 });

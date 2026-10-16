@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { focusedElementNeedsReveal } from "@/lib/keyboard-visibility";
 
 function isEditableElement(element: Element | null): element is HTMLElement {
-  return element instanceof HTMLElement && element.matches("input:not([type=range]):not([type=hidden]), textarea, select, [contenteditable=true]");
+  return element instanceof HTMLElement && element.matches("input:not([type=range]):not([type=hidden]), textarea, [contenteditable=true]");
 }
 
 export function MobileFocusSupport() {
