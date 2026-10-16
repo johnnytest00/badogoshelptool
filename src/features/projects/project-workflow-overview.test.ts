@@ -29,6 +29,10 @@ describe("projektfolyamat összefoglaló", () => {
   it("folytonos, szemantikus navigációként rendereli az összefoglalót", () => {
     const html = renderToStaticMarkup(createElement(ProjectWorkflowOverview, { rows: projectWorkflowRows(base) }));
     expect(html).toContain("<h2 id=\"project-workflow-title\">Munka áttekintése</h2>");
+    expect(html).not.toContain("Projektfolyamat");
+    expect(html).toContain("A kalkulációk előzetes eredményei nem jelentenek szakmai jóváhagyást");
+    expect(html).toContain("az elfogadott ajánlat nem aláírt szerződés");
+    expect(html).toContain("a napló belső nyilvántartás");
     expect(html).toContain('<nav class="project-workflow-grid" aria-label="Projektmunkák">');
     expect(html).toContain('<a class="project-workflow-link" href="#tetomodellek">');
     expect(html).toContain("<strong>Tetőmodellek</strong>");

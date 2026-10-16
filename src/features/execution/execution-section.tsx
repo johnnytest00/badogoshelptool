@@ -1,7 +1,7 @@
 "use client";
 
 import type { SyntheticEvent } from "react";
-import { ChevronDown } from "lucide-react";
+import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 
 export function ExecutionSection({ children, defaultOpen = false }: Readonly<{ children: React.ReactNode; defaultOpen?: boolean }>) {
   function resetNestedSectionsWhenClosed(event: SyntheticEvent<HTMLDetailsElement>) {
@@ -9,22 +9,13 @@ export function ExecutionSection({ children, defaultOpen = false }: Readonly<{ c
   }
 
   return (
-    <details id="kivitelezes" className="project-execution-disclosure" open={defaultOpen} onToggle={resetNestedSectionsWhenClosed}>
-      <summary>
-        <h2>Kivitelezés</h2>
-        <ChevronDown aria-hidden="true" className="execution-disclosure-chevron" />
-      </summary>
-      <div className="project-execution-content">{children}</div>
-    </details>
+    <GlassDisclosure id="kivitelezes" className="project-execution-disclosure" defaultOpen={defaultOpen} onToggle={resetNestedSectionsWhenClosed} summary={<h2>Kivitelezés</h2>} contentClassName="project-execution-content">{children}</GlassDisclosure>
   );
 }
 
 export function ExecutionSubsection({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
   return (
-    <details className="execution-nested-disclosure">
-      <summary>{title}</summary>
-      <div className="execution-nested-content">{children}</div>
-    </details>
+    <GlassDisclosure className="execution-nested-disclosure" summary={title} contentClassName="execution-nested-content">{children}</GlassDisclosure>
   );
 }
 

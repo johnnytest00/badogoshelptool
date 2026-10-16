@@ -1,5 +1,37 @@
 # Tesztmátrix
 
+## F9.15.3 — egységes projektmunkaterület
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Projekt-workspace render és navigáció | BROWSER VERIFIED | Auth-olt helyi DEMO oldalon a 8 workflow, projektadatok, szerkesztő, kivitelezés, modellek, rajzok, kalkulátorok és alsó üzleti hivatkozások megjelentek. A szerkesztő megnyitása és a kivitelezési disclosure/rajzréteg kibontása nem mentett adatot. |
+| Mentett tetőmodell | BROWSER VERIFIED | Mindkét kártyán típus, modellnév, revízió és tényleges terület látszott. Első modell megnyitása a meglévő modell URL-re és szervezeti query-re navigált. |
+| Rajz és kalkulátor | BROWSER VERIFIED | Mindkét mentett rajz megjelent, a „Nézetek és rétegek” kibontásakor a nézet és hat réteg vezérlői megjelentek. Ereszcsatorna-kalkulátor megnyílt ugyanazzal a projekt- és szervezeti kontextussal; mentés nem történt. |
+| Vizuális görgetés | BROWSER VERIFIED | Desktop felső rész, középső kivitelezési/fotó/ajánlat rész és alsó oldalszakasz megtekintve. 390/320 px emulált nézeten a keskeny kártyák és hosszú szövegek tördelődtek. A korábbi F9.15.2 capture a változás előtti összevetéshez elérhető volt; screenshot-pár külön fájlként nem lett exportálva. |
+| Responsive túlcsordulás | PASS, EMULATED | 1440, 768, 390, 320 CSS px-en a `documentElement.clientWidth`, `documentElement.scrollWidth` és `body.scrollWidth` a viewporttal egyezett. 125%-os ideiglenes szöveg/felület skálán 390 px-en mind 390 maradt. A skálázás inline QA beállítása frissítéssel visszaállt. |
+| Vitest | PASS, FOCUSED | `npx vitest run src/components/ui/glass-disclosure.test.tsx src/features/roof-models/project-roof-drawings.test.ts src/features/roof-models/technical-drawing.test.tsx src/features/projects/project-workflow-overview.test.ts`: 4 fájl / 9 teszt. Teljes Vitest suite nem futott. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `/private/tmp/f9153-build` másolaton `npm run build` (Next.js 16.4.0 webpack) és `git diff --check` mind lefutott. |
+| Üzleti adatok / hozzáférés / geometry | VÁLTOZATLAN | Read-only DEMO navigáció; nem mentett üzleti rekordot. Nincs migration, Auth/RLS változás, számítási vagy geometriai módosítás. |
+| Eszközök és korlátok | PARTIAL | Auth-olt Brave böngésző emuláció; fizikai mobil, Safari, screen reader, külön mentett before/after képfájlok és teljes suite nem ellenőrzött. |
+
+## F9.15.1 — projekt UX és mobil navigáció
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Projekt részletező és nyolc workflow | BROWSER VERIFIED | Helyi Auth DEMO projekt oldalon mind a nyolc meglévő hivatkozás, Projektműveletek menü és a projektadat → kivitelezési tartalom sorrend megjelent; a query szervezeti kontextusa megmaradt. Ereszcsatorna link megnyitása read-only volt, a meglévő DEMO geometria-elavultság jelzés láthatóvá vált. |
+| Projekt részletező címsorok | BROWSER VERIFIED (DESKTOP + 390 PX EMULATED) | Egy-egy címsor maradt a workflow, alapadat, tetőmodell és tetőrajz szekcióknál; a redundáns üres tetőmodell magyarázat eltűnt. A szakmai/pénzügyi/adatintegritási figyelmeztetés és mind a 8 workflow link/status változatlan, accessibility tree-ben ellenőrizve. |
+| Mobil dashboard | BROWSER VERIFIED (EMULATED) | 320 px: köszöntő rejtve, mindkét meglévő fül és mind a hat funkciókártya elérhető; Aktuális munkák fül működött. |
+| Mobil keresés és szűrőpanel | BROWSER VERIFIED (EMULATED) | 320 px: keresés önálló GET-tel, panel nyitás, státusz/rendezés/archivált piszkozat, bezárás/elvetés, újranyitás, Apply, Reset és Reset alkalmazása. Az F3 keresés minden művelet után megmaradt; az URL-paraméterek frissítés és újranyitás után visszatöltődtek. Escape után a fókusz a Szűrők gombra tért vissza. |
+| Desktop szűrés | BROWSER VERIFIED | Helyi GET keresés két F3 DEMO projektre szűrt; az üres `status` és `projectType` paraméterek nem okoztak schema hibát. |
+| Responsive szélesség | BROWSER VERIFIED (EMULATED) | List/dashboard: 390/768/1024/1440 px mérések document/body width-je megegyezett a viewporttal. Részletező: 320 és 1440 px; 320 px-en inner/document/body width egyaránt 320. |
+| Vitest | PASS, FOCUSED | Dashboard és projektlista tesztjei, valamint workflow overview és lifecycle regresszió: 4 fájl, 14 teszt. Teljes suite nem futott. |
+| Kiegészítő UI tesztek | PASS, FOCUSED | `npx vitest run src/features/projects/project-workflow-overview.test.ts src/features/roof-models/project-roof-drawings.test.ts src/features/roof-models/technical-drawing.test.tsx`: 3 fájl / 7 teszt PASS. `npm run typecheck`, `npm run lint`, `git diff --check` PASS; teljes suite és build nem futott. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, izolált másolaton `npm run build` Next.js 16.4.0 webpack, `git diff --check` mind ténylegesen lefutott. |
+| Téma és scaling | BROWSER VERIFIED (EMULATED) | Világos és sötét téma mobilon, sötét desktopon megtekintve. Mobil quick scaling 80% szöveg / 150% felület végponttal ellenőrizve; az eredeti 100% / 115% érték visszaállítva. |
+| Képernyőképek | RÖGZÍTVE A QA MENETBEN | Mobil szűrőpanel, világos mobil dashboard, sötét desktop dashboard, sötét desktop projekt munkaterület vizuális capture készült. A Brave fejlesztői környezet ikonja a nézeten maradt. |
+| Fizikai eszköz / screen reader | NEM ELLENŐRZÖTT | Emulált Brave és accessibility tree használva; fizikai iOS/Safari és külön screen reader nem futott. |
+| Jogosultság / tartós adat | VÁLTOZATLAN | Auth-olt DEMO session, read-only útvonalak; rekordot nem mentettem. Nincs DB, Auth, migration, domain vagy kalkulációs változás. |
+
 ## F9.15.0 — settings, mobil fejléc és márka
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

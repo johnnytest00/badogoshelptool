@@ -57,7 +57,7 @@ export function Dashboard({ displayName, email, organizationName, organizationId
         </div>
         <AccountManagementDialog open={accountDialogOpen} onClose={() => setAccountDialogOpen(false)} />
 
-        <section className="greeting-section" aria-labelledby="dashboard-title">
+        <section className="greeting-section dashboard-greeting" aria-labelledby="dashboard-title">
           <p className="eyebrow">TetőPro · műhely</p>
           <h1 id="dashboard-title" className="dashboard-title">{greeting}</h1>
           <p className="dashboard-subtitle">Miben segíthetünk ma?</p>

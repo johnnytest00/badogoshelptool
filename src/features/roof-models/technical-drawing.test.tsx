@@ -12,7 +12,7 @@ describe("compact technical drawing controls", () => {
     const html = renderToStaticMarkup(<TechnicalDrawing output={output} isSaved={false} compact onDimensionSelect={() => undefined} />);
 
     const toolbarPosition = html.indexOf('role="group" aria-label="Rajz vezérlők"');
-    const advancedPosition = html.indexOf('class="drawing-advanced-controls"');
+    const advancedPosition = html.indexOf('glass-disclosure drawing-advanced-controls');
     expect(toolbarPosition).toBeGreaterThanOrEqual(0);
     expect(toolbarPosition).toBeLessThan(advancedPosition);
     expect(html).toContain('<svg class="technical-drawing-svg"');

@@ -10,4 +10,10 @@ describe("GlassDisclosure", () => {
     expect(html).toContain("class=\"glass-disclosure-content\"");
     expect(html).toContain("Érték");
   });
+
+  it("supports a deep link target and initially expanded state", () => {
+    const html = renderToStaticMarkup(<GlassDisclosure id="execution" defaultOpen summary="Kivitelezés">Tartalom</GlassDisclosure>);
+    expect(html).toContain('<details id="execution" class="glass-disclosure" open="">');
+    expect(html).toContain("Kivitelezés");
+  });
 });

@@ -1,4 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { Dashboard } from "@/features/dashboard/dashboard";
+import { ThemeProvider } from "@/components/theme/theme-provider";
+import { ScalingProvider } from "@/features/preferences/scaling-provider";
+import { vi } from "vitest";
+
+vi.mock("next/image", () => ({ default: (props: Record<string, unknown>) => createElement("img", props) }));
 import { dashboardFunctionHref, dashboardFunctions, demoProjects } from "@/features/dashboard/dashboard.data";
 import { getDashboardGreeting, getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 
@@ -41,5 +49,19 @@ describe("dashboard foundation", () => {
     expect(getDashboardGreeting(11)).toBe("Jó napot!");
     expect(getDashboardGreeting(18)).toBe("Jó estét!");
     expect(getDashboardGreeting(22)).toBe("Jó éjszakát!");
+  });
+
+  it("renders the dashboard greeting as a dedicated desktop section and keeps compact mobile tab hooks", () => {
+    const html = renderToStaticMarkup(createElement(ThemeProvider, null,
+      createElement(ScalingProvider, null,
+        createElement(Dashboard, { organizationId: "org-demo", displayName: "DEMO user" }),
+      ),
+    ));
+
+    expect(html).toContain('class="greeting-section dashboard-greeting"');
+    expect(html).toContain('id="dashboard-tab-functions"');
+    expect(html).toContain('id="dashboard-tab-projects"');
+    expect(html.indexOf("Funkciók")).toBeLessThan(html.indexOf("Aktuális munkák"));
+    expect(dashboardFunctions.every(({ label }) => html.includes(`>${label}</strong>`))).toBe(true);
   });
 });

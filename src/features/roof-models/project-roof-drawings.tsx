@@ -20,10 +20,10 @@ export function ProjectRoofDrawings({ models, projectId, organizationId }: Reado
   const drawings = selectProjectRoofDrawings(models);
   if (!drawings.length) return null;
   return <section className="detail-surface project-roof-drawings" aria-labelledby="project-roof-drawings-title">
-    <div className="roof-list-heading"><div><p className="section-eyebrow">Műszaki nézetek</p><h2 id="project-roof-drawings-title">Tetőrajzok</h2></div></div>
+    <div className="roof-list-heading"><div><h2 id="project-roof-drawings-title">Tetőrajzok</h2></div></div>
     <div className="project-roof-drawing-list">{drawings.map((model) => <article className="project-roof-drawing" key={model.id}>
       <div className="project-roof-drawing-heading"><div><h3>{model.name}</h3><p>Tetőgeometria · {model.revisionNumber}. mentett revízió</p></div><Link className="secondary-button" href={`/projektek/${projectId}/tetomodellek/${model.id}?organization=${organizationId}`}>Részletes modell megnyitása</Link></div>
-      <TechnicalDrawing output={model.output} geometry={model.geometry} isSaved headingId={`project-roof-drawing-${model.id}`} heading={`${model.name} · V${model.revisionNumber} rajzai`} />
+      <TechnicalDrawing output={model.output} geometry={model.geometry} isSaved headingId={`project-roof-drawing-${model.id}`} heading="Méretezett rajznézet" />
     </article>)}</div>
   </section>;
 }

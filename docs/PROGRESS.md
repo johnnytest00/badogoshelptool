@@ -1,5 +1,90 @@
 # F7.3.2 állapot
 
+## F9.15.3 — Unified Liquid Glass Project Workspace
+
+Állapot: **COMPLETE (HELYI UI-ELFOGADÁS)**. A projekt részletező oldalon a
+mentett tetőmodellek kompakt, teljes felületükön kattintható üveg rekordok;
+modellnév, tetőtípus, revízió és az elérhető számított tetőterület látható.
+A projektadat-szerkesztő, kivitelezés, kivitelezési alrészek és rajzréteg-panel
+közös `GlassDisclosure`-t használ. A rajz egyetlen külső műszaki felületet kapott,
+a rajz saját kerete megszűnt; SVG-geometria, méretek, zoom/pan, nézetek, rétegek
+és mentett revízió állapota változatlan. A kalkulátorok és alsó anyagkimutatás,
+beszerzés/gyártás és ajánlati hivatkozások üveges navigációs elemek. A kivitelezési
+áttekintés redundáns címkéje és rövid magyarázata kikerült; az eredeti ajánlat
+státuszára és a külön belső kivitelezési nyilvántartásra vonatkozó adatintegritási
+figyelmeztetések megmaradtak.
+
+Helyi, Auth-olt DEMO böngészőben a teljes tartalomfa, projektadat-szerkesztő
+mentés nélküli megnyitása, kivitelezési disclosure, rajznézet/rétegek, mentett
+tetőmodell és ereszcsatorna-kalkulátor megnyitása ellenőrizve; projekt és
+szervezeti query megmaradt. 1440/768/390/320 CSS px-en a document/body szélesség
+megegyezett a viewporttal. 125%-os szöveg- és felületméretnél a 390 px-es
+document/body szélesség továbbra is 390 px; adatírás nem történt. A korábbi
+F9.15.2 browser capture szolgált a megelőző állapot vizuális alapjául; ebben a
+QA körben a desktop és mobil utóállapot is megtekintve. Külön fájlba mentett
+képernyőkép-pár nincs.
+
+Fókuszált Vitest: 4 fájl / 9 teszt PASS; `npm run typecheck`, `npm run lint`,
+izolált másolaton `npm run build` (Next.js 16.4.0 webpack) és `git diff --check`
+sikeres. Teljes Vitest suite, fizikai mobilböngésző, Safari és screen reader nem
+futott. Csak felületi megjelenítés változott; nincs domain/kalkulációs logika,
+Auth, jogosultság, adatbázis, revízió vagy tartós üzleti adat módosítás.
+
+Javasolt commit: `feat(F9.15.3): unify liquid glass project workspace`.
+
+## F9.15.1 — Project UX & Mobile Navigation Refinement
+
+Állapot: **COMPLETE (HELYI ELFOGADÁS)**. A projektmunkaterület fejléce, a nyolc meglévő
+projektfolyamat-hivatkozás és a projektadatok/kivitelezési tartalom sorrendje
+megmaradt; a műveleti menü és az állapotok a meglévő projektadatokat használják.
+A mobil dashboardon 700 px alatt eltűnik a köszöntő szekció, a két meglévő fül
+kompakt marad, a hat funkciókártya sorrendje nem változott. A projektlistán
+keskeny nézetben külön kereső és „Szűrők” gomb nyit natív mobil szűrőpanelt.
+A panel a státusz, munkatípus, rendezés és archivált elemek piszkozatát kezeli;
+bezárás elveti, visszaállítás csak a piszkozatot törli, alkalmazás GET
+paraméterekkel szerveroldali szűrést végez. A kereső külön GET útvonala megőrzi
+az alkalmazott szűrőket és a szervezeti kontextust. A page az üres státusz- és
+munkatípus-paramétert is üres szűrőként kezeli, mert a natív select ezeket
+üres stringként küldi.
+
+Helyi, Auth-olt DEMO böngészőben a mobil szűrőpanel megnyitása, státusz/rendezés/
+archivált piszkozat bezárás utáni elvetése, alkalmazása, újranyitás/frissítés
+utáni visszatöltése, valamint reset és reset alkalmazása igazolt. A keresés
+megmaradt, az URL rendezést és archivált állapotot tükrözte. Bezárás után a
+fókusz visszakerült a Szűrők gombra. A mobil dashboard mindkét füle és mind a
+hat indítókártyája működött; a köszöntő mobilon rejtett, desktopon változatlan.
+A sötét/világos téma és a 80/150%-os szöveg/felület méretezés vizuálisan
+ellenőrzött; a korábbi 100/115% méret visszaállítva. A projektrészletező
+320/1440 CSS px-en, a lista/dashboard 320–1440 CSS px között ellenőrzött; a
+390/768/1024/1440 mérések document/body szélessége a viewporttal egyezett,
+320 px-en a részletezőé is. Helyi böngészős képernyőképek készültek a mobil
+szűrőpanelről, a világos mobil dashboardról, a sötét desktop dashboardról és a
+projekt munkaterületéről. Az Ereszcsatorna útvonal meglévő DEMO geometria-
+elavultsági jelzését is ellenőriztem; üzleti rekordot nem mentettem.
+
+Fókuszált Vitest: 4 fájl / 14 teszt PASS (dashboard, mobil szűrőállapot,
+workflow áttekintő és projekt-életciklus). A végső `npm run typecheck`,
+`npm run lint`, Next.js 16.4.0 webpack `npm run build` izolált másolaton és
+`git diff --check` mind PASS. Teljes Vitest suite, fizikai mobilböngésző és
+screen reader nem futott. Nincs domain, Auth,
+adatbázis, kalkulációs motor vagy üzleti adat módosítás. Javasolt commit:
+`feat(F9.15.1): refine project and mobile UX`.
+
+### Kiegészítő elfogadási korrekció — projekt részletező címsorai
+
+A részletező négy cím-párjából egy-egy címet tartottam meg: „Munka áttekintése”,
+„Alapadatok”, „Tetőmodellek” és „Tetőrajzok”. A modellek üres állapotának
+magyarázata kikerült, mert a címsor és az „Új tetőmodell” művelet már egyértelmű;
+a rajzok revízióadatai és a mentett geometria olvashatók maradtak. A workflow
+állapot-, szakmai jóváhagyási, ajánlati és naplózási figyelmeztetése megmaradt.
+A nyolc workflow csempe, státusz és útvonal nem változott. A tényleges helyi
+böngészős megjelenést desktopon és 390 px-es mobilnézeten ellenőriztem; külön
+fizikai eszközteszt nem történt. Fókuszált Vitest: 3 fájl / 7 teszt PASS;
+`npm run typecheck`, `npm run lint` és `git diff --check` PASS; production build
+ehhez a korrekcióhoz nem futott.
+
+Javasolt commit: `fix(F9.15.1): remove redundant project detail headings`.
+
 ## F9.15.0 — Settings UX, Mobile Header & Brand Identity
 
 Állapot: **COMPLETE** a helyi alkalmazás elfogadási feltételeire. A dashboard

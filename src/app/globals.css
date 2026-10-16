@@ -895,6 +895,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .measurement-guidance.is-compact p { font-size: max(1rem, calc(.78rem * var(--tp-text-scale))); line-height: 1.35; }
 .technical-drawing.is-compact { gap: .6rem; padding: .75rem; }
 .technical-drawing.is-compact .technical-drawing-header .section-eyebrow { margin: 0; }
+.technical-drawing-header h2 { margin-top: 0; }
 .technical-drawing.is-compact .technical-drawing-header h2 { font-size: 1rem; }
 .technical-drawing.is-compact .technical-drawing-header .drawing-state { font-size: max(.8rem, calc(.72rem * var(--tp-text-scale))); }
 .technical-drawing.is-compact .technical-drawing-svg { min-height: 0; height: clamp(14rem, 38vw, 26rem); }
@@ -1858,8 +1859,8 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
   border: 0; border-top: 1px solid color-mix(in srgb, var(--border) 68%, transparent); border-radius: 0; background: transparent;
   box-shadow: none; padding: .9rem 0 .55rem;
 }
-.project-facts-section > .section-eyebrow { margin: 0 0 .2rem; }
 .project-facts-section h2 { margin: 0; font-size: 1.08rem; }
+.roof-model-list > .roof-list-heading h2, .project-roof-drawings > .roof-list-heading h2 { margin-top: 0; }
 .project-fact-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem 1rem; margin-top: .8rem; }
 .project-fact { gap: .5rem; }
 .project-fact > span { display: grid; width: 2rem; height: 2rem; flex: 0 0 auto; place-items: center; border-radius: .65rem; background: color-mix(in srgb, var(--brand-soft) 66%, transparent); }
@@ -1910,6 +1911,115 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
 }
 
 /* F9.14.9 — keep quick display controls separate from application settings. */
+
+/* F9.15.1 — mobile navigation and applied project-filter refinement. */
+.project-filter-mobile { display: none; }
+.project-detail-header + .project-workflow-overview { margin-top: .15rem; }
+.project-workflow-overview > .roof-list-heading { align-items: end; }
+.project-workflow-link { align-items: center; }
+.project-workflow-copy { align-self: center; }
+.project-facts-section { margin-top: .15rem; }
+
+@media (max-width: 700px) {
+  .project-workflow-overview > .roof-list-heading { align-items: flex-start; }
+  .dashboard-greeting { display: none; }
+  .dashboard-tabs {
+    width: fit-content;
+    max-width: 100%;
+    grid-template-columns: repeat(2, max-content);
+    gap: .2rem;
+    margin: .65rem 0 .85rem;
+    padding: .22rem;
+    border-radius: .9rem;
+  }
+  .dashboard-tab { min-height: 2.75rem; padding-inline: clamp(.7rem, 3vw, 1rem); font-size: max(.82rem, calc(.82rem * var(--tp-text-scale))); }
+
+  .project-filter-desktop { display: none; }
+  .project-filter-mobile { display: block; }
+  .mobile-project-search {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.85rem;
+    align-items: stretch;
+    gap: .5rem;
+    margin: 0 0 .25rem;
+  }
+  .mobile-project-search-field {
+    display: flex;
+    min-width: 0;
+    min-height: 2.85rem;
+    align-items: center;
+    gap: .55rem;
+    border: 1px solid color-mix(in srgb, var(--glass-border) 85%, var(--border));
+    border-radius: .95rem;
+    background: color-mix(in srgb, var(--surface-glass) 94%, transparent);
+    padding-inline: .8rem;
+    color: var(--muted);
+    box-shadow: 0 .25rem .8rem rgba(15, 23, 42, .045);
+    backdrop-filter: blur(.55rem);
+  }
+  .mobile-project-search-field:focus-within { border-color: color-mix(in srgb, var(--brand) 55%, var(--glass-border)); outline: 3px solid color-mix(in srgb, var(--brand) 24%, transparent); outline-offset: 1px; }
+  .mobile-project-search-field input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--foreground); font: inherit; font-size: max(.9rem, calc(.9rem * var(--tp-text-scale))); }
+  .mobile-project-search-field input::placeholder { color: var(--muted); opacity: .9; }
+  .mobile-project-filter-trigger {
+    display: grid;
+    width: 2.85rem;
+    min-height: 2.85rem;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--glass-border) 85%, var(--border));
+    border-radius: .95rem;
+    background: color-mix(in srgb, var(--surface-glass) 94%, transparent);
+    color: var(--foreground);
+    box-shadow: 0 .25rem .8rem rgba(15, 23, 42, .045);
+    cursor: pointer;
+    backdrop-filter: blur(.55rem);
+  }
+  .mobile-project-filter-trigger.has-applied-filters { border-color: color-mix(in srgb, var(--brand) 52%, var(--glass-border)); color: var(--brand-ink); background: color-mix(in srgb, var(--brand-soft) 55%, var(--surface-glass)); }
+  .mobile-project-filter-trigger:hover { border-color: color-mix(in srgb, var(--brand) 55%, var(--glass-border)); }
+  .mobile-project-filter-trigger:focus-visible, .mobile-filter-close:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+
+  .mobile-project-filter-dialog {
+    display: none;
+    position: fixed;
+    inset: auto 0 0;
+    width: min(100%, 34rem);
+    max-width: none;
+    max-height: min(44rem, calc(100dvh - .5rem));
+    overflow-y: auto;
+    margin: 0 auto;
+    border: 1px solid color-mix(in srgb, var(--glass-border) 90%, var(--border));
+    border-bottom: 0;
+    border-radius: 1.25rem 1.25rem 0 0;
+    background: color-mix(in srgb, var(--surface-glass) 97%, var(--surface));
+    color: var(--foreground);
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -1rem 3rem rgba(15, 23, 42, .2);
+    backdrop-filter: blur(.8rem);
+  }
+  .mobile-project-filter-dialog[open] { display: block; }
+  .mobile-project-filter-dialog::backdrop { background: rgba(8, 15, 28, .48); backdrop-filter: blur(2px); }
+  .mobile-project-filter-dialog form { display: grid; gap: 1rem; }
+  .mobile-filter-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: .75rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent); }
+  .mobile-filter-heading .section-eyebrow { margin-bottom: .15rem; }
+  .mobile-filter-heading h2 { margin: 0; font-size: 1.2rem; }
+  .mobile-filter-close { display: grid; width: 2.75rem; height: 2.75rem; flex: 0 0 auto; place-items: center; border: 1px solid var(--border); border-radius: .8rem; background: var(--surface-strong); color: var(--foreground); cursor: pointer; }
+  .mobile-filter-fields { display: grid; gap: .8rem; }
+  .mobile-filter-fields .project-filter-field { display: grid; min-width: 0; gap: .35rem; color: var(--foreground); font-size: max(.84rem, calc(.84rem * var(--tp-text-scale))); font-weight: 750; }
+  .mobile-filter-fields .project-filter-field select { width: 100%; min-height: 2.9rem; border: 1px solid var(--border); border-radius: .8rem; background: var(--surface-strong); color: var(--foreground); padding: .6rem .75rem; font: inherit; font-size: max(.9rem, calc(.9rem * var(--tp-text-scale))); }
+  .mobile-filter-fields select:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 32%, transparent); outline-offset: 2px; }
+  .mobile-filter-check { display: flex; min-height: 2.9rem; align-items: center; gap: .65rem; color: var(--foreground); font-size: max(.9rem, calc(.9rem * var(--tp-text-scale))); font-weight: 650; }
+  .mobile-filter-check input { width: 1.2rem; height: 1.2rem; margin: 0; accent-color: var(--brand); }
+  .mobile-filter-actions { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.4fr); gap: .6rem; padding-top: .8rem; border-top: 1px solid color-mix(in srgb, var(--border) 78%, transparent); }
+  .mobile-filter-actions > button { min-width: 0; min-height: 2.9rem; justify-content: center; padding-inline: .55rem; font-size: max(.82rem, calc(.82rem * var(--tp-text-scale))); }
+}
+
+@media (max-width: 350px) {
+  .dashboard-tab { min-height: 2.65rem; padding-inline: .62rem; font-size: max(.78rem, calc(.78rem * var(--tp-text-scale))); }
+  .mobile-filter-actions { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .mobile-project-search-field, .mobile-project-filter-trigger, .mobile-project-filter-dialog { background: var(--surface-strong); backdrop-filter: none; }
+}
 @media (max-width: 700px) {
   .dashboard-header.glass-navigation { position: static; top: auto; z-index: auto; }
   .settings-account-section { align-items: flex-start; flex-direction: column; }
@@ -1997,4 +2107,228 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
 }
 @media (prefers-reduced-motion: reduce) {
   .dashboard-settings-panel, .mobile-account-menu-panel { scroll-behavior: auto; }
+}
+
+/* F9.15.3 — unified Liquid Glass project workspace. */
+.project-workspace .primary-button,
+.project-workspace .secondary-button {
+  min-height: max(2.75rem, calc(2.75rem * var(--tp-ui-scale)));
+  border-radius: 999px;
+  transition: border-color var(--motion-fluid) ease, background-color var(--motion-fluid) ease, box-shadow var(--motion-fluid) ease, transform var(--motion-fluid) ease;
+}
+.project-workspace .secondary-button {
+  border-color: color-mix(in srgb, var(--glass-border) 88%, var(--border));
+  background: color-mix(in srgb, var(--surface-glass) 92%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(.6rem);
+}
+.project-workspace .primary-button:hover:not(:disabled),
+.project-workspace .secondary-button:hover:not(:disabled) { transform: translateY(-1px); }
+.project-workspace .primary-button:active:not(:disabled),
+.project-workspace .secondary-button:active:not(:disabled) { transform: scale(.985); }
+.project-workspace .primary-button:focus-visible,
+.project-workspace .secondary-button:focus-visible,
+.project-workspace .project-calculator-link:focus-visible,
+.project-workspace .future-module:focus-visible,
+.project-workspace .roof-model-card:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 48%, transparent); outline-offset: 3px; }
+
+.project-workspace .project-facts-section {
+  border: 1px solid color-mix(in srgb, var(--glass-border) 72%, var(--border));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface-glass) 76%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  padding: 1rem;
+  backdrop-filter: blur(.55rem);
+}
+.project-workspace .project-edit-disclosure { border: 0; background: transparent; }
+.project-workspace .project-edit-disclosure > summary { min-height: max(3rem, calc(3rem * var(--tp-ui-scale))); }
+
+.project-workspace .project-execution-disclosure {
+  overflow: visible;
+  margin-block: 1rem;
+  border: 0;
+  border-radius: 1rem;
+  background: transparent;
+}
+.project-workspace .project-execution-disclosure > summary { min-height: max(3.2rem, calc(3.2rem * var(--tp-ui-scale))); padding: .55rem .75rem; }
+.project-workspace .project-execution-disclosure > summary h2 { flex: 1; font-size: calc(1.05rem * var(--tp-text-scale)); }
+.project-workspace .project-execution-content { padding: .1rem .15rem .25rem; }
+.project-workspace .execution-nested-disclosure { margin-block: .55rem; border: 0; border-radius: .9rem; background: transparent; }
+.project-workspace .execution-nested-disclosure > summary { min-height: max(2.8rem, calc(2.8rem * var(--tp-ui-scale))); }
+.project-workspace .execution-nested-content { padding: .1rem .15rem .25rem; }
+.project-workspace .execution-plan-tabs {
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 88%, var(--border));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface-glass) 88%, transparent);
+  padding: .25rem;
+  backdrop-filter: blur(.65rem);
+}
+.project-workspace .execution-plan-tabs button {
+  min-height: max(2.65rem, calc(2.65rem * var(--tp-ui-scale)));
+  border-color: transparent;
+  border-radius: 999px;
+  background: transparent;
+  font-size: calc(.82rem * var(--tp-text-scale));
+  overflow-wrap: anywhere;
+}
+.project-workspace .execution-plan-tabs button:hover { border-color: var(--glass-border); background: color-mix(in srgb, var(--surface-glass) 90%, transparent); }
+.project-workspace .execution-plan-tabs button.is-active { border-color: color-mix(in srgb, var(--brand) 40%, var(--glass-border)); background: color-mix(in srgb, var(--brand-soft) 70%, var(--surface-glass)); color: var(--brand-ink); }
+.project-workspace .execution-plan-summary,
+.project-workspace .execution-overview,
+.project-workspace .execution-overview-quotation {
+  border-color: color-mix(in srgb, var(--glass-border) 80%, var(--border));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface-glass) 84%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  backdrop-filter: blur(.6rem);
+}
+.project-workspace .execution-overview-stats > div { border-color: color-mix(in srgb, var(--glass-border) 70%, var(--border)); border-radius: .8rem; background: color-mix(in srgb, var(--surface-strong) 78%, transparent); }
+.project-workspace .execution-overview-columns section { border-color: color-mix(in srgb, var(--glass-border) 66%, var(--border)); }
+.project-workspace .execution-overview-section-heading a {
+  display: inline-flex;
+  min-height: 2.55rem;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 84%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-glass) 90%, transparent);
+  padding: .35rem .7rem;
+  text-decoration: none;
+}
+.project-workspace .execution-overview-list li { border: 1px solid color-mix(in srgb, var(--glass-border) 72%, var(--border)); border-left: 3px solid var(--brand); border-radius: .8rem; background: color-mix(in srgb, var(--surface-glass) 80%, transparent); padding: .65rem .75rem; }
+.project-workspace .execution-overview-list a { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--brand) 45%, transparent); text-underline-offset: .18em; }
+.project-workspace .execution-overview-photos a { min-height: 2.75rem; border: 1px solid color-mix(in srgb, var(--glass-border) 76%, var(--border)); border-radius: .8rem; background: color-mix(in srgb, var(--surface-glass) 82%, transparent); padding: .35rem; text-decoration: none; }
+
+.project-workspace .roof-model-list { margin-top: .25rem; padding-block: 1.25rem; }
+.project-workspace .roof-model-list > .roof-list-heading { align-items: center; margin-bottom: .8rem; }
+.project-workspace .roof-model-list > .roof-list-heading h2 { margin: 0; font-size: calc(1.12rem * var(--tp-text-scale)); }
+.project-workspace .roof-model-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .65rem; margin-top: .85rem; }
+.project-workspace .roof-model-card {
+  display: grid;
+  min-width: 0;
+  min-height: 6.25rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
+  align-items: center;
+  gap: .22rem .65rem;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 86%, var(--border));
+  border-radius: .95rem;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 94%, transparent), color-mix(in srgb, var(--surface) 84%, transparent));
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 .25rem .8rem rgba(15, 23, 42, .035);
+  padding: .72rem .8rem;
+  color: var(--foreground);
+  text-decoration: none;
+  transition: border-color var(--motion-fluid) ease, background-color var(--motion-fluid) ease, box-shadow var(--motion-fluid) ease, transform var(--motion-fluid) ease;
+  backdrop-filter: blur(.55rem);
+}
+.project-workspace .roof-model-card:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--glass-border)); background: color-mix(in srgb, var(--surface-glass) 96%, var(--brand) 4%); box-shadow: 0 .55rem 1.15rem rgba(15, 23, 42, .08); transform: translateY(-1px); }
+.project-workspace .roof-model-type { grid-column: 1; width: fit-content; max-width: 100%; border: 1px solid color-mix(in srgb, var(--brand) 20%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--brand-soft) 74%, transparent); color: var(--brand-ink); padding: .16rem .46rem; font-size: calc(.66rem * var(--tp-text-scale)); font-weight: 850; line-height: 1.35; overflow-wrap: anywhere; }
+.project-workspace .roof-model-card strong { grid-column: 1; min-width: 0; font-size: calc(.92rem * var(--tp-text-scale)); line-height: 1.35; overflow-wrap: anywhere; }
+.project-workspace .roof-model-card small { grid-column: 1; grid-row: 3; min-width: 0; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); line-height: 1.4; text-align: left; overflow-wrap: anywhere; }
+.project-workspace .roof-model-open { grid-column: 2; grid-row: 1 / span 3; width: 1.05rem; color: var(--brand-ink); transition: transform var(--motion-fluid) ease; }
+.project-workspace .roof-model-card:hover .roof-model-open { transform: translate(2px, -2px); }
+
+.project-workspace .project-roof-drawing-list { gap: .85rem; margin-top: .75rem; }
+.project-workspace .project-roof-drawing {
+  gap: .65rem;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 78%, var(--border));
+  border-radius: 1rem;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 92%, transparent), color-mix(in srgb, var(--surface) 86%, transparent));
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  padding: clamp(.75rem, 1.5vw, 1rem);
+  backdrop-filter: blur(.55rem);
+}
+.project-workspace .project-roof-drawing .technical-drawing { gap: .55rem; border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }
+.project-workspace .project-roof-drawing .technical-drawing-header { align-items: center; }
+.project-workspace .project-roof-drawing .technical-drawing-header h2 { font-size: calc(.88rem * var(--tp-text-scale)); }
+.project-workspace .project-roof-drawing .drawing-compact-summary { grid-template-rows: auto minmax(0, auto); }
+.project-workspace .project-roof-drawing .drawing-canvas { border: 0; border-radius: .85rem; background: color-mix(in srgb, var(--surface-strong) 90%, transparent); }
+.project-workspace .project-roof-drawing .drawing-advanced-controls { margin: 0; border: 0; padding: 0; }
+.project-workspace .project-roof-drawing .drawing-advanced-controls-content { padding-top: .25rem; }
+.project-workspace .project-roof-drawing .drawing-toolbar-hint { margin-left: auto; }
+
+.project-workspace .project-calculator-section { margin-top: .25rem; padding-block: 1.25rem; }
+.project-workspace .project-calculator-grid { gap: .65rem; }
+.project-workspace .project-calculator-link {
+  position: relative;
+  min-height: max(5.5rem, calc(5.5rem * var(--tp-ui-scale)));
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  border-color: color-mix(in srgb, var(--glass-border) 84%, var(--border));
+  border-radius: 1rem;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 94%, transparent), color-mix(in srgb, var(--surface) 86%, transparent));
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 .25rem .8rem rgba(15, 23, 42, .035);
+  padding: .8rem;
+  transition: border-color var(--motion-fluid) ease, background-color var(--motion-fluid) ease, box-shadow var(--motion-fluid) ease, transform var(--motion-fluid) ease;
+  backdrop-filter: blur(.55rem);
+}
+.project-workspace .project-calculator-link:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--glass-border)); background: color-mix(in srgb, var(--surface-glass) 95%, var(--brand) 5%); box-shadow: 0 .55rem 1.15rem rgba(15, 23, 42, .08); transform: translateY(-1px); }
+.project-workspace .project-calculator-link > span:nth-child(2) { min-width: 0; }
+.project-workspace .project-calculator-link strong { overflow-wrap: anywhere; }
+.project-workspace .project-calculator-link small { font-size: calc(.72rem * var(--tp-text-scale)); overflow-wrap: anywhere; }
+.project-workspace .project-calculator-open { grid-column: auto; display: inline-flex; align-items: center; gap: .25rem; font-size: calc(.7rem * var(--tp-text-scale)); white-space: nowrap; }
+.project-workspace .future-module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin-top: .25rem; }
+.project-workspace .future-module {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  align-items: start;
+  min-width: 0;
+  min-height: 6.25rem;
+  gap: .55rem .7rem;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 84%, var(--border));
+  border-radius: 1rem;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 94%, transparent), color-mix(in srgb, var(--surface) 86%, transparent));
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 .25rem .8rem rgba(15, 23, 42, .035);
+  padding: .85rem;
+  text-decoration: none;
+  transition: border-color var(--motion-fluid) ease, background-color var(--motion-fluid) ease, box-shadow var(--motion-fluid) ease, transform var(--motion-fluid) ease;
+  backdrop-filter: blur(.55rem);
+}
+.project-workspace .future-module:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--glass-border)); background: color-mix(in srgb, var(--surface-glass) 95%, var(--brand) 5%); box-shadow: 0 .55rem 1.15rem rgba(15, 23, 42, .08); transform: translateY(-1px); }
+.project-workspace .future-module-icon { display: grid; width: 2.35rem; height: 2.35rem; flex: 0 0 auto; place-items: center; border: 1px solid color-mix(in srgb, var(--brand) 18%, transparent); border-radius: .75rem; background: color-mix(in srgb, var(--brand-soft) 72%, transparent); color: var(--brand-ink); }
+.project-workspace .future-module > div { min-width: 0; }
+.project-workspace .future-module h2 { font-size: calc(.9rem * var(--tp-text-scale)); overflow-wrap: anywhere; }
+.project-workspace .future-module p { font-size: calc(.72rem * var(--tp-text-scale)); overflow-wrap: anywhere; }
+.project-workspace .future-module .project-calculator-open { grid-column: 2; margin-top: .1rem; }
+
+@media (max-width: 900px) {
+  .project-workspace .future-module-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .project-workspace .project-detail-header { margin-block: 1rem 1.35rem; }
+  .project-workspace .project-roof-drawing-heading { align-items: stretch; }
+  .project-workspace .project-roof-drawing-heading .secondary-button { align-self: flex-start; }
+}
+@media (max-width: 560px) {
+  .project-workspace .roof-model-list > .roof-list-heading { align-items: stretch; }
+  .project-workspace .roof-model-list > .roof-list-heading .primary-button { width: 100%; }
+  .project-workspace .project-calculator-grid,
+  .project-workspace .future-module-grid { grid-template-columns: 1fr; }
+  .project-workspace .project-calculator-link { min-height: 5rem; }
+  .project-workspace .project-roof-drawing .drawing-toolbar-hint { flex-basis: 100%; margin-left: 0; }
+  .project-workspace .project-roof-drawing .drawing-toolbar.glass-toolbar { align-items: flex-start; }
+  .project-workspace .execution-plan-tabs { width: 100%; }
+  .project-workspace .execution-plan-tabs button { flex: 1 1 auto; }
+  .project-workspace .project-workspace-links > .future-module { min-height: 5.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-workspace .primary-button, .project-workspace .secondary-button,
+  .project-workspace .roof-model-card, .project-workspace .roof-model-open,
+  .project-workspace .project-calculator-link, .project-workspace .future-module { transition: none; }
+  .project-workspace .primary-button:hover:not(:disabled), .project-workspace .secondary-button:hover:not(:disabled),
+  .project-workspace .roof-model-card:hover, .project-workspace .project-calculator-link:hover,
+  .project-workspace .future-module:hover { transform: none; }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .project-workspace .project-facts-section, .project-workspace .execution-plan-tabs,
+  .project-workspace .execution-plan-tabs button, .project-workspace .execution-plan-summary,
+  .project-workspace .execution-overview, .project-workspace .execution-overview-quotation,
+  .project-workspace .execution-overview-list li, .project-workspace .execution-overview-photos a,
+  .project-workspace .roof-model-card, .project-workspace .project-roof-drawing,
+  .project-workspace .project-calculator-link, .project-workspace .future-module { background: var(--surface-strong); backdrop-filter: none; }
+}
+@media (forced-colors: active) {
+  .project-workspace .roof-model-card, .project-workspace .project-roof-drawing,
+  .project-workspace .project-calculator-link, .project-workspace .future-module { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; }
 }

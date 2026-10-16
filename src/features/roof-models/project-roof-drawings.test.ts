@@ -16,8 +16,11 @@ describe("project roof drawing overview", () => {
 
   it("stacks multiple model drawings with unique headings and detail links", () => {
     const html = renderToStaticMarkup(createElement(ProjectRoofDrawings, { models: [model(), model({ id: "model-2", name: "Melléképület", currentRevisionNumber: 2 })], projectId: "project-1", organizationId: "org-1" }));
-    expect(html).toContain("Főépület · V3 rajzai");
-    expect(html).toContain("Melléképület · V2 rajzai");
+    expect(html).toContain("Méretezett rajznézet");
+    expect(html).toContain('<h2 id="project-roof-drawings-title">Tetőrajzok</h2>');
+    expect(html).not.toContain("Műszaki nézetek");
+    expect(html).not.toContain("Főépület · V3 rajzai");
+    expect(html).not.toContain("Melléképület · V2 rajzai");
     expect(html).toContain("Részletes modell megnyitása");
     expect(html).toContain('aria-label="Rajznézet választása"');
     expect(html).toContain("organization=org-1");

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, ClipboardList, FolderOpen, MapPin, PackageOpen, PencilLine, UserRound } from "lucide-react";
+import { ArrowUpRight, CalendarDays, ClipboardList, FolderOpen, MapPin, PackageOpen, PencilLine, UserRound } from "lucide-react";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { projectStatusLabels, projectTypeLabels } from "@/domain/projects/contracts";
@@ -32,7 +32,7 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
   const workflow = await getProjectWorkflowRecords(selected.organization.id, projectId);
   const workflowRows = projectWorkflowRows({ projectId, organizationId: selected.organization.id, roofCount: roofModels.length, ...workflow, planCount: execution.plans.length, journalCount: execution.plans.reduce((n: number, plan: { id: string; photos: unknown[] }) => n + (execution.timelineByPlan.get(plan.id)?.filter((item) => item.type === "journal").length ?? 0), 0), photoCount: execution.plans.reduce((n: number, plan: { id: string; photos: unknown[] }) => n + plan.photos.length, 0) });
   const organizationId = selected.organization.id;
-  return <main className="dashboard-shell"><div className="dashboard-container">
+  return <main className="dashboard-shell"><div className="dashboard-container project-workspace">
     <BackNavigation href={`/projektek?organization=${organizationId}`} label="Vissza a projektekhez" />
     <section className="project-detail-header">
       <div className="project-identity">
@@ -49,7 +49,6 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
     <ProjectWorkflowOverview rows={workflowRows} />
     <div className="project-detail-grid project-detail-grid-single">
       <section className="project-facts-section">
-        <p className="section-eyebrow">Projektadatok</p>
         <h2>Alapadatok</h2>
         <div className="project-fact-grid">
           <Fact icon={<UserRound className="size-4" />} label="Ügyfél" value={project.clientName ?? "Ügyfél nélkül"} />
@@ -64,10 +63,21 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
       </section>
     </div>
     <ExecutionSection defaultOpen={pageQuery.execution === "1"}><ExecutionPlanning organizationId={organizationId} projectId={projectId} projectName={project.name} clientName={project.clientName} location={project.location} plans={execution.plans} acceptedQuotations={execution.acceptedQuotations} timelineByPlan={execution.timelineByPlan} preselectedQuotationId={pageQuery.sourceQuotation} /></ExecutionSection>
-    <section id="tetomodellek" className="detail-surface roof-model-list"><div className="roof-list-heading"><div><p className="section-eyebrow">Tetőmodellek</p><h2>Geometriai modellek</h2></div><Link className="primary-button" href={`/projektek/${projectId}/tetomodellek/uj?organization=${organizationId}`}>+ Új tetőmodell</Link></div>{roofModels.length ? <div className="roof-model-cards">{roofModels.map((model) => <Link className="roof-model-card" key={model.id} href={`/projektek/${projectId}/tetomodellek/${model.id}?organization=${organizationId}`}><span className="section-eyebrow">{({ gable: "Nyeregtető", shed: "Félnyeregtető", hip: "Kontytető", pyramid: "Sátortető", halfHip: "Félkontyos tető", lShape: "L alakú tető", tShape: "T alakú tető", other: "Egyéb tető" } as const)[model.roofType]}</span><strong>{model.name}</strong><small>{model.currentRevisionNumber ? `Revízió ${model.currentRevisionNumber} · ${(model.currentOutput?.areas.combinedRoofM2 ?? (model.currentMultiRoofOutput ? model.currentMultiRoofOutput.totalAreaMm2 / 1_000_000 : null))?.toLocaleString("hu-HU", { maximumFractionDigits: 3 }) ?? "eredmény betöltése…"} m²` : "Még nincs mentett revízió"}</small></Link>)}</div> : <p className="detail-description">Ehhez a projekthez még nincs tetőmodell. Hozd létre az első tető geometriai modelljét.</p>}</section>
+    <section id="tetomodellek" className="detail-surface roof-model-list" aria-labelledby="project-roof-models-title">
+      <div className="roof-list-heading"><h2 id="project-roof-models-title">Tetőmodellek</h2><Link className="primary-button" href={`/projektek/${projectId}/tetomodellek/uj?organization=${organizationId}`}>+ Új tetőmodell</Link></div>
+      {roofModels.length > 0 && <div className="roof-model-cards">{roofModels.map((model) => {
+        const roofArea = model.currentOutput?.areas.combinedRoofM2 ?? (model.currentMultiRoofOutput ? model.currentMultiRoofOutput.totalAreaMm2 / 1_000_000 : null);
+        const roofType = ({ gable: "Nyeregtető", shed: "Félnyeregtető", hip: "Kontytető", pyramid: "Sátortető", halfHip: "Félkontyos tető", lShape: "L alakú tető", tShape: "T alakú tető", other: "Egyéb tető" } as const)[model.roofType];
+        return <Link className="roof-model-card" key={model.id} href={`/projektek/${projectId}/tetomodellek/${model.id}?organization=${organizationId}`}>
+          <span className="roof-model-type">{roofType}</span><strong>{model.name}</strong>
+          <small>{model.currentRevisionNumber ? <>Revízió {model.currentRevisionNumber}<span aria-hidden="true"> · </span>{roofArea?.toLocaleString("hu-HU", { maximumFractionDigits: 3 }) ?? "Eredmény betöltése…"}{roofArea !== null && " m²"}</> : "Még nincs mentett revízió"}</small>
+          <ArrowUpRight aria-hidden="true" className="roof-model-open" />
+        </Link>;
+      })}</div>}
+    </section>
     <ProjectRoofDrawings models={roofModels} projectId={projectId} organizationId={organizationId} />
     <ProjectCalculatorLinks projectId={projectId} organizationId={organizationId} />
-    <div className="future-module-grid"><Link className="future-module" href={`/projektek/${projectId}/anyagkimutatas?organization=${organizationId}`}><span className="future-module-icon"><PackageOpen className="size-5" /></span><div><h2>Anyagkimutatás</h2><p>Mentett kalkulációból készíthető anyaglista.</p></div><span className="project-calculator-open">Megnyitás</span></Link><Link className="future-module" href={`/projektek/${projectId}/beszerzes?organization=${organizationId}`}><span className="future-module-icon"><ClipboardList className="size-5" /></span><div><h2>Beszerzés és gyártás</h2><p>Jóváhagyott anyagmennyiségek és műhelyfeladatok.</p></div><span className="project-calculator-open">Megnyitás</span></Link><Link className="future-module" href={`/projektek/${projectId}/ajanlatok?organization=${organizationId}`}><span className="future-module-icon"><FolderOpen className="size-5" /></span><div><h2>Árajánlatok</h2><p>Verziózott belső ajánlati piszkozatok.</p></div><span className="project-calculator-open">Megnyitás</span></Link></div>
+    <div className="future-module-grid project-workspace-links"><Link className="future-module" href={`/projektek/${projectId}/anyagkimutatas?organization=${organizationId}`}><span className="future-module-icon"><PackageOpen className="size-5" /></span><div><h2>Anyagkimutatás</h2><p>Mentett kalkulációból készíthető anyaglista.</p></div><span className="project-calculator-open">Megnyitás</span></Link><Link className="future-module" href={`/projektek/${projectId}/beszerzes?organization=${organizationId}`}><span className="future-module-icon"><ClipboardList className="size-5" /></span><div><h2>Beszerzés és gyártás</h2><p>Jóváhagyott anyagmennyiségek és műhelyfeladatok.</p></div><span className="project-calculator-open">Megnyitás</span></Link><Link className="future-module" href={`/projektek/${projectId}/ajanlatok?organization=${organizationId}`}><span className="future-module-icon"><FolderOpen className="size-5" /></span><div><h2>Árajánlatok</h2><p>Verziózott belső ajánlati piszkozatok.</p></div><span className="project-calculator-open">Megnyitás</span></Link></div>
   </div></main>;
 }
 

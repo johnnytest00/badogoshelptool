@@ -12,7 +12,7 @@ export default async function ProjectsPage({ searchParams }: Readonly<{ searchPa
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
   if (!selected.organization) return <OrganizationChoice organizations={selected.auth.organizations} />;
-  const filters = projectFilterSchema.parse({ search: typeof params.search === "string" ? params.search : undefined, status: typeof params.status === "string" ? params.status : undefined, projectType: typeof params.projectType === "string" ? params.projectType : undefined, includeArchived: params.archived === "1", sort: params.sort === "oldest" ? "oldest" : "newest" });
+  const filters = projectFilterSchema.parse({ search: typeof params.search === "string" ? params.search : undefined, status: typeof params.status === "string" && params.status ? params.status : undefined, projectType: typeof params.projectType === "string" && params.projectType ? params.projectType : undefined, includeArchived: params.archived === "1", sort: params.sort === "oldest" ? "oldest" : "newest" });
   const projects = await getProjectsForOrganization(selected.organization.id, filters);
   return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/?organization=${selected.organization.id}`} label="Vissza a műhelyhez" /><ProjectList organizationId={selected.organization.id} projects={projects} filters={filters} /></div></main>;
 }
