@@ -40,6 +40,7 @@ describe("professional measurement guidance", () => {
 
   it("links survey semantics to the same guide keys and roof drawing dimensions", () => {
     expect(measurementGuideForSurvey("gable", "roof_building_width")?.key).toBe("buildingWidthMm");
+    expect(measurementGuideForSurvey("gable", "roof_building_length", "m")?.unit).toBe("m");
     const geometry = calculateRoofGeometry({ type: "lShape", lengthMm: 10000, widthMm: 6000, pitchDegrees: 35, wingWidthMm: 4000, wingProjectionMm: 5000 });
     const drawing = createRoofDrawingModel(geometry);
     expect(drawing.dimensions.some((item) => item.sourceKey === "wingWidthMm")).toBe(true);

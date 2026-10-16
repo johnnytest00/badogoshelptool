@@ -5,6 +5,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 vi.mock("./project-actions", () => ({ archiveProjectAction: vi.fn(), duplicateProjectAction: vi.fn(), restoreProjectAction: vi.fn() }));
 
 import { ProjectActionsMenu } from "./project-lifecycle";
+import { closeMenuOnEscape } from "./project-menu-keyboard";
 import type { ProjectRecord } from "./project-data";
 
 const project: ProjectRecord = {
@@ -14,6 +15,16 @@ const project: ProjectRecord = {
 };
 
 describe("project lifecycle controls", () => {
+  it("closes the open project menu on Escape and leaves closed menus alone", () => {
+    const close = vi.fn();
+    const event = { key: "Escape", preventDefault: vi.fn(), stopPropagation: vi.fn() };
+    expect(closeMenuOnEscape(event, true, close)).toBe(true);
+    expect(close).toHaveBeenCalledOnce();
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalledOnce();
+    expect(closeMenuOnEscape(event, false, close)).toBe(false);
+  });
+
   it("links the survey to the current authorized organization and leaves deletion unavailable", () => {
     const html = renderToStaticMarkup(<ProjectActionsMenu organizationId="shop-2" project={project} />);
     expect(html).toContain('aria-haspopup="menu"');

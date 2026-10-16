@@ -23,6 +23,7 @@ import { MeasurementGuidance, measurementGuideFor } from "./measurement-guidance
 import { RoofWorkspace } from "./roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
+import { generateSecureUuid } from "@/lib/secure-uuid";
 
 type FormValues = Record<string, string> & { inputMode: "height" | "angle" };
 const defaults: FormValues = { inputMode: "height", buildingLengthMm: "", buildingWidthMm: "", roofRiseMm: "", roofPitchDegrees: "", eaveOverhangMm: "", frontGableOverhangMm: "", rearGableOverhangMm: "" };
@@ -78,8 +79,8 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [operationId, setOperationId] = useState(() => crypto.randomUUID());
-  const [newRoofModelId] = useState(() => crypto.randomUUID());
+  const [operationId, setOperationId] = useState(() => generateSecureUuid());
+  const [newRoofModelId] = useState(() => generateSecureUuid());
   const [isSaving, setIsSaving] = useState(false);
   const dirty = JSON.stringify(values) !== JSON.stringify(baselineValues) || name !== baselineName;
   const [coveringDirty, setCoveringDirty] = useState(false);
@@ -130,7 +131,7 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
     try {
       const result = await saveGableRoofAction(formData);
       if (!result.ok) { const error = result.error ?? "A mentés nem sikerült. Próbáld újra."; setMessage(error); setFieldErrors(result.fieldErrors ?? {}); notify({ kind: "error", message: error }); throw new Error(error); }
-      setBaselineValues(values); setBaselineName(name); setOperationId(crypto.randomUUID());
+      setBaselineValues(values); setBaselineName(name); setOperationId(generateSecureUuid());
       notify({ kind: "success", message: "Tetőmodell mentve" });
       return result.roofModelId;
     } finally { setIsSaving(false); }

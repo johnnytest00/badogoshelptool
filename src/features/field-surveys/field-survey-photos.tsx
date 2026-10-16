@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { validateSurveyPhotoSelection } from "@/domain/field-surveys/photo-file";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { useAppInteraction } from "@/components/feedback/app-interaction-provider";
+import { generateSecureUuid } from "@/lib/secure-uuid";
 
 type Photo = { id: string; filename: string; mimeType: string; fileSize: number; description: string | null; uploadedAt?: string; url: string | null };
 type QueuedPhoto = { key: string; file: File };
@@ -90,7 +91,7 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
     const files = Array.from(fileList);
     const invalid = files.map(validateSurveyPhotoSelection).find((result) => !result.ok);
     if (invalid && !invalid.ok) { setError(invalid.error); return; }
-    const items = files.map((file) => ({ key: crypto.randomUUID(), file }));
+    const items = files.map((file) => ({ key: generateSecureUuid(), file }));
     setQueue((current) => [...current, ...items]);
     queueUploadAfterRender(items);
   }

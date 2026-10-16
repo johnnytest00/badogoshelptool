@@ -1,6 +1,6 @@
 "use client";
 
-import type { FieldSurveySemanticType } from "@/domain/field-surveys/contracts";
+import type { FieldSurveySemanticType, FieldSurveyUnit } from "@/domain/field-surveys/contracts";
 import type { RoofGeometryType } from "@/domain/calculations/roof-geometry";
 
 export type MeasurementGuide = Readonly<{
@@ -44,9 +44,10 @@ const surveyKeyMap: Partial<Record<FieldSurveySemanticType, string>> = {
   roof_outer_length: "lengthMm", roof_outer_width: "widthMm", roof_outer_side: "sideMm", roof_hip_eave_height: "hipEaveHeightMm", roof_wing_width: "wingWidthMm", roof_wing_projection: "wingProjectionMm",
 };
 
-export function measurementGuideForSurvey(type: RoofGeometryType, semanticType: FieldSurveySemanticType): MeasurementGuide | null {
+export function measurementGuideForSurvey(type: RoofGeometryType, semanticType: FieldSurveySemanticType, inputUnit?: FieldSurveyUnit): MeasurementGuide | null {
   const key = surveyKeyMap[semanticType];
-  return key ? measurementGuideFor(type, key) : null;
+  const result = key ? measurementGuideFor(type, key) : null;
+  return result && inputUnit ? { ...result, unit: inputUnit === "degree" ? "°" : inputUnit } : result;
 }
 
 export function MeasurementGuidance({ guide: activeGuide, compact = false }: Readonly<{ guide: MeasurementGuide | null; compact?: boolean }>) {

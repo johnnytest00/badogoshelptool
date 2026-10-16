@@ -9,6 +9,7 @@ import { saveMaterialPreparationAction, type MaterialPreparationActionState } fr
 import type { MaterialPreparationList } from "./material-preparation-data";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
+import { generateSecureUuid } from "@/lib/secure-uuid";
 
 type Props = Readonly<{
   organizationId: string;
@@ -78,7 +79,7 @@ export function MaterialPreparationWorkspace(props: Props) {
   const [bulkStatus, setBulkStatus] = useState("");
   const [manualDraft, setManualDraft] = useState({ description: "", quantity: "1", unit: "piece" as MaterialPurchasingUnit, profileDescription: "", lengthMm: "", widthMm: "", thicknessMm: "", materialSpec: "", technicalNotes: "" });
   const handledSave = useRef<string | null>(null);
-  const requestKey = useMemo(() => crypto.randomUUID(), [selectedList?.id, selectedList?.currentRevisionId]);
+  const requestKey = useMemo(() => generateSecureUuid(), [selectedList?.id, selectedList?.currentRevisionId]);
   const fingerprint = JSON.stringify({ name, sourceIds, items });
   const initialFingerprint = useRef(fingerprint);
   const dirty = fingerprint !== initialFingerprint.current;
@@ -123,7 +124,7 @@ export function MaterialPreparationWorkspace(props: Props) {
       const sourceSnapshot = requirement.materialSnapshot;
       const dimensions = Object.fromEntries(Object.entries(requirement.dimensions).filter(([, value]) => value !== null && value !== undefined));
       return {
-        id: prior?.id ?? crypto.randomUUID(), kind: "source", category,
+        id: prior?.id ?? generateSecureUuid(), kind: "source", category,
         status: prior && (category === "purchasing" ? purchasingStatuses : workshopStatuses).includes(prior.status as never) ? prior.status : defaultStatus(category),
         description: `${requirement.productName} · ${requirement.variantName}`,
         productId: requirement.productId, variantId: requirement.variantId, productName: requirement.productName,
@@ -162,7 +163,7 @@ export function MaterialPreparationWorkspace(props: Props) {
       materialSpec: manualDraft.materialSpec.trim(), technicalNotes: manualDraft.technicalNotes.trim(),
     };
     setItems((current) => [...current, {
-      id: crypto.randomUUID(), kind: "manual", category: "workshop", status: "prepare", description,
+      id: generateSecureUuid(), kind: "manual", category: "workshop", status: "prepare", description,
       quantity: manualDraft.quantity, unit: manualDraft.unit,
       dimensions: manualTechnicalData, sourceItemIds: [], sourceSnapshots: [], supplier: null, notes: null, provenance: "manual",
     }]);

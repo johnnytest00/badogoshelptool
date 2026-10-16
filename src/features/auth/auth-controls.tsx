@@ -1,15 +1,10 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { createClient } from "@/infrastructure/supabase/browser";
+import { logoutAction } from "./actions";
 
-export function LogoutButton() {
-  async function logout() {
-    await createClient().auth.signOut();
-    window.location.assign("/bejelentkezes");
-  }
-
-  return <button className="logout-button" type="button" onClick={logout}><LogOut aria-hidden="true" className="size-4" /> Kilépés</button>;
+export function LogoutButton({ className }: Readonly<{ className?: string }> = {}) {
+  return <form action={logoutAction} className={className}><button className="logout-button" type="submit"><LogOut aria-hidden="true" className="size-4" /> Kilépés</button></form>;
 }
 
 export function OrganizationSelector({ organizations, selectedId }: Readonly<{ organizations: readonly { id: string; name: string }[]; selectedId?: string }>) {

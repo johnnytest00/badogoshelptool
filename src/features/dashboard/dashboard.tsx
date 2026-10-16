@@ -3,7 +3,7 @@
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, FolderKanban, Settings2, UserRound, X } from "lucide-react";
+import { ArrowRight, FolderKanban, Settings2 } from "lucide-react";
 import brandIcon from "@/assets/brand-icon.png";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -52,7 +52,7 @@ export function Dashboard({ displayName, email, organizationName, organizationId
     <main className="dashboard-shell">
       <div className="dashboard-container">
         <div className="dashboard-navigation-wrap" ref={navigationRef}>
-          <DashboardHeader displayName={displayName} email={email} organizationName={organizationName} settingsOpen={settingsOpen} onToggleSettings={() => setSettingsOpen((current) => !current)} onCloseSettings={() => setSettingsOpen(false)} onOpenAccount={() => { setSettingsOpen(false); setAccountDialogOpen(true); }} />
+          <DashboardHeader displayName={displayName} email={email} organizationName={organizationName} settingsOpen={settingsOpen} onToggleSettings={() => setSettingsOpen((current) => !current)} />
           {settingsOpen && <DashboardSettings onOpenAccount={() => { setSettingsOpen(false); setAccountDialogOpen(true); }} />}
         </div>
         <AccountManagementDialog open={accountDialogOpen} onClose={() => setAccountDialogOpen(false)} />
@@ -78,23 +78,8 @@ export function Dashboard({ displayName, email, organizationName, organizationId
   );
 }
 
-function DashboardHeader({ displayName, email, organizationName, settingsOpen, onToggleSettings, onCloseSettings, onOpenAccount }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; settingsOpen: boolean; onToggleSettings: () => void; onCloseSettings: () => void; onOpenAccount: () => void }>) {
+export function DashboardHeader({ displayName, email, organizationName, settingsOpen, onToggleSettings }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; settingsOpen: boolean; onToggleSettings: () => void }>) {
   const userLabel = displayName || email || "Felhasználó";
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!accountMenuOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setAccountMenuOpen(false);
-      document.querySelector<HTMLButtonElement>('[aria-controls="mobile-account-menu-panel"]')?.focus({ preventScroll: true });
-    };
-    const closeOnOutsidePointer = (event: PointerEvent) => { if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false); };
-    document.addEventListener("keydown", closeOnEscape);
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    return () => { document.removeEventListener("keydown", closeOnEscape); document.removeEventListener("pointerdown", closeOnOutsidePointer); };
-  }, [accountMenuOpen]);
 
   return (
     <header className="dashboard-header glass-navigation">
@@ -102,28 +87,18 @@ function DashboardHeader({ displayName, email, organizationName, settingsOpen, o
         <Image className="brand-icon" src={brandIcon} alt="" priority />
         <span>TETŐPRO</span>
       </div>
-      <div className="dashboard-account"><span className="dashboard-account-copy"><strong>{userLabel}</strong><span>{organizationName ?? "Helyi műhely"}</span></span><LogoutButton /></div>
+      <div className="dashboard-account"><span className="dashboard-account-copy"><strong>{userLabel}</strong><span>{organizationName ?? "Helyi műhely"}</span></span></div>
       <div className="dashboard-header-actions">
         <ThemeToggle />
         <button className={`icon-button ${settingsOpen ? "is-active" : ""}`} type="button" onClick={onToggleSettings} aria-expanded={settingsOpen} aria-controls="dashboard-settings" aria-label="Beállítások" title="Beállítások">
           <Settings2 aria-hidden="true" className="size-4" />
         </button>
-        <div className="mobile-account-menu" ref={accountMenuRef}>
-          <button className="icon-button" type="button" onClick={() => { setAccountMenuOpen((open) => !open); onCloseSettings(); }} aria-expanded={accountMenuOpen} aria-controls="mobile-account-menu-panel" aria-label="Fiókmenü" title="Fiókmenü">
-            {accountMenuOpen ? <X aria-hidden="true" className="size-4" /> : <UserRound aria-hidden="true" className="size-4" />}
-          </button>
-          {accountMenuOpen && <div className="mobile-account-menu-panel" id="mobile-account-menu-panel" aria-label="Fiókmenü">
-            <div className="mobile-account-menu-identity"><strong>{userLabel}</strong><span>{email ?? ""}</span><span>{organizationName ?? "Helyi műhely"}</span></div>
-            <button type="button" className="secondary-button" onClick={() => { setAccountMenuOpen(false); onOpenAccount(); }}>Fiókbeállítások</button>
-            <LogoutButton />
-          </div>}
-        </div>
       </div>
     </header>
   );
 }
 
-function DashboardSettings({ onOpenAccount }: Readonly<{ onOpenAccount: () => void }>) {
+export function DashboardSettings({ onOpenAccount }: Readonly<{ onOpenAccount: () => void }>) {
   const { mode, setMode } = useTheme();
   return <aside className="dashboard-settings-panel" id="dashboard-settings" role="dialog" aria-modal="false" aria-labelledby="dashboard-settings-title">
     <div className="settings-panel-heading"><h2 id="dashboard-settings-title">MEGJELENÉS</h2><button className="settings-account-trigger" type="button" onClick={onOpenAccount}>Fiókbeállítások</button></div>
@@ -131,6 +106,7 @@ function DashboardSettings({ onOpenAccount }: Readonly<{ onOpenAccount: () => vo
     <ScalingControls idPrefix="settings-scale" keys={["text", "ui", "spacing", "drawing"]} />
     <Link className="settings-demo-link" href="/demo/meretezes">Méretezési demo megnyitása <span aria-hidden="true">→</span></Link>
     <p className="settings-storage-note">A megjelenítési beállítások ebben a böngészőben tárolódnak.</p>
+    <LogoutButton className="settings-logout-form" />
   </aside>;
 }
 

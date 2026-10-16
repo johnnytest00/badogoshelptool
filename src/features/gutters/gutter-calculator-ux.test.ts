@@ -15,6 +15,9 @@ describe("ereszcsatorna-kalkulátor felülete", () => {
     }));
     expect(html).toContain("Választott ereszcsatorna-szál hossza (mm)");
     expect(html).toContain("A könyökök a rajzon megjelennek, de nem kerülnek automatikusan az anyagkimutatásba.");
+    expect(html).toMatch(/<details class="glass-disclosure survey-calculator-optional">\s*<summary[^>]*>Lefolyómenetek · 0/);
+    expect(html).toMatch(/<details class="glass-disclosure survey-calculator-optional">\s*<summary[^>]*>Kézi tartozékok · 0/);
+    expect(html).toContain("További adatok");
     expect(html).toContain("Új, még nem mentett számítás");
     expect(html).toContain("Mentés új változatként · V1");
     expect(html).not.toContain('value="4000"');

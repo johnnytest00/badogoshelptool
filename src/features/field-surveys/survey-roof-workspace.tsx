@@ -9,6 +9,7 @@ import { linkSurveyCalculation } from "./workspace-actions";
 import { listVerifiedSurveyRoofs, saveSurveyRoofGeometry, type VerifiedSurveyRoof } from "./survey-roof-actions";
 import { listVerifiedSurveyMultiRoofs, saveSurveyMultiRoofGeometry, type VerifiedSurveyMultiRoof } from "./survey-roof-actions";
 import type { RoofGeometryType } from "@/domain/calculations/roof-geometry";
+import { generateSecureUuid } from "@/lib/secure-uuid";
 
 type Props = Readonly<{
   organizationId: string; surveyId: string; version: number; sectionId: string; sectionName: string;
@@ -22,8 +23,8 @@ export function SurveyRoofWorkspace(props: Props) {
 }
 
 function GableSurveyRoofWorkspace({ organizationId, surveyId, version, sectionId, sectionName, projectId, links, ensureSaved, onWork, onLinked }: Props) {
-  const [operationId, setOperationId] = useState(() => crypto.randomUUID());
-  const [newRoofModelId] = useState(() => crypto.randomUUID());
+  const [operationId, setOperationId] = useState(() => generateSecureUuid());
+  const [newRoofModelId] = useState(() => generateSecureUuid());
   const [sources, setSources] = useState<VerifiedSurveyRoof[]>([]);
   const [selectedModelId, setSelectedModelId] = useState("");
   const [selectedSegmentIds, setSelectedSegmentIds] = useState<string[]>([]);
@@ -60,7 +61,7 @@ function GableSurveyRoofWorkspace({ organizationId, surveyId, version, sectionId
       if (!savedSurvey) return;
       const result = await saveSurveyRoofGeometry({ organizationId, surveyId: savedSurvey.surveyId, version: savedSurvey.version, sectionId, roofModelId: selectedModelId || null, newRoofModelId, operationId, expectedRevisionNumber: source?.roofModelRevisionNumber ?? 0, name: source?.name ?? sectionName });
       if (!result.ok) { setError(result.error); return; }
-      setOperationId(crypto.randomUUID());
+      setOperationId(generateSecureUuid());
       setSources((current) => [...current.filter((item) => item.roofModelId !== result.source.roofModelId), result.source]);
       setSelectedModelId(result.source.roofModelId); setSelectedSegmentIds([]);
       setReceipt({ calculationId: result.source.calculationId, revisionId: result.source.calculationRevisionId, revisionNumber: result.source.roofModelRevisionNumber });
@@ -100,8 +101,8 @@ function GableSurveyRoofWorkspace({ organizationId, surveyId, version, sectionId
 function MultiSurveyRoofWorkspace({ organizationId, surveyId, version, sectionId, sectionName, projectId, roofType, links, ensureSaved, onWork, onLinked }: Props & { roofType: Exclude<RoofGeometryType, "gable"> }) {
   const [sources, setSources] = useState<VerifiedSurveyMultiRoof[]>([]);
   const [selectedModelId, setSelectedModelId] = useState("");
-  const [newModelId] = useState(() => crypto.randomUUID());
-  const [operationId, setOperationId] = useState(() => crypto.randomUUID());
+  const [newModelId] = useState(() => generateSecureUuid());
+  const [operationId, setOperationId] = useState(() => generateSecureUuid());
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -137,7 +138,7 @@ function MultiSurveyRoofWorkspace({ organizationId, surveyId, version, sectionId
       setSelectedModelId(result.source.roofModelId); setSelectedIds([]);
       setReceipt({ calculationId: result.source.calculationId, revisionId: result.source.calculationRevisionId, revisionNumber: result.source.roofModelRevisionNumber });
       setLinked(result.linked);
-      if (result.linked) { setOperationId(crypto.randomUUID()); onLinked(); }
+      if (result.linked) { setOperationId(generateSecureUuid()); onLinked(); }
       if (result.linkError) setError(result.linkError);
     } catch { setError("A mentés válasza bizonytalan. Ugyanazzal a művelettel újrapróbálható."); }
     finally { setBusy(false); }

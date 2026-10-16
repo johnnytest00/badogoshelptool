@@ -13,6 +13,7 @@ import { MeasurementGuidance, measurementGuideFor } from "./measurement-guidance
 import { RoofWorkspace } from "./roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
+import { generateSecureUuid } from "@/lib/secure-uuid";
 
 type MultiType = Exclude<RoofGeometryType, "gable">;
 type Field = { key: string; label: string; unit: string; help: string };
@@ -45,9 +46,9 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
   const [message, setMessage] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [operationId, setOperationId] = useState(() => crypto.randomUUID());
-  const [roofModelId] = useState(() => model?.id ?? crypto.randomUUID());
-  const [calculationId] = useState(() => standalone?.id ?? crypto.randomUUID());
+  const [operationId, setOperationId] = useState(() => generateSecureUuid());
+  const [roofModelId] = useState(() => model?.id ?? generateSecureUuid());
+  const [calculationId] = useState(() => standalone?.id ?? generateSecureUuid());
   const router = useRouter();
   const { notify } = useAppInteraction();
   const parsed = useMemo(() => roofGeometryInputSchema.safeParse({ type, ...Object.fromEntries(fields.map((field) => [field.key, num(values[field.key] ?? "")])) }), [fields, type, values]);
@@ -74,7 +75,7 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
       if (!saved.ok) { const error = saved.error ?? "A mentés nem sikerült."; setMessage(error); notify({ kind: "error", message: error }); return; }
       interactionBaseline.current = { values, name };
       notify({ kind: "success", message: "Tetőgeometria mentve" });
-      setOperationId(crypto.randomUUID());
+      setOperationId(generateSecureUuid());
       setMessage(`A tetőgeometria mentve · V${saved.revisionNumber}.`);
       router.replace(projectId ? `/projektek/${projectId}/tetomodellek/${roofModelId}?organization=${organizationId}` : `/kalkulatorok/nyeregteto?organization=${organizationId}&calculation=${calculationId}`);
       router.refresh();

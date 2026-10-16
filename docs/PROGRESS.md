@@ -1,5 +1,71 @@
 # F7.3.2 állapot
 
+## F9.18 — iOS hibajavítások és mobil UX-megerősítés
+
+Állapot: **PARTIAL**. A survey kliensoldali azonosítói egy közös, kriptográfiai
+forrású UUIDv4 helperre kerültek: natív `crypto.randomUUID`, ennek hiányában
+`crypto.getRandomValues`; nem biztonságos véletlenforrás nincs. A survey
+piszkozat-helyreállítás most a jegyzetet, méréseket, tetőválasztást, aktív
+munkaszakaszt/projektet és stabil új survey-kérésazonosítót is tárolja.
+Meglévő felmérésnél a helyi piszkozat az eredeti verzióalappal áll vissza, így
+újabb szerververziót nem írhat felül: mentéskor a meglévő optimista
+verzióellenőrzés ütközést jelez. A hiányos numerikus bevitel helyreállítható.
+
+A projektműveletek menü a tényleges visual viewporthoz és safe-area
+insetekhez igazodik; billentyűzetes navigáció, Escape és külső érintés
+megmaradt. A műszaki SVG a pointermozgást képkockánként dolgozza fel,
+elengedéskor a legutolsó koordinátát is alkalmazza, és egyedi marker/title
+azonosítókat használ. A kijelölt méretvonal aktív drop-shadow effektje
+eltávolításra került. A geometriai számítás nem változott.
+
+A mobil fejlécben nincs fiókikon vagy kilépés; a márka, téma és Beállítások
+megmaradt. A meglévő fiókkezelés a teljes Beállítások panelen elérhető, a
+kilépés egyszeri, meglévő szerverakciós űrlapként a panel jobb alsó részére
+került. Az ereszkalkulátor haladó forrás- és konzoltávolság-mezői, lefolyói és
+kézi tartozékai megosztott Liquid Glass disclosure-kben nyílnak; számítási
+képlet, adatforrás és roof-edge handoff nem változott.
+
+A survey mérési útmutató a tényleges beviteli egységet mutatja, így a
+méterben megadott épületméret mellett is `m` látszik, nem a rajzmodell
+kanonikus `mm` egysége.
+
+Az Ethereum hiba nem reprodukálódott. A forráskód, dependency- és buildkimenet
+keresésében nincs `window.ethereum` vagy `selectedAddress` hivatkozás; a
+hitelesített Brave DevTools konzol aktuális 9 bejegyzése között sincs ilyen
+hiba. A Brave Wallet bővítmény gombja látható, de a jelentett stack trace és
+felhasználói screenshot nem volt a csatolmányban, így a külső eredet csak
+lehetséges, nem bizonyított. Globális wallet objektumot nem módosítottam.
+
+Hitelesített helyi Brave smoke-ban mind a hét tetőforma kiválasztása létrehozta
+a várt mérési mezőket; nyeregtetőn mérés is hozzáadható volt. Új helyi DEMO
+felmérés `b66caa4f-4882-4193-b91e-706a0f4b9e37` V1-ként ment: jegyzet,
+10 m-es részleges mérés és tetőforma refresh utáni recovery-je, a „Maradok”
+navigációvédelme, mentés utáni refresh és újbóli megnyitás bizonyított.
+Külön DEMO felmérés `2538b809-cf73-46ac-807c-bfe3c2412df0` esetén az offline
+mentési POST `ERR_INTERNET_DISCONNECTED` hibát adott; online visszakapcsolás
+után ugyanaz az űrlap mentődött egyszer V1-ként, majd frissítés után a 10 m-es
+mérés és jegyzet visszajött. Fókuszált mezőn a mérési útmutató `m` egységét
+is ellenőriztem.
+Projektmenünél emulált 320 px-en a bounding box 12–300 px, 390 px-en 12–316
+px volt; a dokumentumszélesség mindkét esetben a viewporttal egyezett. A 320 px
+Escape-próba először reprodukálta a menü nyitva maradását, a triggerre kötött
+billentyűkezelés után bezárta. A projektarchiválási dialógust csak megnyitottam,
+majd megszakítottam. Gutter-kalkulátoron a fő mezők és „További adatok” mezői
+megjelentek; 768 px-en a `documentElement`, body és visual viewport egyaránt
+768 px volt. Beállítások 390/1024 px emulált nézeten, fiókdialog és egyszeri
+kilépés-űrlap megjelent; logoutot nem futtattam.
+
+Fókuszált Vitest (10 fájl / 39 teszt), typecheck, lint és production build
+PASS; ez nem teljes regresszió. Fizikai iPhone/iPad, LAN HTTP és Safari
+fallback, touch/pinch SVG artifact, soft keyboard és izolált külső wallet reprodukció nincs
+bizonyítva. A csatolmány csak feladatleírást tartalmazott screenshotok és
+stack trace nélkül. Ethereum hibát nem reprodukáltam; a Brave Wallet jelenléte
+csak megfigyelés, külső eredet nem bizonyított. Hosted DB/Auth/RLS, migráció,
+formula és jogosultsági contract nem változott; helyi, új DEMO survey rekord
+maradt meg, hosted művelet, reset, commit, push vagy deploy nem történt.
+
+Javasolt commit: `fix(F9.18): harden iOS mobile workflows`.
+
 ## F9.17 — Globális Liquid Glass interakció és visszajelzés
 
 Állapot: **PARTIAL — a közös helyi interakciós rendszer elkészült, az offline

@@ -1,5 +1,25 @@
 # Tesztmátrix
 
+## F9.18 — iOS hibajavítások és mobil UX-megerősítés
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Böngészőoldali UUID | PASS, CODE + UNIT | A UI-generálás a `secure-uuid` helperre épül: `randomUUID`, majd Web Crypto `getRandomValues` RFC 4122 v4 fallback. A `src/` klienskomponenseiben nincs közvetlen `crypto.randomUUID`; a fennmaradó action hívások szerveroldaliak. `Math.random`-alapú azonosító nincs. HTTP/LAN Safari futtatás nincs. |
+| Survey draft recovery | PASS, UNIT + LOCAL BROWSER | A snapshot tartalmaz szakaszokat, jegyzetet, tetőformát, minden szerkesztett mérési stringet, aktív szakaszt, projektet, szerververziót és új kérésazonosítót. Üres/hibás numerikus mező megmarad. Mentés után törlődik; mentetlen módosítások `sessionStorage`-be kerülnek. Régebbi alapverzió mentését a meglévő optimistic concurrency védi. Refresh/recovery, navigáció-megszakítás, mentés utáni újranyitás és offline sikertelen mentés utáni online retry helyi DEMO-ban lefutott. |
+| Survey jogosultság / adatkonzisztencia | CONTRACT VÁLTOZATLAN | Nincs schema, server action vagy Auth/RLS változás. Meglévő verziós mentési contract marad az ütközésvédelem; draft kizárólag böngésző session storage. Nincs hosted adatírás. |
+| Projektműveletek menü | PASS, EMULATED / PARTIAL | Authenticated local Brave: 320 px menü bounds 12–300 px, document width 320; 390 px bounds 12–316 px, document width 390. Escape triggerfókuszról browserben bezárt, és külön unit teszt fedi. Outside click, nyíl-kulcs, safe-area fizikai iOS-en és valódi érintés nem volt végigtesztelve; safe-area geometriát unit teszteli. |
+| SVG touch/render | PASS, CODE + FOCUSED TEST / PHYSICAL UNVERIFIED | Pan/pinch nézet-geometria meglévő tesztjei, pointer rAF batching, pointer-up végső pozíció, egyedi SVG marker azonosítók; aktív drop-shadow eltávolítva. Számítási geometria nem változott. iOS/WebKit artifact fizikai vizsgálat nincs. |
+| Fejléc / kilépés | PASS, COMPONENT + BROWSER REVIEW | Emulált 390 és 1024 px-en márka/téma/settings megjelent; account header action nincs. A teljes settings panelben `Fiókbeállítások` és egyetlen `Kilépés` gomb; account dialog megnyílt, e-mail/jelszó nem lett beküldve. Valódi böngészős logout nem futott, a helyi DEMO session megőrzéséhez. |
+| Eresz UX / számítás | PASS, FOCUSED TEST | Forrás és konzoltávolság „További adatok” disclosure-ben, üres lefolyó/ kézi tartozék szekciók összecsukva; meglévő tételek nyitva maradnak. Képlet, termékadat és handoff változatlan. |
+| Felmérési mérési útmutató egysége | PASS, UNIT + BROWSER | Az útmutató az aktív survey mező egységét követi; a `10 m` mező útmutatója `m`-t mutat. A rajz geometriája és kanonikus számítási egysége nem változott. |
+| Ethereum runtime hiba | NEM REPRODUKÁLT / FORRÁS NEM AZONOSÍTOTT | App source és lokális dependency/build szöveges keresésben nincs `window.ethereum`/`selectedAddress`; aktív Brave DevTools 9 üzenetében nem látszott hiba, Brave Wallet bővítmény jelen van. Eredeti stack trace és csatolt screenshot nem volt elérhető; külső eredet nem bizonyított. |
+| Fókuszált Vitest | PASS | `npx vitest run src/lib/secure-uuid.test.ts src/lib/viewport-menu-placement.test.ts src/features/field-surveys/survey-draft-recovery.test.ts src/features/field-surveys/field-survey-editor.test.tsx src/features/roof-models/drawing-viewport.test.ts src/features/roof-models/technical-drawing.test.tsx src/features/roof-models/measurement-guidance.test.tsx src/features/projects/project-lifecycle.test.tsx src/features/dashboard/dashboard-controls.test.tsx src/features/gutters/gutter-calculator-ux.test.ts`: 10 fájl / 39 teszt. |
+| Typecheck / lint / build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) ténylegesen lefutott. Teljes Vitest/DB suite nem futott. |
+| Survey workflow | BROWSER VERIFIED (LOCAL DEMO) | 7 roof type választás; gable measurement add; jegyzet + 10 m partial measurement refresh → recovery; „Maradok” navigációs guard; V1 mentés és frissítés/újranyitás. Offline POST `ERR_INTERNET_DISCONNECTED`, online retry után egy V1, majd refresh/reopen alatt a jegyzet és mérés megmaradt. DEMO rekordok: `b66caa4f-4882-4193-b91e-706a0f4b9e37`, `2538b809-cf73-46ac-807c-bfe3c2412df0`; nem hosted. |
+| Gutter / viewport | BROWSER VERIFIED (LOCAL DEMO, EMULATED) | 1024 px-en fő mérésmezők és „További adatok” inputok; 768 px-en inner/visual/document/body width = 768. Nem adott meg termékméretet, nem mentett számítást. |
+| Browser / platform | PARTIAL / EMULATED | Helyi authenticated Brave/Chromium workflow; 320/390 menü, 390/1024 settings, 768 gutter és offline save/retry. LAN HTTP és fizikai iOS/iPadOS/Safari nem futott; touch pinch és soft keyboard nincs ellenőrizve. |
+| `git diff --check` | PASS | Friss dokumentációval és forrásdiff-fel lefutott, üres kimenettel. |
+
 ## F9.17 — globális Liquid Glass interakció és visszajelzés
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

@@ -8,6 +8,7 @@ import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
 import { fieldSurveySemanticTypeLabels, fieldSurveyTemplates, fieldSurveyUnitLabels, fieldSurveyWorkTypeLabels, type FieldSurveyMeasurement, type FieldSurveySemanticType, type FieldSurveyUnit, type FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
 import { surveySections, surveySectionsSchema, type SurveySection, type SurveyCalculationLink, type SurveyFollowup } from "@/domain/field-surveys/workspace";
+import { readSurveyDraftRecovery, removeSurveyDraftRecovery, serializeSurveyDraftSections, writeSurveyDraftRecovery, type SurveyDraftRecovery, type SurveyMeasurementDraft, type SurveySectionDraft } from "./survey-draft-recovery";
 import { saveFieldSurveyAction } from "./field-survey-actions";
 import type { FieldSurveyRecord, FieldSurveyRevisionRecord } from "./field-survey-data";
 import { FieldSurveyPhotos } from "./field-survey-photos";
@@ -26,13 +27,14 @@ import { TechnicalDrawing } from "@/features/roof-models/technical-drawing";
 import { MeasurementGuidance, measurementGuideForSurvey } from "@/features/roof-models/measurement-guidance";
 import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
+import { generateSecureUuid } from "@/lib/secure-uuid";
 
-type MeasurementDraft = { id: string; label: string; value: string; unit: FieldSurveyUnit; semanticType: FieldSurveySemanticType };
-type SectionDraft = Omit<SurveySection, "measurements"> & { measurements: MeasurementDraft[] };
+type SectionDraft = SurveySectionDraft;
+type MeasurementDraft = SurveyMeasurementDraft;
 const emptyMeasurement = (workType: FieldSurveyWorkType, id: string): MeasurementDraft => ({ ...fieldSurveyTemplates[workType][0], value: "", id });
 const draftSections = (sections: SurveySection[]): SectionDraft[] => sections.map((section) => ({ ...section, measurements: section.measurements.map((measurement) => ({ ...measurement, value: measurement.value === null ? "" : String(measurement.value), semanticType: measurement.semanticType ?? "custom" })) }));
 const initialSections = (survey?: FieldSurveyRecord | null): SectionDraft[] => survey ? draftSections(surveySections(survey)) : [{ id: "00000000-0000-4000-8000-000000000002", name: "Tető", workType: "roof", notes: "", photoIds: [], measurements: [emptyMeasurement("roof", "00000000-0000-4000-8000-000000000001")] }];
-const serialize = (sections: SectionDraft[]): SurveySection[] => sections.map((section) => ({ ...section, measurements: section.measurements.map((measurement) => ({ ...measurement, value: measurement.value.trim() === "" ? null : Number(measurement.value.trim().replace(",", ".")) })) }));
+const serialize = serializeSurveyDraftSections;
 const emptyRelationships: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[] } = { calculations: [], followups: [] };
 
 export function FieldSurveyEditor({ organizationId, userId, projects, survey, initialProjectId = null, initialSectionId = null, revisionVersions = [], historicalRevision = null, relationships = emptyRelationships }: Readonly<{
@@ -67,6 +69,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   const dirty = baseline !== fingerprint;
   const blocked = saving || photoState.busy || calculatorState.pending || followupPending;
   const active = sections.find((section) => section.id === activeId) ?? sections[0];
+  const activeSurveyGuide = active.roofType ? measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom", active.measurements.find((measurement) => measurement.semanticType === focusedRoofMeasurement)?.unit) : null;
   const effectiveProjectId = projectId || relationships.followups.find((followup) => followup.kind === "project")?.projectId || "";
   const missingRoofTemplates = active.workType === "roof" && (active.roofType ?? "gable") === "gable" ? fieldSurveyTemplates.roof.filter((template) => template.semanticType !== "roof_pitch" && !active.measurements.some((measurement) => measurement.semanticType === template.semanticType) && !(template.semanticType === "roof_rise" && active.measurements.some((measurement) => measurement.semanticType === "roof_pitch"))) : [];
   const onPhotos = useCallback((next: { id: string; filename: string }[]) => {
@@ -81,9 +84,10 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     });
   }, []);
   const recoveryKey = userId ? `tetopro-survey:${userId}:${organizationId}:${surveyId ?? "new"}` : null;
-  const [recovery, setRecovery] = useState<{ sections: SectionDraft[]; projectId: string; version: number } | null>(null);
+  const [recovery, setRecovery] = useState<SurveyDraftRecovery | null>(null);
   const recoveryChecked = useRef(false);
   const [recoveryReady, setRecoveryReady] = useState(false);
+  const [draftStorageAvailable, setDraftStorageAvailable] = useState(true);
   const persistCurrentRef = useRef<() => Promise<{ surveyId: string; version: number } | null>>(async () => null);
   const saveForNavigation = useCallback(async () => {
     if (recovery || photoState.queued || calculatorState.dirty) return false;
@@ -91,7 +95,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     return Boolean(await persistCurrentRef.current());
   }, [calculatorState.dirty, dirty, photoState.queued, recovery, surveyId, workspacePersisted]);
   const discardForNavigation = useCallback(() => {
-    if (recoveryKey) { try { sessionStorage.removeItem(recoveryKey); } catch { /* Best effort. */ } }
+    if (recoveryKey) { try { removeSurveyDraftRecovery(sessionStorage, recoveryKey); } catch { /* Best effort. */ } }
     setRecovery(null); setCalculator(null); setError("");
     try {
       const saved = JSON.parse(baseline) as { sections: SectionDraft[]; projectId: string };
@@ -109,17 +113,21 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     if (!recoveryKey || historicalRevision || recoveryChecked.current) return;
     recoveryChecked.current = true;
     try {
-      const raw = sessionStorage.getItem(recoveryKey);
-      if (!raw) return;
-      const stored = JSON.parse(raw);
-      if (Array.isArray(stored.sections) && surveySectionsSchema.safeParse(serialize(stored.sections)).success && Number.isSafeInteger(stored.version) && stored.version >= 0 && typeof stored.projectId === "string") setRecovery(stored);
-    } catch { /* Storage may be disabled; the navigation guard remains active. */ }
+      const stored = readSurveyDraftRecovery(sessionStorage, recoveryKey);
+      if (stored) setRecovery(stored);
+      setDraftStorageAvailable(true);
+    } catch { setDraftStorageAvailable(false); }
     finally { setRecoveryReady(true); }
   }, [recoveryKey, historicalRevision]);
   useEffect(() => {
     if (!recoveryKey || !recoveryReady || historicalRevision || recovery) return;
-    try { if (dirty) sessionStorage.setItem(recoveryKey, JSON.stringify({ sections, projectId, version })); else sessionStorage.removeItem(recoveryKey); } catch { /* The user still receives an unload warning. */ }
-  }, [recoveryKey, recoveryReady, historicalRevision, recovery, dirty, sections, projectId, version]);
+    try {
+      const persisted = dirty
+        ? writeSurveyDraftRecovery(sessionStorage, recoveryKey, { schemaVersion: 1, sections, activeSectionId: activeId, projectId, version, requestSurveyId: createIdRef.current })
+        : removeSurveyDraftRecovery(sessionStorage, recoveryKey);
+      setDraftStorageAvailable(persisted);
+    } catch { setDraftStorageAvailable(false); }
+  }, [recoveryKey, recoveryReady, historicalRevision, recovery, dirty, sections, activeId, projectId, version]);
   async function removeActiveSection() {
     if (sections.length === 1) return;
     const accepted = await requestConfirmation({
@@ -133,7 +141,23 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     });
     if (accepted) notify({ kind: "info", message: "A munkaszakasz az aktuális piszkozatból eltávolítva." });
   }
-  function patchSection(patch: Partial<SectionDraft>) { setSections((current) => current.map((section) => section.id === active.id ? { ...section, ...patch } : section)); setError(""); setSummary(false); }
+  function persistDraftSnapshot(nextSections: SectionDraft[], nextProjectId = projectId, nextVersion = version) {
+    if (!recoveryKey || !recoveryReady || historicalRevision) return;
+    const nextFingerprint = JSON.stringify({ sections: nextSections, projectId: nextProjectId });
+    try {
+      const persisted = nextFingerprint === baseline
+        ? removeSurveyDraftRecovery(sessionStorage, recoveryKey)
+        : writeSurveyDraftRecovery(sessionStorage, recoveryKey, { schemaVersion: 1, sections: nextSections, activeSectionId: activeId, projectId: nextProjectId, version: nextVersion, requestSurveyId: createIdRef.current });
+      setDraftStorageAvailable(persisted);
+    } catch { setDraftStorageAvailable(false); }
+  }
+  function patchSection(patch: Partial<SectionDraft>) {
+    const next = sections.map((section) => section.id === active.id ? { ...section, ...patch } : section);
+    setSections(next);
+    persistDraftSnapshot(next);
+    setError("");
+    setSummary(false);
+  }
   function patchMeasurement(id: string, patch: Partial<MeasurementDraft>) { patchSection({ measurements: active.measurements.map((measurement) => measurement.id === id ? { ...measurement, ...patch } : measurement) }); }
   async function selectRoofType(type: RoofGeometryType) {
     if (active.roofType === type) return;
@@ -142,25 +166,25 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
       if (!accepted) return;
     }
     const templates = type === "gable" ? fieldSurveyTemplates.roof : surveyRoofFields(type);
-    patchSection({ roofType: type, measurements: templates.map((template) => ({ id: crypto.randomUUID(), label: template.label, unit: template.unit, semanticType: template.semanticType, value: "" })) });
+    patchSection({ roofType: type, measurements: templates.map((template) => ({ id: generateSecureUuid(), label: template.label, unit: template.unit, semanticType: template.semanticType, value: "" })) });
   }
   async function returnToRoofSelection() {
     if (active.measurements.some((measurement) => measurement.value !== "")) {
       const accepted = await requestConfirmation({ title: "Tetőforma törlése", message: "A megadott tetőmérések elvesznek ebből az aktuális piszkozatból. Visszatérsz a tetőformákhoz?", cancelLabel: "Maradok", actions: [{ label: "Vissza a tetőformákhoz", tone: "danger", run: () => undefined }] });
       if (!accepted) return;
     }
-    patchSection({ roofType: undefined, measurements: [emptyMeasurement("roof", crypto.randomUUID())] });
+    patchSection({ roofType: undefined, measurements: [emptyMeasurement("roof", generateSecureUuid())] });
   }
   function addSection(workType: FieldSurveyWorkType) {
-    const id = crypto.randomUUID();
-    setSections((current) => [...current, { id, name: fieldSurveyWorkTypeLabels[workType], workType, notes: "", photoIds: [], measurements: [emptyMeasurement(workType, crypto.randomUUID())] }]); setActiveId(id); setSummary(false);
+    const id = generateSecureUuid();
+    setSections((current) => [...current, { id, name: fieldSurveyWorkTypeLabels[workType], workType, notes: "", photoIds: [], measurements: [emptyMeasurement(workType, generateSecureUuid())] }]); setActiveId(id); setSummary(false);
   }
   function changeType(workType: FieldSurveyWorkType) {
     const empty = active.measurements.length === 1 && active.measurements[0].value === "" && active.measurements[0].label === fieldSurveyTemplates[active.workType][0].label;
     patchSection({ workType, ...(workType === "roof" ? {} : { roofType: undefined }), ...(active.name === fieldSurveyWorkTypeLabels[active.workType] ? { name: fieldSurveyWorkTypeLabels[workType] } : {}), ...(empty ? { measurements: [emptyMeasurement(workType, active.measurements[0].id)] } : {}) });
   }
   function addMeasurement(template = (active.workType === "roof" && active.roofType && active.roofType !== "gable" ? surveyRoofFields(active.roofType) : fieldSurveyTemplates[active.workType]).find((candidate) => !active.measurements.some((measurement) => measurement.semanticType === candidate.semanticType)) ?? { label: "Egyedi mérés", unit: "mm" as const, semanticType: "custom" as const }) {
-    patchSection({ measurements: [...active.measurements, { ...template, id: crypto.randomUUID(), value: "" }] });
+    patchSection({ measurements: [...active.measurements, { ...template, id: generateSecureUuid(), value: "" }] });
   }
   function associateUploadedPhoto(photoId: string) {
     setSections((current) => current.map((section) => section.id === activeId && !section.photoIds.includes(photoId) ? { ...section, photoIds: [...section.photoIds, photoId] } : section));
@@ -174,12 +198,19 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
       const parsed = surveySectionsSchema.safeParse(serialize(nextSections));
       if (!parsed.success) { const message = parsed.error.issues[0]?.message ?? "Ellenőrizd a munkaszakaszokat."; setError(message); notify({ kind: "error", message }); return null; }
       const data = new FormData();
-      data.set("organizationId", organizationId); data.set("surveyId", surveyId ?? (createIdRef.current ??= crypto.randomUUID()));
+      const requestSurveyId = surveyId ?? (createIdRef.current ??= generateSecureUuid());
+      data.set("organizationId", organizationId); data.set("surveyId", requestSurveyId);
+      if (!surveyId && recoveryKey) {
+        try {
+          const persisted = writeSurveyDraftRecovery(sessionStorage, recoveryKey, { schemaVersion: 1, sections: nextSections, activeSectionId: activeId, projectId, version, requestSurveyId });
+          setDraftStorageAvailable(persisted);
+        } catch { setDraftStorageAvailable(false); }
+      }
       data.set("projectId", projectId); data.set("workType", parsed.data[0].workType); data.set("notes", parsed.data[0].notes);
       data.set("sections", JSON.stringify(parsed.data)); data.set("measurements", JSON.stringify(parsed.data.flatMap((section) => section.measurements.filter((measurement) => measurement.value !== null)))); data.set("expectedVersion", String(version));
       const result = await saveFieldSurveyAction(data);
       if (!result.ok || !result.surveyId || !result.version) { const message = result.error ?? "Nem sikerült menteni. Próbáld újra."; setError(message); notify({ kind: "error", message }); return null; }
-      if (recoveryKey) { try { sessionStorage.removeItem(recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } }
+      if (recoveryKey) { try { removeSurveyDraftRecovery(sessionStorage, recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } }
       setWorkspacePersisted(true); setSections(nextSections); setBaseline(JSON.stringify({ sections: nextSections, projectId })); setSurveyId(result.surveyId); setVersion(result.version); setPhotoAssociationPending(false);
       if (!surveyId) { window.history.replaceState(null, "", `/felmeresek/${result.surveyId}?organization=${organizationId}&section=${active.id}`); }
       notify({ kind: "success", message: "Felmérés mentve" });
@@ -201,7 +232,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   async function openGeometryWork(kind: "gutter" | "flashing", source: VerifiedSurveyRoof | VerifiedSurveyMultiRoof, edgeIds: string[]) {
     if (calculator || blocked || photoState.queued || !effectiveProjectId || !edgeIds.length) return;
     const existing = sections.find((section) => section.workType === kind);
-    const target = existing ?? { id: crypto.randomUUID(), name: fieldSurveyWorkTypeLabels[kind], workType: kind, notes: "", photoIds: [], measurements: [emptyMeasurement(kind, crypto.randomUUID())] };
+    const target = existing ?? { id: generateSecureUuid(), name: fieldSurveyWorkTypeLabels[kind], workType: kind, notes: "", photoIds: [], measurements: [emptyMeasurement(kind, generateSecureUuid())] };
     const nextSections = existing ? sections : [...sections, target];
     setSaving(true); setError("");
     try {
@@ -231,7 +262,8 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   return <section className={`field-survey-card${active.workType === "roof" && active.roofType ? " field-survey-card-roof" : ""}`}>
     <div className="field-survey-heading"><div><p className="section-eyebrow">Helyszíni munka · {surveyId ? `V${version}` : "új felmérés"}</p><h1>{surveyId ? "Felmérés szerkesztése" : "Új felmérés"}</h1><p>Mérj, fotózz, számolj. Ügyfél és projekt nélkül is bármikor menthetsz.</p></div><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek?organization=${organizationId}`)}>Vissza a felmérésekhez</button></div>
     {revisionSelector}
-    {recovery && <aside className="survey-handoff-banner"><p>Korábbi nem mentett szerkesztés helyreállítható · alap V{recovery.version}.{recovery.version !== version ? " A mentett felmérés közben változott; a visszaállított piszkozat mentése verzióellenőrzést kap." : ""}</p><button type="button" className="secondary-button" onClick={() => { setSections(recovery.sections); setActiveId(recovery.sections[0].id); setProjectId(recovery.projectId); setVersion(recovery.version); setRecovery(null); }}>Piszkozat visszaállítása</button><button type="button" className="secondary-button" onClick={() => { if (recoveryKey) { try { sessionStorage.removeItem(recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } } setRecovery(null); }}>Korábbi piszkozat elvetése</button></aside>}
+    {recovery && <aside className="survey-handoff-banner"><p>Korábbi nem mentett szerkesztés helyreállítható · alap V{recovery.version}.{recovery.version !== version ? " A mentett felmérés közben változott; a visszaállított piszkozat mentése verzióellenőrzést kap." : ""}</p><button type="button" className="secondary-button" onClick={() => { createIdRef.current = recovery.requestSurveyId; setSections(recovery.sections); setActiveId(recovery.activeSectionId); setProjectId(recovery.projectId); setVersion(recovery.version); setRecovery(null); }}>Piszkozat visszaállítása</button><button type="button" className="secondary-button" onClick={() => { if (recoveryKey) { try { removeSurveyDraftRecovery(sessionStorage, recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } } setRecovery(null); }}>Korábbi piszkozat elvetése</button></aside>}
+    {dirty && !recovery && !draftStorageAvailable && <p className="form-message is-error" role="alert">A böngésző helyi tárhelye nem elérhető. A mentetlen módosítás frissítéskor elveszhet; mentsd el a felmérést.</p>}
     <nav className="survey-section-tabs" aria-label="Munkaszakaszok">{sections.map((section) => <button className={active.id === section.id ? "primary-button" : "secondary-button"} type="button" key={section.id} aria-pressed={active.id === section.id} disabled={Boolean(calculator) || blocked || Boolean(recovery)} onClick={() => setActiveId(section.id)}>{section.name} · {section.measurements.filter((measurement) => measurement.value !== "").length} mérés</button>)}</nav>
     <form id="field-survey-editor-form" className="field-survey-form" noValidate onSubmit={(event) => { event.preventDefault(); if (!blocked) void persistCurrent(); }}>
       <fieldset disabled={blocked || Boolean(calculator) || Boolean(recovery)}>
@@ -247,9 +279,9 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
         {active.workType !== "roof" || active.roofType ? <section className="field-survey-measurements">{active.workType !== "roof" && <><h2>Mérések</h2><p>Az üres érték hiányzó mérésként menthető. A kalkulátorhoz csak kitöltött, megfelelő egységű adat kerül.</p></>}
           {active.workType === "roof" && active.roofType ? <SurveyRoofPreview
             roofType={active.roofType}
-            activeDimension={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")?.key ?? null}
-            activeDimensionDescription={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")?.meaning}
-            activeGuide={measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom")}
+            activeDimension={activeSurveyGuide?.key ?? null}
+            activeDimensionDescription={activeSurveyGuide?.meaning}
+            activeGuide={activeSurveyGuide}
             measurements={serialize([active])[0].measurements.filter((measurement): measurement is FieldSurveyMeasurement => measurement.value !== null)}
             onDimensionSelect={(key) => {
               const matches = active.measurements.filter((measurement) => measurementGuideForSurvey(active.roofType!, measurement.semanticType)?.key === key);
@@ -266,7 +298,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
             actions={
               <>
                 <div className="roof-survey-edit-actions">
-                  {missingRoofTemplates.length > 0 && active.roofType === "gable" && <button type="button" className="secondary-button roof-survey-add-required" onClick={() => patchSection({ measurements: [...active.measurements, ...missingRoofTemplates.map((template) => ({ ...template, id: crypto.randomUUID(), value: "" }))] })}>Nyeregtető alapmérései · {missingRoofTemplates.length} mező hozzáadása</button>}
+                  {missingRoofTemplates.length > 0 && active.roofType === "gable" && <button type="button" className="secondary-button roof-survey-add-required" onClick={() => patchSection({ measurements: [...active.measurements, ...missingRoofTemplates.map((template) => ({ ...template, id: generateSecureUuid(), value: "" }))] })}>Nyeregtető alapmérései · {missingRoofTemplates.length} mező hozzáadása</button>}
                   <button type="button" className="field-survey-add" onClick={() => addMeasurement()}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><GlassDisclosure className="field-survey-template-details" summary="Másik sablonmérés hozzáadása">{(active.roofType !== "gable" ? surveyRoofFields(active.roofType) : fieldSurveyTemplates[active.workType]).map((template) => <button type="button" key={template.label} onClick={() => addMeasurement(template)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</GlassDisclosure>
                 </div>
               </>
