@@ -3,7 +3,7 @@ import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getMaterialProductsForOrganization } from "@/features/materials/material-data";
 import { getProjectOrganization } from "@/features/projects/organization";
-import { getStandaloneDocumentSourcesAction, getStandaloneQuotationHeaderAction, listStandaloneQuotationRevisionsAction, readStandaloneQuotationAction } from "@/features/quotations/standalone-quotation-actions";
+import { getStandaloneDocumentSourcesAction, getStandaloneQuotationHeaderAction, getStandaloneQuotationMaterialSourceAction, listStandaloneQuotationRevisionsAction, readStandaloneQuotationAction } from "@/features/quotations/standalone-quotation-actions";
 import { StandaloneQuotationEditor } from "@/features/quotations/standalone-quotation-editor";
 
 export default async function StandaloneQuotationPage({ params, searchParams }: Readonly<{ params: Promise<{ quotationId: string }>; searchParams: Promise<{ organization?: string; revision?: string }> }>) {
@@ -28,7 +28,11 @@ export default async function StandaloneQuotationPage({ params, searchParams }: 
   const activeRevision = revisionResponse?.ok ? revisionResponse.data[0] : undefined;
   if (requestedRevisionId && !activeRevision) return <main className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/ajanlatok/${quotationId}?organization=${organizationId}`}>← Legfrissebb ajánlat</Link><p className="form-message is-error" role="alert">A kért revízió nem tölthető be. A mentett ajánlati adat nem változott.</p></div></main>;
   if (header.data.status !== "draft") return <main className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/ajanlatok?organization=${organizationId}`}>← Vissza az ajánlatokhoz</Link><section className="detail-surface"><p className="section-eyebrow">Önálló ajánlat</p><h1>{header.data.name}</h1><p>Állapot: {header.data.status}. Ehhez az állapothoz nincs standalone művelet támogatva.</p></section></div></main>;
-  const [products, documentSources] = await Promise.all([getMaterialProductsForOrganization(organizationId), getStandaloneDocumentSourcesAction(organizationId)]);
+  const [products, documentSources, materialSourceResponse] = await Promise.all([
+    getMaterialProductsForOrganization(organizationId), getStandaloneDocumentSourcesAction(organizationId),
+    requestedRevisionId ? getStandaloneQuotationMaterialSourceAction(organizationId, quotationId, requestedRevisionId) : Promise.resolve({ ok: true as const, data: null }),
+  ]);
   if (!documentSources.ok) return <main className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">{documentSources.error}</p></div></main>;
-  return <main className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor key={`${quotationId}:${activeRevision?.id ?? "empty"}`} userId={selected.auth.userId} organizationId={organizationId} quotationId={quotationId} name={header.data.name} version={header.data.version} currentRevisionId={header.data.currentRevisionId} currentRevision={activeRevision} revisions={revisions} selectedRevisionId={requestedRevisionId} products={products} documentSources={documentSources.data} /></div></main>;
+  if (!materialSourceResponse.ok) return <main className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">{materialSourceResponse.error}</p></div></main>;
+  return <main className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor key={`${quotationId}:${activeRevision?.id ?? "empty"}`} userId={selected.auth.userId} organizationId={organizationId} quotationId={quotationId} name={header.data.name} version={header.data.version} currentRevisionId={header.data.currentRevisionId} currentRevision={activeRevision} revisions={revisions} selectedRevisionId={requestedRevisionId} products={products} documentSources={documentSources.data} materialSource={materialSourceResponse.data} /></div></main>;
 }

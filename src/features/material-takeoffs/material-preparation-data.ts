@@ -25,7 +25,8 @@ export type MaterialPreparationRevision = Readonly<{
 
 export type MaterialPreparationList = Readonly<{
   id: string;
-  projectId: string;
+  projectId: string | null;
+  executionPlanId: string | null;
   name: string;
   version: number;
   updatedAt: string;
@@ -39,7 +40,7 @@ const jsonArray = <T,>(value: Json): T[] => Array.isArray(value) ? value as T[] 
 export async function getMaterialPreparationLists(organizationId: string, projectId: string, currentSourceRevisions: ReadonlyMap<string, string | null>): Promise<MaterialPreparationList[]> {
   const supabase = await createClient();
   const { data: lists, error: listError } = await supabase.from("material_preparation_lists")
-    .select("id, organization_id, project_id, name, current_revision_id, version, updated_at")
+    .select("id, organization_id, project_id, execution_plan_id, name, current_revision_id, version, updated_at")
     .eq("organization_id", organizationId).eq("project_id", projectId).order("updated_at", { ascending: false }).limit(100);
   if (listError) throw new Error("Az előkészítési listák betöltése nem sikerült.");
   if (!lists?.length) return [];
@@ -71,9 +72,41 @@ export async function getMaterialPreparationLists(organizationId: string, projec
     return {
       id: list.id,
       projectId: list.project_id,
+      executionPlanId: list.execution_plan_id,
       name: list.name,
       version: list.version,
       updatedAt: list.updated_at,
+      currentRevisionId: list.current_revision_id,
+      currentRevision: history.find((revision) => revision.id === list.current_revision_id) ?? null,
+      history,
+    };
+  });
+}
+
+export async function getWorkflowMaterialLists(organizationId: string): Promise<MaterialPreparationList[]> {
+  const supabase = await createClient();
+  const { data: lists, error: listError } = await supabase.from("material_preparation_lists")
+    .select("id, organization_id, project_id, execution_plan_id, name, current_revision_id, version, updated_at")
+    .eq("organization_id", organizationId).is("project_id", null)
+    .order("updated_at", { ascending: false }).limit(200);
+  if (listError) throw new Error("Az anyaglisták betöltése nem sikerült.");
+  if (!lists?.length) return [];
+  const { data: revisions, error: revisionError } = await supabase.from("material_preparation_revisions")
+    .select("id, list_id, revision_number, preparation_state, source_takeoffs_snapshot, items_snapshot, created_at, created_by")
+    .eq("organization_id", organizationId).in("list_id", lists.map((list) => list.id))
+    .order("revision_number", { ascending: false }).limit(2000);
+  if (revisionError) throw new Error("Az anyaglista korábbi változatai nem tölthetők be.");
+  const rows = (revisions ?? []) as PreparationRevisionRow[];
+  return lists.map((list) => {
+    const history = rows.filter((revision) => revision.list_id === list.id).map((row) => ({
+      id: row.id, revisionNumber: row.revision_number, state: row.preparation_state,
+      sourceTakeoffs: jsonArray<PreparationSourceSnapshot>(row.source_takeoffs_snapshot),
+      items: jsonArray<MaterialPreparationItem>(row.items_snapshot), createdAt: row.created_at,
+      staleTakeoffIds: [],
+    }));
+    return {
+      id: list.id, projectId: list.project_id, executionPlanId: list.execution_plan_id,
+      name: list.name, version: list.version, updatedAt: list.updated_at,
       currentRevisionId: list.current_revision_id,
       currentRevision: history.find((revision) => revision.id === list.current_revision_id) ?? null,
       history,

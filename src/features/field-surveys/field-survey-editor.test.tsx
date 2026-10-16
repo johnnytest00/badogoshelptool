@@ -5,7 +5,12 @@ const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("@/features/field-surveys/field-survey-actions", () => ({ saveFieldSurveyAction: vi.fn() }));
 
-vi.mock("./workspace-actions", () => ({ loadSurveyCalculator: vi.fn(), createSurveyFollowups: vi.fn() }));
+vi.mock("./workspace-actions", () => ({
+  loadSurveyCalculator: vi.fn(),
+  createSurveyFollowups: vi.fn(),
+  createExecutionPlanFromSurvey: vi.fn(),
+  linkSurveyToExecutionPlan: vi.fn(),
+}));
 vi.mock("./workspace-calculator", () => ({ WorkspaceCalculator: () => null }));
 vi.mock("./survey-roof-actions", () => ({ listVerifiedSurveyRoofs: vi.fn(), saveSurveyRoofGeometry: vi.fn(), listVerifiedSurveyMultiRoofs: vi.fn(), saveSurveyMultiRoofGeometry: vi.fn() }));
 
@@ -30,11 +35,13 @@ describe("field survey editor", () => {
     expect(html).toContain("Ereszcsatorna");
     expect(html).toContain("Bádogos szegély");
     expect(html).toContain("Név, munkatípus és sorrend");
-    expect(html).toContain("Projekt");
     expect(html).toContain("Felmért tetőforma");
     expect(html.match(/class="roof-type-illustration"/g)).toHaveLength(7);
     expect(html).not.toContain('class="field-survey-measurements"');
     expect(html).toContain("Felmérés mentése");
+    expect(html).toContain("Önálló mentés");
+    expect(html).toContain("Kivitelezési terv létrehozása");
+    expect(html).not.toContain("Projekt létrehozása / kapcsolása");
     expect(html).toContain("opcionális");
     expect(html).toContain("value=\"roof\"");
   });
@@ -68,19 +75,21 @@ describe("field survey editor", () => {
     expect(html).toContain("Ereszszakasz");
     expect(html).toContain("value=\"8.5\"");
     expect(html).toContain("DEMO nehezen hozzáférhető");
-    expect(html).toContain("Kapcsolt projekt");
+    expect(html).toContain("Korábbi projektkapcsolat");
     expect(html).toContain("DEMO linked project");
+    expect(html).toContain("Felmérés csatolása meglévő tervhez");
   });
 
   it("keeps geometry inputs hidden until roof selection and retains survey actions", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} />);
     expect(html).not.toContain('class="field-survey-measurements"');
     expect(html).toContain('class="glass-disclosure field-survey-note-details"');
-    expect(html).toContain('class="primary-button field-survey-save"');
-    expect(html).toContain('form="field-survey-editor-form"');
+    expect(html).toContain('id="field-survey-editor-form"');
     expect(html).toContain("Felmérés és következő lépések");
     expect(html).toContain("Fotók hozzáadása");
-    expect(html).toContain("Projektkapcsolat");
+    expect(html).toContain("Önálló mentés");
+    expect(html).toContain("Kivitelezési terv létrehozása");
+    expect(html).not.toContain("Projekt létrehozása / kapcsolása");
   });
 
   it("keeps a roof survey's measurement grid immediately ahead of its validated drawing", () => {

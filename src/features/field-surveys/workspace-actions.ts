@@ -124,3 +124,56 @@ export async function createSurveyFollowups(raw: { organizationId: string; surve
     return { ok: true, results };
   } catch { return { ok: false, results, error: failure() }; }
 }
+
+const executionPlanLinkInput = ids.extend({
+  executionPlanId: z.string().uuid(),
+  requestKey: z.string().uuid(),
+});
+
+export async function createExecutionPlanFromSurvey(raw: { organizationId: string; surveyId: string; version: number; title: string; requestKey: string }): Promise<{ ok: boolean; planId?: string; linkId?: string; error?: string }> {
+  const parsed = ids.extend({ title: z.string().trim().min(1).max(200), requestKey: z.string().uuid() }).safeParse(raw);
+  if (!parsed.success) return { ok: false, error: "Adj meg egy érvényes tervnevet." };
+  try {
+    const input = parsed.data;
+    await authorized(input.organizationId);
+    const revision = await getFieldSurveyRevision(input.organizationId, input.surveyId, input.version);
+    if (!revision) return { ok: false, error: "A kiválasztott felmérésrevízió nem érhető el." };
+    const client = await createClient();
+    const { data, error } = await (client as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{ plan_id: string; link_id: string }> | null; error: { code?: string; message?: string } | null }> }).rpc("create_execution_plan_from_survey", {
+      p_organization_id: input.organizationId,
+      p_survey_id: input.surveyId,
+      p_survey_revision_id: revision.id,
+      p_title: input.title,
+      p_request_key: input.requestKey,
+    });
+    if (error || !data?.[0]) return { ok: false, error: failure(error) };
+    revalidatePath(`/felmeresek/${input.surveyId}`);
+    revalidatePath("/kivitelezes");
+    revalidatePath(`/kivitelezes/${data[0].plan_id}`);
+    return { ok: true, planId: data[0].plan_id, linkId: data[0].link_id };
+  } catch { return { ok: false, error: failure() }; }
+}
+
+export async function linkSurveyToExecutionPlan(raw: { organizationId: string; surveyId: string; version: number; executionPlanId: string; requestKey: string }): Promise<{ ok: boolean; linkId?: string; error?: string }> {
+  const parsed = ids.extend(executionPlanLinkInput.shape).safeParse(raw);
+  if (!parsed.success) return { ok: false, error: "Válassz egy érvényes kivitelezési tervet." };
+  try {
+    const input = parsed.data;
+    await authorized(input.organizationId);
+    const revision = await getFieldSurveyRevision(input.organizationId, input.surveyId, input.version);
+    if (!revision) return { ok: false, error: "A kiválasztott felmérésrevízió nem érhető el." };
+    const client = await createClient();
+    const { data, error } = await (client as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{ link_id: string }> | null; error: { code?: string; message?: string } | null }> }).rpc("link_field_survey_execution_plan", {
+      p_organization_id: input.organizationId,
+      p_survey_id: input.surveyId,
+      p_survey_revision_id: revision.id,
+      p_execution_plan_id: input.executionPlanId,
+      p_request_key: input.requestKey,
+    });
+    if (error || !data?.[0]) return { ok: false, error: failure(error) };
+    revalidatePath(`/felmeresek/${input.surveyId}`);
+    revalidatePath("/kivitelezes");
+    revalidatePath(`/kivitelezes/${input.executionPlanId}`);
+    return { ok: true, linkId: data[0].link_id };
+  } catch { return { ok: false, error: failure() }; }
+}

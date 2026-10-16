@@ -13,33 +13,27 @@ const calculatorRoutes: Record<string, string> = {
   "roof.gable.metal-tile-covering": "cserepeslemez",
 };
 
-export function WorkspaceSummary({ organizationId, surveyId, version, sections, calculations, initialFollowups, projects, originalProjectId, readOnly = false, onPendingChange }: {
+export function WorkspaceSummary({ organizationId, surveyId, version, sections, calculations, initialFollowups, originalProjectId, readOnly = false, onPendingChange }: {
   organizationId: string; surveyId: string; version: number; sections: SurveySection[]; calculations: SurveyCalculationLink[]; initialFollowups: SurveyFollowup[];
-  projects: readonly { id: string; name: string }[]; originalProjectId: string | null; readOnly?: boolean; onPendingChange?: (pending: boolean) => void;
+  originalProjectId: string | null; projects?: readonly { id: string; name: string }[]; readOnly?: boolean; onPendingChange?: (pending: boolean) => void;
 }) {
-  const [project, setProject] = useState(false);
   const [quotation, setQuotation] = useState(false);
-  const [projectId, setProjectId] = useState(originalProjectId ?? initialFollowups.find((row) => row.kind === "project")?.projectId ?? "");
   const [name, setName] = useState(() => sections.map((section) => section.name).join(" · ").slice(0, 200));
   const [followups, setFollowups] = useState(initialFollowups);
   const linkedProjectId = originalProjectId ?? followups.find((row) => row.kind === "project")?.projectId ?? null;
-  const effectiveProject = project || Boolean(linkedProjectId);
-  const effectiveProjectId = projectId || linkedProjectId;
-  const quotationExists = followups.some((row) => row.kind === "quotation" && row.projectId === (effectiveProject ? effectiveProjectId : null));
+  const quotationExists = followups.some((row) => row.kind === "quotation" && row.projectId === linkedProjectId);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => { onPendingChange?.(pending); }, [pending, onPendingChange]);
   const lock = useRef(false);
   async function create() {
-    if (lock.current || (!project && !quotation)) return;
+    if (lock.current || !quotation) return;
     lock.current = true; setPending(true); setError("");
     try {
-      const result = await createSurveyFollowups({ organizationId, surveyId, version, project: effectiveProject, quotation, projectId: effectiveProjectId, name });
+      const result = await createSurveyFollowups({ organizationId, surveyId, version, project: false, quotation, projectId: linkedProjectId, name });
       setFollowups((current) => [...current, ...result.results.filter((row) => !current.some((existing) => existing.id === row.id))]);
-      const savedProject = result.results.find((row) => row.kind === "project");
-      if (savedProject) setProjectId(savedProject.projectId ?? "");
       if (!result.ok) setError(result.error ?? "A következő lépés nem sikerült; a létrejött eredmények megmaradnak.");
-      else { setProject(false); setQuotation(false); }
+      else setQuotation(false);
     } catch { setError("A válasz bizonytalan. Azonos választással biztonságosan újrapróbálhatod."); }
     finally { setPending(false); lock.current = false; }
   }
@@ -65,12 +59,11 @@ export function WorkspaceSummary({ organizationId, surveyId, version, sections, 
     })}
     {calculations.some((link) => !sections.some((section) => section.id === link.sectionId)) && <p>Eltávolított munkaszakaszhoz is tartozik mentett számítás; a kapcsolat a korábbi forrásváltozatban megmaradt.</p>}
     <p>Helyszíni, felhasználói adatok; a forrás nem szakmai vagy gyártói jóváhagyás. Eltérő egységeket nem összesítünk. Ár, áfa és beszerzési jóváhagyás nem készül.</p>
-    {!readOnly && <fieldset disabled={pending}><legend>Következő lépés · opcionális</legend>{!linkedProjectId && <label><input type="checkbox" checked={project} onChange={(event) => setProject(event.target.checked)} /> Projekt létrehozása / kapcsolása</label>}{!quotationExists && <label><input type="checkbox" checked={quotation} onChange={(event) => setQuotation(event.target.checked)} /> Árajánlat-piszkozat létrehozása</label>}
-      {project && <label className="field-survey-field"><span>Projekt</span><select value={projectId} onChange={(event) => setProjectId(event.target.value)} disabled={Boolean(originalProjectId || followups.some((row) => row.kind === "project"))}><option value="">Új projekt</option>{projects.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}{projectId && !projects.some((option) => option.id === projectId) && <option value={projectId}>Kapcsolt projekt</option>}</select></label>}
-      {(project || quotation) && <><label className="field-survey-field"><span>Projekt / piszkozat neve</span><input value={name} maxLength={200} onChange={(event) => setName(event.target.value)} /></label><p>{quotation && !effectiveProject ? "Önálló ajánlatpiszkozat készül." : quotation ? "A kapcsolt projekt ajánlatpiszkozata készül." : "A felmérés történeti projektazonosítója változatlan marad."} Az ajánlat üres piszkozat; a címzettet, tételeket és árakat az ajánlatszerkesztőben adhatod meg.</p><button type="button" className="primary-button" disabled={!name.trim() || pending} onClick={() => void create()}>{pending ? "Létrehozás…" : "Kiválasztott lépések végrehajtása"}</button></>}
-      {!project && !quotation && <p>{linkedProjectId && quotationExists ? "A projekt és az ajánlatpiszkozat már létrejött; az alábbi hivatkozásokkal megnyithatók." : "A felmérés mentve marad, bármikor folytatható."}</p>}
+    {!readOnly && <fieldset disabled={pending}><legend>Következő lépés · opcionális</legend>{!quotationExists && <label><input type="checkbox" checked={quotation} onChange={(event) => setQuotation(event.target.checked)} /> Árajánlat-piszkozat létrehozása</label>}
+      {quotation && <><label className="field-survey-field"><span>Árajánlat neve</span><input value={name} maxLength={200} onChange={(event) => setName(event.target.value)} /></label><p>{linkedProjectId ? "A régi projektkapcsolat megmarad; az ajánlat üres piszkozatként készül." : "Önálló, üres ajánlatpiszkozat készül. A címzettet, tételeket és árakat az ajánlatszerkesztőben adhatod meg."} Ár és hivatalos kiállítás nem készül.</p><button type="button" className="primary-button" disabled={!name.trim() || pending} onClick={() => void create()}>{pending ? "Létrehozás…" : "Ajánlatpiszkozat létrehozása"}</button></>}
+      {!quotation && <p>{linkedProjectId && quotationExists ? "Az ajánlatpiszkozat már létrejött; a kapcsolódó rekordok alább érhetők el." : "A felmérés önállóan mentett marad, bármikor folytatható."}</p>}
     </fieldset>}
     {error && <p role="alert" className="form-message is-error">{error}</p>}
-    {followups.map((row) => <p key={row.id}>{row.kind === "project" ? <Link href={`/projektek/${row.projectId}?organization=${organizationId}`}>Kapcsolt projekt megnyitása · {row.projectId}</Link> : <Link href={row.projectId ? `/projektek/${row.projectId}/ajanlatok?organization=${organizationId}&edit=${row.quotationId}` : `/ajanlatok/${row.quotationId}?organization=${organizationId}`}>Árajánlat megnyitása · {row.quotationId}</Link>}<small> · forrásrevízió: {row.surveyRevisionId}{row.quotationRevisionId ? ` · ajánlatrevízió: ${row.quotationRevisionId}` : ""}</small></p>)}
+    {followups.map((row) => <p key={row.id}>{row.kind === "project" ? <Link href={`/projektek/${row.projectId}?organization=${organizationId}`}>Régi projekthez kapcsolt adatok megnyitása</Link> : <Link href={row.projectId ? `/projektek/${row.projectId}/ajanlatok?organization=${organizationId}&edit=${row.quotationId}` : `/ajanlatok/${row.quotationId}?organization=${organizationId}`}>Árajánlatpiszkozat megnyitása</Link>}<small> · forrásrevízió: {row.surveyRevisionId}{row.quotationRevisionId ? ` · ajánlatrevízió: ${row.quotationRevisionId}` : ""}</small></p>)}
   </section>;
 }

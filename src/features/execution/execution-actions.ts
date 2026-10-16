@@ -1,6 +1,7 @@
 "use server";
 /* eslint-disable @typescript-eslint/no-explicit-any -- RPC return shape is generated after migration deployment. */
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { executionJournalCategorySchema, executionPhotoCategorySchema, executionPlanSchema, executionTaskSchema } from "@/domain/execution/contracts";
@@ -15,14 +16,15 @@ function errorMessage(error: { code?: string; message?: string } | null, fallbac
 async function access(organizationId: string) { const auth = await getAuthContext(); return auth?.organizations.some((org) => org.id === organizationId) ? auth : null; }
 
 export async function createExecutionPlanAction(data: FormData) {
-  const organizationId = text(data, "organizationId"), projectId = text(data, "projectId");
+  const organizationId = text(data, "organizationId"), rawProjectId = text(data, "projectId"), projectId = rawProjectId || null;
   if (!await access(organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
+  if (projectId && !z.string().uuid().safeParse(projectId).success) return { ok: false, error: "Érvénytelen projektkapcsolat." };
   const parsed = executionPlanSchema.safeParse({ title: text(data, "title"), description: text(data, "description") });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ellenőrizd a terv adatait." };
   const db = await createClient() as unknown as Rpc;
   const { data: result, error } = await db.rpc("create_execution_plan", { p_organization_id: organizationId, p_project_id: projectId, p_title: parsed.data.title, p_description: parsed.data.description || null, p_source_quotation_id: text(data, "sourceQuotationId") || null, p_source_revision_id: text(data, "sourceRevisionId") || null, p_request_key: text(data, "requestKey") || crypto.randomUUID() });
   if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A terv létrehozása nem sikerült.") };
-  revalidatePath(`/projektek/${projectId}`); return { ok: true, planId: result[0].plan_id };
+  revalidatePath("/kivitelezes"); revalidatePath(`/kivitelezes/${result[0].plan_id}`); if (projectId) revalidatePath(`/projektek/${projectId}`); return { ok: true, planId: result[0].plan_id };
 }
 
 export async function saveExecutionTaskAction(data: FormData) {
@@ -33,7 +35,7 @@ export async function saveExecutionTaskAction(data: FormData) {
   const db = await createClient() as unknown as Rpc;
   const { data: result, error } = await db.rpc("save_execution_task", { p_organization_id: organizationId, p_plan_id: planId, p_task_id: text(data, "taskId") || null, p_title: parsed.data.title, p_description: parsed.data.description || null, p_status: parsed.data.status, p_priority: parsed.data.priority, p_due_date: parsed.data.dueDate || null, p_sort_order: parsed.data.sortOrder, p_expected_version: parsed.data.version, p_request_key: text(data, "requestKey") || crypto.randomUUID() });
   if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A feladat mentése nem sikerült.") };
-  revalidatePath(`/projektek/${projectId}`); return { ok: true, taskId: result[0].task_id };
+  revalidatePath(`/kivitelezes/${planId}`); if (projectId) revalidatePath(`/projektek/${projectId}`); return { ok: true, taskId: result[0].task_id };
 }
 
 export async function createExecutionJournalEntryAction(data: FormData) {
@@ -45,7 +47,7 @@ export async function createExecutionJournalEntryAction(data: FormData) {
   const db = await createClient() as unknown as Rpc;
   const { data: result, error } = await db.rpc("create_execution_journal_entry", { p_organization_id: organizationId, p_plan_id: planId, p_task_id: text(data, "taskId") || null, p_work_date: workDate, p_category: category.data, p_content: text(data, "content"), p_problems: text(data, "problems") || null, p_next_steps: text(data, "nextSteps") || null, p_request_key: text(data, "requestKey") || crypto.randomUUID() });
   if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A naplóbejegyzés mentése nem sikerült.") };
-  revalidatePath(`/projektek/${projectId}`); return { ok: true, entryId: result[0].entry_id };
+  revalidatePath(`/kivitelezes/${planId}`); if (projectId) revalidatePath(`/projektek/${projectId}`); return { ok: true, entryId: result[0].entry_id };
 }
 
 function safeDisplayFilename(name: string, mimeType: string) {
@@ -62,8 +64,9 @@ async function matchesImageSignature(file: File, mimeType: string) {
 }
 
 export async function createExecutionPhotoAction(data: FormData) {
-  const organizationId = text(data, "organizationId"), projectId = text(data, "projectId"), planId = text(data, "planId");
+  const organizationId = text(data, "organizationId"), rawProjectId = text(data, "projectId"), projectId = rawProjectId || null, planId = text(data, "planId");
   if (!await access(organizationId)) return { ok: false, uploaded: 0, error: "Nincs jogosultságod ehhez a műhelyhez." };
+  if (projectId && !z.string().uuid().safeParse(projectId).success) return { ok: false, uploaded: 0, error: "Érvénytelen projektkapcsolat." };
   const values = data.getAll("photos").filter((value): value is File => typeof value === "object" && value !== null && "arrayBuffer" in value);
   if (!values.length) return { ok: false, uploaded: 0, error: "Válassz legalább egy JPEG, PNG vagy WebP képet." };
   const supabase = await createClient();
@@ -75,7 +78,7 @@ export async function createExecutionPhotoAction(data: FormData) {
     if (!await matchesImageSignature(file, mimeType)) return { ok: false, uploaded, error: "A fájl tartalma nem egyezik a megadott képformátummal." };
     const requestKey = crypto.randomUUID();
     const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/png" ? "png" : "webp";
-    const objectKey = `${organizationId}/${projectId}/${planId}/${requestKey}.${extension}`;
+    const objectKey = projectId ? `${organizationId}/${projectId}/${planId}/${requestKey}.${extension}` : `${organizationId}/${planId}/${requestKey}.${extension}`;
     const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(objectKey, file, { contentType: mimeType, cacheControl: "3600", upsert: false });
     if (uploadError) return { ok: false, uploaded, error: "A kép feltöltése nem sikerült. Ellenőrizd a kapcsolatot, majd próbáld újra." };
     const db = supabase as unknown as Rpc;
@@ -86,18 +89,18 @@ export async function createExecutionPhotoAction(data: FormData) {
     }
     uploaded += 1;
   }
-  revalidatePath(`/projektek/${projectId}`);
+  revalidatePath(`/kivitelezes/${planId}`); if (projectId) revalidatePath(`/projektek/${projectId}`);
   return { ok: true, uploaded };
 }
 
 export async function setExecutionPhotoCategoryAction(data: FormData) {
-  const organizationId = text(data, "organizationId"), projectId = text(data, "projectId"), photoId = text(data, "photoId");
+  const organizationId = text(data, "organizationId"), projectId = text(data, "projectId"), planId = text(data, "planId"), photoId = text(data, "photoId");
   if (!await access(organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
   const category = executionPhotoCategorySchema.safeParse(text(data, "category"));
   if (!category.success || !photoId) return { ok: false, error: "Érvénytelen fényképkategória." };
   const db = await createClient() as unknown as Rpc;
   const { data: result, error } = await db.rpc("set_execution_photo_category", { p_organization_id: organizationId, p_photo_id: photoId, p_category: category.data });
   if (error || result !== true) return { ok: false, error: errorMessage(error, "A fényképkategória mentése nem sikerült.") };
-  revalidatePath(`/projektek/${projectId}`);
+  revalidatePath(`/kivitelezes/${planId}`); if (projectId) revalidatePath(`/projektek/${projectId}`);
   return { ok: true };
 }

@@ -3,7 +3,7 @@
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, FolderKanban, Settings2 } from "lucide-react";
+import { ArrowRight, ClipboardList, Settings2 } from "lucide-react";
 import brandIcon from "@/assets/brand-icon.png";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -13,10 +13,9 @@ import { AccountManagementDialog } from "@/features/auth/account-management-dial
 import { dashboardFunctionHref, dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
 import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 import type { DashboardTab } from "@/features/dashboard/dashboard.types";
-import type { ProjectRecord } from "@/features/projects/project-data";
-import { projectTypeLabels } from "@/domain/projects/contracts";
+type DashboardPlan = { id: string; title: string; updatedAt: string; tasks: { total: number; done: number; inProgress: number; todo: number } };
 
-export function Dashboard({ displayName, email, organizationName, organizationId, projects = [] }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; organizationId?: string; projects?: readonly ProjectRecord[]; recentSurveys?: readonly { id: string; version: number; updatedAt: string }[] }>) {
+export function Dashboard({ displayName, email, organizationName, organizationId, plans = [] }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; organizationId?: string; plans?: readonly DashboardPlan[] }>) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("functions");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
@@ -57,7 +56,7 @@ export function Dashboard({ displayName, email, organizationName, organizationId
           {activeTab === "functions" ? (
             <FunctionsView organizationId={organizationId} />
           ) : (
-            <ProjectsView projects={projects} organizationId={organizationId} />
+            <ProjectsView plans={plans} organizationId={organizationId} />
           )}
         </div>
 
@@ -101,7 +100,7 @@ export function DashboardSettings({ onOpenAccount }: Readonly<{ onOpenAccount: (
 function DashboardTabs({ activeTab, onChange }: Readonly<{ activeTab: DashboardTab; onChange: (tab: DashboardTab) => void }>) {
   const tabs: readonly { id: DashboardTab; label: string }[] = [
     { id: "functions", label: "Funkciók" },
-    { id: "projects", label: "Aktuális munkák" },
+    { id: "work", label: "Aktuális munkák" },
   ];
 
   return (
@@ -150,15 +149,11 @@ function FunctionLauncher({ item, organizationId }: Readonly<{ item: DashboardFu
   );
 }
 
-function ProjectsView({ projects, organizationId }: Readonly<{ projects: readonly ProjectRecord[]; organizationId?: string }>) {
+function ProjectsView({ plans, organizationId }: Readonly<{ plans: readonly DashboardPlan[]; organizationId?: string }>) {
   return (
     <section aria-label="Aktuális munkák">
-      {projects.length === 0 ? <div className="empty-state"><span className="empty-state-icon"><FolderKanban aria-hidden="true" className="size-5" /></span><div><h3>Még nincs aktív projekt</h3><p>Hozd létre az első munkát, és innen bármikor folytathatod.</p>{organizationId && <Link className="text-action" href={`/projektek/uj?organization=${organizationId}`}>Új projekt <ArrowRight aria-hidden="true" className="size-3.5" /></Link>}</div></div> : <div className="project-grid real-dashboard-project-grid">{projects.slice(0, 6).map((project) => <RealProjectPreview project={project} organizationId={organizationId} key={project.id} />)}</div>}
-      {organizationId && <Link className="dashboard-projects-link" href={`/projektek?organization=${organizationId}`}>Összes projekt megnyitása <ArrowRight aria-hidden="true" className="size-4" /></Link>}
+      {plans.length === 0 ? <div className="empty-state"><span className="empty-state-icon"><ClipboardList aria-hidden="true" className="size-5" /></span><div><h3>Még nincs kivitelezési terved</h3><p>Új tervet önállóan vagy egy felmérésből indíthatsz.</p>{organizationId && <Link className="text-action" href={`/kivitelezes/uj?organization=${organizationId}`}>Új kivitelezési terv <ArrowRight aria-hidden="true" className="size-3.5" /></Link>}</div></div> : <div className="project-grid real-dashboard-project-grid">{plans.slice(0, 6).map((plan) => <article className="project-preview" key={plan.id}><div className="project-preview-top"><span className="status-pill status-active">Kivitelezési terv</span></div><h3>{plan.title}</h3><p className="project-type">{plan.tasks.total ? `${plan.tasks.done} / ${plan.tasks.total} feladat kész` : "Nincs rögzített feladat"}</p><div className="project-preview-bottom"><span className="project-updated">{new Date(plan.updatedAt).toLocaleDateString("hu-HU")}</span>{organizationId && <Link className="text-action" href={`/kivitelezes/${plan.id}?organization=${organizationId}`}>Folytatás <ArrowRight aria-hidden="true" className="size-3.5" /></Link>}</div></article>)}</div>}
+      {organizationId && <Link className="dashboard-projects-link" href={`/kivitelezes?organization=${organizationId}`}>Összes kivitelezési terv <ArrowRight aria-hidden="true" className="size-4" /></Link>}
     </section>
   );
-}
-
-function RealProjectPreview({ project, organizationId }: Readonly<{ project: ProjectRecord; organizationId?: string }>) {
-  return <article className="project-preview"><div className="project-preview-top"><span className={`status-pill status-${project.status}`}>{project.status}</span></div><h3>{project.name}</h3><p className="project-type">{projectTypeLabels[project.projectType]}{project.clientName ? ` · ${project.clientName}` : ""}</p><div className="project-preview-bottom"><span className="project-updated">v{project.version}</span>{organizationId && <Link className="text-action" href={`/projektek/${project.id}?organization=${organizationId}`}>Folytatás <ArrowRight aria-hidden="true" className="size-3.5" /></Link>}</div></article>;
 }

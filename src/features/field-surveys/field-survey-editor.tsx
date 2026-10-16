@@ -9,14 +9,15 @@ import { AnchoredPopover } from "@/components/ui/anchored-popover";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { fieldSurveySemanticTypeLabels, fieldSurveyTemplates, fieldSurveyUnitLabels, fieldSurveyWorkTypeLabels, type FieldSurveyMeasurement, type FieldSurveySemanticType, type FieldSurveyUnit, type FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
-import { surveySections, surveySectionsSchema, type SurveySection, type SurveyCalculationLink, type SurveyFollowup } from "@/domain/field-surveys/workspace";
+import { surveySections, surveySectionsSchema, type SurveySection, type SurveyCalculationLink, type SurveyExecutionPlanLink, type SurveyFollowup } from "@/domain/field-surveys/workspace";
 import { readSurveyDraftRecovery, removeSurveyDraftRecovery, serializeSurveyDraftSections, writeSurveyDraftRecovery, type SurveyDraftRecovery, type SurveyMeasurementDraft, type SurveySectionDraft } from "./survey-draft-recovery";
 import { saveFieldSurveyAction } from "./field-survey-actions";
 import type { FieldSurveyRecord, FieldSurveyRevisionRecord } from "./field-survey-data";
 import { FieldSurveyPhotos } from "./field-survey-photos";
+import { SurveyExecutionActions } from "./survey-execution-actions";
 import { WorkspaceSummary } from "./workspace-summary";
 import { WorkspaceCalculator } from "./workspace-calculator";
-import { createSurveyFollowups, loadSurveyCalculator } from "./workspace-actions";
+import { loadSurveyCalculator } from "./workspace-actions";
 import { SurveyRoofWorkspace } from "./survey-roof-workspace";
 import type { VerifiedSurveyRoof, VerifiedSurveyMultiRoof } from "./survey-roof-actions";
 import { RoofTypeSelector, roofTypeOptions } from "@/features/roof-models/roof-type-selector";
@@ -30,6 +31,7 @@ import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { appendSurveyMeasurement, type SurveyMeasurementTemplate } from "./measurement-creation";
 import { buildGableSurveyPreview, type GableSurveyPreview } from "./gable-survey-preview";
+import type { ExecutionPlanOption } from "@/features/execution/execution-data";
 
 type SectionDraft = SurveySectionDraft;
 type MeasurementDraft = SurveyMeasurementDraft;
@@ -37,13 +39,14 @@ const emptyMeasurement = (workType: FieldSurveyWorkType, id: string): Measuremen
 const draftSections = (sections: SurveySection[]): SectionDraft[] => sections.map((section) => ({ ...section, measurements: section.measurements.map((measurement) => ({ ...measurement, value: measurement.value === null ? "" : String(measurement.value), semanticType: measurement.semanticType ?? "custom" })) }));
 const initialSections = (survey?: FieldSurveyRecord | null): SectionDraft[] => survey ? draftSections(surveySections(survey)) : [{ id: "00000000-0000-4000-8000-000000000002", name: "Tető", workType: "roof", notes: "", photoIds: [], measurements: [emptyMeasurement("roof", "00000000-0000-4000-8000-000000000001")] }];
 const serialize = serializeSurveyDraftSections;
-const emptyRelationships: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[] } = { calculations: [], followups: [] };
+const emptyRelationships: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[]; executionPlans: [] } = { calculations: [], followups: [], executionPlans: [] };
 
-export function FieldSurveyEditor({ organizationId, userId, projects, survey, initialProjectId = null, initialSectionId = null, revisionVersions = [], historicalRevision = null, relationships = emptyRelationships }: Readonly<{
+export function FieldSurveyEditor({ organizationId, userId, projects, executionPlans = [], survey, initialProjectId = null, initialSectionId = null, revisionVersions = [], historicalRevision = null, relationships = emptyRelationships }: Readonly<{
   organizationId: string; userId?: string; projects: readonly { id: string; name: string }[]; survey?: FieldSurveyRecord | null; initialProjectId?: string | null;
+  executionPlans?: readonly ExecutionPlanOption[];
   initialSectionId?: string | null;
   revisionVersions?: readonly number[]; historicalRevision?: FieldSurveyRevisionRecord | null;
-  relationships?: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[] };
+  relationships?: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[]; executionPlans: SurveyExecutionPlanLink[] };
 }>) {
   const router = useRouter();
   const { requestConfirmation, requestNavigation, notify } = useAppInteraction();
@@ -58,7 +61,6 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [followupPending, setFollowupPending] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("Tetőfelújítás");
   const [summary, setSummary] = useState(false);
   const [photoState, setPhotoState] = useState({ busy: false, queued: false });
   const [photos, setPhotos] = useState<{ id: string; filename: string }[]>([]);
@@ -261,6 +263,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     setSummary(false);
   }
   async function persistCurrent(nextSections: SectionDraft[] = sections) {
+    if (surveyId && workspacePersisted && !dirty && !photoAssociationPending) return { surveyId, version };
     if (saveLock.current) return null;
     saveLock.current = true; setSaving(true); setError("");
     try {
@@ -313,21 +316,10 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     } catch (cause) { setError(cause instanceof Error ? cause.message : "A geometriai átadás nem sikerült."); }
     finally { setSaving(false); }
   }
-  async function createGeometryProject() {
-    if (blocked || !newProjectName.trim()) return;
-    const saved = await ensureSaved(); if (!saved) return;
-    setFollowupPending(true); setError("");
-    try {
-      const result = await createSurveyFollowups({ organizationId, surveyId: saved.surveyId, version: saved.version, project: true, quotation: false, projectId: null, name: newProjectName.trim() });
-      if (!result.ok) { setError(result.error ?? "A projekt nem jött létre."); return; }
-      router.refresh();
-    } catch { setError("A projekt létrehozásának válasza bizonytalan. Frissítsd a felmérést, mielőtt újrapróbálod."); }
-    finally { setFollowupPending(false); }
-  }
   function navigate(href: string) { void requestNavigation(href); }
   const selectedVersion = historicalRevision?.version ?? version;
   const revisionSelector = surveyId && revisionVersions.length > 1 && <label className="field-survey-field"><span>Felmérés változata</span><select value={selectedVersion} disabled={blocked} onChange={(event) => navigate(`/felmeresek/${surveyId}?organization=${organizationId}${Number(event.target.value) === version ? "" : `&version=${event.target.value}`}`)}>{[...new Set([version, ...revisionVersions])].map((item) => <option key={item} value={item}>{item === version ? "Aktuális" : "Korábbi"} · V{item}</option>)}</select></label>;
-  if (historicalRevision && surveyId) return <section className="field-survey-card"><GlassPageHeader title="Korábbi felmérés" context={`V${historicalRevision.version}`} />{revisionSelector}<WorkspaceSummary organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} sections={surveySections(historicalRevision)} calculations={relationships.calculations} initialFollowups={relationships.followups.filter((row) => row.surveyRevisionId === historicalRevision.id)} projects={projects} originalProjectId={historicalRevision.projectId} readOnly /><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} historical onVersionChange={() => undefined} onEnsureSaved={async () => null} onUploadComplete={() => undefined} /><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek/${surveyId}?organization=${organizationId}`)}>Aktuális felmérés folytatása</button>{surveySections(historicalRevision).filter((section) => section.workType !== "other").map((section) => <Link key={section.id} className="secondary-button" href={`/felmeresek/${surveyId}/kalkulator/${section.workType}?organization=${organizationId}&version=${historicalRevision.version}&section=${section.id}`}>{section.name} · V{historicalRevision.version} adatai a kalkulátorban</Link>)}</section>;
+  if (historicalRevision && surveyId) return <section className="field-survey-card"><GlassPageHeader title="Korábbi felmérés" context={`V${historicalRevision.version}`} />{revisionSelector}<WorkspaceSummary organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} sections={surveySections(historicalRevision)} calculations={relationships.calculations} initialFollowups={relationships.followups.filter((row) => row.surveyRevisionId === historicalRevision.id)} originalProjectId={historicalRevision.projectId} readOnly /><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} historical onVersionChange={() => undefined} onEnsureSaved={async () => null} onUploadComplete={() => undefined} /><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek/${surveyId}?organization=${organizationId}`)}>Aktuális felmérés folytatása</button>{surveySections(historicalRevision).filter((section) => section.workType !== "other").map((section) => <Link key={section.id} className="secondary-button" href={`/felmeresek/${surveyId}/kalkulator/${section.workType}?organization=${organizationId}&version=${historicalRevision.version}&section=${section.id}`}>{section.name} · V{historicalRevision.version} adatai a kalkulátorban</Link>)}</section>;
   return <section className={`field-survey-card${active.workType === "roof" && active.roofType ? " field-survey-card-roof" : ""}`}>
     <GlassPageHeader title={surveyId ? "Felmérés szerkesztése" : "Új felmérés"} context={surveyId ? `V${version}` : undefined} actions={<button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek?organization=${organizationId}`)}>Vissza a felmérésekhez</button>} />
     {revisionSelector}
@@ -390,20 +382,19 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     </form>
     {active.workType === "roof" && effectiveProjectId && surveyId && !calculator && !recovery && <SurveyRoofWorkspace organizationId={organizationId} surveyId={surveyId} version={version} sectionId={active.id} sectionName={active.name} projectId={effectiveProjectId} roofType={active.roofType ?? "gable"} links={relationships.calculations} ensureSaved={ensureSaved} onWork={openGeometryWork} onLinked={() => router.refresh()} />}
     <section className="survey-completion-area" aria-labelledby="survey-completion-title">
-      <div className="survey-completion-heading"><div><p className="section-eyebrow">Folytatás</p><h2 id="survey-completion-title">Felmérés és következő lépések</h2></div><div className="survey-completion-primary"><p role="status">{saving ? "Mentés…" : dirty ? "Nem mentett módosítások" : surveyId ? `Mentve · V${version}` : "Új felmérés"}</p><button type="submit" form="field-survey-editor-form" className="primary-button field-survey-save" disabled={blocked || Boolean(recovery)}>{saving ? "Mentés…" : "Felmérés mentése"}</button></div></div>
+      <div className="survey-completion-heading"><div><p className="section-eyebrow">Folytatás</p><h2 id="survey-completion-title">Felmérés és következő lépések</h2></div><div className="survey-completion-primary"><p role="status">{saving ? "Mentés…" : dirty ? "Nem mentett módosítások" : surveyId ? `Mentve · V${version}` : "Új felmérés"}</p></div></div>
       <GlassToolbar ariaLabel="Felmérés folytatása" className="survey-completion-toolbar"><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || Boolean(calculator) || photoState.queued || active.workType === "other"} onClick={() => void openCalculator()}>Számítás hozzáadása · {active.name}</button><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || Boolean(calculator) || photoState.queued} onClick={() => void showSummary()}>Felmérés összesítése</button></GlassToolbar>
+      {!calculator && <SurveyExecutionActions organizationId={organizationId} surveyId={surveyId} version={version} plans={executionPlans} linkedPlans={relationships.executionPlans} canSave={!blocked && !recovery} ensureSaved={ensureSaved} onStandaloneSave={() => { void persistCurrent(); }} />}
       {!calculator && !recovery && <GlassDisclosure className="survey-completion-disclosure" summary="Fotók hozzáadása · privát felmérési képek"><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={version} onVersionChange={setVersion} onEnsureSaved={ensureSaved} onPendingChange={setPhotoState} onPhotosChange={onPhotos} onPhotoUploaded={associateUploadedPhoto} onUploadComplete={() => router.refresh()} /></GlassDisclosure>}
-      <GlassDisclosure className="survey-completion-disclosure" summary={`Projektkapcsolat · ${effectiveProjectId ? projects.find((project) => project.id === effectiveProjectId)?.name ?? "kapcsolt projekt" : "opcionális"}`}>
-        {effectiveProjectId ? <p>Kapcsolt projekt: {projects.find((project) => project.id === effectiveProjectId)?.name ?? effectiveProjectId}</p> : <p>Ügyfél és projekt nélkül is menthető. A projektkapcsolat később is hozzáadható.</p>}
-        {projectId && projects.some((project) => project.id === projectId) && <Link href={`/projektek/${projectId}?organization=${organizationId}`}>Projekt megnyitása →</Link>}
-        {!surveyId && <label className="field-survey-field"><span>Projekt</span><select value={projectId} disabled={blocked || Boolean(recovery)} onChange={(event) => setProjectId(event.target.value)}><option value="">Önálló felmérés</option>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label>}
-        {active.workType === "roof" && !effectiveProjectId && !calculator && <div className="survey-roof-project"><p>Mentett, más munkához átadható tetőmodellhez projekt kell. Az önálló felmérés és a kézi kalkulátorok továbbra is használhatók.</p><label className="field-survey-field"><span>Új projekt neve</span><input value={newProjectName} maxLength={200} disabled={blocked || Boolean(recovery)} onChange={(event) => setNewProjectName(event.target.value)} /></label><button type="button" className="secondary-button" disabled={blocked || Boolean(recovery) || !newProjectName.trim()} onClick={() => void createGeometryProject()}>{followupPending ? "Projekt létrehozása…" : "Projekt létrehozása a tetőmodellhez"}</button></div>}
-      </GlassDisclosure>
+      {effectiveProjectId && <GlassDisclosure className="survey-completion-disclosure" summary={`Korábbi projektkapcsolat · ${projects.find((project) => project.id === effectiveProjectId)?.name ?? "elérhető"}`}>
+        <p>Ez a felmérés korábbi projektazonosítót őriz meg kompatibilitásból. Az új felméréseknél nincs szükség projekt létrehozására.</p>
+        {projects.some((project) => project.id === effectiveProjectId) && <Link href={`/projektek/${effectiveProjectId}?organization=${organizationId}`}>Kapcsolt régi adatok megnyitása →</Link>}
+      </GlassDisclosure>}
       {photoAssociationPending && !calculator && <button type="button" className="primary-button survey-photo-save" disabled={blocked || Boolean(recovery)} onClick={() => void persistCurrent()}>{saving ? "Kapcsolás mentése…" : `Fénykép kapcsolásának mentése · ${active.name}`}</button>}
     </section>
     {error && <p role="alert" className="form-message is-error">{error}</p>}
     {calculator && surveyId && <WorkspaceCalculator key={`${calculator.sectionId}:${calculator.version}`} organizationId={organizationId} surveyId={surveyId} sectionId={calculator.sectionId} version={calculator.version} context={calculator.context} onClose={() => setCalculator(null)} onLinked={() => router.refresh()} onState={setCalculatorState} />}
-    {summary && surveyId && !dirty && <WorkspaceSummary key={version} organizationId={organizationId} surveyId={surveyId} version={version} sections={serialize(sections)} calculations={relationships.calculations} initialFollowups={relationships.followups} onPendingChange={setFollowupPending} projects={projects} originalProjectId={projectId || null} />}
+    {summary && surveyId && !dirty && <WorkspaceSummary key={version} organizationId={organizationId} surveyId={surveyId} version={version} sections={serialize(sections)} calculations={relationships.calculations} initialFollowups={relationships.followups} onPendingChange={setFollowupPending} originalProjectId={projectId || null} />}
   </section>;
 }
 

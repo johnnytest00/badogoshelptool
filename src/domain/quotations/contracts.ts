@@ -10,6 +10,7 @@ export const quotationLineSchema = z.object({
   variantId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
   priceId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
   takeoffItemId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
+  sourceMaterialItemId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
   takeoffSourceItemIds: z.array(z.string().uuid()).max(100).optional().default([]),
   priceProvenance: z.enum(["catalog_snapshot", "takeoff_snapshot", "user_entered", "missing"]).optional(),
   notes: z.string().max(500).nullish().transform((value) => value ?? undefined),

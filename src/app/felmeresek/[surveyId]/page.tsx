@@ -3,9 +3,10 @@ import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
-import { getProjectForOrganization, getProjectsForOrganization } from "@/features/projects/project-data";
+import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getFieldSurvey, getFieldSurveyRevision, getFieldSurveyRevisionVersions } from "@/features/field-surveys/field-survey-data";
 import { FieldSurveyEditor } from "@/features/field-surveys/field-survey-editor";
+import { getExecutionPlanOptionsForOrganization } from "@/features/execution/execution-data";
 
 export default async function FieldSurveyPage({ params, searchParams }: Readonly<{ params: Promise<{ surveyId: string }>; searchParams: Promise<{ organization?: string; version?: string; section?: string }> }>) {
   const { surveyId } = await params;
@@ -20,17 +21,16 @@ export default async function FieldSurveyPage({ params, searchParams }: Readonly
   if (!survey) return <NotFound organizationId={organizationId} />;
   const requestedVersion = query.version === undefined ? null : Number(query.version);
   if (requestedVersion !== null && (!Number.isSafeInteger(requestedVersion) || requestedVersion < 1)) return <NotFound organizationId={organizationId} />;
-  const [projects, linkedProject, revisionVersions, historicalRevision] = await Promise.all([
-    getProjectsForOrganization(organizationId, { includeArchived: true, sort: "newest" }),
+  const [linkedProject, revisionVersions, historicalRevision, executionPlans] = await Promise.all([
     survey.projectId ? getProjectForOrganization(organizationId, survey.projectId) : Promise.resolve(null),
     getFieldSurveyRevisionVersions(organizationId, surveyId),
     requestedVersion !== null && requestedVersion !== survey.version ? getFieldSurveyRevision(organizationId, surveyId, requestedVersion) : Promise.resolve(null),
+    getExecutionPlanOptionsForOrganization(organizationId),
   ]);
   if (requestedVersion !== null && requestedVersion !== survey.version && !historicalRevision) return <NotFound organizationId={organizationId} />;
   const relationships = await getSurveyRelationships(organizationId, surveyId);
-  const projectOptions = projects.map(({ id, name }) => ({ id, name }));
-  if (linkedProject && !projectOptions.some((project) => project.id === linkedProject.id)) projectOptions.unshift({ id: linkedProject.id, name: linkedProject.name });
-  return <main className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} relationships={relationships} survey={survey} initialSectionId={query.section} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
+  const projectOptions = linkedProject ? [{ id: linkedProject.id, name: linkedProject.name }] : [];
+  return <main className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} executionPlans={executionPlans} relationships={relationships} survey={survey} initialSectionId={query.section} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
 }
 
 function NotFound({ organizationId }: Readonly<{ organizationId: string }>) {

@@ -3,7 +3,7 @@ import { buildExecutionOverview } from "./execution-overview";
 import type { ExecutionPlanRecord, ExecutionTimelineItem } from "./execution-data";
 
 const plan: ExecutionPlanRecord = {
-  id: "plan-1", title: "DEMO terv", description: null, version: 1, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z",
+  id: "plan-1", projectId: null, title: "DEMO terv", description: null, version: 1, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z",
   sourceQuotationId: null, sourceRevisionId: null, sourceRevisionNumber: null, sourceQuotationName: null, sourceQuotationStatus: null, sourceSubtotal: null, tasks: [
     { id: "task-1", title: "Nyitott", description: null, status: "todo", priority: "normal", dueDate: "2026-10-01", sortOrder: 1, version: 1 },
     { id: "task-2", title: "Kész", description: null, status: "done", priority: "normal", dueDate: null, sortOrder: 2, version: 1 },

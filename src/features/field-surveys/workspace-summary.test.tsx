@@ -36,8 +36,8 @@ describe("saved calculation in the survey summary", () => {
       { id: "project-link", kind: "project", projectId: "project-1", quotationId: null, quotationRevisionId: null, surveyRevisionId: "revision-1" },
       { id: "quotation-link", kind: "quotation", projectId: "project-1", quotationId: "quotation-1", quotationRevisionId: "quotation-revision-1", surveyRevisionId: "revision-1" },
     ]} projects={[]} originalProjectId={null} />);
-    expect(html).toContain("Kapcsolt projekt megnyitása");
-    expect(html).toContain("Árajánlat megnyitása");
+    expect(html).toContain("Régi projekthez kapcsolt adatok megnyitása");
+    expect(html).toContain("Árajánlatpiszkozat megnyitása");
     expect(html).toContain("már létrejött");
     expect(html).not.toContain("Projekt létrehozása / kapcsolása");
     expect(html).not.toContain("Árajánlat-piszkozat létrehozása");

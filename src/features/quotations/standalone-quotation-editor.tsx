@@ -17,7 +17,7 @@ type Line = QuotationDraftValues["lines"][number];
 type EditorLine = Line & { localId: string };
 type Revision = { id: string; revisionNumber: number; createdAt: string; subtotal: string | null };
 type CurrentRevision = { id: string; revision_number: number; input_snapshot: unknown; line_items_snapshot: unknown; subtotal: string | number | null; currency: string; price_class: "net" | "gross" | null };
-const empty = (type: Line["type"]): Line => ({ type, description: "", quantity: "", unit: "", unitPrice: "", priceClass: "net", variantId: "", priceId: "", takeoffItemId: "", notes: "" });
+const empty = (type: Line["type"]): Line => ({ type, description: "", quantity: "", unit: "", unitPrice: "", priceClass: "net", variantId: "", priceId: "", takeoffItemId: "", sourceMaterialItemId: "", notes: "" });
 const toPersistedLine = (line: EditorLine): Line => {
   const { localId, ...persisted } = line;
   void localId;
@@ -40,9 +40,12 @@ function revisionDocument(revision?: CurrentRevision): { draft: QuotationDocumen
   return { draft, issuer: objectValue(document.issuer), recipient };
 }
 
-export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products, documentSources }: Readonly<{
+export type QuotationMaterialSource = Readonly<{ materialListId: string; materialRevisionId: string; listName: string; revisionNumber: number; currentRevisionId: string | null; currentVersion: number; executionPlanId: string | null; sourceLineMap: ReadonlyArray<{ materialItemId: string; quotationLineIndex: number }> }>;
+
+export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products, documentSources, materialSource = null, initialLines = [] }: Readonly<{
   userId: string; organizationId: string; quotationId: string | null; name?: string; version: number; currentRevisionId: string | null;
   currentRevision?: CurrentRevision; revisions: Revision[]; selectedRevisionId?: string; products: MaterialProductRecord[]; documentSources: StandaloneDocumentSources;
+  materialSource?: QuotationMaterialSource | null; initialLines?: Line[];
 }>) {
   const router = useRouter();
   const { requestConfirmation } = useAppInteraction();
@@ -65,10 +68,11 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const issuerDirtyRef = useRef(false);
   const [lines, setLines] = useState<EditorLine[]>(() => {
     const raw = seed?.line_items_snapshot;
-    if (!Array.isArray(raw)) return [];
-    return raw.map((entry) => {
+    if (!Array.isArray(raw)) return initialLines.map((value) => ({ ...value, localId: makeLocalId() }));
+    const linkedSourceIndexes = new Map((materialSource?.sourceLineMap ?? []).map((source) => [source.quotationLineIndex, source.materialItemId]));
+    return raw.map((entry, index) => {
       const value = entry as Partial<Line>;
-      return { ...empty(value.type === "MATERIAL" || value.type === "LABOR" || value.type === "OTHER" ? value.type : "OTHER"), ...value, priceClass: "net", localId: makeLocalId() } as EditorLine;
+      return { ...empty(value.type === "MATERIAL" || value.type === "LABOR" || value.type === "OTHER" ? value.type : "OTHER"), ...value, sourceMaterialItemId: linkedSourceIndexes.get(index) ?? value.sourceMaterialItemId ?? "", priceClass: "net", localId: makeLocalId() } as EditorLine;
     });
   });
   const [dirty, setDirty] = useState(false);
@@ -180,17 +184,22 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   };
   const save = (saveIssuerProfileFirst = false) => {
     if (historical || pending) return;
+    if (!name.trim()) { setResult({ ok: false, code: "VALIDATION", error: "Add meg az ajánlat nevét a mentéshez." }); return; }
     if (issuerDirty && !saveIssuerProfileFirst) { setResult({ ok: false, code: "VALIDATION", error: "Előbb mentsd a kibocsátói profilt, hogy az ajánlati revízió a friss adatokat rögzítse." }); return; }
     const savedLines = lines.map((line) => ({ ...toPersistedLine(line), priceClass: "net" as const }));
-    const payload = JSON.stringify({ quotationId, version, name: name.trim(), lines: savedLines, document });
+    const payload = JSON.stringify({ quotationId, version, name: name.trim(), lines: savedLines, document, materialListId: materialSource?.materialListId ?? null, materialRevisionId: materialSource?.materialRevisionId ?? null });
     try {
       operation.current = getStandaloneSaveOperation(operation.current, payload, generateSecureUuid);
     } catch { setResult({ ok: false, code: "INTERNAL", error: "A biztonságos mentési azonosító nem hozható létre ezen a böngészőn." }); return; }
     const form = new FormData();
     form.set("organizationId", organizationId); form.set("operationId", operation.current.id); form.set("version", String(version));
     if (quotationId) form.set("quotationId", quotationId);
-    form.set("name", name.trim() || "Belső ajánlati piszkozat"); form.set("clientId", document.recipientSource === "client" ? document.recipientClientId : "");
+    form.set("name", name.trim()); form.set("clientId", document.recipientSource === "client" ? document.recipientClientId : "");
     form.set("lines", JSON.stringify(savedLines));
+    if (materialSource && lines.some((line) => line.sourceMaterialItemId)) {
+      form.set("materialListId", materialSource.materialListId);
+      form.set("materialRevisionId", materialSource.materialRevisionId);
+    }
     form.set("document", JSON.stringify(document));
     setResult({ ok: false, code: "INTERNAL", error: "" });
     startTransition(async () => {
@@ -240,6 +249,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     <Link className="back-link" href={`/ajanlatok?organization=${organizationId}`}>← Vissza az ajánlatokhoz</Link>
     <div className="section-heading"><div><p className="section-eyebrow">Önálló · csak piszkozat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2></div><span className="status-pill status-draft">Piszkozat</span></div>
     <p className="missing-data">Projekt és ügyfél nélkül is használható. Nettó HUF összegeket kezel; véglegesítés, ÁFA és hivatalos PDF még nem támogatott.</p>
+    {materialSource && <section className="glass-bubble quotation-material-source" aria-label="Anyaglista forrás"><strong>Anyaglista-forrás · {materialSource.listName}</strong><span>V{materialSource.revisionNumber} revízió · {materialSource.sourceLineMap.length} forrástétel</span>{materialSource.currentRevisionId && materialSource.currentRevisionId !== materialSource.materialRevisionId && <p role="status">A lista azóta V{materialSource.currentVersion} verzióra változott. Az ajánlat a kiválasztott, változtathatatlan V{materialSource.revisionNumber} forrásból indul.</p>}</section>}
     <div className="standalone-revision-bar" aria-label="Ajánlati revíziók">
       {revisions.map((revision) => <Link key={revision.id} className={`secondary-button ${revision.id === (selectedRevisionId ?? currentRevisionId) ? "is-current" : ""}`} href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`} aria-current={revision.id === (selectedRevisionId ?? currentRevisionId) ? "page" : undefined}>v{revision.revisionNumber} · {money(revision.subtotal)}</Link>)}
       {historical && <Link className="primary-button" href={latestUrl}>Legfrissebb revízió megnyitása (v{version})</Link>}
@@ -261,9 +271,10 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     </div>}
     {recovery && !historical && <section className="form-message" role="status"><p>{recovery.current ? "Korábban nem mentett módosítás található ebben a munkamenetben." : "A helyi változat régebbi szerverrevízióból készült, ezért nem állítható vissza automatikusan."}</p>{recovery.current && <button className="secondary-button" type="button" onClick={restoreRecovery}>Változat visszaállítása</button>}<button className="text-button" type="button" onClick={discardRecovery}>Helyi változat elvetése</button></section>}
     <fieldset className="quotation-editor-fields" disabled={historical || pending || !recoveryReady} aria-busy={pending || !recoveryReady}>
-      <div className="quotation-meta"><label htmlFor="standalone-name">Ajánlat neve<input id="standalone-name" value={name} onChange={(event) => { setName(event.target.value); syncDirty(event.target.value); setResult({ ok: false, code: "INTERNAL", error: "" }); }} aria-describedby="standalone-name-hint" /></label><small id="standalone-name-hint">Ha üresen hagyod, mentéskor „Belső ajánlati piszkozat” néven mentjük.</small></div>
-      <section className="standalone-document-details" aria-labelledby="standalone-document-heading">
-        <div className="section-heading"><div><p className="section-eyebrow">Dokumentumadatok</p><h3 id="standalone-document-heading">Ajánlat adatai</h3></div><span className="status-pill status-draft">{displayedReadiness.status === "valid_draft" ? "Adatok rendben" : displayedReadiness.status === "invalid_document_data" ? "Hibás adat" : "Hiányos kiállítási adatok"}</span></div>
+      <div className="quotation-meta"><label htmlFor="standalone-name">Ajánlat neve<input id="standalone-name" required maxLength={200} value={name} onChange={(event) => { setName(event.target.value); syncDirty(event.target.value); setResult({ ok: false, code: "INTERNAL", error: "" }); }} aria-describedby="standalone-name-hint" placeholder="Például: Tóth utca tetőfelújítás" /></label><small id="standalone-name-hint">Ez az egyetlen kötelező alapadat; a címzett és dokumentummezők opcionálisak.</small></div>
+      <details className="standalone-document-details quotation-document-disclosure" aria-labelledby="standalone-document-heading">
+        <summary id="standalone-document-heading" className="quotation-document-summary"><span><small>Opcionális</small><strong>Címzett és dokumentumadatok</strong></span><span className="status-pill status-draft">{displayedReadiness.status === "valid_draft" ? "Adatok rendben" : displayedReadiness.status === "invalid_document_data" ? "Hibás adat" : "Hiányos kiállítási adatok"}</span></summary>
+        <div className="quotation-document-disclosure-body">
         <p className="missing-data">Ez a piszkozat menthető. Az adókezelés és a véglegesítés még nincs támogatva; ez az összegzés nem jelent kiállíthatóságot.</p>
         <div className="quotation-line-grid">
           <label htmlFor="document-recipient-source">Címzett adatforrása<select id="document-recipient-source" value={document.recipientSource} onChange={(event) => {
@@ -304,16 +315,19 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
         <ul className="document-readiness" aria-label="Kiállítási hiányosságok">{displayedReadiness.blockers.map((blocker) => <li key={blocker.code}>{blocker.message}</li>)}</ul>
         {!historical && <button className="secondary-button" type="button" disabled={pending} onClick={checkReadiness}>{pending ? "Ellenőrzés folyamatban…" : "Dokumentumadatok szerveroldali ellenőrzése"}</button>}
         {serverReadiness && <small role="status">Az ellenőrzés hitelesített szerveroldali adatokkal lefutott.</small>}
-      </section>
-      <div className="quotation-lines"><div className="section-heading"><div><p className="section-eyebrow">Tételek</p><h3>Ártételek</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("MATERIAL")}>+ Kézi anyag</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
+        </div>
+      </details>
+      <div className="quotation-lines"><div className="section-heading"><div><p className="section-eyebrow">Tételek</p><h3>Ártételek</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Kézi sor</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
         {lines.length === 0 && <p className="empty-state">Még nincs tétel. Üres piszkozatot is elmenthetsz.</p>}
         {lines.map((line, index) => <article className="quotation-line" key={line.localId}><div className="quotation-line-grid">
+          {line.sourceMaterialItemId && <small className="quotation-source-line">Anyaglista-forrás tétel · {line.sourceMaterialItemId.slice(0, 8)}</small>}
           <label htmlFor={`line-${index}-type`}>Típus<select id={`line-${index}-type`} value={line.type} onChange={(event) => { const type = event.target.value as Line["type"]; update(index, type === "MATERIAL" ? { type } : { type, variantId: "", priceId: "" }); }}><option value="MATERIAL">Anyag</option><option value="LABOR">Munkadíj</option><option value="OTHER">Egyéb</option></select></label>
           {line.type === "MATERIAL" && <label htmlFor={`line-${index}-catalog`}>Katalógustermék<select id={`line-${index}-catalog`} value={line.variantId} onChange={(event) => { void resolvePrice(index, event.target.value, ""); }}><option value="">Kézi anyag / válassz katalógust</option>{products.flatMap((product) => product.variants.map((variant) => <option key={variant.id} value={variant.id}>{product.name} · {variant.name}{variant.sku ? ` · ${variant.sku}` : ""}</option>))}</select></label>}
           <label htmlFor={`line-${index}-description`}>Megnevezés<input id={`line-${index}-description`} value={line.description} onChange={(event) => update(index, { description: event.target.value })} /></label>
           <label htmlFor={`line-${index}-quantity`}>Mennyiség<input id={`line-${index}-quantity`} inputMode="decimal" value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} aria-describedby={`line-${index}-error`} /></label>
           <label htmlFor={`line-${index}-unit`}>Egység<input id={`line-${index}-unit`} value={line.unit} onChange={(event) => update(index, { unit: event.target.value, priceId: "" })} /></label>
           <label htmlFor={`line-${index}-price`}>{standaloneNetLabels.unitPrice}<input id={`line-${index}-price`} inputMode="decimal" value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value, priceId: "" })} /></label>
+          {line.sourceMaterialItemId && !line.unitPrice && <p className="quotation-source-price-note">Ehhez a forrástételhez nincs átvehető nettó ár. Adj meg egy ellenőrzött egységárat mentés előtt.</p>}
           {line.variantId && <label htmlFor={`line-${index}-price-source`}>Katalógusárforrás<select id={`line-${index}-price-source`} value={line.priceId} onChange={(event) => { void resolvePrice(index, line.variantId, event.target.value); }}><option value="">Kézi nettó ár</option>{catalogVariant(line.variantId)?.variant.prices.filter((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === catalogVariant(line.variantId)?.variant.purchasingUnit).map((price) => <option key={price.id} value={price.id}>{price.amount.toLocaleString("hu-HU")} Ft · {price.effectiveDate}</option>)}</select><small>{line.priceId ? "Mentéskor a szerver ismét ellenőrzi a katalógusárat." : "Kézi árként kerül rögzítésre."}</small></label>}
           <output className="quotation-line-total">{standaloneNetLabels.lineTotal}: {(() => { try { return scaledToDecimal(lineTotal(line.quantity || "0", line.unitPrice || "0").minor, 2); } catch { return "—"; } })()} <small>nem mentett becslés</small></output>
           <div className="standalone-line-actions"><button className="text-button" type="button" disabled={index === 0} aria-label={`Tétel ${index + 1} mozgatása fel`} onClick={() => moveLine(index, -1)}>↑ Fel</button><button className="text-button" type="button" disabled={index === lines.length - 1} aria-label={`Tétel ${index + 1} mozgatása le`} onClick={() => moveLine(index, 1)}>↓ Le</button><button className="text-button" type="button" aria-label={`Tétel ${index + 1} törlése`} onClick={() => { const next = lines.filter((_, itemIndex) => itemIndex !== index); setLines(next); syncDirty(name, next); }}>Tétel törlése</button></div>

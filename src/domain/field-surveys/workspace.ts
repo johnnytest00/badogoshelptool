@@ -33,6 +33,7 @@ export type SurveyCalculationLink = SavedSurveyCalculation & {
   name: string; output: unknown; warnings: unknown; provenance: unknown;
 };
 export type SurveyFollowup = { id: string; kind: "project" | "quotation"; projectId: string | null; quotationId: string | null; quotationRevisionId: string | null; surveyRevisionId: string };
+export type SurveyExecutionPlanLink = { id: string; executionPlanId: string; surveyRevisionId: string; surveyVersion: number; planTitle: string };
 
 // Stable compatibility section identity. No legacy record or revision is rewritten.
 export function surveySections(record: { sections?: SurveySection[] | null; id?: string; surveyId?: string; workType: FieldSurveyWorkType; measurements: FieldSurveyMeasurement[]; notes: string | null }): SurveySection[] {

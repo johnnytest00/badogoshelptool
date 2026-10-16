@@ -1,1 +1,1 @@
-export type DashboardTab = "functions" | "projects";
+export type DashboardTab = "functions" | "work";

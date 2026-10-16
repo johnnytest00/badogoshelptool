@@ -1,10 +1,9 @@
-import { getFieldSurveys } from "@/features/field-surveys/field-survey-data";
 import { redirect } from "next/navigation";
 import { Dashboard } from "@/features/dashboard/dashboard";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getAuthContext } from "@/features/auth/auth.server";
-import { getProjectsForOrganization } from "@/features/projects/project-data";
+import { getExecutionOverviewForOrganization } from "@/features/execution/execution-data";
 
 export default async function Home({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string }> }>) {
   const auth = await getAuthContext();
@@ -29,6 +28,6 @@ export default async function Home({ searchParams }: Readonly<{ searchParams: Pr
     );
   }
 
-  const [projects, surveys] = await Promise.all([getProjectsForOrganization(selectedOrganization.id, { includeArchived: false, sort: "newest" }), getFieldSurveys(selectedOrganization.id, 3)]);
-  return <Dashboard displayName={auth.displayName} email={auth.email} organizationName={selectedOrganization.name} organizationId={selectedOrganization.id} projects={projects} recentSurveys={surveys.map(({ id, version, updatedAt }) => ({ id, version, updatedAt }))} />;
+  const plans = await getExecutionOverviewForOrganization(selectedOrganization.id);
+  return <Dashboard displayName={auth.displayName} email={auth.email} organizationName={selectedOrganization.name} organizationId={selectedOrganization.id} plans={plans} />;
 }

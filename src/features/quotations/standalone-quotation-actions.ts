@@ -75,15 +75,35 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
   const validation = validateStandaloneLines(parsed.data.lines);
   if (!validation.ok) return failure("VALIDATION", validation.error);
   const lines = validation.lines.map(normalizeLine);
+  const materialListId = formText(form, "materialListId") || null;
+  const materialRevisionId = formText(form, "materialRevisionId") || null;
+  const sourceLineMap = lines.flatMap((line, quotationLineIndex) => line.sourceMaterialItemId ? [{ materialItemId: line.sourceMaterialItemId, quotationLineIndex }] : []);
+  if (Boolean(materialListId) !== Boolean(materialRevisionId)
+    || (sourceLineMap.length > 0 && !materialListId)
+    || new Set(sourceLineMap.map((source) => source.materialItemId)).size !== sourceLineMap.length) {
+    return failure("VALIDATION", "Az anyaglista-forrás és a forrástételek kapcsolata érvénytelen.");
+  }
+  if (materialListId && (!/^[0-9a-f-]{36}$/i.test(materialListId) || !/^[0-9a-f-]{36}$/i.test(materialRevisionId ?? ""))) {
+    return failure("VALIDATION", "A forrás anyaglista vagy revízió azonosítója érvénytelen.");
+  }
 
   const supabase = await createClient();
   const db = supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: SavedDraft[] | null; error: { code?: string; message?: string } | null }> };
-  const { data, error } = await db.rpc("save_standalone_quotation_draft_with_document", {
+  const rpcName = materialListId && sourceLineMap.length > 0
+    ? "save_standalone_quotation_from_material_list"
+    : "save_standalone_quotation_draft_with_document";
+  const rpcArgs = {
     p_organization_id: organizationId, p_operation_id: operationId, p_quotation_id: quotationId,
     p_name: parsed.data.name, p_client_id: document.recipientSource === "client" ? document.recipientClientId : null,
     p_lines: lines, p_expected_version: expectedVersion,
     p_document: { ...document, recipientClientId: undefined },
-  });
+    ...(rpcName === "save_standalone_quotation_from_material_list" ? {
+      p_material_list_id: materialListId,
+      p_material_revision_id: materialRevisionId,
+      p_source_line_map: sourceLineMap,
+    } : {}),
+  };
+  const { data, error } = await db.rpc(rpcName, rpcArgs);
   if (error || !data?.[0]) {
     const issue = error?.code === "23503" && lines.some((line) => line.variantId || line.priceId)
       ? { code: "CATALOG_SOURCE" as const, error: "A kiválasztott katalógus- vagy árforrás nem érvényes ebben a műhelyben." }
@@ -91,6 +111,38 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
     return failure(issue.code, issue.error);
   }
   return { ok: true, data: data[0] };
+}
+
+export async function getStandaloneQuotationMaterialSourceAction(organizationId: string, quotationId: string, revisionId: string): Promise<StandaloneQuotationResult<{
+  materialListId: string; materialRevisionId: string; listName: string; revisionNumber: number;
+  currentRevisionId: string | null; currentVersion: number; executionPlanId: string | null;
+  sourceLineMap: Array<{ materialItemId: string; quotationLineIndex: number }>;
+} | null>> {
+  const access = await authorizeOrganization(organizationId);
+  if (!access.auth) return failure("UNAUTHENTICATED", "Jelentkezz be az ajánlati forrás megnyitásához.");
+  if (!access.allowed) return failure("FORBIDDEN", "Nincs jogosultságod ehhez a műhelyhöz.");
+  const supabase = await createClient();
+  const db = supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{
+    material_list_id: string; material_revision_id: string; list_name: string; revision_number: number;
+    current_revision_id: string | null; current_version: number; execution_plan_id: string | null; source_line_map: unknown;
+  }> | null; error: { code?: string; message?: string } | null }> };
+  const { data, error } = await db.rpc("get_standalone_quotation_material_source", {
+    p_organization_id: organizationId, p_quotation_id: quotationId, p_quotation_revision_id: revisionId,
+  });
+  if (error) return failure(error.code === "42501" ? "FORBIDDEN" : "INTERNAL", "Az ajánlat anyaglista-forrása nem tölthető be.");
+  const row = data?.[0];
+  if (!row) return { ok: true, data: null };
+  const sourceLineMap = Array.isArray(row.source_line_map) ? row.source_line_map.flatMap((value) => {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
+    const record = value as Record<string, unknown>;
+    return typeof record.materialItemId === "string" && Number.isInteger(record.quotationLineIndex)
+      ? [{ materialItemId: record.materialItemId, quotationLineIndex: Number(record.quotationLineIndex) }] : [];
+  }) : [];
+  return { ok: true, data: {
+    materialListId: row.material_list_id, materialRevisionId: row.material_revision_id, listName: row.list_name,
+    revisionNumber: row.revision_number, currentRevisionId: row.current_revision_id, currentVersion: row.current_version,
+    executionPlanId: row.execution_plan_id, sourceLineMap,
+  } };
 }
 
 export type StandaloneDocumentSources = {

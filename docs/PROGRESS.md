@@ -2516,3 +2516,86 @@ geometria, DB-séma és tartós üzleti adat nem változott; új éles/hitelesí
 felhasználói adatot nem írtam át.
 
 Javasolt commit: `feat(F9.14.9): add account settings and mobile quick scaling`.
+
+## F9.19 — Workflow egyszerűsítés
+
+Állapot: **PARTIAL**. Az új fő munkafolyamatok projekt és ügyfél létrehozása
+nélkül indíthatók. A műhely kezdőlap öt elsődleges útvonala: Gyors felmérés,
+Kivitelezési tervek, Anyaglisták, Árajánlatok és Kalkulátorok. A régi
+Projektek/Ügyfelek modulok és projektfüggő részfunkciók megmaradtak az eddigi
+adatok kompatibilis eléréséhez; nem töröltünk rekordot és nem írtunk át régi
+projektkapcsolatot.
+
+**Felmérés → terv:** az önálló survey mentés mellett új terv készíthető, a
+meglévő mentett felmérés pedig meglévő tervhez csatolható. Az író RPC-k az
+aktuális szervezeti tagságot, mindkét szülő jogosultságát, az immutable
+felmérés-revíziót és az idempotencia-kulcsot ellenőrzik. A terv közvetlen
+munkateret és valódi tervlistát kapott; alulról nyitható „Csatolt felmérések”
+nézet mutatja a pontos forrásverziót. A forrásfotók és SVG csak jogosultság
+esetén, kibontva töltődnek be.
+
+**Anyaglisták:** a meglévő immutable material preparation revision szerződés
+bővült önálló és tervhez kapcsolt, projekt nélküli listákkal. Kézi vagy
+katalógusból választott sorok adhatók hozzá; a kézi sor megnevezése,
+mennyisége és egysége szerkeszthető, legfeljebb hat tizedes pontossággal.
+Katalógussor egységét a variáns szabja meg, a mennyiségi egységváltás nincs
+automatikusan átszámítva. Az ár választható, és hiányzó ár nem lesz nulla.
+A lista csak a mentett aktuális verzióhoz ad ajánlatindító linket.
+
+**Katalógus:** az anyaglista Liquid Glass beállítási buborékából elérhető a
+meglévő szervezeti termék- és árkezelő, valamint a termékfelvétel. A meglévő
+termék/variáns/ár írók és jogosultsági ellenőrzéseik maradtak használatban.
+Szervezeti dinamikus kategória hozzáadása/átnevezése a jelenlegi enum-séma miatt
+nincs megvalósítva; nem hoztunk létre második, eltérően viselkedő kategória-
+rendszert.
+
+**Árajánlat:** az önálló ajánlatpiszkozat indítható üresen, vagy az anyaglistán
+illetve a terven keresztül pontosan kiválasztott mentett anyaglista-revízióból.
+Az import megőrzi a mennyiséget, egységet és forrástétel-ID-t. Nettó HUF árat
+csak ugyanazon aktív, kompatibilis katalógus-variáns forrás-ársnapshotjából
+vesz át; az ismeretlen, bruttó, más egységű vagy már nem visszaellenőrizhető ár
+üres marad, illetve figyelmeztetést kap. A forrástábla a pontos anyaglista- és
+revízióazonosítót, valamint a quote revision sorait köti össze; azonos
+piszkozat retry nem duplikál kapcsolatot. Az üres árú sor megőrzése érdekében
+a pénzügyi writer mentéskor ellenőrzött árat kér. Hivatalos kiállítás,
+számozás és PDF-kiadás nem lett engedélyezve.
+
+**Nem kész / nem bizonyított:** a biztonságos, revízióhoz kötött automatikus
+anyagjavaslat-generálás; a dinamikus kategóriakezelés; közvetlen felmérésből
+indított, forrásos ajánlat; minden A–G elfogadási útvonal és teljes
+navigációs/legacy-átvezetés; a teljes 1440/1024/768/390/320, világos/sötét,
+méretezési és fizikai iOS mátrix. A felmérés/terv és listák kézi útjai működnek,
+de a hiányzó javaslatgenerálás miatt a teljes SURVEY → PLAN → MATERIAL LIST →
+QUOTATION workflow nem COMPLETE. A javaslatokhoz nem vezettünk be új képletet
+és nem következtettünk le nem bizonyított termékmennyiséget.
+
+**Migráció és adatvédelem:** a helyi adatbázisra a korábbi ellenőrzés során a
+20261016180000 migráció is felkerült. A végső migration-lista lekérdezéskor a
+helyi Postgres már nem futott (`127.0.0.1:54322` connection refused), ezért az
+aktuális élő migrációs állapotot akkor nem tudtam újra lekérdezni. A migrációk
+csak előrefelé módosítanak sémát/RPC-t, a meglévő
+projektlista és történeti revíziók megmaradtak. Hosted Supabase, reset,
+commit, push vagy deploy nem történt. A forráskód és DB writer ellenőrzi a
+szervezetet, terv-hozzáférést, creator-scope-ot, exact revision ID-t,
+expected versiont és retry request key-t.
+
+**Megőrzött helyi DEMO bizonyíték:** felmérés 55be7cf5-8939-4828-8c98-7b404b0cc7d7,
+terv ec23335e-ece9-4d67-8f7e-01959e4b3d23, forrásrevízió
+3fdf0255-7c55-4062-bb5c-8d0b08da8dc2. Az anyaglista browser DEMO:
+7f889b0f-f73c-484d-b9f7-c761c7120d30, revízió
+260538a5-d4c8-43a5-8d73-47a83139b135. A böngészőben mentett 2,125 folyóméter
+kézi sorból az ajánlatpiszkozatba pontos 2,125000 és az exact forrássor került;
+ár nélkül maradt, így ajánlatot nem mentettünk. Két párhuzamos helyi DB
+kapcsolat ugyanarra az anyaglista create kérésre ugyanazt a listát és revíziót
+kapta; a helyi DEMO rekordot megőriztük.
+
+**Ellenőrzések:** célzott Vitest 6 fájl / 23 teszt PASS; a survey-terv,
+önálló anyaglista és ajánlatforrás pgTAP-csomagja 3 fájl / 49 assertion PASS;
+npm run typecheck, npm run lint, Next.js 16.4.0 webpack npm run build és végső
+git diff --check PASS. A teljes Vitest suite és hosted adatbázis/Auth/RLS
+regresszió nem futott. A böngésző egy autentikált helyi desktop smoke workflow-t
+bizonyít; fizikai mobil és viewport/téma mátrix nincs ellenőrizve.
+
+Részletes séma- és migrációs döntések: [F9.19_WORKFLOW_MIGRATION.md](F9.19_WORKFLOW_MIGRATION.md).
+
+Javasolt commit: feat(F9.19): add standalone workflows and quote provenance.
