@@ -106,6 +106,55 @@ eszköz nem volt ellenőrizve.
 
 Javasolt commit: `fix(F9.18.1): harden measurement UX and headings`.
 
+## F9.18.2 — iOS rajzstabilitás és interakció
+
+Állapot: **PARTIAL — a helyi implementáció és authenticated DEMO smoke kész;
+viewport-mátrix és fizikai iOS/WebKit elfogadás UNVERIFIED.** A műszaki rajz dimenzió-nyílhegyei SVG `marker` helyett explicit,
+brand színű nyílgeometriák; a rajzpanel hátteréből kikerült a kompozitálást
+érintő blur. A zoom véges tartományban marad, a pointer-koordináta
+`preserveAspectRatio` letterboxát beszámítja, a nullméretű viewportot elutasítja,
+a modellváltás és unmount pedig takarítja az RAF-et és pointer capture-t. A
+kerékzoom nem passzív natív listenerrel fut, cleanup-pel; a Chromium konzolban
+korábban látott React `preventDefault` figyelmeztetés a wheel-próba után nem
+jelent meg. Geometriai képlet és tetőkoordináta nem változott.
+
+A mérés hozzáadása a survey meglévő secure UUID helperét használja, egy sort
+ad hozzá, rövid ideig kiemeli, szükség esetén a visual viewportba görgeti, és
+dirty piszkozatot hoz létre. Billentyűzettel indítva fókuszál, érintésre nem
+nyitja fel automatikusan a billentyűzetet. Gyors ismétlés zárolt. A projekt
+tetőmodell-kártyái a rajzválasztók: egyszerre egy `TechnicalDrawing` renderelődik;
+a kiválasztott modell/revízió és kalkuláció-revízió azonosítója, méretei,
+szervezeti navigációja megmarad. A teljes modell szerkesztőből a projektbe
+vissza lehet térni. A címek közös kompakt margót/skálát kaptak, a duplikált
+modelllista és a rajzszekció dekoratív elválasztója kikerült.
+
+Helyi DEMO survey `b66caa4f-4882-4193-b91e-706a0f4b9e37`: mérés hozzáadása,
+kiemelése, értékbevitel, törlés/újrahozzáadás, mentés és frissítés utáni
+újranyitás lefutott; a `DEMO F9.18.2 tesztmérés = 1234 mm` V4-ben visszajött.
+Az aktív 10 × 6 m, 3 m nyeregtető rajza 84,853 m² eredményt és zoom/fit/reset
+vezérlőket mutatott. Projekt DEMO smoke: 3 modell váltása közben 1 SVG maradt;
+az első félnyeregtető V1 (10 × 6 m) és az `Új nyeregtető` V4 (12,50 / 12,00 /
+10,60 m) méretei nem keveredtek, a teljes editor megnyílt és visszatért.
+Chromium emulációban 393 / 768 / 1032 CSS px nézetet, valamint normál desktop
+elrendezést néztem meg; a teljes 320 / 390 / 1024 / 1440 mátrix ezen a
+projektoldalon nincs végigigazolva.
+
+A `window.ethereum.selectedAddress` hiba nem reprodukálódott; forrásban és
+lokális dependency-kben nincs hivatkozás. A Brave Wallet ikon önmagában nem
+bizonyítja a külső eredetet. A korábban reprodukált wheel `preventDefault`
+figyelmeztetés `react-dom-client.development.js` stacken jelent meg; a listener-javítás utáni
+wheel smoke konzolja 0 bejegyzést mutatott. Survey V4-ben az említett DEMO
+tesztmérés helyben megmaradt; schema, Auth/RLS, hosted Supabase, migration,
+formula és revision contract nem változott.
+
+Fókuszált Vitest: 5 fájl / 24 teszt PASS; typecheck, lint, Next.js 16.4.0
+webpack production build PASS (izolált `/private/tmp/f9182-build.8oR4AU`
+munkapéldány) és `git diff --check` PASS a végső dokumentációval. Teljes
+Vitest, DB/Auth/RLS, screen reader, reduced-motion emuláció, fizikai iPhone/iPad
+Safari és pinch-teszt nem futott.
+
+Javasolt commit: `fix(F9.18.2): stabilize iOS drawings and measurement input`.
+
 ## F9.17 — Globális Liquid Glass interakció és visszajelzés
 
 Állapot: **PARTIAL — a közös helyi interakciós rendszer elkészült, az offline

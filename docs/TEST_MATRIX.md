@@ -35,6 +35,24 @@
 | Adat, szervezet, geometria | VÁLTOZATLAN SZERZŐDÉS | Helyi authenticated DEMO és a meglévő survey mentési/verziókezelési útvonal. Nincs migration, hosted művelet, formula/domain/Auth/RLS változás. A tesztfelmérés megőrzött DEMO adat; tetőmodell nem mentődött. |
 | Korlátok | PARTIAL | Desktop Brave/Chromium emuláció; fizikai iOS/Safari, külön screen reader és teljes Vitest / minden főmodul vizuális regresszió nem futott. A QA capture-ek külön fájlként nem lettek exportálva. |
 
+## F9.18.2 — iOS rajzstabilitás és interakció
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| SVG nyílhegyek / compositing | PASS, LOCAL BROWSER | A méretvonalak külön SVG-nyílgeometriákat rajzolnak marker helyett; a project rajzpanelen nincs `backdrop-filter`. Chromiumban a végeredményben nincs narancsszínű maradvány. Safari/WebKit fizikai eszközön nem igazolt. |
+| Zoom / fit / reset és pointer | PASS, FOCUSED UNIT + BROWSER | Zoom clamp és nem véges/0 méretű koordináta, letterbox mapping, pinch fókuszpont és fit/reset invariáns lefedve. DEMO aktív rajzon zoom, fit, reset és pan lefutott; wheel zoom működött. Pointer capture és RAF cleanup kódban biztosított; iOS pinch nem futott. |
+| Kerékes nagyítás eseménye | PASS, LOCAL BROWSER | React `preventDefault` passzív-listener figyelmeztetés előzőleg látszott; natív `{ passive: false }` listenerre váltás és cleanup után wheel-próba során a konzol 0 bejegyzést mutatott. |
+| Survey hozzáadás / dirty / visszanyitás | PASS, AUTHENTICATED LOCAL DEMO | `b66caa4f-4882-4193-b91e-706a0f4b9e37`: egy mérés hozzáadása, sorkiemelés, 1234 mm bevitel, törlés/újrahozzáadás, V4 mentés, frissítés és pontos érték visszaolvasás. Secure UUID, egy soros append és gyors tap lock. |
+| Aktív rajz és persistált bemenet | PASS, LOCAL DEMO | 10×6 m / 3 m nyeregtető és 0 mm túlnyúlások; rajz, 84,853 m², zoom/fit/reset. V4 mentett projektgeometriát újranyitottam. Külön képlet/domain nem változott. |
+| Projektmodell-választó | PASS, AUTHENTICATED LOCAL DEMO | 3 modell esetén egy nagy SVG; váltás DEMO félnyeregtető V1 (10×6 m) és `Új nyeregtető` V4 (12,50 / 12,00 / 10,60 m) közt. Modell- és kalkuláció-revízió ID a DOM-ban ellenőrizve; teljes editor megnyílt, projektbe visszatért a szervezeti query-vel. |
+| Projektoldali reszponzivitás | PARTIAL, CHROMIUM EMULATION | Project drawing oldal 393, 768 és 1032 CSS px profilon, plusz normál desktop ablakon vizuálisan megtekintve. Egy rajz és a méretek elférnek. A pontos 320 / 390 / 1024 / 1440 méretek, világos téma és emelt szöveg/UI skála ezen az oldalon nem lettek újra lefuttatva; F9.18.1 külön, korábbi viewport bizonyítékai nem helyettesítik ezt a célzott mátrixot. |
+| Címsorok / elválasztók | PASS, LOCAL BROWSER + CODE | `Tetőmodellek` compact lista és `Tetőrajzok` szekció egységes címmargót használ; nincs ismételt modellkártya-sor a rajzoknál vagy dekoratív vízszintes elválasztó. |
+| `window.ethereum` hiba | NEM REPRODUKÁLT / ORIGIN NEM BIZONYÍTOTT | Forrás és lokális dependency szöveges keresésében nincs `window.ethereum` vagy `selectedAddress`; a pontos hiba/stack nem jelent meg. Brave Wallet ikon jelenléte önmagában nem igazolja a külső eredetet; globális objektumot nem módosítottam. |
+| Fókuszált Vitest | PASS | `npx vitest run src/features/roof-models/drawing-viewport.test.ts src/features/roof-models/technical-drawing.test.tsx src/features/roof-models/project-roof-drawings.test.ts src/features/field-surveys/measurement-creation.test.ts src/features/field-surveys/field-survey-editor.test.tsx`: 5 fájl / 24 teszt. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, izolált `/private/tmp/f9182-build.8oR4AU` Next.js 16.4.0 webpack production build, `git diff --check` mind ténylegesen lefutott a végső változtatások után. Teljes Vitest és DB/Auth/RLS nem futott. |
+| Adat / hozzáférés | SZERZŐDÉS VÁLTOZATLAN | Csak helyi authenticated DEMO survey V4 változott; az explicit tesztmérés 1234 mm-ként megmaradt. Hosted adatbázis, migration, Auth/RLS, schema, formula és revision contract nem módosult. |
+| Fizikai eszköz / korlátok | UNVERIFIED | iPhone/iPad Safari/WebKit, valódi touch pinch, LAN HTTP, screen reader és WebKit GPU repaint nem igazolt. A `window.ethereum` hiba eredete nem ismert. |
+
 ## F9.17 — globális Liquid Glass interakció és visszajelzés
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

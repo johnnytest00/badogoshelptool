@@ -43,8 +43,8 @@ describe("field survey editor", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={survey} />);
     expect(html).toContain("Ereszszakasz · m");
     expect(html).toContain('value="8.5"');
-    expect(html).toContain("Beállítások és törlés");
-    expect(html).toContain("Számítási szerep");
+    expect(html).toContain('aria-label="Beállítások: Ereszszakasz"');
+    expect(html).toContain('aria-label="Ereszszakasz törlése"');
   });
 
   it("restores the active work section after the first save changes the URL", () => {

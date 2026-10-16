@@ -283,7 +283,7 @@ body[data-editing="true"] .scaling-bubble { display: none; }
 .technical-drawing-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }.technical-drawing-header h2 { margin: .25rem 0 0; color: var(--foreground); letter-spacing: -.03em; }
 .drawing-state { border-radius: 999px; padding: .35rem .65rem; font-size: calc(.72rem * var(--tp-text-scale)); font-weight: 800; }.drawing-state.is-saved { background: #dcfce7; color: #166534; }.drawing-state.is-preview { background: var(--brand-soft); color: var(--brand); } html[data-theme="dark"] .drawing-state.is-saved { background: #153b2b; color: #86efac; }
 .drawing-view-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .45rem; }.drawing-view-tabs button, .drawing-toolbar button { min-height: 2.6rem; border: 1px solid var(--border); border-radius: .7rem; background: var(--surface-strong); color: var(--muted); cursor: pointer; font: inherit; font-size: calc(.76rem * var(--tp-text-scale)); font-weight: 800; }.drawing-view-tabs button.is-active, .drawing-view-tabs button:hover { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); }
-.drawing-canvas { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface-strong); touch-action: pan-y; }.technical-drawing-svg { display: block; width: 100%; min-height: 20rem; color: var(--foreground); cursor: grab; touch-action: none; }.technical-drawing-svg:active { cursor: grabbing; }.technical-plane { fill: color-mix(in srgb, var(--brand) 12%, transparent); stroke: var(--brand); stroke-width: 3; vector-effect: non-scaling-stroke; }.technical-plane-right { fill: color-mix(in srgb, var(--brand) 7%, transparent); }.technical-segment { fill: none; stroke: var(--foreground); stroke-width: 3; vector-effect: non-scaling-stroke; }.technical-segment.is-hidden-edge { stroke: var(--muted); stroke-dasharray: 8 8; stroke-width: 2; }.technical-guide { fill: none; stroke: var(--muted); stroke-dasharray: 5 7; stroke-width: 2; opacity: .72; vector-effect: non-scaling-stroke; }.technical-dimension line { fill: none; stroke: var(--brand); stroke-width: 2; vector-effect: non-scaling-stroke; }.technical-dimension .technical-extension { stroke-dasharray: 3 4; marker-start: none; marker-end: none; opacity: .58; }.technical-dimension text, .technical-angle text { fill: var(--foreground); font-size: 18px; font-weight: 800; paint-order: stroke; stroke: var(--surface-strong); stroke-width: 5px; stroke-linejoin: round; }.technical-angle path { fill: none; stroke: var(--brand); stroke-width: 2; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }.drawing-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }.drawing-toolbar button { display: inline-grid; width: 2.6rem; place-items: center; }.drawing-toolbar span { min-width: 3.6rem; color: var(--foreground); font-size: calc(.78rem * var(--tp-text-scale)); font-variant-numeric: tabular-nums; font-weight: 800; text-align: center; }.drawing-toolbar-hint { display: inline-flex; align-items: center; gap: .35rem; margin-left: auto; color: var(--muted) !important; font-weight: 600 !important; }.drawing-layers { display: flex; flex-wrap: wrap; gap: .55rem 1rem; margin: 0; border: 0; padding: 0; }.drawing-layers legend { width: 100%; margin-bottom: .1rem; color: var(--foreground); font-size: calc(.78rem * var(--tp-text-scale)); font-weight: 800; }.drawing-layers label { display: inline-flex; align-items: center; gap: .35rem; color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); }.drawing-layers input { accent-color: var(--brand); }.drawing-accessible-summary { margin: 0; color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.55; }
+.drawing-canvas { min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 1rem; background: var(--surface-strong); touch-action: pan-y; }.technical-drawing-svg { display: block; width: 100%; min-height: 20rem; color: var(--foreground); cursor: grab; touch-action: none; }.technical-drawing-svg:active { cursor: grabbing; }.technical-plane { fill: color-mix(in srgb, var(--brand) 12%, transparent); stroke: var(--brand); stroke-width: 3; vector-effect: non-scaling-stroke; }.technical-plane-right { fill: color-mix(in srgb, var(--brand) 7%, transparent); }.technical-segment { fill: none; stroke: var(--foreground); stroke-width: 3; vector-effect: non-scaling-stroke; }.technical-segment.is-hidden-edge { stroke: var(--muted); stroke-dasharray: 8 8; stroke-width: 2; }.technical-guide { fill: none; stroke: var(--muted); stroke-dasharray: 5 7; stroke-width: 2; opacity: .72; vector-effect: non-scaling-stroke; }.technical-dimension line { fill: none; stroke: var(--brand); stroke-width: 2; vector-effect: non-scaling-stroke; }.technical-dimension .technical-dimension-arrow { fill: var(--brand); stroke: none; }.technical-dimension .technical-extension { stroke-dasharray: 3 4; marker-start: none; marker-end: none; opacity: .58; }.technical-dimension text, .technical-angle text { fill: var(--foreground); font-size: 18px; font-weight: 800; paint-order: stroke; stroke: var(--surface-strong); stroke-width: 5px; stroke-linejoin: round; }.technical-angle path { fill: none; stroke: var(--brand); stroke-width: 2; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }.drawing-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }.drawing-toolbar button { display: inline-grid; width: 2.6rem; place-items: center; }.drawing-toolbar span { min-width: 3.6rem; color: var(--foreground); font-size: calc(.78rem * var(--tp-text-scale)); font-variant-numeric: tabular-nums; font-weight: 800; text-align: center; }.drawing-toolbar-hint { display: inline-flex; align-items: center; gap: .35rem; margin-left: auto; color: var(--muted) !important; font-weight: 600 !important; }.drawing-layers { display: flex; flex-wrap: wrap; gap: .55rem 1rem; margin: 0; border: 0; padding: 0; }.drawing-layers legend { width: 100%; margin-bottom: .1rem; color: var(--foreground); font-size: calc(.78rem * var(--tp-text-scale)); font-weight: 800; }.drawing-layers label { display: inline-flex; align-items: center; gap: .35rem; color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); }.drawing-layers input { accent-color: var(--brand); }.drawing-accessible-summary { margin: 0; color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.55; }
 @media (max-width: 560px) { .drawing-view-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }.technical-drawing-svg { min-height: 15rem; }.drawing-toolbar-hint { width: 100%; margin-left: 0; }.technical-dimension text, .technical-angle text { font-size: 22px; } }
 @media (prefers-reduced-motion: reduce) { .technical-drawing *, .technical-drawing *::before, .technical-drawing *::after { transition: none !important; animation: none !important; } }
 
@@ -2174,7 +2174,7 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
 .project-workspace .secondary-button:focus-visible,
 .project-workspace .project-calculator-link:focus-visible,
 .project-workspace .future-module:focus-visible,
-.project-workspace .roof-model-card:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 48%, transparent); outline-offset: 3px; }
+.project-workspace .roof-model-select:focus-visible, .project-workspace .roof-model-open-link:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 48%, transparent); outline-offset: 3px; }
 
 .project-workspace .project-facts-section {
   border: 1px solid color-mix(in srgb, var(--glass-border) 72%, var(--border));
@@ -2245,6 +2245,7 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
 .project-workspace .execution-overview-photos a { min-height: 2.75rem; border: 1px solid color-mix(in srgb, var(--glass-border) 76%, var(--border)); border-radius: .8rem; background: color-mix(in srgb, var(--surface-glass) 82%, transparent); padding: .35rem; text-decoration: none; }
 
 .project-workspace .roof-model-list { margin-top: .25rem; padding-block: 1.25rem; }
+.project-workspace .roof-model-list { padding-bottom: .7rem; }
 .project-workspace .roof-model-list > .roof-list-heading { align-items: center; margin-bottom: .8rem; }
 .project-workspace .roof-model-list > .roof-list-heading h2 { margin: 0; font-size: calc(1.12rem * var(--tp-text-scale)); }
 .project-workspace .roof-model-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .65rem; margin-top: .85rem; }
@@ -2266,31 +2267,52 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
   transition: border-color var(--motion-fluid) ease, background-color var(--motion-fluid) ease, box-shadow var(--motion-fluid) ease, transform var(--motion-fluid) ease;
   backdrop-filter: blur(.55rem);
 }
-.project-workspace .roof-model-card:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--glass-border)); background: color-mix(in srgb, var(--surface-glass) 96%, var(--brand) 4%); box-shadow: 0 .55rem 1.15rem rgba(15, 23, 42, .08); transform: translateY(-1px); }
+.project-workspace .roof-model-card.is-drawing-selected { border-color: color-mix(in srgb, var(--brand) 58%, var(--glass-border)); background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 92%, var(--brand) 8%), color-mix(in srgb, var(--surface) 84%, transparent)); }
+.project-workspace .roof-model-select { display: grid; min-width: 0; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .22rem .65rem; border: 0; border-radius: .65rem; background: transparent; color: inherit; padding: .1rem; font: inherit; text-align: left; cursor: pointer; }
+.project-workspace .roof-model-select:disabled { cursor: default; opacity: .72; }
+.project-workspace .roof-model-select:hover:not(:disabled) .roof-model-drawing-state { color: var(--brand-ink); }
+.project-workspace .roof-model-drawing-state { grid-column: 2; grid-row: 1 / span 3; color: var(--muted); font-size: calc(.7rem * var(--tp-text-scale)); font-weight: 750; text-align: right; }
+.project-workspace .roof-model-open-link { display: flex; min-height: 2.55rem; grid-column: 1 / -1; align-items: center; justify-content: center; gap: .4rem; margin-top: .1rem; padding: .35rem .6rem; }
+.project-workspace .roof-model-card:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--glass-border)); box-shadow: 0 .55rem 1.15rem rgba(15, 23, 42, .08); }
+.project-workspace .roof-model-card:hover .roof-model-select { background: color-mix(in srgb, var(--brand) 4%, transparent); }
 .project-workspace .roof-model-type { grid-column: 1; width: fit-content; max-width: 100%; border: 1px solid color-mix(in srgb, var(--brand) 20%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--brand-soft) 74%, transparent); color: var(--brand-ink); padding: .16rem .46rem; font-size: calc(.66rem * var(--tp-text-scale)); font-weight: 850; line-height: 1.35; overflow-wrap: anywhere; }
 .project-workspace .roof-model-card strong { grid-column: 1; min-width: 0; font-size: calc(.92rem * var(--tp-text-scale)); line-height: 1.35; overflow-wrap: anywhere; }
 .project-workspace .roof-model-card small { grid-column: 1; grid-row: 3; min-width: 0; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); line-height: 1.4; text-align: left; overflow-wrap: anywhere; }
 .project-workspace .roof-model-open { grid-column: 2; grid-row: 1 / span 3; width: 1.05rem; color: var(--brand-ink); transition: transform var(--motion-fluid) ease; }
 .project-workspace .roof-model-card:hover .roof-model-open { transform: translate(2px, -2px); }
 
-.project-workspace .project-roof-drawing-list { gap: .85rem; margin-top: .75rem; }
+.project-workspace .project-roof-drawings { margin-top: .35rem; border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }
+.project-workspace .project-roof-drawings > .roof-list-heading { margin: 0 0 .55rem; }
+.project-workspace .project-roof-drawings > .roof-list-heading h2 { margin: 0; font-size: calc(1.12rem * var(--tp-text-scale)); }
 .project-workspace .project-roof-drawing {
-  gap: .65rem;
+  gap: .5rem;
   border: 1px solid color-mix(in srgb, var(--glass-border) 78%, var(--border));
   border-radius: 1rem;
   background: linear-gradient(145deg, color-mix(in srgb, var(--surface-glass) 92%, transparent), color-mix(in srgb, var(--surface) 86%, transparent));
   box-shadow: inset 0 1px 0 var(--glass-highlight);
   padding: clamp(.75rem, 1.5vw, 1rem);
-  backdrop-filter: blur(.55rem);
+  backdrop-filter: none;
 }
 .project-workspace .project-roof-drawing .technical-drawing { gap: .55rem; border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }
 .project-workspace .project-roof-drawing .technical-drawing-header { align-items: center; }
 .project-workspace .project-roof-drawing .technical-drawing-header h2 { font-size: calc(.88rem * var(--tp-text-scale)); }
+.project-workspace .project-roof-drawing-source { margin: 0; color: var(--muted); font-size: calc(.78rem * var(--tp-text-scale)); font-weight: 750; }
 .project-workspace .project-roof-drawing .drawing-compact-summary { grid-template-rows: auto minmax(0, auto); }
 .project-workspace .project-roof-drawing .drawing-canvas { border: 0; border-radius: .85rem; background: color-mix(in srgb, var(--surface-strong) 90%, transparent); }
 .project-workspace .project-roof-drawing .drawing-advanced-controls { margin: 0; border: 0; padding: 0; }
 .project-workspace .project-roof-drawing .drawing-advanced-controls-content { padding-top: .25rem; }
 .project-workspace .project-roof-drawing .drawing-toolbar-hint { margin-left: auto; }
+
+.field-survey-measurement.is-recently-added { outline: 2px solid color-mix(in srgb, var(--brand) 70%, var(--focus-ring)); outline-offset: 2px; border-radius: .75rem; }
+
+.section-heading, .roof-list-heading, .roof-section-heading, .field-survey-section-heading { gap: .5rem .85rem; }
+.section-heading h2, .roof-list-heading h2, .roof-section-heading h2, .field-survey-section-heading h2 {
+  margin-block: 0;
+  color: var(--foreground);
+  font-size: calc(1.12rem * var(--tp-text-scale));
+  line-height: 1.25;
+  letter-spacing: -.025em;
+}
 
 .project-workspace .project-calculator-section { margin-top: .25rem; padding-block: 1.25rem; }
 .project-workspace .project-calculator-grid { gap: .65rem; }

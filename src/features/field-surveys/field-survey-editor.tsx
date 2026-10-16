@@ -2,7 +2,7 @@
 
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { Plus, Settings2, Trash2 } from "lucide-react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { AnchoredPopover } from "@/components/ui/anchored-popover";
@@ -29,6 +29,7 @@ import { MeasurementGuidance, measurementGuideForSurvey } from "@/features/roof-
 import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { generateSecureUuid } from "@/lib/secure-uuid";
+import { appendSurveyMeasurement, type SurveyMeasurementTemplate } from "./measurement-creation";
 
 type SectionDraft = SurveySectionDraft;
 type MeasurementDraft = SurveyMeasurementDraft;
@@ -65,13 +66,40 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
   const [calculatorState, setCalculatorState] = useState({ dirty: false, pending: false });
   const [calculator, setCalculator] = useState<{ sectionId: string; version: number; context: Awaited<ReturnType<typeof loadSurveyCalculator>> } | null>(null);
   const [focusedRoofMeasurement, setFocusedRoofMeasurement] = useState<FieldSurveySemanticType | null>(null);
+  const [recentMeasurementId, setRecentMeasurementId] = useState<string | null>(null);
+  const [measurementAddPending, setMeasurementAddPending] = useState(false);
   const saveLock = useRef(false);
   const createIdRef = useRef<string | null>(null);
+  const measurementAddLock = useRef(false);
+  const measurementAddTimer = useRef<number | null>(null);
+  const measurementHighlightTimer = useRef<number | null>(null);
+  const pendingMeasurementFocus = useRef<{ id: string; sectionId: string; keyboard: boolean } | null>(null);
   const dirty = baseline !== fingerprint;
   const blocked = saving || photoState.busy || calculatorState.pending || followupPending;
   const active = sections.find((section) => section.id === activeId) ?? sections[0];
   const activeSurveyGuide = active.roofType ? measurementGuideForSurvey(active.roofType, focusedRoofMeasurement ?? "custom", active.measurements.find((measurement) => measurement.semanticType === focusedRoofMeasurement)?.unit) : null;
   const effectiveProjectId = projectId || relationships.followups.find((followup) => followup.kind === "project")?.projectId || "";
+  useLayoutEffect(() => {
+    const pending = pendingMeasurementFocus.current;
+    if (!pending) return;
+    if (pending.sectionId !== activeId) {
+      pendingMeasurementFocus.current = null;
+      return;
+    }
+    const input = document.getElementById(`survey-measurement-${pending.id}`);
+    if (!(input instanceof HTMLInputElement)) return;
+    const rect = input.getBoundingClientRect();
+    const visualViewport = window.visualViewport;
+    const visibleTop = visualViewport?.offsetTop ?? 0;
+    const visibleBottom = visibleTop + (visualViewport?.height ?? window.innerHeight);
+    if (rect.top < visibleTop || rect.bottom > visibleBottom) input.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (pending.keyboard) input.focus({ preventScroll: true });
+    pendingMeasurementFocus.current = null;
+  }, [activeId, sections]);
+  useEffect(() => () => {
+    if (measurementAddTimer.current !== null) window.clearTimeout(measurementAddTimer.current);
+    if (measurementHighlightTimer.current !== null) window.clearTimeout(measurementHighlightTimer.current);
+  }, []);
   const missingRoofTemplates = active.workType === "roof" && (active.roofType ?? "gable") === "gable" ? fieldSurveyTemplates.roof.filter((template) => template.semanticType !== "roof_pitch" && !active.measurements.some((measurement) => measurement.semanticType === template.semanticType) && !(template.semanticType === "roof_rise" && active.measurements.some((measurement) => measurement.semanticType === "roof_pitch"))) : [];
   const onPhotos = useCallback((next: { id: string; filename: string }[]) => {
     setPhotos(next);
@@ -197,8 +225,34 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
     const empty = active.measurements.length === 1 && active.measurements[0].value === "" && active.measurements[0].label === fieldSurveyTemplates[active.workType][0].label;
     patchSection({ workType, ...(workType === "roof" ? {} : { roofType: undefined }), ...(active.name === fieldSurveyWorkTypeLabels[active.workType] ? { name: fieldSurveyWorkTypeLabels[workType] } : {}), ...(empty ? { measurements: [emptyMeasurement(workType, active.measurements[0].id)] } : {}) });
   }
-  function addMeasurement(template = (active.workType === "roof" && active.roofType && active.roofType !== "gable" ? surveyRoofFields(active.roofType) : fieldSurveyTemplates[active.workType]).find((candidate) => !active.measurements.some((measurement) => measurement.semanticType === candidate.semanticType)) ?? { label: "Egyedi mérés", unit: "mm" as const, semanticType: "custom" as const }) {
-    patchSection({ measurements: [...active.measurements, { ...template, id: generateSecureUuid(), value: "" }] });
+  function addMeasurement(
+    template = (active.workType === "roof" && active.roofType && active.roofType !== "gable" ? surveyRoofFields(active.roofType) : fieldSurveyTemplates[active.workType]).find((candidate) => !active.measurements.some((measurement) => measurement.semanticType === candidate.semanticType)) ?? { label: "Egyedi mérés", unit: "mm" as const, semanticType: "custom" as const },
+    event?: MouseEvent<HTMLButtonElement>,
+  ) {
+    if (measurementAddLock.current) return;
+    measurementAddLock.current = true;
+    setMeasurementAddPending(true);
+    try {
+      const measurements = appendSurveyMeasurement(active.measurements, template as SurveyMeasurementTemplate, generateSecureUuid);
+      const created = measurements[measurements.length - 1];
+      pendingMeasurementFocus.current = { id: created.id, sectionId: active.id, keyboard: event?.detail === 0 };
+      setRecentMeasurementId(created.id);
+      if (measurementHighlightTimer.current !== null) window.clearTimeout(measurementHighlightTimer.current);
+      measurementHighlightTimer.current = window.setTimeout(() => setRecentMeasurementId((current) => current === created.id ? null : current), 2200);
+      patchSection({ measurements });
+      notify({ kind: "success", message: `Mérés hozzáadva: ${created.label}.` });
+      measurementAddTimer.current = window.setTimeout(() => {
+        measurementAddLock.current = false;
+        setMeasurementAddPending(false);
+        measurementAddTimer.current = null;
+      }, 350);
+    } catch {
+      measurementAddLock.current = false;
+      setMeasurementAddPending(false);
+      const message = "A mérés biztonságos, egyedi azonosítóját most nem sikerült létrehozni. Próbáld újra.";
+      setError(message);
+      notify({ kind: "error", message });
+    }
   }
   function associateUploadedPhoto(photoId: string) {
     setSections((current) => current.map((section) => section.id === activeId && !section.photoIds.includes(photoId) ? { ...section, photoIds: [...section.photoIds, photoId] } : section));
@@ -303,7 +357,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
             }}
             measurementInputs={
               <>
-                <div className="roof-survey-measurement-strip">{active.measurements.map((measurement, index) => <div className="field-survey-measurement" key={measurement.id}>
+                <div className="roof-survey-measurement-strip">{active.measurements.map((measurement, index) => <div className={`field-survey-measurement${measurement.id === recentMeasurementId ? " is-recently-added" : ""}`} key={measurement.id}>
                   <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input id={`survey-measurement-${measurement.id}`} type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onFocus={() => setFocusedRoofMeasurement(measurement.semanticType)} onBlur={() => setFocusedRoofMeasurement(null)} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
                   <MeasurementTools measurement={measurement} index={index} disabled={blocked || Boolean(calculator) || Boolean(recovery)} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => void removeMeasurement(measurement.id)} />
                 </div>)}</div>
@@ -313,16 +367,16 @@ export function FieldSurveyEditor({ organizationId, userId, projects, survey, in
               <>
                 <div className="roof-survey-edit-actions">
                   {missingRoofTemplates.length > 0 && active.roofType === "gable" && <button type="button" className="secondary-button roof-survey-add-required" onClick={() => patchSection({ measurements: [...active.measurements, ...missingRoofTemplates.map((template) => ({ ...template, id: generateSecureUuid(), value: "" }))] })}>Nyeregtető alapmérései · {missingRoofTemplates.length} mező hozzáadása</button>}
-                  <button type="button" className="field-survey-add" onClick={() => addMeasurement()}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><GlassDisclosure className="field-survey-template-details" summary="Másik sablonmérés hozzáadása">{(active.roofType !== "gable" ? surveyRoofFields(active.roofType) : fieldSurveyTemplates[active.workType]).map((template) => <button type="button" key={template.label} onClick={() => addMeasurement(template)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</GlassDisclosure>
+                  <button type="button" className="field-survey-add" disabled={measurementAddPending} onClick={(event) => addMeasurement(undefined, event)}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><GlassDisclosure className="field-survey-template-details" summary="Másik sablonmérés hozzáadása">{(active.roofType !== "gable" ? surveyRoofFields(active.roofType) : fieldSurveyTemplates[active.workType]).map((template) => <button type="button" key={template.label} disabled={measurementAddPending} onClick={(event) => addMeasurement(template, event)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</GlassDisclosure>
                 </div>
               </>
             }
           /> : <>
-            {active.measurements.map((measurement, index) => <div className="field-survey-measurement" key={measurement.id}>
-              <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
+            {active.measurements.map((measurement, index) => <div className={`field-survey-measurement${measurement.id === recentMeasurementId ? " is-recently-added" : ""}`} key={measurement.id}>
+              <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input id={`survey-measurement-${measurement.id}`} type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
               <MeasurementTools measurement={measurement} index={index} disabled={blocked || Boolean(calculator) || Boolean(recovery)} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => void removeMeasurement(measurement.id)} />
             </div>)}
-            <button type="button" className="field-survey-add" onClick={() => addMeasurement()}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><GlassDisclosure className="field-survey-template-details" summary="Másik sablonmérés hozzáadása">{fieldSurveyTemplates[active.workType].map((template) => <button type="button" key={template.label} onClick={() => addMeasurement(template)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</GlassDisclosure>
+            <button type="button" className="field-survey-add" disabled={measurementAddPending} onClick={(event) => addMeasurement(undefined, event)}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><GlassDisclosure className="field-survey-template-details" summary="Másik sablonmérés hozzáadása">{fieldSurveyTemplates[active.workType].map((template) => <button type="button" key={template.label} disabled={measurementAddPending} onClick={(event) => addMeasurement(template, event)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</GlassDisclosure>
           </>}
         </section> : null}
         <GlassDisclosure className="field-survey-note-details" summary="Megjegyzés · opcionális"><label className="field-survey-field"><span>Helyszíni megjegyzés</span><textarea value={active.notes} rows={3} maxLength={2000} onChange={(event) => patchSection({ notes: event.target.value })} /></label></GlassDisclosure>

@@ -6,6 +6,8 @@ describe("drawing viewport", () => {
     expect(clampDrawingZoom(0)).toBe(0.65);
     expect(clampDrawingZoom(1.234)).toBe(1.23);
     expect(clampDrawingZoom(9)).toBe(3);
+    expect(clampDrawingZoom(Number.NaN)).toBe(1);
+    expect(clampDrawingZoom(Number.POSITIVE_INFINITY)).toBe(1);
   });
 
   it("zooms around the two-pointer focal point", () => {
@@ -34,8 +36,23 @@ describe("drawing viewport", () => {
   it("maps letterboxed SVG coordinates without an initial jump", () => {
     const rect = { left: 10, top: 20, width: 320, height: 700 };
     const center = clientPointToViewBox({ x: 170, y: 370 }, rect);
+    expect(center).not.toBeNull();
+    if (!center) throw new Error("The viewport center should map into the viewBox.");
     expect(center.x).toBeCloseTo(drawingViewBox.width / 2);
     expect(center.y).toBeCloseTo(drawingViewBox.height / 2);
+  });
+
+  it("rejects unmeasurable SVG bounds instead of creating infinite pointer coordinates", () => {
+    expect(clientPointToViewBox({ x: 20, y: 40 }, { left: 0, top: 0, width: 0, height: 200 })).toBeNull();
+    expect(clientPointToViewBox({ x: Number.NaN, y: 40 }, { left: 0, top: 0, width: 200, height: 120 })).toBeNull();
+  });
+
+  it("keeps pan, pinch, fit, and reset results finite for invalid measurements", () => {
+    const initial = { zoom: 1, pan: { x: 0, y: 0 } };
+    expect(panViewport({ pan: { x: Number.NaN, y: 2 }, point: { x: 0, y: 0 } }, { x: Number.POSITIVE_INFINITY, y: 3 }, 1)).toEqual({ x: 0, y: 2 });
+    expect(pinchViewport({ zoom: Number.NaN, pan: { x: Number.NaN, y: 4 }, distance: 0, midpoint: { x: 0, y: 0 } }, { distance: 10, midpoint: { x: 1, y: 1 } }, { x: 0, y: 0 })).toEqual({ zoom: 1, pan: { x: 0, y: 4 } });
+    expect(fitDrawingViewport({ minX: Number.POSITIVE_INFINITY, minY: 0, maxX: Number.NEGATIVE_INFINITY, maxY: 10 }, { width: 200, height: 100 })).toEqual(initial);
+    expect(fitDrawingViewport({ minX: 0, minY: 0, maxX: 100, maxY: 100 }, { width: 0, height: 100 })).toEqual(initial);
   });
 
   it("rebases one-finger pan after pinch and clears the gesture on cancel", () => {
