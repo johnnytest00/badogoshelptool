@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   capBackgroundPixelRatio,
   createRenderGate,
+  getBackgroundPointCount,
   getBackgroundColor,
   getNetworkColor,
   getRenderTargetFps,
@@ -18,6 +19,7 @@ import {
 type VantaInstance = {
   destroy: () => void;
   setOptions: (options: Record<string, unknown>) => void;
+  onUpdate?: () => unknown;
 };
 
 type VantaNetFactory = (options: Record<string, unknown>) => VantaInstance;
@@ -159,9 +161,10 @@ export function GlobalAnimatedBackground() {
 
         const THREE = threeModule;
         const VANTA = (netModule.default ?? netModule) as VantaNetFactory;
+        const targetFps = getRenderTargetFps();
         const result = VANTA({
           el: host,
-          THREE: createBackgroundThree(THREE, getRenderTargetFps(isMobile)),
+          THREE: createBackgroundThree(THREE, targetFps),
           color: getNetworkColor(isDark),
           backgroundColor: getBackgroundColor(isDark),
           backgroundAlpha: 1,
@@ -170,13 +173,24 @@ export function GlobalAnimatedBackground() {
           gyroControls: false,
           scale: 1,
           scaleMobile: 1,
-          points: isMobile ? 6 : 10,
+          points: getBackgroundPointCount(isMobile),
           spacing: 15,
           maxDistance: 20,
           showDots: true,
           minHeight: 200,
           minWidth: 200,
         });
+
+        // Vanta 0.5.24 calls this method from its existing RAF loop. Gate the
+        // expensive particle-pair update there as well as the actual WebGL render.
+        if (typeof result.onUpdate === "function") {
+          const originalUpdate = result.onUpdate;
+          const updateAllowed = createRenderGate(targetFps);
+          result.onUpdate = () => {
+            if (updateAllowed()) return originalUpdate.call(result);
+            return undefined;
+          };
+        }
 
         if (!host.querySelector("canvas.vanta-canvas")) {
           result.destroy();
@@ -244,12 +258,14 @@ export function GlobalAnimatedBackground() {
     };
     const onThemeChange = () => {
       const { isDark } = profileAndMode();
-      host.dataset.theme = isDark ? "dark" : "light";
+      const nextTheme = isDark ? "dark" : "light";
+      if (host.dataset.theme === nextTheme) return;
+      host.dataset.theme = nextTheme;
       if (instance) {
-        instance.setOptions({
-          color: getNetworkColor(isDark),
-          backgroundColor: getBackgroundColor(isDark),
-        });
+        // Vanta NET chooses additive/subtractive line blending during init. Rebuild
+        // on a theme change so its dots and connection lines use the same palette.
+        stop();
+        refresh();
       }
     };
     const rootObserver = new MutationObserver(onThemeChange);

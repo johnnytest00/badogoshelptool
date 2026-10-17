@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capBackgroundPixelRatio, createRenderGate, getBackgroundColor, getNetworkColor, getRenderTargetFps, shouldUseStaticBackground } from "./global-animated-background-policy";
+import { capBackgroundPixelRatio, createRenderGate, getBackgroundColor, getBackgroundPointCount, getNetworkColor, getRenderTargetFps, shouldUseStaticBackground } from "./global-animated-background-policy";
 
 describe("global animated background policy", () => {
   it("keeps animation enabled on mobile while respecting reduced motion and the saved setting", () => {
@@ -8,9 +8,10 @@ describe("global animated background policy", () => {
     expect(shouldUseStaticBackground({ reducedMotion: false, enabled: true })).toBe(false);
   });
 
-  it("selects device frame targets and caps high-DPI rendering at one", () => {
-    expect(getRenderTargetFps(false)).toBe(30);
-    expect(getRenderTargetFps(true)).toBe(20);
+  it("uses a low-energy frame target and caps high-DPI rendering at one", () => {
+    expect(getRenderTargetFps()).toBe(20);
+    expect(getBackgroundPointCount(false)).toBe(6);
+    expect(getBackgroundPointCount(true)).toBe(4);
     expect(capBackgroundPixelRatio(2.5)).toBe(1);
     expect(capBackgroundPixelRatio(1)).toBe(1);
     expect(capBackgroundPixelRatio(0)).toBe(1);

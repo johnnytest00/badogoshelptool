@@ -12,9 +12,9 @@ import { getDashboardGreeting, getNextDashboardTab } from "@/features/dashboard/
 
 describe("dashboard foundation", () => {
   it("contains only implemented Hungarian launchers", () => {
-    expect(dashboardFunctions).toHaveLength(5);
+    expect(dashboardFunctions).toHaveLength(6);
     expect(dashboardFunctions.map((item) => item.label)).toEqual([
-      "Gyors felmérés", "Munkanaplók", "Anyaglisták", "Árajánlatok", "Kalkulátorok",
+      "Gyors felmérés", "Munkanaplók", "Anyaglisták", "Anyagkezelő", "Árajánlatok", "Kalkulátorok",
     ]);
   });
 
@@ -24,6 +24,7 @@ describe("dashboard foundation", () => {
       "/felmeresek/uj?organization=a1b2-c3d4",
       "/kivitelezes?organization=a1b2-c3d4",
       "/anyaglistak?organization=a1b2-c3d4",
+      "/anyagkezelo?organization=a1b2-c3d4",
       "/ajanlatok?organization=a1b2-c3d4",
       "/kalkulatorok?organization=a1b2-c3d4",
     ]);

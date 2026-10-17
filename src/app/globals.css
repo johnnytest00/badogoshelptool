@@ -2666,11 +2666,8 @@ html[data-theme="light"] .global-animated-background canvas.vanta-canvas { opaci
 .workflow-list-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .8rem; margin-block: .5rem 1rem; }
 .workflow-list-header h1 { margin: 0; font-size: clamp(1.5rem, 4vw, 2rem); overflow-wrap: anywhere; }
 .workflow-list-header > div > p:last-child { margin: .3rem 0 0; color: var(--muted); }
-.workflow-material-settings { position: relative; flex: 0 0 auto; }
-.workflow-material-settings > summary { display: grid; width: 2.8rem; height: 2.8rem; place-items: center; border: 1px solid var(--glass-border); border-radius: 1rem; background: color-mix(in srgb, var(--surface-glass) 90%, transparent); color: var(--foreground); cursor: pointer; list-style: none; box-shadow: inset 0 1px 0 var(--glass-highlight); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
-.workflow-material-settings > summary::-webkit-details-marker { display: none; }
-.workflow-material-settings-panel { position: absolute; z-index: 5; top: calc(100% + .45rem); right: 0; display: grid; width: min(19rem, calc(100vw - 2rem)); gap: .55rem; border: 1px solid var(--glass-border); border-radius: 1.1rem; background: color-mix(in srgb, var(--surface-glass) 96%, var(--glass-highlight)); padding: .8rem; box-shadow: var(--shadow-control); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
-.workflow-material-settings-panel p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.workflow-material-manager-link { display: inline-flex; min-height: 2.75rem; align-items: center; flex: 0 0 auto; border: 1px solid var(--glass-border); border-radius: .85rem; background: var(--surface-strong); color: var(--brand-ink); padding: .5rem .8rem; font-size: .84rem; font-weight: 750; text-decoration: none; }
+.workflow-material-manager-link:hover { border-color: var(--brand); }
 .workflow-material-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; padding: .85rem; }
 .workflow-material-meta label, .workflow-material-add-row label { display: grid; gap: .3rem; min-width: 0; color: var(--muted); font-size: .82rem; }
 .workflow-material-meta label > span { font-size: .75rem; }
@@ -2796,8 +2793,7 @@ html[data-theme="light"] .global-animated-background canvas.vanta-canvas { opaci
   .project-action-menu,
   .project-action-menu-trigger,
   .project-archive-confirm,
-  .survey-section-add .glass-disclosure-content,
-  .workflow-material-settings-panel
+  .survey-section-add .glass-disclosure-content
 ) {
   border-color: var(--glass-border);
   background-color: var(--surface-glass);
@@ -2907,7 +2903,7 @@ textarea {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="search"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
   select,
   textarea { background-color: var(--surface-strong); }
-  :is(.roof-workspace-surface, .roof-type-card, .roof-type-card-illustration, .scaling-bubble-panel, .account-management-dialog, .account-management-close, .account-current, .project-filters, .client-search, .filter-search, .empty-state, .project-facts-section, .project-edit-disclosure, .gutter-run, .flashing-run, .execution-overview-list li, .preparation-source-choice, .execution-project-group, .execution-project-group > header, .project-workflow-link, .survey-workflow-tile, .survey-workflow-attach, .execution-direct-plan-list li > a, .execution-linked-survey, .material-product-card, .mobile-filter-close, .mobile-account-menu-panel, .project-action-menu, .project-action-menu-trigger, .project-archive-confirm, .survey-section-add .glass-disclosure-content, .workflow-material-settings-panel) { background-color: var(--surface-strong); }
+  :is(.roof-workspace-surface, .roof-type-card, .roof-type-card-illustration, .scaling-bubble-panel, .account-management-dialog, .account-management-close, .account-current, .project-filters, .client-search, .filter-search, .empty-state, .project-facts-section, .project-edit-disclosure, .gutter-run, .flashing-run, .execution-overview-list li, .preparation-source-choice, .execution-project-group, .execution-project-group > header, .project-workflow-link, .survey-workflow-tile, .survey-workflow-attach, .execution-direct-plan-list li > a, .execution-linked-survey, .material-product-card, .mobile-filter-close, .mobile-account-menu-panel, .project-action-menu, .project-action-menu-trigger, .project-archive-confirm, .survey-section-add .glass-disclosure-content) { background-color: var(--surface-strong); }
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -2965,7 +2961,7 @@ textarea {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  :is(.roof-workspace-surface, .roof-type-card, .roof-type-card-illustration, .scaling-bubble-panel, .account-management-dialog, .account-management-close, .account-current, .project-filters, .client-search, .filter-search, .empty-state, .project-facts-section, .project-edit-disclosure, .gutter-run, .flashing-run, .execution-overview-list li, .preparation-source-choice, .execution-project-group, .execution-project-group > header, .project-workflow-link, .survey-workflow-tile, .survey-workflow-attach, .execution-direct-plan-list li > a, .execution-linked-survey, .material-product-card, .mobile-filter-close, .mobile-account-menu-panel, .project-action-menu, .project-action-menu-trigger, .project-archive-confirm, .survey-section-add .glass-disclosure-content, .workflow-material-settings-panel) { background-color: var(--surface-strong); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  :is(.roof-workspace-surface, .roof-type-card, .roof-type-card-illustration, .scaling-bubble-panel, .account-management-dialog, .account-management-close, .account-current, .project-filters, .client-search, .filter-search, .empty-state, .project-facts-section, .project-edit-disclosure, .gutter-run, .flashing-run, .execution-overview-list li, .preparation-source-choice, .execution-project-group, .execution-project-group > header, .project-workflow-link, .survey-workflow-tile, .survey-workflow-attach, .execution-direct-plan-list li > a, .execution-linked-survey, .material-product-card, .mobile-filter-close, .mobile-account-menu-panel, .project-action-menu, .project-action-menu-trigger, .project-archive-confirm, .survey-section-add .glass-disclosure-content) { background-color: var(--surface-strong); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
 @media (forced-colors: active) {
@@ -3017,7 +3013,7 @@ textarea {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  :is(.roof-workspace-surface, .roof-type-card, .roof-type-card-illustration, .scaling-bubble-panel, .account-management-dialog, .account-management-close, .account-current, .project-filters, .client-search, .filter-search, .empty-state, .project-facts-section, .project-edit-disclosure, .gutter-run, .flashing-run, .execution-overview-list li, .preparation-source-choice, .execution-project-group, .execution-project-group > header, .project-workflow-link, .survey-workflow-tile, .survey-workflow-attach, .execution-direct-plan-list li > a, .execution-linked-survey, .material-product-card, .mobile-filter-close, .mobile-account-menu-panel, .project-action-menu, .project-action-menu-trigger, .project-archive-confirm, .survey-section-add .glass-disclosure-content, .workflow-material-settings-panel) { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  :is(.roof-workspace-surface, .roof-type-card, .roof-type-card-illustration, .scaling-bubble-panel, .account-management-dialog, .account-management-close, .account-current, .project-filters, .client-search, .filter-search, .empty-state, .project-facts-section, .project-edit-disclosure, .gutter-run, .flashing-run, .execution-overview-list li, .preparation-source-choice, .execution-project-group, .execution-project-group > header, .project-workflow-link, .survey-workflow-tile, .survey-workflow-attach, .execution-direct-plan-list li > a, .execution-linked-survey, .material-product-card, .mobile-filter-close, .mobile-account-menu-panel, .project-action-menu, .project-action-menu-trigger, .project-archive-confirm, .survey-section-add .glass-disclosure-content) { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
 /* F9.20: align survey controls and the diary workspace with shared glass surfaces. */
@@ -3455,6 +3451,12 @@ textarea {
 }
 .tp-liquid-glass-fill { display: block; width: 100%; height: 100%; }
 
+/* The optional glass package adds two black lighting layers that turn every
+   white light-theme surface gray. Keep its refraction and white highlights. */
+html[data-theme="light"] .tp-liquid-glass-react-root > div.bg-black {
+  display: none;
+}
+
 .glass-page-header,
 .glass-section-header,
 .dashboard-header.glass-navigation,
@@ -3552,7 +3554,6 @@ html[data-glass-frame-free="true"] :is(
   .project-action-menu,
   .project-action-menu-trigger,
   .project-archive-confirm,
-  .workflow-material-settings-panel,
   .material-manager-catalog,
   .material-manager-category-settings,
   .material-manager-dialog,
@@ -3701,7 +3702,24 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 .workflow-material-entry-mode { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .8rem; }
 .workflow-material-entry-mode button { min-height: 2.75rem; border: 1px solid var(--glass-border); border-radius: .8rem; background: transparent; color: var(--foreground); padding: .5rem .8rem; font: inherit; cursor: pointer; }
 .workflow-material-entry-mode button.is-selected { border-color: color-mix(in srgb, var(--brand) 55%, var(--glass-border)); background: var(--brand-soft); color: var(--brand-ink); font-weight: 750; }
-.workflow-material-catalog-entry { grid-template-columns: minmax(9rem, .8fr) minmax(11rem, 1fr) minmax(13rem, 1.4fr) minmax(6rem, .55fr) auto auto auto; }
+.workflow-material-catalog-entry { grid-template-columns: minmax(9rem, .8fr) minmax(13rem, 1.4fr) minmax(6rem, .55fr) auto auto auto; }
+.workflow-material-product-field { position: relative; z-index: 1; }
+.workflow-material-product-trigger { display: flex; width: 100%; min-height: 2.7rem; align-items: center; justify-content: space-between; gap: .65rem; border: 1px solid var(--glass-border); border-radius: .75rem; background: var(--surface-strong); color: var(--foreground); padding: .5rem .65rem; text-align: left; font: inherit; cursor: pointer; }
+.workflow-material-product-trigger:disabled { color: var(--muted); cursor: not-allowed; opacity: .72; }
+.workflow-material-product-trigger:focus-visible, .workflow-material-product-dialog input:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.workflow-material-product-chevron { color: var(--muted); }
+.workflow-material-product-dialog { position: fixed; isolation: isolate; inset: auto; z-index: 1000; display: none; overflow: hidden; flex-direction: column; margin: 0; border: 1px solid var(--glass-border); border-radius: 1.1rem; background: var(--surface-glass); color: var(--foreground); padding: .55rem; box-shadow: var(--glass-elevation); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.workflow-material-product-dialog[open] { display: flex; }
+.workflow-material-product-dialog > :not(.tp-liquid-glass-effect) { position: relative; z-index: 1; }
+.workflow-material-product-search-row { display: grid; flex: 0 0 auto; gap: .35rem; border-bottom: 1px solid var(--glass-border); padding: .25rem .2rem .6rem; }
+.workflow-material-product-search-row label { color: var(--muted); font-size: .76rem; font-weight: 700; }
+.workflow-material-product-search-row input { width: 100%; min-height: 2.9rem; border: 1px solid var(--glass-border); border-radius: .75rem; background: var(--surface-strong); color: var(--foreground); padding: .55rem .7rem; font: inherit; }
+.workflow-material-product-options { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-top: .3rem; touch-action: pan-y; }
+.workflow-material-product-option { display: grid; gap: .2rem; min-height: 3.25rem; align-content: center; border-radius: .7rem; padding: .55rem .65rem; cursor: pointer; }
+.workflow-material-product-option:hover, .workflow-material-product-option.is-active, .workflow-material-product-option[aria-selected="true"] { background: var(--surface-strong); }
+.workflow-material-product-option > span { color: var(--foreground); font-size: .88rem; font-weight: 700; }
+.workflow-material-product-option > small { color: var(--muted); font-size: .76rem; }
+.workflow-material-product-empty { margin: 0; padding: 1rem .65rem; color: var(--muted); font-size: .84rem; }
 .workflow-material-manual-entry { grid-template-columns: minmax(12rem, 1.5fr) minmax(6rem, .6fr) minmax(7rem, .7fr) minmax(9rem, .9fr) minmax(7rem, .7fr) auto; }
 .workflow-material-entry-unit, .workflow-material-entry-price { align-self: center; }
 .workflow-material-entry-mode button, .workflow-material-add-row button { min-height: 2.8rem; }
@@ -3732,6 +3750,7 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
   .material-manager-category-list .material-manager-row-actions { flex: 0 0 auto; }
   .material-category-status { min-height: 2.7rem; }
   .workflow-material-meta { grid-template-columns: 1fr; }
+  .workflow-list-header { flex-wrap: wrap; }
   .workflow-material-row { grid-template-columns: minmax(0, 1fr) 5rem 2.75rem; gap: .45rem; padding: .6rem; }
   .workflow-material-row-title { grid-column: 1 / 3; grid-row: 1; }
   .workflow-material-row > input[id^="material-description-"] { grid-column: 1 / 3; grid-row: 2; }

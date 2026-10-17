@@ -7,8 +7,13 @@ export function shouldUseStaticBackground(profile: BackgroundDeviceProfile): boo
   return profile.reducedMotion || !profile.enabled;
 }
 
-export function getRenderTargetFps(isMobile: boolean): 20 | 30 {
-  return isMobile ? 20 : 30;
+export function getRenderTargetFps(): 20 {
+  // The animated background is decorative, so target the low-energy rate on all devices.
+  return 20;
+}
+
+export function getBackgroundPointCount(isMobile: boolean): 4 | 6 {
+  return isMobile ? 4 : 6;
 }
 
 export function capBackgroundPixelRatio(devicePixelRatio: number): number {

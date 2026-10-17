@@ -21,7 +21,7 @@ describe("dashboard shared mobile header and full settings", () => {
     for (const oldIntro of ["TETŐPRÓ · MŰHELY", "Miben segíthetünk ma?", "Gyorsindító", "Munkafolyamatok egy helyen", "Válassz egy területet a következő lépéshez"]) {
       expect(html).not.toContain(oldIntro);
     }
-    const labels = ["Gyors felmérés", "Munkanaplók", "Anyaglisták", "Árajánlatok", "Kalkulátorok"];
+    const labels = ["Gyors felmérés", "Munkanaplók", "Anyaglisták", "Anyagkezelő", "Árajánlatok", "Kalkulátorok"];
     expect(labels.every((label) => html.includes(label))).toBe(true);
     expect(labels.map((label) => html.indexOf(label))).toEqual([...labels.map((label) => html.indexOf(label))].sort((a, b) => a - b));
     expect(html).toContain("Aktuális munkák");
@@ -44,9 +44,9 @@ describe("dashboard shared mobile header and full settings", () => {
     expect(html).toContain("Méretezések");
     expect(html).toContain("Liquid Glass");
     expect(html).toContain('id="liquid-glass-opacity"');
-    expect(html).toContain('value="0"');
+    expect(html).toContain('value="10"');
     expect(html).toContain('name="liquid-glass-tint"');
-    expect(html.match(/<details/g)).toHaveLength(2);
+    expect(html.match(/<details/g)).toHaveLength(3);
     expect(html).toContain('class="settings-logout-form"');
     expect(html).toContain("Kilépés");
     expect(html.match(/Kilépés/g)).toHaveLength(1);

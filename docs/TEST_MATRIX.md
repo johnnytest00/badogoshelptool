@@ -4,16 +4,16 @@
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |
 | --- | --- | --- |
-| Render limit / DPR | PASS, FOCUSED UNIT | A renderer adapter a Vanta meglévő ciklusában `renderer.render()` hívást korlátozza. 60 Hz-es szimulált bemenettel a 30 FPS desktop és 20 FPS mobil cél, valamint DPR≤1 tesztelve; a Vanta/Three csomagfájl nem módosult. A Vanta `onUpdate()` CPU-része az eredeti RAF ütemben marad. |
-| Mobil animáció / input / komplexitás | PASS, CODE + POLICY TEST | A mobil/coarse pointer profil nem static policy; `points: 6`, `mouseControls:false`, `touchControls:false`, `gyroControls:false`. Fizikai mobil nem tesztelt. |
+| Render limit / DPR | PASS, FOCUSED UNIT + BROWSER SAMPLE | A renderer és az eredeti Vanta RAF-ben futó `onUpdate()` is 20 FPS-re van korlátozva; 60 Hz-es szimuláció tesztelve. Brave-ben desktop mintavétel 19 FPS, DPR 1. A Vanta/Three csomagfájl nem módosult, második RAF nincs. |
+| Mobil animáció / input / komplexitás | PASS, CODE + EMULATED BROWSER | Mobil/coarse profil animált marad; `points: 4` (32 Vanta-részecske az emuláción), egér/érintés/giroszkóp kikapcsolva, DPR 1. 390 px emulációs mintában 18 FPS a 20-as célból. Fizikai mobil nem tesztelt. |
 | Állapotváltások és cleanup | CODE VERIFIED / BROWSER PARTIAL | Reduced-motion, tárolt kapcsoló, hidden tab, theme, viewport listener; destroy/restart és cleanup a komponensben. Rejtett lap és reduced-motion böngészőemuláció nem futott. |
 | Viewport / route / pointer | PASS, LOCAL IAB / PARTIAL | Desktop 1280×720 és mobil 390×844; host rect pontosan viewport-méretű, fixed és `pointer-events:none`. `/` → `/felmeresek/uj` után egy host. Rajz-SVG egyidejű touch/scroll nem ellenőrzött. |
-| WebGL fallback / canvas mérések | PASS, LOCAL BRAVE + IAB FALLBACK | Helyi IAB-en `webgl-init-failed`, static fallback aktív. Helyi Brave-ben egy élő WebGL canvas: 1900×721 CSS px viewport/puffer, DPR 1, 22 renderelt FPS mintavétel; nincs duplikált canvas. A sötét static fallback az animált háttér `#0b1220` alapszínét használja. |
-| Téma / opacity | PASS, UNIT + BROWSER PARTIAL | A témafüggő színpár unit tesztelve; a helyi Brave sötét hálója narancssárga. Világos aktív háló színváltása nem bizonyított. Root CSS token és új/reset Liquid Glass opacity 10%; korábbi tárolt személyes értékek változatlanok. |
+| WebGL fallback / canvas mérések | PASS, LOCAL BRAVE + IAB FALLBACK | Helyi IAB-en `webgl-init-failed`, static fallback aktív. Brave-ben egy vászon, desktop 1900×721 és mobil 390×562 viewport/puffer, DPR 1; sötét fallback `#0b1220`. |
+| Téma / opacity | PASS, UNIT + BROWSER | Témaváltáskor a Vanta újraépül; világos módban a vonalak, sötétben a narancssárga háló ellenőrizve. Root CSS token és új/reset Liquid Glass opacity 10%; korábbi tárolt személyes értékek változatlanok. |
 | Vitest / typecheck / lint / build | PASS, FOCUSED | 3 Vitest fájl / 10 teszt; `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack). Teljes Vitest regresszió nem futott. |
 | Adat / jogosultság / adatbázis | NEM VÁLTOZOTT | Nincs DB, migration, auth/RLS, anyag- vagy üzleti adatváltozás. |
 
-Státusz: **PARTIAL**. A renderkorlát, DPR/pufferdimenzió és desktop tényleges FPS helyi WebGL böngészőben igazolt. Mobil valós rendersebesség, állapot-emuláció és fizikai mobil nincs bizonyítva, ezért COMPLETE nem adható.
+Státusz: **PARTIAL**. A 20 FPS renderkapu, DPR/pufferdimenzió, témafüggő vonalak és emulált mobil profil igazolt. Fizikai mobil, reduced-motion és rejtett lap GPU-viselkedése nincs bizonyítva, ezért COMPLETE nem adható.
 
 Javasolt Conventional Commit: `perf(F9.22.1): throttle global Vanta rendering`.
 
@@ -1779,3 +1779,27 @@ Javasolt commit: `feat(F9.20.2): add global Vanta NET background`.
 | Responsive / hozzáférhetőség | PARTIAL | CSS fallback, pointer-events, reduced-motion/transparency és contrast védelem kódban jelen van. 1440/1024/768/390/320 teljes útvonal-mátrix, reduced-motion böngészőemuláció, screen reader, forced-colors és fizikai iOS nincs ellenőrizve. Exportált vizuális screenshot artifactum nem készült. |
 
 Státusz: **PARTIAL — LOCAL UI**. A függőség, app-szintű provider, konfigurációs vezérlők, szelektív Liquid Glass rétegek és statikus fallback implementálva; a komponens/static ellenőrzések és dashboard smoke sikeresek. A teljes útvonal és eszközmátrix nem bizonyított.
+
+## F9.22.2 — Világos témájú Liquid Glass
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Változtatás | PASS, CODE VERIFIED | Globális világos témájú CSS elrejti a rögzített `liquid-glass-react@1.1.1` két fekete fényrétegét; a közös üvegfelület, csúcsfény és beállított 10%-os fedettség marad. Sötét témára nem vonatkozik. |
+| Böngészős vizuális ellenőrzés | NEM FUTOTT | A két csatolt világos témájú képernyőkép rendelkezésre állt, de módosítás után interaktív böngészős smoke és több útvonal ellenőrzése még nem történt. |
+| Teszt / lint / build | PASS | `npx vitest run src/features/preferences/liquid-glass.test.ts src/components/ui/liquid-glass-policy.test.ts src/components/ui/glass-toolbar.test.tsx src/features/dashboard/dashboard-controls.test.tsx`: 4 fájl / 11 teszt. `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `npm run typecheck`, `git diff --check` sikeres. A régi dashboard-tesztet a jelenlegi 10%-os alapértékhez és három disclosure-höz igazítottam. |
+| Adat / jogosultság | NEM VÁLTOZOTT | Csak CSS; DB, migráció, Auth/RLS és adatkonzisztencia nem érintett. |
+
+Státusz: **PARTIAL — CSS IMPLEMENTED**.
+
+## F9.23 — Anyagkezelő navigáció és termékválasztó
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Műhely navigáció / route | PASS, TEST + BUILD | Dashboard sorrend teszteli az önálló Anyagkezelő kártyát és a szervezetparaméteres `/anyagkezelo` URL-t. A build route listája tartalmazza a dinamikus `/anyagkezelo` oldalt; ugyanazt a hozzáférés-ellenőrző server komponenst használja, mint a kompatibilis `/anyagok`. |
+| Kategória és termékkeresés | PASS, FOCUSED TEST | 3 Vitest fájl / 10 teszt: launcher sorrend/context, dialog/listbox markup, üres kategóriakeresés és magyar ékezet nélküli keresés. Interaktív kattintásos/keyboard böngészőpróba nem történt. |
+| Typecheck / lint / build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Szélesebb tesztpróba | PARTIAL | A változatlan `src/features/material-takeoffs/takeoff-forms.test.ts` `square_meter` tesztje elbukik: várt `négyzetméter`, tényleges meglévő label `m²`. A termékválasztóhoz nem tartozó fájlt/labelt e változás nem módosította. |
+| Adatok / jogosultság | NEM VÁLTOZOTT | Meglévő szervezeti lekérdezés és auth guard újrahasznosítva. Nincs DB/migráció vagy tartós adatváltozás. |
+| Böngészős/reszponzív ellenőrzés | NEM FUTOTT | Asztali route navigáció, termék kiválasztása, virtuális billentyűzet, mobil viewport és screen reader nincs ellenőrizve. |
+
+Státusz: **PARTIAL — IMPLEMENTED, BROWSER UX UNVERIFIED**.
