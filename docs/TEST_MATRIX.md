@@ -1,5 +1,19 @@
 # Tesztmátrix
 
+## F9.30 — Survey geometry különálló kalkulátoroktól
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| TS/TSX inventory | PASS | `rg --files -g '*.ts' -g '*.tsx'` összevetve a `funkciok.md` bejegyzéseivel: 441 / 441 egyedi útvonal; hiányzó/többlet nincs. |
+| Mind a hét roof type preview | PASS, FOCUSED VITEST | `field-survey-editor.test.tsx` és `roof-geometry.engineering-audit.test.ts`: érvényes, hiányos és inkompatibilis bemenet, shared-engine rajz; nincs silent gable fallback. |
+| Survey calculator CTA / történeti route redirect / summary | PASS, FOCUSED VITEST + LOCAL BROWSER | A surveyben nincs embedded calculator launch; történeti számítás source/provenance megmarad; legacy calculator URL `organization`/`version` query-vel a mentett felmérésre irányít. A read-only böngészőben a survey geometry, opcionális roof-model disclosure és worklog művelet látszott; save nem történt. |
+| Fókuszált Vitest | PASS | `npx vitest run src/features/field-surveys/field-survey-editor.test.tsx src/features/field-surveys/workspace-summary.test.tsx src/domain/field-surveys/roof-geometry.test.ts src/domain/calculations/roof-geometry.engineering-audit.test.ts`: 4 fájl / 71 teszt. |
+| PgTAP regresszió | FAIL, LOCAL PGTAP | `001`: 28/172 fail (stale RLS SQLSTATE-k és valós layout source-lock); `009`: 3/21 futott, revoked gable RPC fixture abort; `011`: 14/19 fail, first source-linked V1 `P0002`; `029`: 2/9 futott, revoked gable RPC fixture abort. A hibaállapotok F9.29-ben ismertek, F9.30-ban újrafuttatva; UI változástól független, sem SQL, sem teszt-elvárás nem változott. |
+| Teljes Vitest | PASS | `npx vitest run`: 133 fájl PASS, 8 skip; 580 teszt PASS, 25 skip. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Böngészős smoke | PASS, LOCAL AUTHENTICATED DEMO, READ-ONLY | Legacy route → survey V3 redirect; kontytető rajz/terület és survey UI; embedded calculator CTA nincs; külön standalone gable calculator oldal hét formát kínál. Nem mentett survey vagy calculation. Fizikai mobil nem tesztelt. |
+| Hosted DB / fizikai mobil / teljes material list→quotation→execution E2E | NEM FUT | E feladat nem módosítja a hosted környezetet; ezek külön ellenőrzések maradnak. |
+
 ## F9.29 — Architecture Audit & Workflow Rationalization
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

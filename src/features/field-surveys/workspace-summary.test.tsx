@@ -7,7 +7,7 @@ vi.mock("./workspace-actions", () => ({ createSurveyFollowups: vi.fn() }));
 import { WorkspaceSummary } from "./workspace-summary";
 
 describe("saved calculation in the survey summary", () => {
-  it("reopens the saved calculation while keeping the exact source revision visible", () => {
+  it("keeps historic calculation provenance visible without launching a calculator", () => {
     const section: SurveySection = {
       id: "123e4567-e89b-42d3-a456-426614174101", name: "DEMO eresz", workType: "gutter", notes: "", photoIds: [],
       measurements: [{ id: "123e4567-e89b-42d3-a456-426614174102", label: "Ereszszakasz hossza", value: 8.5, unit: "m", semanticType: "gutter_run_length" }],
@@ -19,18 +19,19 @@ describe("saved calculation in the survey summary", () => {
       validationStatus: "verified",
     };
     const html = renderToStaticMarkup(<WorkspaceSummary organizationId="organization-1" surveyId="survey-1" version={2} sections={[section]} calculations={[linked]} initialFollowups={[]} projects={[]} originalProjectId={null} readOnly />);
-    expect(html).toContain("Mentett számítás megnyitása");
     expect(html).toContain("Anyaglista készítése");
     expect(html).toContain("surveyVersion=2");
-    expect(html).toContain("/kalkulatorok/ereszcsatorna?organization=organization-1&amp;calculation=calculation-1");
+    expect(html).not.toContain("/kalkulatorok/");
+    expect(html).not.toContain("Mentett számítás megnyitása");
     expect(html).toContain("Forrásfelmérés: V1");
     expect(html).toContain("korábbi forrás");
-    expect(html).toContain("A felmérésből hiányzik (a kalkulátorban pótolható)");
+    expect(html).not.toContain("kalkulátorban pótolható");
     expect(html).toContain("calculation-revision-1");
     expect(html).toContain("3 db");
 
     const projectHtml = renderToStaticMarkup(<WorkspaceSummary organizationId="organization-1" surveyId="survey-1" version={2} sections={[section]} calculations={[linked]} initialFollowups={[]} projects={[]} originalProjectId="project-1" readOnly />);
-    expect(projectHtml).toContain("/projektek/project-1/ereszcsatorna?organization=organization-1&amp;calculation=calculation-1&amp;revision=calculation-revision-1");
+    expect(projectHtml).not.toContain("/projektek/project-1/ereszcsatorna");
+    expect(projectHtml).toContain("calculation-revision-1");
   });
 
   it("shows existing project and quotation links without offering duplicate creation", () => {

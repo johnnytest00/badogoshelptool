@@ -1,5 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fieldSurveyTemplates } from "@/domain/field-surveys/contracts";
+import { surveyRoofFields } from "@/domain/field-surveys/roof-geometry";
+import type { RoofGeometryType } from "@/domain/calculations/roof-geometry";
+import type { SurveySection } from "@/domain/field-surveys/workspace";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
@@ -11,7 +15,6 @@ vi.mock("./workspace-actions", () => ({
   createExecutionPlanFromSurvey: vi.fn(),
   linkSurveyToExecutionPlan: vi.fn(),
 }));
-vi.mock("./workspace-calculator", () => ({ WorkspaceCalculator: () => null }));
 vi.mock("./survey-roof-actions", () => ({ listVerifiedSurveyRoofs: vi.fn(), saveSurveyRoofGeometry: vi.fn(), listVerifiedSurveyMultiRoofs: vi.fn(), saveSurveyMultiRoofGeometry: vi.fn() }));
 
 import { FieldSurveyEditor } from "./field-survey-editor";
@@ -23,6 +26,44 @@ const survey: FieldSurveyRecord = {
   measurements: [{ id: "123e4567-e89b-42d3-a456-426614174001", label: "Ereszszakasz", value: 8.5, unit: "m", semanticType: "gutter_run_length" }],
   notes: "DEMO nehezen hozzáférhető", version: 2, createdAt: "2026-10-15T00:00:00.000Z", updatedAt: "2026-10-15T00:00:00.000Z",
 };
+
+function roofMeasurements(type: RoofGeometryType, mode: "valid" | "incomplete" | "invalid" = "valid"): SurveySection["measurements"] {
+  const fields = type === "gable" ? fieldSurveyTemplates.roof : surveyRoofFields(type);
+  return fields.map((field, index) => {
+    const valueBySemantic: Record<string, number> = {
+      roof_building_length: 10, roof_building_width: 6, roof_rise: 4, roof_pitch: 35,
+      roof_eave_overhang: 0, roof_front_gable_overhang: 0, roof_rear_gable_overhang: 0,
+      roof_outer_length: 10_000, roof_outer_width: 6_000, roof_outer_side: 6_000,
+      roof_hip_eave_height: 1_000, roof_wing_width: 4_000, roof_wing_projection: 5_000,
+    };
+    let value: number | null = valueBySemantic[field.semanticType] ?? 0;
+    if (type === "gable" && field.semanticType === "roof_pitch") value = null;
+    if (mode === "incomplete" && index > 0) value = null;
+    if (mode === "invalid") {
+      if ((type === "shed" || type === "gable") && field.semanticType === "roof_pitch") value = 0;
+      if (type === "hip" && field.semanticType === "roof_outer_length") value = 5_000;
+      if (type === "pyramid" && field.semanticType === "roof_outer_side") value = 0;
+      if (type === "halfHip" && field.semanticType === "roof_hip_eave_height") value = 5_000;
+      if ((type === "lShape" || type === "tShape") && field.semanticType === "roof_wing_width") value = 7_000;
+    }
+    return {
+      id: `123e4567-e89b-42d3-a456-${String(index + 30).padStart(12, "0")}`,
+      label: field.label,
+      value,
+      unit: field.unit,
+      semanticType: field.semanticType,
+    };
+  }).filter((measurement) => !(type === "gable" && measurement.semanticType === "roof_pitch" && measurement.value === null && mode === "valid"));
+}
+
+function roofSurvey(type: RoofGeometryType, mode: "valid" | "incomplete" | "invalid" = "valid"): FieldSurveyRecord {
+  return {
+    ...survey,
+    workType: "roof",
+    projectId: null,
+    sections: [{ id: "123e4567-e89b-42d3-a456-426614174030", name: type, workType: "roof", roofType: type, notes: "", photoIds: [], measurements: roofMeasurements(type, mode) }],
+  };
+}
 
 describe("field survey editor", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -81,7 +122,7 @@ describe("field survey editor", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={withSections} initialSectionId={flashingId} />);
     expect(html).toContain('<span class="survey-section-tab-name">Bádogos szegély</span>');
     expect(html).not.toContain("field-survey-active-section-title");
-    expect(html).toContain('value="10"');
+    expect(["value=\"10\"", "value=\"10000\"", "value=\"6000\""].some((value) => html.includes(value))).toBe(true);
   });
 
   it("reopens persisted measurements, explicit units and note for continued editing", () => {
@@ -163,7 +204,7 @@ describe("field survey editor", () => {
     expect(html).not.toContain('class="technical-drawing is-compact"');
   });
 
-  it("renders a historical revision with its exact measurements and calculator handoff", () => {
+  it("renders a historical revision with its exact measurements and no calculator handoff", () => {
     const revision: FieldSurveyRevisionRecord = {
       id: "revision-1", surveyId: survey.id, organizationId: survey.organizationId, projectId: survey.projectId,
       version: 1, workType: "gutter", measurements: [{ ...survey.measurements[0], value: 7.5 }],
@@ -174,6 +215,53 @@ describe("field survey editor", () => {
     expect(html.match(/<h1\b/g)).toHaveLength(1);
     expect(html).toContain("7,5");
     expect(html).toContain("DEMO V1");
-    expect(html).toContain("version=1");
+    expect(html).toContain('value="1" selected=""');
+    expect(html).not.toContain("adat a kalkulátorban");
+    expect(html).not.toContain("/kalkulatorok/");
+  });
+
+  it("reopens the exact historical roof measurements with their shared-engine drawing", () => {
+    const savedSection = roofSurvey("hip").sections![0];
+    const roofRecord: FieldSurveyRecord = { ...survey, workType: "roof", sections: [savedSection] };
+    const revision: FieldSurveyRevisionRecord = {
+      id: "revision-roof-1", surveyId: survey.id, organizationId: survey.organizationId, projectId: null,
+      version: 1, workType: "roof", measurements: [], sections: [savedSection], notes: "DEMO roof V1", photosSnapshot: [], createdAt: survey.createdAt,
+    };
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofRecord} revisionVersions={[2, 1]} historicalRevision={revision} />);
+    expect(html).toContain("Korábbi felmérés");
+    expect(html).toContain('class="technical-drawing is-compact"');
+    expect(html).toContain("Mentett felmérési mérésekből újraszámított tetőfelület");
+    expect(html).toContain("Tető külső hossza");
+  });
+
+  it.each(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"] as const)("automatically draws %s geometry from survey measurements", (type) => {
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofSurvey(type)} />);
+    expect(html).toContain('class="technical-drawing is-compact"');
+    expect(html).toContain("Teljes tetőfelület");
+    expect(html).toContain("Tetősíkok");
+    expect(html).not.toContain("Tetőgeometria vagy fedés számítása");
+    expect(html).not.toContain("Ereszcsatorna-szükséglet számítása");
+  });
+
+  it("keeps project roof-model persistence optional without repeating the survey drawing", () => {
+    const projectSurvey = { ...roofSurvey("hip"), projectId: survey.projectId };
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[{ id: survey.projectId!, name: "DEMO project" }]} survey={projectSurvey} />);
+    expect(html).toContain("Tetőmodellhez mentés · opcionális");
+    expect(html).toContain("Tetőmodell mentése");
+    expect(html.match(/class="technical-drawing is-compact"/g)).toHaveLength(1);
+    expect(html).not.toContain("Ereszél kiválasztása");
+  });
+
+  it.each(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"] as const)("preserves incomplete %s dimensions without drawing substitute geometry", (type) => {
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofSurvey(type, "incomplete")} />);
+    expect(html).not.toContain('class="technical-drawing is-compact"');
+    expect(html).toContain(type === "gable" ? "A nyeregtető rajzához még szükséges:" : "A rajz a tetőforma minden szükséges, érvényes méretének megadása után jelenik meg.");
+    expect(["value=\"10\"", "value=\"10000\"", "value=\"6000\""].some((value) => html.includes(value))).toBe(true);
+  });
+
+  it.each(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"] as const)("does not substitute gable geometry for incompatible %s dimensions", (type) => {
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofSurvey(type, "invalid")} />);
+    expect(html).not.toContain('class="technical-drawing is-compact"');
+    expect(["value=\"0\"", "value=\"5000\"", "value=\"7000\""].some((value) => html.includes(value))).toBe(true);
   });
 });

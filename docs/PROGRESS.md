@@ -1,5 +1,22 @@
 # F7.3.2 állapot
 
+## F9.30 — Survey geometry különálló kalkulátoroktól
+
+Státusz: **IMPLEMENTÁLVA / A KÉRT SCOPE IGAZOLVA.**
+
+- A felmérés editor a megosztott domain geometriai motort használja a hét tetőformára; a felmérési CTA és embedded calculator panel eltűnt. A külön Kalkulátorok útvonalai és mentett revíziói megmaradnak.
+- A régi `/felmeresek/[surveyId]/kalkulator/[calculator]` URL a forrás surveyre irányít, `organization`, `version`, `section` paramétert megőrizve. A történeti summary számítás/provenance adata és survey→anyaglista / ajánlat-follow-up / munkanapló művelete megmaradt. A project tetőmodell mentés opcionális disclosure alatt marad.
+- `funkciok.md` 441/441 útvonal-ellenőrzést, route/DB/RPC/RLS/legacy leírást kapott; a négy korábbi POSSIBLY UNUSED elem vizsgálatára hivatkozik, plusz a két régi survey handoff UI állapotát rögzíti. Új audit: [F9_30_SIMPLIFICATION_AUDIT.md](F9_30_SIMPLIFICATION_AUDIT.md). DB architektúra-kiegészítés: [DATABASE.md](DATABASE.md); workflow kiegészítés: [DAILY_WORKFLOW_UX_AUDIT.md](DAILY_WORKFLOW_UX_AUDIT.md).
+- **Vitest:** fókuszált survey/geometry regresszió 4 fájl / 71 teszt PASS; teljes `npx vitest run`: 133 fájl PASS, 8 skip; 580 teszt PASS, 25 skip.
+- **Kódellenőrzés:** `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check` PASS. A build által jelzett nullable measurement típusproblémát a meglévő `completeSectionMeasurements` helperrel oldottam meg; az ismételt build sikeres.
+- **Helyi böngésző:** production build, hitelesített DEMO, read-only: legacy survey calculator URL → pontos survey V3 redirect query megőrzéssel; kontytető rajz/terület látszik, calculator CTA nincs, optional roof model és worklog út megmaradt. A külön `kalkulatorok/nyeregteto` út hét tetőforma-választója megjelent. Nem történt mentés.
+- **Helyi pgTAP reprodukció:** `001` 28/172 fail (RLS expected SQLSTATE és layout source-lock 40001); `009` 3/21 futott, visszavont gable RPC miatt abort; `011` 14/19 fail, első source-linked flashing V1 P0002; `029` 2/9 futott, visszavont gable RPC miatt abort. Nem módosítottam a DB migrationt vagy az assertionöket.
+- **Adat/security bizonyíték:** F9.30-ban nincs táblaváltozás, migration, RPC, Auth/RLS módosítás vagy üzleti adatmódosítás. Pontos historic survey revision méréseiből rajz/terület újraszámolódik; ez nem fagyasztott geometry output (a limitáció dokumentálva).
+
+Korlát: nincs fizikai mobil, hosted DB/Auth, teljes material list→quotation→accepted→execution E2E vagy történeti geometry snapshot-verzió ellenőrzés. A négy lokális pgTAP hibát az audit dokumentálja; F9.30 nem változtatta meg backend-kódjukat.
+
+Javasolt Conventional Commit: `feat(F9.30): separate survey geometry from calculators`.
+
 ## F9.29 — Architecture Audit & Workflow Rationalization
 
 Státusz: **AUDIT KÉSZ / SAFE FIXES VERIFIED — a dokumentációt és workflow-függőségeket frissítettem; két alacsony kockázatú UI/típusduplikációt javítottam. A forráskapcsolt lemezkiosztás- és flashing mentési hibák reprodukálva, de külön security mérföldkőre kerültek.**

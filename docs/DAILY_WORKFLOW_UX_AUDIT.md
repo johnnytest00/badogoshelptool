@@ -4,6 +4,8 @@
 
 **Aktuális kiegészítés (F9.29, 2026-10-17):** a lentebbi első állapotfelmérés F9.25-kori pillanatkép. Az F9.27 azóta megvalósította a mentett felmérésből indítható, forrásrevízióhoz kötött anyaglistát; az F9.27.2 pedig az önálló, üres anyaglista-piszkozat mentését. Ezért a későbbi táblákban szereplő „felmérésből nincs közvetlen import” és „legalább egy tétel kell” megállapítás történeti, már nem aktuális. A jelenlegi átadási lánc korlátai és a F9.29 által reprodukált adatbázis-hibák a [F9.29 egyszerűsítési auditban](F9_29_SIMPLIFICATION_AUDIT.md) vannak összefoglalva.
 
+**Aktuális kiegészítés (F9.30, 2026-10-17):** a mentett felmérés tetőrajza most a közös geometry engine-ből készül mind a hét támogatott formára. A survey editor nem nyit beágyazott roof/gutter/flashing kalkulátort; a régi survey calculator URL visszairányít a pontos survey revisionre, miközben a külön Kalkulátorok útvonalai és mentett számításai megmaradnak. A material-list, quotation follow-up, execution-plan és opcionális project roof-model kapcsolat érintetlen. A kódváltozás, történeti geometriakorlát és a frissen reprodukált `001`/`009`/`011`/`029` DB-hibák részletei a [F9.30 auditban](F9_30_SIMPLIFICATION_AUDIT.md) vannak; az alábbi workflow-táblák a korábbi F9.25 browser snapshotot rögzítik.
+
 ## Hatókör és módszer
 
 Áttekintett területek: `/`, `/kalkulatorok`, `/kalkulatorok/epitesi`, `/kalkulatorok/mentett`, `/felmeresek`, `/felmeresek/uj`, `/anyaglistak`, `/anyaglistak/uj`, `/ajanlatok`, `/ajanlatok/uj`, `/kivitelezes`, `/kivitelezes/uj`; továbbá a suite-választó, a felmérés-szerkesztő, az anyaglista-szerkesztő, az ajánlatszerkesztő, a kivitelezési tervező és a kapcsolódó workspace actionök.

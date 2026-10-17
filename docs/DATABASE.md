@@ -35,6 +35,17 @@ a korábbi mérföldkövek PASS bejegyzései az akkori sémaváltozat bizonyít�
   immutabilitás mellett. Ezt biztonsági és konkurenciatesztekkel kell igazolni;
   F9.29-ben sem migráció, sem tábla/policy-jogosultság változás nem történt.
 
+### F9.30 célzott helyi újrafuttatás
+
+Az F9.30 UI/geometry változása nem módosít adatbázis-kódot. A négy érintett
+pgTAP fájl helyi újrafuttatása (Supabase reset és hosted kapcsolat nélkül) a
+korábbi hibákat ismételte: `001` 28/172 assertion fail, köztük a layout
+source-lock `40001`; `009` és `029` az első legacy gable RPC EXECUTE hibánál
+abortált (3/21, illetve 2/9 teszt futott); `011` 14/19 assertion fail, az első
+source-linked flashing V1 írás `P0002`. Az `011` későbbi assertionök a V1
+hiányából részben kaszkádolnak. A teljes reprodukció és külön javítási terv:
+[`docs/F9_30_SIMPLIFICATION_AUDIT.md`](F9_30_SIMPLIFICATION_AUDIT.md).
+
 ## F9.7.6.6.1 — standalone quotation backend
 
 `20261014030000_standalone_quotations.sql` a meglévő quotation/revision táblákat
