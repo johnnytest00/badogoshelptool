@@ -68,3 +68,61 @@ Az elvárt értékek az implementált függvényektől külön felírt geometria
 - [NIST — Material: Steel](https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=101567)
 - Existing TetőPro audit: [docs/CALCULATION_VERIFICATION_MATRIX.md](CALCULATION_VERIFICATION_MATRIX.md)
 - Zhitov public reference index and individual URLs: [docs/CALCULATOR_COVERAGE_MATRIX.md](CALCULATOR_COVERAGE_MATRIX.md)
+
+## F9.24.2 — Lépcsőrajzok matematikai ellenőrzése
+
+### A rajz és a számítás kapcsolata
+
+- **Egyenes lépcső (S1/S2/S10/S11):** a rajzi fokosztás a `calculateStraightStairGeometry` kimenetéből készül. `R = teljes emelkedés / fellépések`, `N_fok = N_fellépés − 1`, `G = vízszintes hely / N_fok`. Az `i` indexű fok vízszintes határai `i·G` és `(i+1)·G`, magassága `(i+1)·R`; ezért a vízszintes végpont `teljes futás`, az utolsó fok fölötti záró fellépés pedig a `teljes emelkedés`. Ezt a [rajzi adattranszformáció](../src/domain/drawings/construction-stairs.ts) állítja elő, nem a React.
+- A teljes emelkedés és futás aránya a vetületi tartóvonalé: `L = √(futás² + emelkedés²)` és `α = atan2(emelkedés, futás)`. A viewBox-hoz csak közös, pozitív méretarány tartozik; az SVG méretfeliratok az eredeti mm értéket írják ki. A pan/zoom kizárólag megjelenítési transzformáció, nem változtatja meg a geometriát.
+- **Felülnézet:** kizárólag az opcionálisan megadott kar-szélességet és a már számított fokosztást vetíti. Szélesség nélkül felülnézet-gombot nem jelenít meg. A kar-szélesség rajzi többletbemenet; nem módosítja az egyenes lépcső motorjának kimenő mennyiségeit.
+- **Csigalépcső (S9):** a körgyűrű-határok sugara `külső/belső átmérő ÷ 2`; a járóvonal sugara ezek számtani közepe; fokonkénti szög `teljes fordulás / (fellépések − 1)`. A plan nézet körgyűrű-szektort rajzol, a másik nézet csak a teljes emelkedésen egyenletesen kiosztott fellépéseket. 360°-os vagy nagyobb egy fokra jutó szögnél a plan teljes körgyűrű-vetületet rajzol, és jelzi az átfedő fordulatokat; ezzel elkerüli a teljes körív azonos végpontú, érvénytelen SVG-ívét. A 1 440°/1 fok felső határ determinisztikus tesztet kapott.
+- **Ferde lépcsőelem (S16):** a rajz a meglévő motor háromszögéből indul: `vízszintes = belépő + orrkiülés`, `átló = √(vízszintes² + fellépő²)`, `dőlésszög = atan2(fellépő, vízszintes)`. A vágási profil nem tartalmaz lapvastagságból származó metszést, illesztést vagy fűrészrést; nem gyártási rajz.
+- A 11 még nem támogatott fordulós, húzott fokú, háromkarú vagy betonlépcső variánshoz sem számított eredmény, sem adatból következőnek látszó technikai rajz nem készül. A saját index-SVG-k csak típust jelölő navigációs ikonok; nem geometriai eredmény-ábrák.
+
+### F9.24.2 deterministic fixtures és határvizsgálat
+
+| Vizsgálat | Várt invariáns / független érték | Teszt |
+|---|---|---|
+| Egyenes lépcső, 2 800×4 200 mm, 16 fellépés | 15 fok; 175 mm fellépő; 280 mm belépő; a rajz utolsó vízszintes koordinátája 4 200 mm, utolsó fokszintje 2 625 mm, felső záró szintje 2 800 mm | `src/domain/drawings/construction-stairs.test.ts` |
+| Egyenes geometria 2× skálázása | Hosszméretek 2×, szög változatlan; a szélesség csak rajzi input, nem módosítja a geometriai eredménysort | `src/domain/drawings/construction-stairs.test.ts` |
+| 360° spirál, Ø2 000/400 mm, 18 fellépés | Járóvonal-sugár 600 mm; 17 egyenlő fok; a fokszögek összege 360°; a fokonkénti ívhossz összege a teljes járóvonal-ív | `src/domain/drawings/construction-stairs.test.ts` |
+| Spirál határ: 1 440°, 1 fok | Véges ívhossz és belépő; renderelt plan teljes körgyűrűt használ, `NaN`/`Infinity` és hibás, körülforduló SVG-ív nélkül | `src/domain/drawings/construction-stairs.test.ts`, `src/domain/calculations/construction/catalog.test.tsx` |
+| Nem támogatott 90°-os húzott fokú lépcső | Nincs eredményrajz | `src/domain/calculations/construction/catalog.test.tsx` |
+| Indexikon-lefedettség | 17 különböző lépcső ikon + 10 különböző beton/alapozás/segédikon; nem használ távoli vagy referencia-SVG-t | `src/domain/calculations/construction/catalog.test.tsx` |
+
+### Korlátok
+
+Az automatikusan generált rajzok a hat már korábban geometriailag ellenőrzött lépcsőmotor eredményét jelenítik meg; a rajzoló geometriai leképezését és a spirál szélső esetét külön fixture fedi. Nincs lépcsőergonómiai/normatív megfelelés, szabad fejmagasság, pofafa-kivágás, fűrészfogas tartó, csomópont, statika, gyártási tűrés vagy betonlépcső-mennyiség. A referenciaoldali képernyőkép/funkciók nem önálló numerikus oracle-ok.
+
+## F9.24.3 — Pihenős lépcsők és tömör betonék független ellenőrzése
+
+### Ortogonális pihenős lépcsőgeometria (S3/S5/S7/S12–S15)
+
+**Bemenetek és tartomány:** teljes szintemelkedés `H>0` mm, lépcsőkar-szélesség `W>0` mm, közös vízszintes belépő `G>0` mm, pihenőmélység `L≥W`, karonkénti egész fellépésszám `rᵢ≥2`, összesen legfeljebb 200. Kétkarú elrendezésnél két, háromkarúnál három darab `rᵢ` kell. Az opcionális alaprajzi befoglaló méretek pozitívak; ezek kizárólag `kiterjedés≤megadott méret` ellenőrzések, nem valós nyíláskontúr-/ütközésvizsgálat. A U-alakú `gap≥0` mm csak explicit karhézag. A bal/jobb irány a saját alaprajz Y-tengely körüli tükrözése.
+
+**Fok- és magasságképletek:** `N=Σrᵢ` összes fellépés; `R=H/N` közös fellépő; `nᵢ=rᵢ−1` karonkénti fokszám, mivel a következő pihenő/felső padló a kar utolsó fellépésének végszintje; `N_fok=Σ(rᵢ−1)`; karfutás `runᵢ=(rᵢ−1)G`; kar végi magasság `R×Σ_{j≤i}rⱼ`. Ezért az összes kar első pontjától az utolsó padlóig a magasság pontosan `H`; a pihenők nem adnak hozzá további fellépést. Minden koordináta és pihenő téglalap a megadott mm értékekből készül; a 90°/háromkarú útvonal negyedfordulója, a 180° útvonala párhuzamos visszatérő karokat tartalmaz. A kód közös pozitív koordináta-transzlációval normálja a tervet; nem kerekíti a geometriai számot.
+
+**Független, kézzel ellenőrzött esetek:**
+
+- 90°: `H=3000`, `W=L=900`, `G=250`, `r=[8,8]` → `R=187,5`, `N_fok=14`, karfutás 1750/1750 mm, befoglaló terv 2650×2650 mm.
+- 180°: `H=2800`, `W=900`, `L=1000`, `gap=200`, `G=280`, `r=[8,8]` → `R=175`, futás 1960 mm/kar, befoglaló terv 2960×2000 mm és a két kar tényleges hézaga 200 mm.
+- Háromkarú: `H=3000`, `W=L=900`, `G=250`, `r=[6,6,6]` → `R=166,666…`, karzáró szintek 1000/2000/3000 mm, 15 fok, 1250 mm futás/kar, befoglaló terv 2150×3050 mm.
+
+A fenti alaprajzi végpontok, fokdarabszám, szintintervallum, kétirányú tükör/befoglaló méret, egyenlő karfutás, U-hézag, 2× méretezés, rossz kar-darabszám, keskeny pihenő, elégtelen megadott befoglaló méret és nem véges/negatív/0 méretek a `src/domain/calculations/construction/stair-landings.test.ts` fixture-jeiben ellenőrzöttek. A `src/domain/drawings/construction-stairs.test.ts` és `catalog.test.tsx` szerveroldali SVG-renderelésben véges rajzot, átfogó típuslefedést és letiltott húzott fokos eredményrajzot vizsgál.
+
+### Betonlépcső tömör, fokos éke (S17 szűkített változat)
+
+**Feltételezett test:** állandó `W` szélességű egyenes kar; a keresztmetszet alsó határa vízszintes, felső határa egyenletes lépcsőprofil; nincs pihenő, külön karlemez, fellépőlemez, orrkiülés, vasalás vagy zsaluzat. `H>0` emelkedés, `X>0` vízszintes vetület, `n≥2` egész fellépés. Minden `mm`-ben, kimeneti térfogat m³-ben.
+
+`R=H/n`, `n_fok=n−1`, `G=X/(n−1)`. A fokos profil keresztmetszeti területe a vízszintes `G` szélességű sávok összege: `A=Σ_{i=1}^{n−1}(i·R·G)=R·G·n(n−1)/2=H·X/2`. Tömör prizma: `V=W·A/10⁹ = W·X·H/(2·10⁹) m³` mm-ben megadott bemenetből. Ez pontos, nem kerekített térfogat a fenti kizárólagos testdefinícióra; az eredmény **nem** jelenti, hogy a valós betonlépcső ezt a szerkezeti keresztmetszetet kapja.
+
+Fixture: `H=2800`, `X=4200`, `W=1000` mm, `n=16` → `R=175`, `G=280`, 15 fok. Külön sávösszeg: `Σ_{i=1}^{15}i=120`, ezért `W×G×R×120/10⁹=5,88 m³`; független háromszög-terület: `W×H×X/(2×10⁹)=5,88 m³`. A két út a kimenettől külön felírt, egyező eredményt ad. A tartomány- és hibateszt a `stair-landings.test.ts` fájlban van.
+
+### Független formulaforrás
+
+Az ortogonális fok/pihenőpoligonokat és a lépcsőék keresztmetszeti összegét elemi téglalapok területeként, a hasáb térfogatát alapterület×szélességként vezetjük le. Ezekhez a már felvett [G1] alapgeometria és [G3] hasáb-térfogat forrás használatos. A publikus Zhitov oldalak az űrlapok és referenciafunkciók azonosításához szolgáltak; a bemutatott eredményeket nem tekintettük képletforrásnak. Lásd: `https://www.zhitov.com/en/lestnica2/`, `/en/lestnica4/`, `/en/lestnica6/`, `/en/metal_ladder2/`, `/en/metal_ladder4/`, `/en/concrete_stairs/`.
+
+### Korlátok és státusz
+
+Az S3/S5/S7/S12–S15 eredménye **VERIFIED csak a fent leírt ortogonális pihenős alaprajz- és fokgeometriára**; nem igazol fa-/fém tartómodellt, lépcsőszabályt, fejmagasságot, gyárthatóságot vagy statikát. S17 **VERIFIED csak a tömör fokos ék geometriai térfogatára**; vasalást, mixet, normatív/teherbírási megfelelést nem ad. S4/S6/S8 húzott fokos modellek nem implementáltak és nem adnak eredményt.

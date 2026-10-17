@@ -3,20 +3,21 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
-import { Calculator, Construction, Search } from "lucide-react";
+import { ChevronDown, Construction, Search } from "lucide-react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
 import { MeasurementGuidance, measurementGuideFor } from "@/features/roof-models/measurement-guidance";
 import { constructionCalculatorCatalog, type ConstructionCalculatorCategory, type ConstructionReference } from "@/domain/calculations/construction/catalog";
 import { calculateConcreteMix, calculateConcreteRing, calculateCylindricalPiles, calculateFoundationSlab, calculatePavingMaterials, calculateRectangularBlindArea, calculateReinforcementBars, calculateReinforcementMesh, calculateRightAngleDiagonal, calculateStripFoundation } from "@/domain/calculations/construction/concrete";
 import { calculateExistingRoofGeometry, calculateMansardGeometry, calculateRafterGeometry, calculateTriangularTrussGeometry } from "@/domain/calculations/construction/roofs";
-import { calculateBeveledRiserGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry } from "@/domain/calculations/construction/stairs";
+import { calculateBeveledRiserGeometry, calculateConcreteStairGeometry, calculateLandingStairGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry } from "@/domain/calculations/construction/stairs";
 import { mm2ToM2, mmToM } from "@/domain/calculations/construction/numeric";
 import { calculateGableRoof } from "@/domain/calculations/gable-roof";
 import { calculateGableMetalTileCovering } from "@/domain/calculations/gable-metal-tile-covering";
 import type { RoofGeometry, RoofGeometryType } from "@/domain/calculations/roof-geometry";
+import { ConstructionCalculatorThumbnail, ConstructionStairDrawing } from "./construction-visuals";
 
-type Field = { key: string; label: string; unit: string; initial?: string; integer?: boolean; advanced?: boolean; kind?: "text" | "checkbox" };
+type Field = { key: string; label: string; unit: string; initial?: string; integer?: boolean; advanced?: boolean; kind?: "text" | "checkbox" | "select"; options?: readonly { value: string; label: string }[] };
 type ResultLine = { label: string; value: number | string; unit: string };
 type CalculatorDefinition = { reference: ConstructionReference; fields: readonly Field[]; draw: "roof" | "rafter" | "truss" | "stairs" | "spiral" | "bevel" | "rectangle" | "ring" | "mesh" | "diagonal"; note: string; calculate: (input: Record<string, unknown>) => ResultLine[] };
 
@@ -84,8 +85,8 @@ const definitions: Record<string, CalculatorDefinition> = {
   },
   "stair.wood.closed_straight": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "stair.wood.closed_straight")!, draw: "stairs", note: "Fellépőmagasság és belépő a megadott összemelkedésből, vízszintes helyből és fellépőszámból. A kényelmi képlet tájékoztató.",
-    fields: [{ key: "totalRiseMm", label: "Padlószintek közötti teljes emelkedés", unit: "mm" }, { key: "availableRunMm", label: "Vízszintes helyigény", unit: "mm" }, { key: "riserCount", label: "Fellépések száma", unit: "db", integer: true }],
-    calculate: (input) => { const result = calculateStraightStairGeometry({ totalRiseMm: mm(input, "totalRiseMm"), availableRunMm: mm(input, "availableRunMm"), riserCount: mm(input, "riserCount") }); return [{ label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" }, { label: "Fokok száma", value: result.treadCount, unit: "db" }, { label: "Belépő", value: result.goingMm, unit: "mm" }, { label: "Pofafa/tartó geometriai hossza", value: result.stringerLengthMm, unit: "mm" }, { label: "Emelkedési szög", value: result.pitchDegrees, unit: "°" }, { label: "2 × fellépő + belépő", value: result.stepRuleMm, unit: "mm" }]; },
+    fields: [{ key: "totalRiseMm", label: "Padlószintek közötti teljes emelkedés", unit: "mm" }, { key: "availableRunMm", label: "Vízszintes helyigény", unit: "mm" }, { key: "riserCount", label: "Fellépések száma", unit: "db", integer: true }, { key: "stairWidthMm", label: "Lépcsőkar szélessége · további nézetekhez", unit: "mm", advanced: true }],
+    calculate: (input) => { const result = calculateStraightStairGeometry({ totalRiseMm: mm(input, "totalRiseMm"), availableRunMm: mm(input, "availableRunMm"), riserCount: mm(input, "riserCount"), ...(input.stairWidthMm === undefined ? {} : { stairWidthMm: mm(input, "stairWidthMm") }) }); return [{ label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" }, { label: "Fokok száma", value: result.treadCount, unit: "db" }, { label: "Belépő", value: result.goingMm, unit: "mm" }, { label: "Pofafa/tartó geometriai hossza", value: result.stringerLengthMm, unit: "mm" }, { label: "Emelkedési szög", value: result.pitchDegrees, unit: "°" }, { label: "2 × fellépő + belépő", value: result.stepRuleMm, unit: "mm" }]; },
   },
   "stair.wood.spiral": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "stair.wood.spiral")!, draw: "spiral", note: "A járóvonal-sugár a belső és külső sugár számtani közepe. A felső padló az utolsó fellépés, ezért a vízszintes fokok száma eggyel kevesebb.",
@@ -156,6 +157,87 @@ for (const id of ["stair.metal.straight", "stair.metal.zigzag"]) {
   definitions[id] = { ...straightTemplate, reference, note: `${reference.scope} A tartóelem gyártási méreteit és statikáját nem számítja.` };
 }
 
+const twoFlightFields: readonly Field[] = [
+  { key: "totalRiseMm", label: "Padlószintek közötti teljes emelkedés", unit: "mm" },
+  { key: "stairWidthMm", label: "Lépcsőkar szélessége", unit: "mm" },
+  { key: "goingMm", label: "Egy kar egységes belépője", unit: "mm" },
+  { key: "firstFlightRiserCount", label: "1. kar fellépései", unit: "db", integer: true },
+  { key: "secondFlightRiserCount", label: "2. kar fellépései", unit: "db", integer: true },
+  { key: "landingDepthMm", label: "Pihenő mélysége", unit: "mm" },
+  { key: "turnDirection", label: "Fordulás iránya", unit: "", kind: "select", initial: "right", options: [{ value: "right", label: "Jobbra" }, { value: "left", label: "Balra" }] },
+  { key: "openingLengthMm", label: "Ellenőrző alaprajzi hossz", unit: "mm", advanced: true },
+  { key: "openingWidthMm", label: "Ellenőrző alaprajzi szélesség", unit: "mm", advanced: true },
+];
+const uFlightFields: readonly Field[] = [...twoFlightFields, { key: "landingGapMm", label: "Karok közötti hézag", unit: "mm", initial: "0", advanced: true }];
+const threeFlightFields: readonly Field[] = [
+  ...twoFlightFields.filter((field) => field.key !== "firstFlightRiserCount" && field.key !== "secondFlightRiserCount" && field.key !== "openingLengthMm" && field.key !== "openingWidthMm"),
+  { key: "firstFlightRiserCount", label: "1. kar fellépései", unit: "db", integer: true },
+  { key: "secondFlightRiserCount", label: "2. kar fellépései", unit: "db", integer: true },
+  { key: "thirdFlightRiserCount", label: "3. kar fellépései", unit: "db", integer: true },
+  { key: "openingLengthMm", label: "Ellenőrző alaprajzi hossz", unit: "mm", advanced: true },
+  { key: "openingWidthMm", label: "Ellenőrző alaprajzi szélesség", unit: "mm", advanced: true },
+];
+
+function landingStairDefinition(id: string, layout: "quarter_turn" | "half_turn" | "three_flight"): CalculatorDefinition {
+  const reference = constructionCalculatorCatalog.find((item) => item.id === id)!;
+  const fields = layout === "three_flight" ? threeFlightFields : layout === "half_turn" ? uFlightFields : twoFlightFields;
+  return {
+    reference,
+    draw: "stairs",
+    note: "Egyenletes fellépőt és megadott belépőt használ. A pihenő és a karok mérete explicit bemenet; csak alaprajzi/fokgeometriát számít, nem szerkezeti kialakítást.",
+    fields,
+    calculate: (input) => {
+      const openingLengthMm = nullableMm(input, "openingLengthMm");
+      const openingWidthMm = nullableMm(input, "openingWidthMm");
+      const landingGapMm = nullableMm(input, "landingGapMm");
+      const riserKeys = layout === "three_flight" ? ["firstFlightRiserCount", "secondFlightRiserCount", "thirdFlightRiserCount"] : ["firstFlightRiserCount", "secondFlightRiserCount"];
+      const result = calculateLandingStairGeometry({
+        layout,
+        totalRiseMm: mm(input, "totalRiseMm"),
+        stairWidthMm: mm(input, "stairWidthMm"),
+        goingMm: mm(input, "goingMm"),
+        landingDepthMm: mm(input, "landingDepthMm"),
+        flightRiserCounts: riserKeys.map((key) => mm(input, key)),
+        turnDirection: input.turnDirection === "left" ? "left" : "right",
+        ...(landingGapMm === null ? {} : { landingGapMm }),
+        ...(openingLengthMm === null ? {} : { openingLengthMm }),
+        ...(openingWidthMm === null ? {} : { openingWidthMm }),
+      });
+      return [
+        { label: "Egy fellépő minden karon", value: result.riserHeightMm, unit: "mm" },
+        { label: "Összes fellépés", value: result.riserCount, unit: "db" },
+        { label: "Összes fok", value: result.treadCount, unit: "db" },
+        { label: "Alaprajzi kiterjedés · hossz", value: result.planWidthMm, unit: "mm" },
+        { label: "Alaprajzi kiterjedés · szélesség", value: result.planDepthMm, unit: "mm" },
+        ...result.flights.map((flight) => ({ label: `${flight.index}. kar · ${flight.treadCount} fok · futás`, value: flight.runMm, unit: "mm" })),
+      ];
+    },
+  };
+}
+
+for (const id of ["stair.wood.90_landing", "stair.metal.90_landing", "stair.metal.90_zigzag"]) definitions[id] = landingStairDefinition(id, "quarter_turn");
+for (const id of ["stair.wood.180_landing", "stair.metal.180_landing", "stair.metal.180_zigzag"]) definitions[id] = landingStairDefinition(id, "half_turn");
+definitions["stair.wood.three_landing"] = landingStairDefinition("stair.wood.three_landing", "three_flight");
+definitions["stair.concrete_straight"] = {
+  reference: constructionCalculatorCatalog.find((item) => item.id === "stair.concrete_straight")!,
+  draw: "stairs",
+  note: "A fokos felső profillal és vízszintes alsó síkkal határolt tömör betonék geometriai térfogata. Pihenő, karlemez, vasalás, recept vagy szerkezeti méretezés nélkül.",
+  fields: [
+    { key: "totalRiseMm", label: "Padlószintek közötti teljes emelkedés", unit: "mm" },
+    { key: "availableRunMm", label: "Vízszintes futás a fokok alatt", unit: "mm" },
+    { key: "stairWidthMm", label: "Lépcsőkar szélessége", unit: "mm" },
+    { key: "riserCount", label: "Fellépések száma", unit: "db", integer: true },
+  ],
+  calculate: (input) => {
+    const result = calculateConcreteStairGeometry({ totalRiseMm: mm(input, "totalRiseMm"), availableRunMm: mm(input, "availableRunMm"), stairWidthMm: mm(input, "stairWidthMm"), riserCount: mm(input, "riserCount") });
+    return [
+      { label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" },
+      { label: "Belépő", value: result.goingMm, unit: "mm" },
+      { label: "Tömör betonék geometriai térfogata", value: result.wedgeVolumeM3, unit: "m³" },
+    ];
+  },
+};
+
 const categoryOrder: readonly { id: ConstructionCalculatorCategory; label: string }[] = [
   { id: "roof", label: "Tetők és faszerkezetek" },
   { id: "stair", label: "Lépcsők" },
@@ -166,7 +248,7 @@ function inputRecord(fields: readonly Field[], values: Record<string, string>): 
   return Object.fromEntries(fields.map((field) => {
     const value = values[field.key]?.trim() ?? "";
     if (field.kind === "checkbox") return [field.key, value === "true"];
-    if (field.kind === "text") return [field.key, value];
+    if (field.kind === "text" || field.kind === "select") return [field.key, value];
     return [field.key, value === "" ? undefined : Number(value.replace(",", "."))];
   }));
 }
@@ -243,12 +325,13 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const [category, setCategory] = useState<ConstructionCalculatorCategory>(() => initialDefinition.reference.category === "auxiliary" ? "concrete" : initialDefinition.reference.category);
   const [selectedId, setSelectedId] = useState(() => definitions[initialCalculatorId] ? initialCalculatorId : "roof.rafter");
   const [search, setSearch] = useState("");
+  const [mobileSelectionOpen, setMobileSelectionOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries((definitions[initialCalculatorId] ?? definitions["roof.rafter"]).fields.map((field) => [field.key, field.initial ?? ""])));
   const [focusedDimension, setFocusedDimension] = useState<string | null>(null);
   const definition = definitions[selectedId];
   const roofGeometryType = roofGeometryTypeForDefinition(definition);
   const activeGuide = roofGeometryType ? measurementGuideFor(roofGeometryType, focusedDimension ?? "") : null;
-  const candidates = constructionCalculatorCatalog.filter((item) => item.status === "verified" && (item.category === category || (category === "concrete" && item.category === "auxiliary")) && definitions[item.id]);
+  const candidates = constructionCalculatorCatalog.filter((item) => item.category === category || (category === "concrete" && item.category === "auxiliary"));
   const filtered = candidates.filter((item) => item.title.toLocaleLowerCase("hu-HU").includes(search.trim().toLocaleLowerCase("hu-HU")));
   const raw = useMemo(() => inputRecord(definition.fields, values), [definition.fields, values]);
   const requiredFields = definition.fields.filter((field) => !field.advanced && field.initial === undefined && field.kind !== "checkbox");
@@ -263,16 +346,18 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   }, [definition, inputsReady, raw]);
   const selectCalculator = (item: ConstructionReference) => {
     const next = definitions[item.id];
+    if (!next || item.status !== "verified") return;
     setSelectedId(item.id);
     setValues(Object.fromEntries(next.fields.map((field) => [field.key, field.initial ?? ""])));
     setFocusedDimension(null);
+    setMobileSelectionOpen(false);
   };
   const updateValue = (key: string, value: string) => setValues((current) => ({ ...current, [key]: value }));
   const basicFields = definition.fields.filter((field) => !field.advanced);
   const advancedFields = definition.fields.filter((field) => field.advanced);
   const renderField = (field: Field) => <label className={`construction-suite-field${field.kind === "checkbox" ? " is-checkbox" : ""}`} key={field.key}>
     <span>{field.label}{field.unit && <small>{field.unit}</small>}</span>
-    <input id={field.key} type={field.kind === "checkbox" ? "checkbox" : field.kind === "text" ? "text" : "number"} inputMode={field.kind === "text" ? "text" : field.kind === "checkbox" ? undefined : "decimal"} min={!field.kind ? "0" : undefined} step={field.integer ? "1" : "any"} checked={field.kind === "checkbox" ? values[field.key] === "true" : undefined} value={field.kind === "checkbox" ? undefined : values[field.key] ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, field.kind === "checkbox" ? String(event.target.checked) : event.target.value)} aria-label={`${field.label}${field.unit ? `, ${field.unit}` : ""}`} />
+    {field.kind === "select" ? <select id={field.key} value={values[field.key] ?? field.initial ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, event.target.value)} aria-label={field.label}>{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input id={field.key} type={field.kind === "checkbox" ? "checkbox" : field.kind === "text" ? "text" : "number"} inputMode={field.kind === "text" ? "text" : field.kind === "checkbox" ? undefined : "decimal"} min={!field.kind ? "0" : undefined} step={field.integer ? "1" : "any"} checked={field.kind === "checkbox" ? values[field.key] === "true" : undefined} value={field.kind === "checkbox" ? undefined : values[field.key] ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, field.kind === "checkbox" ? String(event.target.checked) : event.target.value)} aria-label={`${field.label}${field.unit ? `, ${field.unit}` : ""}`} />}
   </label>;
   const headingContent = <header className="construction-suite-title"><span className="future-module-icon"><Construction aria-hidden="true" /></span><div><p className="section-eyebrow">ELLENŐRZÖTT GEOMETRIAI SZÁMÍTÁS</p><h2>{definition.reference.title}</h2></div></header>;
   const noteContent = <><p className="construction-suite-note">{definition.note}</p>{activeGuide && <MeasurementGuidance compact guide={activeGuide} />}</>;
@@ -284,11 +369,25 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     {inputsReady && calculation.error && <p className="form-message is-error" role="alert">{calculation.error}</p>}
     {calculation.rows.length > 0 && <section className="construction-suite-results" aria-live="polite"><h3>Eredmény</h3><dl>{calculation.rows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl><p className="construction-suite-limit">{definition.reference.limitation}</p></section>}
   </>;
-  const drawingContent = calculation.rows.length > 0 ? <ConstructionDrawing definition={definition} values={values} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} /> : undefined;
+  const drawingContent = calculation.rows.length > 0
+    ? definition.reference.category === "stair"
+      ? <ConstructionStairDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
+      : <ConstructionDrawing definition={definition} values={values} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
+    : undefined;
   const independentContent = <p className="construction-suite-independent">Az eredmény helyi előnézet. Nem mentődik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>;
   const workspace = roofGeometryType
     ? <RoofWorkspace className="construction-suite-workspace" label="Tetőgeometriai kalkulátor munkaterület" context={<>{headingContent}{noteContent}</>} measurements={fieldsContent} drawing={drawingContent} results={resultsContent} actions={independentContent} />
-    : <div className="construction-suite-workspace">{headingContent}{noteContent}{fieldsContent}{resultsContent}{drawingContent}{independentContent}</div>;
+    : <div className="construction-suite-workspace">{headingContent}{noteContent}{fieldsContent}{definition.reference.category === "stair" && drawingContent}{resultsContent}{definition.reference.category !== "stair" && drawingContent}{independentContent}</div>;
+
+  const renderCalculatorOption = (item: ConstructionReference) => {
+    const available = item.status === "verified" && Boolean(definitions[item.id]);
+    return <button key={item.id} type="button" disabled={!available} aria-pressed={available ? selectedId === item.id : undefined} aria-label={available ? item.title : `${item.title}. Jelenleg nem érhető el számítás.`} title={available ? item.title : "A számításhoz még nincs függetlenül ellenőrzött geometriai motor."} className={`${selectedId === item.id ? "is-active" : ""}${available ? "" : " is-unavailable"}`} onClick={() => selectCalculator(item)}>
+      <ConstructionCalculatorThumbnail id={item.id} />
+      <span className="construction-suite-option-copy"><span>{item.title}</span>{!available && <small>Nincs ellenőrzött számítás</small>}</span>
+    </button>;
+  };
+  const searchField = <label className="construction-suite-search"><Search aria-hidden="true" /><span className="sr-only">Kalkulátor keresése</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Kalkulátor keresése" type="search" /></label>;
+  const optionList = <div className="construction-suite-options">{filtered.map(renderCalculatorOption)}{filtered.length === 0 && <p className="construction-suite-empty">Nincs ilyen kalkulátor.</p>}</div>;
 
   return <section className="construction-suite" aria-label="Önálló építési kalkulátorok">
     <div className="construction-suite-category-tabs" role="tablist" aria-label="Kalkulátorkategória">
@@ -296,9 +395,16 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     </div>
     <div className="construction-suite-layout">
       <aside className="construction-suite-list" aria-label="Kalkulátor kiválasztása">
-        <label className="construction-suite-search"><Search aria-hidden="true" /><span className="sr-only">Kalkulátor keresése</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Kalkulátor keresése" type="search" /></label>
-        <div className="construction-suite-options">{filtered.map((item) => <button key={item.id} type="button" aria-pressed={selectedId === item.id} className={selectedId === item.id ? "is-active" : ""} onClick={() => selectCalculator(item)}><Calculator aria-hidden="true" /><span>{item.title}</span></button>)}{filtered.length === 0 && <p className="construction-suite-empty">Nincs ilyen ellenőrzött kalkulátor.</p>}</div>
+        <p className="construction-suite-list-label">Kalkulátorok</p>
+        {searchField}
+        {optionList}
       </aside>
+      <div className="construction-suite-mobile-picker">
+        <button type="button" className="construction-suite-mobile-trigger" aria-expanded={mobileSelectionOpen} onClick={() => setMobileSelectionOpen((open) => !open)}>
+          <ConstructionCalculatorThumbnail id={selectedId} /><span><strong>Kalkulátor váltása</strong></span><ChevronDown aria-hidden="true" className={mobileSelectionOpen ? "is-open" : ""} />
+        </button>
+        {mobileSelectionOpen && <div className="construction-suite-mobile-options" aria-label="Kalkulátor kiválasztása">{searchField}{optionList}</div>}
+      </div>
       {workspace}
     </div>
   </section>;

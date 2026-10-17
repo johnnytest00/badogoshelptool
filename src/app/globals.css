@@ -3825,6 +3825,8 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 .construction-suite-field > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem; }
 .construction-suite-field small { color: var(--muted); font-size: .9em; font-weight: 500; }
 .construction-suite-field input { width: 100%; min-width: 0; min-height: 2.8rem; border: 1px solid var(--glass-border); border-radius: .75rem; background: var(--surface-glass); color: var(--foreground); padding: .55rem .7rem; font: inherit; font-variant-numeric: tabular-nums; }
+.construction-suite-field select { width: 100%; min-width: 0; min-height: 2.8rem; border: 1px solid var(--glass-border); border-radius: .75rem; background: var(--surface-glass); color: var(--foreground); padding: .55rem .7rem; font: inherit; }
+.construction-suite-field :is(input, select):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .construction-suite-field.is-checkbox { grid-template-columns: 1.35rem minmax(0, 1fr); align-items: center; min-height: 2.8rem; }
 .construction-suite-field.is-checkbox > span { grid-column: 2; grid-row: 1; }
 .construction-suite-field.is-checkbox input { grid-column: 1; grid-row: 1; width: 1.2rem; height: 1.2rem; min-height: 1.2rem; accent-color: var(--brand); padding: 0; }
@@ -3856,6 +3858,118 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .construction-suite *, .construction-suite *::before, .construction-suite *::after { scroll-behavior: auto !important; }
+}
+
+/* F9.24.2 original construction and staircase SVG language */
+.construction-suite-list-label { margin: 0 0 .65rem; color: var(--brand-ink); font-size: .92rem; font-weight: 800; }
+.construction-suite-options button { grid-template-columns: 3rem minmax(0, 1fr); align-items: center; min-height: 3.45rem; }
+.construction-suite-options button:disabled { cursor: not-allowed; }
+.construction-suite-options button.is-unavailable { color: var(--muted); }
+.construction-suite-options button.is-unavailable:hover { border-color: transparent; background: transparent; }
+.construction-suite-option-copy { display: grid; gap: .15rem; min-width: 0; }
+.construction-suite-option-copy > span { overflow-wrap: anywhere; }
+.construction-suite-option-copy small { color: var(--muted); font-size: .68rem; font-weight: 600; }
+.construction-thumbnail { display: block; width: 2.75rem; height: 2.35rem; overflow: visible; color: var(--foreground); }
+.construction-icon-geometry { stroke: currentColor; }
+.construction-icon-tread { fill: color-mix(in srgb, var(--brand) 28%, var(--surface-glass)); stroke: currentColor; }
+.construction-icon-landing { fill: color-mix(in srgb, var(--brand) 12%, var(--surface-glass)); stroke: currentColor; }
+.construction-icon-winder { fill: color-mix(in srgb, var(--brand) 45%, var(--surface-glass)); stroke: currentColor; }
+.construction-icon-metal-tread { fill: color-mix(in srgb, var(--muted) 22%, var(--surface-glass)); stroke: currentColor; }
+.construction-icon-zigzag { fill: none; stroke: var(--brand-ink); stroke-width: 2.4; }
+.construction-icon-stringer { fill: none; stroke: var(--muted); stroke-width: 2.2; }
+.construction-icon-dash { fill: none; stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 2 2; }
+.construction-icon-concrete { fill: color-mix(in srgb, var(--muted) 20%, var(--surface-glass)); stroke: currentColor; }
+.construction-icon-roof { fill: color-mix(in srgb, var(--brand) 25%, var(--surface-glass)); stroke: currentColor; }
+.construction-icon-joint { fill: var(--brand); stroke: currentColor; }
+.construction-icon-band { fill: color-mix(in srgb, var(--brand) 24%, var(--surface-glass)); stroke: currentColor; }
+.construction-icon-rebar { fill: none; stroke: var(--brand-ink); stroke-width: 3; }
+.construction-icon-rib { fill: none; stroke: var(--brand); stroke-width: 2.2; }
+.construction-icon-label { fill: var(--brand-ink); stroke: none; font: 800 11px/1 sans-serif; }
+.construction-suite-mobile-picker { display: none; }
+
+.construction-stair-drawing { display: grid; gap: .65rem; min-width: 0; border: 1px solid var(--glass-border); border-radius: 1rem; background: color-mix(in srgb, var(--surface-glass) 38%, transparent); padding: .75rem; }
+.construction-stair-drawing-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.construction-stair-drawing-heading h3 { margin: 0; color: var(--foreground); font-size: 1.05rem; }
+.construction-stair-drawing-heading .section-eyebrow { margin: 0 0 .18rem; }
+.construction-stair-drawing-heading > span { border: 1px solid var(--glass-border); border-radius: 999px; color: var(--muted); padding: .3rem .55rem; font-size: .72rem; white-space: nowrap; }
+.construction-stair-view-tabs { display: inline-grid; grid-auto-columns: minmax(7rem, 1fr); grid-auto-flow: column; justify-self: start; gap: .2rem; border: 1px solid var(--glass-border); border-radius: .8rem; background: color-mix(in srgb, var(--surface-glass) 55%, transparent); padding: .2rem; }
+.construction-stair-view-tabs button { min-height: 2.55rem; border: 0; border-radius: .62rem; background: transparent; color: var(--muted); padding: .45rem .8rem; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; }
+.construction-stair-view-tabs button.is-active { background: var(--surface-strong); color: var(--brand-ink); box-shadow: var(--shadow-control); }
+.construction-stair-toolbar { align-items: center; min-height: 2.8rem; padding: .25rem .4rem; }
+.construction-stair-toolbar .drawing-toolbar-hint { margin-left: auto; }
+.construction-stair-canvas { width: 100%; min-width: 0; overflow: hidden; overscroll-behavior: contain; border: 1px solid color-mix(in srgb, var(--glass-border) 68%, transparent); border-radius: .8rem; background: color-mix(in srgb, var(--background) 94%, var(--glass-tint) 6%); touch-action: none; }
+.construction-stair-svg { display: block; width: 100%; height: clamp(17rem, 34vw, 31rem); color: var(--foreground); cursor: grab; user-select: none; -webkit-user-select: none; }
+.construction-stair-svg:active { cursor: grabbing; }
+.construction-stair-svg text { fill: var(--foreground); font-family: inherit; font-size: 15px; font-weight: 600; paint-order: stroke; stroke: color-mix(in srgb, var(--surface-strong) 90%, transparent); stroke-width: 4px; stroke-linejoin: round; }
+.construction-stair-svg .stair-profile { fill: none; stroke: var(--brand); stroke-linecap: round; stroke-linejoin: round; stroke-width: 6px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .stair-stringer-centerline { stroke: var(--muted); stroke-width: 2px; stroke-dasharray: 8 7; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .stair-floor-line { stroke: var(--foreground); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .stair-dimension-line { stroke: var(--muted); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .stair-dimension-line + text { fill: var(--foreground); font-size: 14px; }
+.construction-stair-svg .stair-extension { stroke: var(--muted); stroke-width: 1px; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.construction-stair-svg marker path { fill: var(--muted); stroke: none; }
+.construction-stair-svg .stair-dimension.is-active .stair-dimension-line,
+.construction-stair-svg .stair-dimension.is-active .stair-extension { stroke: var(--brand); stroke-width: 3px; }
+.construction-stair-svg .stair-dimension.is-active text,
+.construction-stair-svg .stair-count-label.is-active,
+.construction-stair-svg .stair-angle-label.is-active,
+.construction-stair-svg .stair-note-label.is-active { fill: var(--brand-ink); stroke: var(--surface-strong); }
+.construction-stair-svg .stair-dimension { cursor: pointer; outline: none; }
+.construction-stair-svg .stair-dimension:focus-visible text { fill: var(--brand-ink); stroke: var(--focus-ring); stroke-width: 5px; }
+.construction-stair-svg .stair-angle-mark { fill: none; stroke: var(--muted); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .stair-angle-label { fill: var(--brand-ink); }
+.construction-stair-svg .stair-count-label { fill: var(--brand-ink); font-weight: 750; }
+.construction-stair-svg .stair-view-note { fill: var(--muted); font-size: 13px; }
+.construction-stair-svg .stair-plan-outline { fill: color-mix(in srgb, var(--surface-strong) 60%, transparent); stroke: var(--foreground); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .stair-tread-separator { stroke: var(--muted); stroke-width: 1.3px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .stair-tread-highlight { fill: color-mix(in srgb, var(--brand) 15%, transparent); stroke: none; }
+.construction-stair-svg .stair-landing-fill { fill: color-mix(in srgb, var(--surface-strong) 82%, transparent); stroke: var(--foreground); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .stair-landing-tread { fill: color-mix(in srgb, var(--brand) 21%, var(--surface-glass)); stroke: var(--foreground); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .stair-landing-tread.is-alternate { fill: color-mix(in srgb, var(--brand) 11%, var(--surface-glass)); }
+.construction-stair-svg .stair-landing-tread.is-focused { stroke: var(--brand); stroke-width: 3px; }
+.construction-stair-svg .stair-concrete-body { fill: color-mix(in srgb, var(--muted) 36%, var(--surface-glass)); stroke: var(--foreground); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .spiral-tread { fill: color-mix(in srgb, var(--brand) 25%, var(--surface-glass)); stroke: var(--foreground); stroke-width: 1.2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .spiral-tread.is-alternate { fill: color-mix(in srgb, var(--brand) 12%, var(--surface-glass)); }
+.construction-stair-svg .spiral-boundary { fill: none; stroke: var(--foreground); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .spiral-walking-line { fill: none; stroke: var(--brand-ink); stroke-width: 2px; stroke-dasharray: 7 5; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .spiral-radius { stroke: var(--brand-ink); stroke-width: 1.4px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .stair-rise-axis,
+.construction-stair-svg .stair-rise-tick { stroke: var(--brand); stroke-width: 3px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .bevel-profile { fill: color-mix(in srgb, var(--brand) 17%, var(--surface-glass)); stroke: var(--foreground); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .bevel-diagonal { stroke: var(--brand); stroke-width: 4px; vector-effect: non-scaling-stroke; }
+.construction-stair-caption,
+.construction-stair-focus-note { margin: 0; color: var(--muted); font-size: calc(.75rem * var(--tp-text-scale)); line-height: 1.45; }
+.construction-stair-focus-note { color: var(--brand-ink); }
+.construction-stair-drawing :is(button, svg):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+
+@media (max-width: 850px) {
+  .construction-suite-list { display: none; }
+  .construction-suite-mobile-picker { display: grid; gap: .45rem; min-width: 0; }
+  .construction-suite-mobile-trigger { display: grid; grid-template-columns: 3rem minmax(0, 1fr) auto; align-items: center; gap: .65rem; width: 100%; min-height: 3.7rem; border: 1px solid var(--glass-border); border-radius: .9rem; background: color-mix(in srgb, var(--surface-glass) 58%, transparent); color: var(--foreground); padding: .5rem .7rem; text-align: left; cursor: pointer; }
+  .construction-suite-mobile-trigger > span { display: grid; gap: .12rem; min-width: 0; }
+  .construction-suite-mobile-trigger small { color: var(--muted); font-size: .7rem; }
+  .construction-suite-mobile-trigger strong { overflow-wrap: anywhere; font-size: .88rem; }
+  .construction-suite-mobile-trigger > svg:last-child { transition: transform .16s ease; }
+  .construction-suite-mobile-trigger > svg:last-child.is-open { transform: rotate(180deg); }
+  .construction-suite-mobile-options { display: grid; gap: .35rem; border: 1px solid var(--glass-border); border-radius: .9rem; background: color-mix(in srgb, var(--surface-glass) 65%, var(--background)); padding: .65rem; }
+  .construction-suite-mobile-options .construction-suite-options { max-height: none; overflow: visible; grid-template-columns: minmax(0, 1fr); margin-top: .2rem; }
+}
+@media (max-width: 560px) {
+  .construction-stair-drawing { border-radius: .9rem; padding: .6rem; }
+  .construction-stair-view-tabs { width: 100%; grid-auto-columns: 1fr; }
+  .construction-stair-view-tabs button { padding-inline: .4rem; font-size: .76rem; }
+  .construction-stair-toolbar { flex-wrap: wrap; }
+  .construction-stair-toolbar .drawing-toolbar-hint { display: none; }
+  .construction-stair-svg { height: 16.5rem; }
+  .construction-suite-options button { grid-template-columns: 2.8rem minmax(0, 1fr); }
+  .construction-thumbnail { width: 2.5rem; }
+}
+@media (max-width: 390px) {
+  .construction-stair-svg .stair-dimension-line + text,
+  .construction-stair-svg .stair-landing-flight-label { font-size: 42px; stroke-width: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .construction-stair-drawing *, .construction-stair-drawing *::before, .construction-stair-drawing *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
 @media (max-width: 980px) {
   .workflow-material-row { grid-template-columns: 1.2rem minmax(0, 1fr) minmax(5rem, .65fr) auto; }

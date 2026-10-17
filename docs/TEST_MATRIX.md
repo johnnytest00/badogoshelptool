@@ -1893,3 +1893,34 @@ Státusz: **PARTIAL — CSS IMPLEMENTED**.
 | Böngészős/reszponzív ellenőrzés | NEM FUTOTT | Asztali route navigáció, termék kiválasztása, virtuális billentyűzet, mobil viewport és screen reader nincs ellenőrizve. |
 
 Státusz: **PARTIAL — IMPLEMENTED, BROWSER UX UNVERIFIED**.
+
+## F9.24.2 — Stair drawing and visual navigation
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Referencia- és navigációs lefedettség | PASS, CODE + FOCUSED TEST | A 17 lépcső-, illetve 10 beton/alapozás/segéd referencia külön ikonja létezik; az ikonok egyediségét teszt ellenőrzi. Mobil kereső/kategóriaválasztó és asztali lista a `/kalkulatorok/epitesi` route-on működik. 11 nem implementált variáns tiltott marad. |
+| Eredményrajzok | PASS, FOCUSED BROWSER + COMPONENT | S1/S2/S10/S11 oldalnézet és opcionális szélességből képzett felülnézet; S9 spirál alaprajz és fellépés-kiosztás; S16 ferde profil. Az eredményrajz kizárólag e hat, meglévő motorral ellenőrzött variánsnál engedélyezett. |
+| Számítás és rajzi invariánsok | PASS, FOCUSED VITEST | `npx vitest run src/domain/calculations/construction/construction.test.ts src/domain/calculations/construction/catalog.test.tsx src/domain/calculations/roof-geometry.test.ts src/domain/calculations/gable-metal-tile-covering.test.ts src/domain/drawings/construction-stairs.test.ts`: 5 fájl / 38 teszt PASS. Fokszám/fokosztás, rajzi végpont, 2× skálázás, spirál járóvonal és 1 440°/1 fellépés határeset, tiltott rajz hiánya és ikon-unikalitás lefedett. |
+| Typecheck / lint / build / diff | PASS | `npm run lint`; `npm run build` (Next.js 16.4.0 webpack); build után `npm run typecheck`; `git diff --check` PASS. Teljes Vitest suite nem futott. |
+| Böngészős workflow | PASS, LOCAL PRODUCTION BUILD | Egyenes lépcső eredménye és oldalnézet; megadott 800 mm szélességgel felülnézet; rajzi méretre kattintva kapcsolódó input fókusz; zoom, illesztés és reset; csigalépcső alaprajz és függőleges kiosztás; mobil selector és Enteres nézetváltás ellenőrizve. |
+| Viewport / téma | PASS, EMULATED / PARTIAL | 1440/1024/768/390/320 CSS px-en document/body szélessége megegyezett a viewporttal; túlcsordulás nem látszott. Sötét témájú rajz-háttér olvashatóságát ellenőriztem. Világos téma és vizuális/kontrasztmátrix nem futott. |
+| Pointer / hozzáférhetőség | PARTIAL | Pan/pinch implementálva pointer cleanup-pal; billentyűzetes Enter váltás ellenőrizve. Egérrel pan, tényleges touch/pinch, screen reader, reduced-motion böngészőemuláció, forced-colors és fizikai iOS nem tesztelt. |
+| Üzleti adat és jogosultság | NEM VÁLTOZOTT | Nincs perzisztencia, adatbázis, Auth/RLS, projekt/ügyfélkapcsolat vagy üzleti workflow integráció. A kalkulátor önálló UI-állapotként fut. |
+
+Státusz: **PARTIAL (F9.24.2-kori snapshot)** — az akkori hat eredményrajztípus ellenőrzött; az azóta implementált 8 szűkített lépcsőscope és az aktuális lefedettség az F9.24.3 szakaszban szerepel.
+
+## F9.24.3 — Pihenős lépcsők és tömör betonlépcső geometria
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| 33 referencia registry | PASS, CODE + FOCUSED TEST | 33/33 mátrixsor; 30 `VERIFIED` csak dokumentált részscope-ra, 3 húzottfokos lépcső `NOT IMPLEMENTED`, 0 `IMPLEMENTED / UNVERIFIED`. |
+| Landing stair domain tests | PASS, FOCUSED VITEST | 90°/180°/háromkarú pihenős lépcső: karonkénti azonos fellépő, fok/futás, tervkiterjedés, U-hézag, tükörirány, 2× skálázás és hibás geometriák. Tömör betonék: külön lépcsősáv-összegű független 5,88 m³ fixture. `stair-landings.test.ts`: 5/5. |
+| Rajz / registry tests | PASS, FOCUSED VITEST | S3/S5/S7/S12–S15 felülnézeti fok/pihenőpoligonok; S17 lépcsőprofil és tömör test. `construction-stairs.test.ts` + `catalog.test.tsx` ellenőrzi a véges SVG-t, 3 tiltott húzott fokos variánst és a 17+10 egyedi ikonokat. |
+| Összes fókuszált Vitest | PASS | `npx vitest run src/domain/calculations/construction/construction.test.ts src/domain/calculations/construction/catalog.test.tsx src/domain/calculations/construction/stair-landings.test.ts src/domain/calculations/roof-geometry.test.ts src/domain/calculations/gable-metal-tile-covering.test.ts src/domain/drawings/construction-stairs.test.ts`: 6 fájl / 44 teszt. Teljes Vitest regresszió nem futott. |
+| Build / typecheck / lint / diff | PASS | `npm run build` (Next.js 16.4.0 webpack); utána `npm run typecheck`; `npm run lint`; `git diff --check`. |
+| Helyi production browser smoke | PASS, READ-ONLY | Direkt `/kalkulatorok/epitesi?calculator=stair.wood.90_landing` route projektrekord nélkül betöltött. Hip-roof 10 000×6 000 mm / 45°: 60 m² vetület, 84,853 m² felület, 4 kontyél. 90°/180°/háromkarú lépcső és tömör betonék helyes mezőkkel, értékekkel, rajzokkal; U-hézag 200 mm-rel módosította a tervszélességet. Sávalap: 9,6 m³ és 48 m² zsaluzat; lemez: 16 m³ és 7,2 m²; explicit mix 360/720/1440 kg; 10×Ø12×6000 mm rebar 60 m / 53,269 kg; háló: 21/26 rúd, 197,6/197 mm tényleges osztás. Korábbi F9.24.1/2 smoke bizonyítja a nyeregtető-fedési, egyenes és spirál útvonalat. A friss 320 px-es 90°-os munkafolyamatban a számítás és felülnézet megjelent; a belépő mező fókusza kiemelte a fokpoligonokat. Nincs mentés. Korábbi smoke konzolhibát nem jelzett; a legutóbbi vizuális menetben konzol-hozzáférés nem volt. |
+| Reszponzív | PASS, EMULATED VIEWPORT | A korábbi 1440/1024/768/390/320 CSS px mérésben document/body scrollWidth egyezett a viewporttal; műhely 811/669/714/363/296 px, lépcső-SVG 749/607/652/314/247 px volt. Az utolsó SVG-változtatás után 320 px-en új produkciós screenshot ellenőrizte a kompakt viewBoxot, teljes tervhossz- és tervszélesség-feliratot, valamint a fokok olvashatóságát. Nincs fizikai mobilteszt; a friss build 390 px-es vizuális ellenőrzése nem futott külön. |
+| A11y / téma / pointer | PARTIAL | Sémás mezőcímkék, normál tab/checkbox/select, belső note-ok és rajzi fókusz működése kódban; teljes keyboard, screen reader, kontraszt, világos téma, reduced-motion, forced-colors, fizikai touch/pinch és iOS nincs teljesen ellenőrizve. |
+| Adatok / jogosultság / integráció | NEM VÁLTOZOTT | Nincs mentés, DB, migration, ügyfél/projekt/felmérés/anyaglista/munkanapló/ajánlat-kapcsolat. A smoke-ot közvetlen standalone route-on futtattam, authenticated navigation mátrix nem készült. |
+
+Státusz: **PARTIAL** — a 33 referencia tételes; három húzott fokos változat nincs implementálva, a többi csak explicit, szűkített scope-jában használható. Az összes 33 teljes eredeti kalkulátorfunkció, statikai/gyártási kimenet, teljes a11y- és auth-mátrix nincs igazolva.
