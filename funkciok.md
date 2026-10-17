@@ -6,6 +6,26 @@
 **Leltár hatóköre:** projekt által karbantartott `.ts` / `.tsx` fájlok a repóban; build-, dependency- és generált Next.js fájlok kizárva.
 **Dokumentált forrásfájlok:** 454 egyedi TypeScript-útvonal (F9.37.3 után; a `src/` alatti `.ts` / `.tsx` fájlok, a generált `src/infrastructure/supabase/database.types.ts` kizárásával; a `next-env.d.ts` nem része a `src/`-nek). Build- és dependency-fájlok nem számítanak bele.
 
+## Aktuális funkcióállapot — 2026-10-17
+
+Ez a rövid térkép a route- és feature-forráskódot a `docs/PROGRESS.md` aktuális bejegyzésével együtt foglalja össze. A részletes fájlleltár és a történeti mérföldkövek alább következnek.
+
+| Terület | Állapot | Megvalósult működés és fontos korlát |
+|---|---|---|
+| Dashboard, Auth, szervezet | **Megvalósított, helyi flow** | Bejelentkezés, tagságok betöltése, több szervezetnél explicit választás, műhely-dashboard. Hosted onboarding/meghívás/szerepkör-admin nincs igazolva. |
+| Felmérés | **Megvalósított, részleges pilot** | Projekt nélküli, szakaszos és verziózott mérés; fotó; közös geometriai előnézet; támogatott kalkuláció, projekt/ajánlat/munkanapló/anyaglista follow-up. Terepi mobil, gyenge hálózat, hosted Storage és EXIF/GPS-kezelés nem teljesen ellenőrzött. |
+| Projekt és ügyfél | **Adatmodell és munkafelület létezik; globális CRUD UI részleges** | `/projektek/[projectId]/**` projektmunka és tetőmodellek elérhetők. `/projektek`, `/projektek/uj` és `/ugyfelek/**` aktuális route-jai a dashboardra irányítanak. Felmérésből projekt-utókövetés van; ne írd le teljes általános projekt/ügyfél kezelőként. |
+| Tetőgeometria | **Megvalósított, lefedettség részleges** | Hét forma a Survey közös geometriájában és rajzában; standalone shared summary a nyeregtető/félnyereg/konty útvonalakon. Teljes általános aszimmetrikus/L/T modellező nincs. |
+| Kalkulátorok | **Megvalósított, kalkulátoronként változó mentéssel** | Tető-, ereszcsatorna-, szegély-, fedés-, profil-, lépcső-, betonozás- és alapozási modulok. A mentés, újranyitás és takeoff átadás nem univerzális; ellenőrizd a konkrét calculator ID actionjét. |
+| Faanyag / alátét | **F9.35.1, F9.36.1 megvalósítva, szakmai korlátokkal** | Explicit kiosztásból geometriai mennyiségek; alátétnél gable/shed/hip csíkozás és korlátos 1D vágási minimum. Nem statikai terv, nem gyártási/beszerzési darabszám; további formák alátétnél nem támogatottak. |
+| Anyagkezelő | **Megvalósított helyi CRUD** | Kategória, termék, változat, árverzió, provenance és termékkezelés. Csak ellenőrzött gyártói/áradatot tölts be. |
+| Anyagkimutatás / lista / beszerzés | **Részlegesen integrált** | Önálló és felmérés-/kalkuláció-forrású listák, támogatott draft/approval utak, beszerzési CSV. Minden kalkulátorhoz nincs forrásadapter; puszta tetőterületből nem lesz vásárolható mennyiség. |
+| Ajánlat | **Projekt: revíziózott workflow; standalone: DRAFT** | Projektajánlatok és PDF; standalone HUF/nettó draft és snapshot-alapú PDF előnézet. Standalone finalize/issuance, VAT/áfa és hivatalos dokumentumszám nincs. |
+| Kivitelezés | **Megvalósított belső munkanapló, részleges pilot** | Terv, feladat, napi bejegyzés, privát fotó, felméréskapcsolat, belső PDF. Nem hivatalos e-építési napló; hosted/terepi üzemeltetés nincs igazolva. |
+| Pilot és produkció | **Blokkolt / nem igazolt** | Hosted deploy/auth, cross-org staging, backup/restore, RPO/RTO, adatvédelmi döntések, mobil/gyenge hálózat és szakmai/jogi review hiányzik. Lásd [`docs/PILOT_READINESS.md`](docs/PILOT_READINESS.md). |
+
+Fő útvonal- és adatfolyam-áttekintés: [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md). Claude Code átadás: [`docs/CLAUDE_HANDOFF.md`](docs/CLAUDE_HANDOFF.md). A történeti mérföldkő-bejegyzés nem bizonyít mai runtime állapotot; a tényleges ellenőrzési részletek a [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) fájlban vannak.
+
 ## Rendszeráttekintés
 
 ### Alkalmazás és fő felületek

@@ -1,4 +1,18 @@
-# F7.3.2 állapot
+# Fejlesztési előrehaladás és bizonyítékok
+
+## F9.38 — Claude Code fejlesztői projektátadás
+
+Státusz: **DOCUMENTATION COMPLETE / APP-CODE UNCHANGED**.
+
+- Elkészült a gyökér `CLAUDE.md`, amely importálja az `AGENTS.md` szabályait, és a tényleges aktuális kódhoz köti a Claude Code munkakezdést, architektúrát, adatbiztonságot, dokumentációfenntartást és ellenőrzést.
+- Elkészült a `docs/PROJECT_MAP.md` a jelenlegi stack, route-ok, funkcióállapotok, adatfolyamok, revízió/RLS határok és helyi parancsok leírásával.
+- Elkészült a `docs/CLAUDE_HANDOFF.md`; különválasztja a megvalósult, részleges, tervezett és nem igazolt állapotot, és megadja a fő döntéseket, pilot-blokkolókat, következő logikus lépéseket és dokumentációs útvonalakat.
+- A `funkciok.md` kapott egy rövid, aktuális funkcióállapot-táblát. A meglévő részletes route-/fájlleltár megmaradt; ellenőrzött forrásleltár: 454 `.ts`/`.tsx` útvonal a generált Supabase típusfájl nélkül.
+- A dokumentáció a forráskódot tekinti a route/funkció bizonyítékának, a `PROJECT_BLUEPRINT.md`-t tervnek; külön jelzi a redirectelő régi projekt/ügyfél route-okat, a standalone ajánlat DRAFT-határát, a F9.36.2 csak specifikációs állapotát és a pilot hiányzó bizonyítékait.
+- **Ellenőrzés:** a repó 35 Markdown-fájljának helyi fájlhivatkozás-ellenőrzése **PASS**; `git diff --check` **PASS**. Alkalmazásteszt, pgTAP, typecheck, lint, build és böngésző nem fut; csak dokumentáció változik.
+- **Konzisztencia/jogosultság:** adatbázis-, hitelesítési, jogosultsági és runtime állapotot nem módosítottam vagy ellenőriztem újra. A handoff a korábban dokumentált helyi teszteredményeket történeti bizonyítékként jelöli.
+
+Javasolt Conventional Commit: `docs(F9.38): prepare Claude Code project handoff`.
 
 ## F9.37.3 — Háttér finomítása és Safari React script-hiba javítása
 
