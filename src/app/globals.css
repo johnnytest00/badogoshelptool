@@ -3547,6 +3547,9 @@ html[data-glass-frame-free="true"] :is(
   .project-action-menu-trigger,
   .project-archive-confirm,
   .workflow-material-settings-panel,
+  .material-manager-catalog,
+  .material-manager-category-settings,
+  .material-manager-dialog,
   .glass-confirmation-dialog,
   .glass-toast,
   .route-skeleton-surface,
@@ -3575,4 +3578,167 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
   .dashboard-settings-panel { padding: 1rem; }
   .liquid-glass-color-row { grid-template-columns: 2rem minmax(0, 1fr) 2.8rem; gap: .5rem; }
   .liquid-glass-color-preview { width: 1.8rem; height: 1.8rem; }
+}
+
+/* F9.22: compact organization-scoped material manager and progressive list entry. */
+.survey-initial-work-type { display: grid; gap: .75rem; min-width: 0; border: 1px solid var(--glass-border); border-radius: 1rem; background: color-mix(in srgb, var(--surface-glass) 84%, transparent); padding: clamp(.85rem, 2vw, 1.1rem); }
+.survey-initial-work-type h2 { margin: 0; color: var(--foreground); font-size: calc(1.1rem * var(--tp-text-scale)); }
+.survey-initial-work-type p { margin: .25rem 0 0; color: var(--muted); font-size: calc(.82rem * var(--tp-text-scale)); line-height: 1.45; }
+.survey-work-type-chooser.glass-toolbar { display: grid; width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .55rem; margin: 0; }
+.survey-work-type-chooser > .secondary-button { display: grid; min-width: 0; min-height: max(3.25rem, calc(3.25rem * var(--tp-ui-scale))); align-content: center; justify-items: start; gap: .12rem; padding: .55rem .75rem; text-align: left; white-space: normal; }
+.survey-work-type-chooser > .secondary-button small { color: var(--muted); font-size: calc(.69rem * var(--tp-text-scale)); font-weight: 500; line-height: 1.3; }
+.survey-initial-work-type :is(button, a, input, select, summary):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+@media (max-width: 900px) { .survey-work-type-chooser.glass-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .survey-work-type-chooser.glass-toolbar { grid-template-columns: 1fr; }.survey-work-type-chooser > .secondary-button { width: 100%; } }
+.execution-journal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.execution-journal-heading h2 { margin: 0; color: var(--foreground); font-size: calc(1rem * var(--tp-text-scale)); }
+.execution-journal-heading .primary-button { min-height: 2.8rem; flex: 0 0 auto; }
+.execution-journal-entry-form { min-width: 0; }
+.execution-journal-entry-form > label { display: grid; gap: .35rem; color: var(--foreground); font-size: calc(.84rem * var(--tp-text-scale)); font-weight: 750; }
+.execution-journal-entry-form textarea, .execution-journal-entry-form input { width: 100%; min-width: 0; min-height: 2.8rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--surface-strong); color: var(--foreground); padding: .65rem .75rem; font: inherit; }
+.execution-journal-entry-form textarea { min-height: 6rem; resize: vertical; }
+.execution-journal-entry-form .glass-disclosure { margin: 0; }
+.execution-journal-entry-form > button[type="submit"] { justify-self: start; min-height: 2.8rem; }
+@media (max-width: 560px) {
+  .execution-journal-heading { align-items: stretch; flex-direction: column; }
+  .execution-journal-heading .primary-button { align-self: flex-start; min-height: 2.9rem; }
+  .execution-journal-entry-form > button[type="submit"] { width: 100%; justify-content: center; min-height: 2.9rem; }
+}
+.material-manager-workspace { display: grid; gap: .9rem; }
+.material-manager-workspace > .back-link { justify-self: start; }
+.material-manager-workspace > .glass-page-header { margin: 0; }
+.material-manager-categories { display: flex; gap: .45rem; max-width: 100%; overflow-x: auto; padding: .15rem .1rem .4rem; scrollbar-width: thin; }
+.material-manager-categories button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .45rem; min-height: 2.8rem; border: 1px solid var(--glass-border); border-radius: 999px; background: color-mix(in srgb, var(--surface-glass) 88%, transparent); color: var(--foreground); padding: .45rem .8rem; font: inherit; font-size: calc(.8rem * var(--tp-text-scale)); cursor: pointer; }
+.material-manager-categories button.is-selected { border-color: color-mix(in srgb, var(--brand) 55%, var(--glass-border)); background: var(--brand-soft); color: var(--brand-ink); font-weight: 800; }
+.material-manager-categories button span { color: var(--muted); font-size: .75em; font-variant-numeric: tabular-nums; }
+.material-manager-catalog { min-width: 0; border: 1px solid var(--glass-border); border-radius: 1.1rem; background: color-mix(in srgb, var(--surface-glass) 84%, transparent); padding: clamp(.7rem, 2vw, 1rem); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-control); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.material-manager-toolbar, .material-manager-category-toolbar { display: flex; align-items: center; gap: .7rem; margin-block: .65rem .85rem; }
+.material-manager-search { display: flex; flex: 1 1 18rem; align-items: center; gap: .55rem; min-width: 0; min-height: 2.8rem; border: 1px solid var(--glass-border); border-radius: .8rem; background: color-mix(in srgb, var(--surface-glass) 90%, transparent); color: var(--muted); padding: 0 .7rem; }
+.material-manager-search > svg { flex: 0 0 1rem; width: 1rem; height: 1rem; }
+.material-manager-search input { width: 100%; min-width: 0; min-height: 2.65rem; border: 0; outline: 0; background: transparent; color: var(--foreground); font: inherit; font-size: calc(.87rem * var(--tp-text-scale)); }
+.material-manager-archived { display: inline-flex; align-items: center; gap: .5rem; min-height: 2.8rem; color: var(--foreground); font-size: calc(.82rem * var(--tp-text-scale)); }
+.material-manager-archived input { width: 1.1rem; height: 1.1rem; accent-color: var(--brand); }
+.material-manager-table-wrap { width: 100%; overflow-x: auto; }
+.material-manager-table { width: 100%; border-collapse: collapse; table-layout: fixed; color: var(--foreground); }
+.material-manager-table th, .material-manager-table td { border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent); padding: .65rem .55rem; text-align: left; vertical-align: middle; overflow-wrap: anywhere; }
+.material-manager-table thead th { color: var(--muted); font-size: calc(.73rem * var(--tp-text-scale)); font-weight: 700; }
+.material-manager-table tbody th { font-size: calc(.88rem * var(--tp-text-scale)); font-weight: 750; }
+.material-manager-table tbody tr:last-child > * { border-bottom: 0; }
+.material-manager-table th:first-child { width: 30%; }
+.material-manager-table th:nth-child(2) { width: 19%; }
+.material-manager-table th:nth-child(3) { width: 12%; }
+.material-manager-table th:nth-child(4) { width: 23%; }
+.material-manager-table th:nth-child(5) { width: 16%; }
+.material-manager-product-link { display: grid; gap: .15rem; color: inherit; text-decoration: none; }
+.material-manager-product-link:hover span { color: var(--brand-ink); text-decoration: underline; text-underline-offset: .15em; }
+.material-manager-product-link small, .material-manager-product-code, .material-manager-inactive-note { color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); }
+.material-manager-table-price { display: block; margin-block: .1rem; font-size: calc(.76rem * var(--tp-text-scale)); }
+.material-manager-table-price small { color: var(--muted); }
+.material-manager-inactive-note { display: block; margin-top: .25rem; }
+.material-manager-row-actions { display: flex; align-items: center; gap: .35rem; }
+.material-manager-row-actions > .inline-status-form { flex: 0 0 auto; margin: 0; }
+.material-manager-row-actions .primary-button { min-height: 2.7rem; flex: 0 0 auto; padding-inline: .65rem; white-space: nowrap; }
+.material-manager-edit, .material-manager-dialog-close { display: inline-grid; width: 2.7rem; height: 2.7rem; flex: 0 0 auto; place-items: center; border: 1px solid var(--glass-border); border-radius: .8rem; background: color-mix(in srgb, var(--surface-glass) 90%, transparent); color: var(--foreground); text-decoration: none; cursor: pointer; }
+.material-manager-edit svg { width: 1rem; height: 1rem; }
+.material-manager-mobile-list { display: none; }
+.material-manager-category-settings { border: 1px solid var(--glass-border); border-radius: 1rem; background: color-mix(in srgb, var(--surface-glass) 84%, transparent); padding: .1rem .75rem .75rem; }
+.material-manager-category-settings > summary { display: flex; min-height: 3.15rem; align-items: center; justify-content: space-between; gap: .7rem; color: var(--foreground); cursor: pointer; font-weight: 750; list-style: none; }
+.material-manager-category-settings > summary::-webkit-details-marker { display: none; }
+.material-manager-category-settings > summary span { color: var(--muted); font-size: .8rem; font-weight: 600; }
+.material-manager-category-toolbar { margin: 0 0 .6rem; }
+.material-manager-category-list { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
+.material-manager-category-list > li { display: flex; align-items: center; justify-content: space-between; gap: .65rem; min-height: 3.2rem; border-top: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent); padding-block: .4rem; }
+.material-manager-category-name { display: grid; gap: .1rem; min-width: 0; overflow-wrap: anywhere; color: var(--foreground); font-weight: 650; }
+.material-manager-category-name small { color: var(--muted); font-size: .72rem; font-weight: 500; }
+.material-category-status { min-height: 2.5rem; padding: .4rem .6rem; }
+.material-category-status svg { width: .95rem; height: .95rem; }
+.material-manager-manufacturers { margin-top: -.3rem; }
+.material-manager-manufacturers .material-manufacturers { border: 0; background: transparent; padding: .2rem 0 0; box-shadow: none; }
+.material-manager-manufacturers .material-inline-form { background: color-mix(in srgb, var(--surface-glass) 75%, transparent); }
+.material-manager-dialog { width: min(32rem, calc(100vw - 1.5rem)); max-width: none; max-height: min(90dvh, 44rem); overflow: auto; border: 1px solid var(--glass-border); border-radius: 1.15rem; background: var(--surface-strong); color: var(--foreground); padding: 0; box-shadow: var(--shadow-control); }
+.material-manager-dialog::backdrop { background: rgb(4 8 14 / .58); backdrop-filter: blur(3px); }
+.material-manager-dialog-form { display: grid; gap: 1rem; padding: clamp(1rem, 4vw, 1.35rem); }
+.material-manager-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.material-manager-dialog-heading h2 { margin: .2rem 0 0; font-size: calc(1.25rem * var(--tp-text-scale)); }
+.material-manager-dialog-close { font-size: 1.5rem; }
+.material-manager-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
+.material-manager-dialog-actions button { min-height: 2.8rem; }
+.material-manager-product-form { display: grid; gap: .8rem; min-width: 0; }
+.material-manager-product-form .material-field { min-width: 0; }
+.material-manager-product-form .material-manager-unit-help { margin: -.5rem 0 0; color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.4; }
+.material-manager-price-disclosure { min-width: 0; border: 1px solid var(--glass-border); border-radius: .8rem; background: color-mix(in srgb, var(--surface-glass) 82%, transparent); padding: .1rem .7rem .7rem; }
+.material-manager-price-disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: .6rem; min-height: 2.9rem; color: var(--foreground); cursor: pointer; font-weight: 700; list-style: none; }
+.material-manager-price-disclosure > summary::-webkit-details-marker { display: none; }
+.material-manager-price-disclosure > summary span { color: var(--muted); font-size: .78rem; font-weight: 500; }
+.material-manager-price-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; padding-top: .2rem; }
+.material-manager-price-fields .missing-data { grid-column: 1 / -1; }
+.material-manager-catalog .empty-state { margin-top: .6rem; }
+.material-manager-mobile-product { display: grid; gap: .45rem; min-width: 0; border-top: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent); padding: .8rem .1rem; }
+.material-manager-mobile-product-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: .55rem; }
+.material-manager-mobile-product-heading > div { min-width: 0; }
+.material-manager-mobile-product-heading h3 { margin: .35rem 0 0; overflow-wrap: anywhere; font-size: calc(1rem * var(--tp-text-scale)); }
+.material-manager-mobile-product ul { display: grid; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+.material-manager-mobile-product li { display: flex; align-items: flex-start; justify-content: space-between; gap: .55rem; color: var(--muted); font-size: calc(.8rem * var(--tp-text-scale)); }
+.material-manager-mobile-product li strong { color: var(--foreground); text-align: right; font-weight: 650; }
+.material-manager-mobile-product > .inline-status-form { justify-content: flex-start; }
+.material-manager-mobile-product > .inline-status-form .secondary-button { min-height: 2.65rem; }
+.material-manager-workspace :is(button, a, input, select, summary):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+
+.workflow-material-row { grid-template-columns: auto minmax(8rem, .8fr) minmax(11rem, 1.5fr) minmax(6rem, .55fr) minmax(5rem, .45fr) minmax(11rem, 1fr) auto; }
+.workflow-material-row-title { display: grid; gap: .1rem; min-width: 0; overflow-wrap: anywhere; }
+.workflow-material-row-title > small, .workflow-material-field > span { color: var(--muted); font-size: calc(.68rem * var(--tp-text-scale)); }
+.workflow-material-field { display: grid; gap: .18rem; min-width: 0; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); }
+.workflow-material-field input, .workflow-material-field select { min-height: 2.6rem; }
+.workflow-material-field > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem; }
+.workflow-material-field > span small { color: var(--muted); font-size: .95em; }
+.workflow-material-manual-price, .workflow-material-catalog-price { display: grid; gap: .35rem; min-width: 0; }
+.workflow-material-entry-mode { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .8rem; }
+.workflow-material-entry-mode button { min-height: 2.75rem; border: 1px solid var(--glass-border); border-radius: .8rem; background: transparent; color: var(--foreground); padding: .5rem .8rem; font: inherit; cursor: pointer; }
+.workflow-material-entry-mode button.is-selected { border-color: color-mix(in srgb, var(--brand) 55%, var(--glass-border)); background: var(--brand-soft); color: var(--brand-ink); font-weight: 750; }
+.workflow-material-catalog-entry { grid-template-columns: minmax(9rem, .8fr) minmax(11rem, 1fr) minmax(13rem, 1.4fr) minmax(6rem, .55fr) auto auto auto; }
+.workflow-material-manual-entry { grid-template-columns: minmax(12rem, 1.5fr) minmax(6rem, .6fr) minmax(7rem, .7fr) minmax(9rem, .9fr) minmax(7rem, .7fr) auto; }
+.workflow-material-entry-unit, .workflow-material-entry-price { align-self: center; }
+.workflow-material-entry-mode button, .workflow-material-add-row button { min-height: 2.8rem; }
+.workflow-material-hint { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: calc(.8rem * var(--tp-text-scale)); }
+.workflow-material-hint a { color: var(--brand-ink); }
+.workflow-material-add-error { margin: .55rem 0 0; }
+@media (max-width: 980px) {
+  .workflow-material-row { grid-template-columns: 1.2rem minmax(0, 1fr) minmax(5rem, .65fr) auto; }
+  .workflow-material-row .workflow-material-edit-icon { display: none; }
+  .workflow-material-row-title { grid-column: 2 / 4; grid-row: 1; }
+  .workflow-material-row > input[id^="material-description-"] { grid-column: 2 / 4; grid-row: 2; }
+  .workflow-material-row > .workflow-material-quantity-field { grid-column: 2; grid-row: 3; }
+  .workflow-material-row > .workflow-material-unit, .workflow-material-row > .workflow-material-unit-field { grid-column: 3; grid-row: 3; }
+  .workflow-material-row > .workflow-material-manual-price, .workflow-material-row > .workflow-material-catalog-price { grid-column: 2 / 4; grid-row: 4; }
+  .workflow-material-row > .icon-button { grid-column: 4; grid-row: 1 / 4; align-self: start; }
+  .workflow-material-catalog-entry, .workflow-material-manual-entry { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .workflow-material-add-row > button { grid-column: 1 / -1; }
+  .workflow-material-entry-unit, .workflow-material-entry-price { align-self: end; min-height: 2.8rem; display: flex; align-items: center; }
+  .material-manager-table th:first-child { width: 27%; }
+  .material-manager-table th:nth-child(5) { width: 19%; }
+}
+@media (max-width: 620px) {
+  .material-manager-toolbar, .material-manager-category-toolbar { align-items: stretch; flex-direction: column; }
+  .material-manager-archived { align-self: flex-start; }
+  .material-manager-table-wrap { display: none; }
+  .material-manager-mobile-list { display: grid; }
+  .material-manager-category-list > li { align-items: flex-start; }
+  .material-manager-category-list .material-manager-row-actions { flex: 0 0 auto; }
+  .material-category-status { min-height: 2.7rem; }
+  .workflow-material-meta { grid-template-columns: 1fr; }
+  .workflow-material-row { grid-template-columns: minmax(0, 1fr) 5rem 2.75rem; gap: .45rem; padding: .6rem; }
+  .workflow-material-row-title { grid-column: 1 / 3; grid-row: 1; }
+  .workflow-material-row > input[id^="material-description-"] { grid-column: 1 / 3; grid-row: 2; }
+  .workflow-material-row > .workflow-material-quantity-field { grid-column: 1; grid-row: 3; }
+  .workflow-material-row > .workflow-material-unit, .workflow-material-row > .workflow-material-unit-field { grid-column: 2; grid-row: 3; }
+  .workflow-material-row > .workflow-material-manual-price, .workflow-material-row > .workflow-material-catalog-price { grid-column: 1 / 3; grid-row: 4; }
+  .workflow-material-row > .icon-button { grid-column: 3; grid-row: 1 / 5; align-self: start; }
+  .workflow-material-catalog-entry, .workflow-material-manual-entry { grid-template-columns: minmax(0, 1fr); }
+  .workflow-material-add-row > button, .workflow-material-hint { grid-column: 1; }
+  .workflow-material-entry-unit, .workflow-material-entry-price { min-height: 0; }
+  .workflow-material-save { align-items: stretch; flex-direction: column; }
+  .workflow-material-save .primary-button { justify-content: center; min-height: 2.9rem; }
+  .material-manager-dialog-actions { flex-direction: column-reverse; }
+  .material-manager-dialog-actions button { width: 100%; }
+  .material-manager-price-fields { grid-template-columns: 1fr; }
 }

@@ -1,5 +1,37 @@
 # F7.3.2 állapot
 
+## F9.22 — termék-UX és Anyagkezelő
+
+**Státusz: PARTIAL.** Az öt jóváhagyott fő navigációs útvonal változatlan; az
+Anyagkezelő az Anyagok területen érhető el. Új felmérés előtt látható
+munkatípus-választó jelent meg (tető, eresz, szegély, egyéb), így az önálló
+ereszmérés nem indít tetőszakaszt. A munkanapló új bejegyzése alapértelmezetten
+csak `Mit végeztél?` + mai dátum; a további mezők opcionálisak és összecsukva
+maradnak. Az Anyagkezelő a meglévő katalógus adatmodellből kezeli a kereshető
+kategóriákat, termékeket, egységet és opcionális árat. Az anyaglista
+katalógus- és kézi módot ad, mindkettő egységhez kötött. A mentett listarevízióból
+indított ajánlatpiszkozat a forrásadatokat visszakövethetően hozza át.
+
+Az ellenőrzés során a felmérés szerverakcióból kiderült egy leválasztott
+Supabase `rpc` metódushívás; a klienst megőrző hívásra javítottam. A desktop
+Auth böngésző mentés/újranyitás és a helyi Auth/RLS integráció ezután sikeres.
+Anyagkezelő, önálló lista, ajánlatpiszkozat és munkanapló DEMO-útvonalak is
+mentés/újranyitás után ellenőrizve. Kódarchitektúra a meglévő route → feature
+server action → domain/szolgáltatás → Supabase adapter irányt, valamint a
+meglévő Liquid Glass elemeket használja. A négy új migráció a helyi Supabase-ra
+került; nem történt reset vagy hosted módosítás. PgTAP: 034 (29), 032 (15),
+033 (13) assertion PASS; helyi Manager párhuzamos Auth teszt 2/2 PASS;
+felmérés helyi integráció célzott tesztje 1 PASS / 2 kihagyott. Fókuszált
+Vitest 6 fájl / 27 teszt, typecheck, lint, production build és diff check PASS.
+
+Nem futott teljes tesztregresszió. A 1440/1024/768/390/320, mindkét téma,
+skálázás, WCAG 2.2 AA teljes ellenőrzés, screen reader és fizikai mobil
+elfogadás nincs igazolva; ezért a mérföldkő nem COMPLETE. Hosted DB/Auth,
+számlázás, ÁFA, migrációtelepítés, commit/push/deploy nem történt.
+Részletek: `docs/F9.22_PRODUCT_UX_AND_MATERIAL_MANAGER.md`.
+
+Javasolt Conventional Commit: `feat(F9.22): add material manager and streamline workflows`.
+
 ## F9.18 — iOS hibajavítások és mobil UX-megerősítés
 
 Állapot: **PARTIAL**. A survey kliensoldali azonosítói egy közös, kriptográfiai

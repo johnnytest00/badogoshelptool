@@ -36,4 +36,12 @@ describe("quotationLinesFromMaterialList", () => {
     expect(lines[1]).toMatchObject({ type: "MATERIAL", unitPrice: "", priceId: "", sourceMaterialItemId: "00000000-0000-4000-8000-000000000052" });
     expect(lines.some((line) => line.unitPrice === "0")).toBe(false);
   });
+
+  it("imports an explicit manual gross price with its matching HUF unit", () => {
+    const lines = quotationLinesFromMaterialList(revision([{
+      id: "00000000-0000-4000-8000-000000000053", kind: "manual", description: "Kézi csatorna", quantity: "4", unit: "linear_meter",
+      priceSnapshot: { amount: "0", currency: "HUF", purchasingUnit: "linear_meter", priceKind: "gross", manual: true, provenance: "user_provided" }, notes: null,
+    }]), products);
+    expect(lines[0]).toMatchObject({ type: "OTHER", unitPrice: "0", priceClass: "gross", priceProvenance: "user_entered", sourceMaterialItemId: "00000000-0000-4000-8000-000000000053" });
+  });
 });

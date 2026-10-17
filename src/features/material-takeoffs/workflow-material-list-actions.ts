@@ -1,33 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
-import { materialCategories, materialPurchasingUnits } from "@/domain/materials/contracts";
+import { workflowMaterialListInputSchema } from "@/domain/materials/material-list-contract";
 import { userFacingActionError } from "@/lib/user-facing-action-error";
-
-const itemSchema = z.object({
-  id: z.string().uuid(), kind: z.enum(["manual", "catalog"]),
-  description: z.string().trim().min(1).max(240),
-  materialCategory: z.enum(materialCategories),
-  quantity: z.string().trim().regex(/^\d{1,12}(?:[.,]\d{1,6})?$/).transform((value) => value.replace(",", ".")),
-  unit: z.enum(materialPurchasingUnits), variantId: z.string().uuid().nullable(), priceId: z.string().uuid().nullable(),
-}).superRefine((item, context) => {
-  if (Number(item.quantity) <= 0) context.addIssue({ code: "custom", path: ["quantity"], message: "A mennyiség legyen pozitív." });
-  if (item.kind === "catalog" && !item.variantId) context.addIssue({ code: "custom", path: ["variantId"], message: "Válassz termékváltozatot." });
-  if (item.kind === "manual" && (item.variantId || item.priceId)) context.addIssue({ code: "custom", path: ["variantId"], message: "A kézi tételhez ne adj katalógus-hivatkozást." });
-  if (item.priceId && item.kind !== "catalog") context.addIssue({ code: "custom", path: ["priceId"], message: "Árat csak katalógustételhez lehet kapcsolni." });
-});
-
-const inputSchema = z.object({
-  organizationId: z.string().uuid(), listId: z.string().uuid().nullable(), executionPlanId: z.string().uuid().nullable(),
-  name: z.string().trim().min(1).max(120), expectedVersion: z.number().int().nonnegative(),
-  requestKey: z.string().uuid(), items: z.array(itemSchema).min(1).max(200),
-}).superRefine((input, context) => {
-  if (input.listId === null && input.expectedVersion !== 0) context.addIssue({ code: "custom", path: ["expectedVersion"], message: "Új lista verziója csak nulla lehet." });
-  if (new Set(input.items.map((item) => item.id)).size !== input.items.length) context.addIssue({ code: "custom", path: ["items"], message: "Ismétlődő listaelem." });
-});
 
 export type WorkflowMaterialListActionState = { ok: boolean; error?: string; listId?: string; version?: number };
 const initial: WorkflowMaterialListActionState = { ok: false };
@@ -38,7 +15,7 @@ export async function saveWorkflowMaterialListAction(_previous: WorkflowMaterial
   let rawItems: unknown;
   try { rawItems = JSON.parse(formText(form, "items") || "[]"); }
   catch { return { ok: false, error: "Az anyaglista adatai hibásak. Frissítsd az oldalt, és próbáld újra." }; }
-  const parsed = inputSchema.safeParse({
+  const parsed = workflowMaterialListInputSchema.safeParse({
     organizationId: formText(form, "organizationId"), listId: formText(form, "listId") || null,
     executionPlanId: formText(form, "executionPlanId") || null, name: formText(form, "name"),
     expectedVersion: Number(formText(form, "expectedVersion")), requestKey: formText(form, "requestKey"), items: rawItems,

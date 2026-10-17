@@ -1,21 +1,19 @@
-import { GuardedLink as Link } from "@/components/navigation/guarded-link";
-import { ArrowRight, PackageOpen, Plus } from "lucide-react";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
-import { getMaterialManufacturers, getMaterialProductsForOrganization } from "@/features/materials/material-data";
-import { materialCategoryLabels, materialCategories } from "@/domain/materials/contracts";
-import { ManufacturerForm } from "@/features/materials/material-forms";
-import { GlassToolbar } from "@/components/ui/glass-toolbar";
-import { GlassPageHeader } from "@/components/ui/glass-page-header";
-import { GlassSectionHeader } from "@/components/ui/glass-section-header";
+import { getMaterialCategories, getMaterialManufacturers, getMaterialProductsForOrganization } from "@/features/materials/material-data";
+import { MaterialManager } from "@/features/materials/material-manager";
 
-export default async function MaterialsPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string; search?: string; category?: string; archived?: string }> }>) {
+export default async function MaterialsPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string }> }>) {
   const selected = await getProjectOrganization((await searchParams).organization);
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
-  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt az anyagkatalógushoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
-  const params = await searchParams;
-  const [products, manufacturers] = await Promise.all([getMaterialProductsForOrganization(selected.organization.id, { search: params.search ?? "", category: materialCategories.includes(params.category as typeof materialCategories[number]) ? params.category : undefined, includeArchived: params.archived === "true" }), getMaterialManufacturers(selected.organization.id)]);
-  return <main className="dashboard-shell"><div className="dashboard-container materials-workspace"><Link className="back-link" href={`/?organization=${selected.organization.id}`}>← Műhely áttekintése</Link><GlassPageHeader title="Anyagok" actions={<Link className="primary-button" href={`/anyagok/uj?organization=${selected.organization.id}`}><Plus className="size-4" /> Új anyag</Link>} /><form className="material-filter-form" method="get"><input type="hidden" name="organization" value={selected.organization.id} /><GlassToolbar ariaLabel="Anyagkeresés és szűrés" className="materials-filter-toolbar"><label><span>Keresés</span><input name="search" defaultValue={params.search ?? ""} placeholder="Név vagy termékkód" /></label><label><span>Kategória</span><select name="category" defaultValue={params.category ?? ""}><option value="">Minden kategória</option>{materialCategories.map((item) => <option key={item} value={item}>{materialCategoryLabels[item]}</option>)}</select></label><label className="material-filter-check"><input type="checkbox" name="archived" value="true" defaultChecked={params.archived === "true"} /><span>Archiváltak is</span></label><button className="secondary-button" type="submit">Szűrés</button></GlassToolbar></form><section className="material-list-section" aria-labelledby="material-list-title"><GlassSectionHeader id="material-list-title" title={`${products.length} anyag`} />{products.length ? <div className="material-product-grid">{products.map((product) => <Link className="material-product-card" href={`/anyagok/${product.id}?organization=${selected.organization!.id}`} key={product.id}><div className="material-card-top"><span className="material-category-pill">{materialCategoryLabels[product.category]}</span><span className={`status-pill status-${product.status === "active" ? "active" : "draft"}`}>{product.status === "active" ? "Aktív" : "Archivált"}</span></div><h3>{product.name}</h3><p>{product.manufacturerName ?? "Gyártó nincs megadva"}{product.productCode ? ` · ${product.productCode}` : ""}</p><small>{product.variants.length} variáns · <ArrowRight className="size-3.5" /> Részletek</small></Link>)}</div> : <div className="empty-state"><span className="empty-state-icon"><PackageOpen className="size-5" /></span><div><h3>Nincs találat</h3><p>Adj hozzá egy terméket, vagy módosítsd a keresést.</p></div></div>}</section><section className="material-manufacturers" aria-labelledby="manufacturers-title"><GlassSectionHeader id="manufacturers-title" title="Gyártó hozzáadása" /><ManufacturerForm organizationId={selected.organization.id} /><div className="material-manufacturer-list">{manufacturers.map((manufacturer) => <details key={manufacturer.id}><summary>{manufacturer.name}</summary><ManufacturerForm organizationId={selected.organization!.id} manufacturer={manufacturer} /></details>)}</div></section></div></main>;
+  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt az anyagkezelőhöz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
+  const organizationId = selected.organization.id;
+  const [products, categories, manufacturers] = await Promise.all([
+    getMaterialProductsForOrganization(organizationId, { includeArchived: true }),
+    getMaterialCategories(organizationId),
+    getMaterialManufacturers(organizationId),
+  ]);
+  return <MaterialManager organizationId={organizationId} products={products} categories={categories} manufacturers={manufacturers} />;
 }

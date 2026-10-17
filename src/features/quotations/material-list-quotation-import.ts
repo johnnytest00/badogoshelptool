@@ -22,6 +22,9 @@ export function quotationLinesFromMaterialList(revision: MaterialPreparationRevi
     const priceAmount = typeof price.amount === "string" || typeof price.amount === "number" ? String(price.amount) : "";
     const priceUnitMatches = price.purchasingUnit === item.unit;
     const knownNetPrice = priceKind === "net" && price.currency === "HUF" && priceUnitMatches && /^\d+(?:\.\d{1,2})?$/.test(priceAmount);
+    const manualPriceKind = price.priceKind === "net" || price.priceKind === "gross" ? price.priceKind : null;
+    const knownManualPrice = raw.kind === "manual" && price.manual === true && manualPriceKind !== null
+      && price.currency === "HUF" && priceUnitMatches && /^\d+(?:\.\d{1,2})?$/.test(priceAmount);
     const priceId = typeof price.priceId === "string" ? price.priceId : typeof raw.priceId === "string" ? raw.priceId : "";
     const importedCents = cents(priceAmount);
     const priceIsCurrent = knownNetPrice && Boolean(variant?.prices.some((candidate) => candidate.id === priceId
@@ -30,22 +33,27 @@ export function quotationLinesFromMaterialList(revision: MaterialPreparationRevi
     const sourceStillSelectable = Boolean(variant);
     const sourceDescription = item.description;
     const noteParts = [item.notes, !sourceStillSelectable && item.variantId ? "A katalógusforrás jelenleg nem választható; kézi ellenőrzést igényel." : "",
-      knownNetPrice && !priceIsCurrent ? "A mentett forrásár nem ellenőrizhető aktív katalógusárként; ellenőrizd mentés előtt." : ""]
+      knownNetPrice && !priceIsCurrent ? "A mentett forrásár nem ellenőrizhető aktív katalógusárként; ellenőrizd mentés előtt." : "",
+      raw.kind === "manual" && priceSnapshotExists(price) && !knownManualPrice ? "A mentett kézi ár egysége vagy pénzneme nem ellenőrizhető; add meg újra, ha használni szeretnéd." : ""]
       .filter((value): value is string => Boolean(value));
     return {
       type: sourceStillSelectable ? "MATERIAL" : "OTHER",
       description: sourceDescription,
       quantity: item.quantity,
       unit: item.unit,
-      unitPrice: knownNetPrice ? priceAmount : "",
-      priceClass: "net",
+      unitPrice: knownManualPrice || knownNetPrice ? priceAmount : "",
+      priceClass: knownManualPrice ? manualPriceKind! : "net",
       variantId: sourceStillSelectable ? variant!.id : "",
       priceId: priceIsCurrent ? priceId : "",
       takeoffItemId: "",
       sourceMaterialItemId: item.id,
       takeoffSourceItemIds: [],
-      priceProvenance: knownNetPrice ? "catalog_snapshot" : "missing",
+      priceProvenance: knownManualPrice ? "user_entered" : knownNetPrice ? "catalog_snapshot" : "missing",
       notes: noteParts.join(" · "),
     };
   });
+}
+
+function priceSnapshotExists(price: Record<string, unknown>) {
+  return Object.keys(price).length > 0;
 }

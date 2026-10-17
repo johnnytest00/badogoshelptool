@@ -90,9 +90,12 @@ localDescribe("F9.6.1.2.1 local authenticated Server Action boundary", () => {
     await requireSuccess(admin.from("calculations").update({ current_revision_id: ids.revision }).eq("id", ids.calculation));
     await requireSuccess(admin.from("calculations").update({ current_revision_id: ids.otherRevision }).eq("id", ids.otherCalculation));
     await requireSuccess(admin.from("calculations").update({ current_revision_id: ids.foreignRevision }).eq("id", ids.foreignCalculation));
+    const categories = await admin.from("material_categories").select("id, organization_id").eq("legacy_category", "gutter").eq("is_default", true).in("organization_id", [ids.organization, ids.otherOrganization]);
+    if (categories.error) throw categories.error;
+    const categoryByOrganization = new Map((categories.data ?? []).map((category) => [category.organization_id, category.id]));
     await requireSuccess(admin.from("material_products").insert([
-      { id: ids.product, organization_id: ids.organization, category: "gutter", name: "DEMO action gutter", status: "active", data_provenance: "demo", created_by: ownerUser.id },
-      { id: ids.foreignProduct, organization_id: ids.otherOrganization, category: "gutter", name: "DEMO foreign gutter", status: "active", data_provenance: "demo", created_by: otherUser.id },
+      { id: ids.product, organization_id: ids.organization, category_id: categoryByOrganization.get(ids.organization)!, category: "gutter", name: "DEMO action gutter", status: "active", data_provenance: "demo", created_by: ownerUser.id },
+      { id: ids.foreignProduct, organization_id: ids.otherOrganization, category_id: categoryByOrganization.get(ids.otherOrganization)!, category: "gutter", name: "DEMO foreign gutter", status: "active", data_provenance: "demo", created_by: otherUser.id },
     ]));
     await requireSuccess(admin.from("material_variants").insert([
       { id: ids.variant, organization_id: ids.organization, product_id: ids.product, name: "DEMO action piece", purchasing_unit: "piece", length_mm: 4000, technical_specs: {}, data_provenance: "demo", created_by: ownerUser.id },

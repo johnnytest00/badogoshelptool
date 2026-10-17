@@ -69,7 +69,7 @@ export const preparationListSaveSchema = z.object({
 
 export type MaterialPreparationItem = Readonly<{
   id: string;
-  kind: "source" | "manual";
+  kind: "source" | "manual" | "catalog";
   category: PreparationCategory;
   status: string;
   description: string;
@@ -78,8 +78,14 @@ export type MaterialPreparationItem = Readonly<{
   productName?: string | null;
   variantName?: string | null;
   sku?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
   quantity: string;
   unit: string;
+  priceId?: string | null;
+  manualPriceAmount?: string | null;
+  manualPriceKind?: "net" | "gross" | null;
+  priceSnapshot?: Readonly<Record<string, unknown>> | null;
   dimensions: Readonly<Record<string, unknown>>;
   materialSnapshot?: Readonly<Record<string, unknown>>;
   sourceItemIds: readonly string[];

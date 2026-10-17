@@ -52,8 +52,9 @@ describe("execution planning workspace", () => {
     const html = renderWorkspace();
 
     expect(html).toContain("Napi bejegyzések");
-    expect(html).toContain("Új napi bejegyzés");
-    expect(html).toContain("Még nincs napi bejegyzés.");
+    expect(html).toContain("+ Új bejegyzés");
+    expect(html).toContain("Rögzítsd röviden, mit végeztél el.");
+    expect(html).not.toContain("Mit végeztél?");
     expect(html).toContain("Feladatok");
     expect(html).not.toContain("Még nincs feladat.");
     expect(html).not.toContain('class="execution-task-count"');

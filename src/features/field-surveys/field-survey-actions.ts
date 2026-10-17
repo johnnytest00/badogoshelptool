@@ -56,7 +56,7 @@ export async function saveFieldSurveyAction(data: FormData): Promise<FieldSurvey
 
   try {
     const supabase = await createClient();
-    const saveSurveyRpc = supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{ survey_id: string; updated_at: string; version: number }> | null; error: { code?: string } | null }>;
+    const saveSurveyRpc = supabase.rpc.bind(supabase) as unknown as (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{ survey_id: string; updated_at: string; version: number }> | null; error: { code?: string } | null }>;
     const { data: saved, error } = await saveSurveyRpc(sections ? "save_field_survey_workspace" : "save_field_survey", {
       ...(sections ? { p_sections: sections as unknown as Json } : {}),
       p_survey_id: surveyId, p_organization_id: organizationId, p_project_id: parsed.data.projectId,
@@ -73,6 +73,6 @@ export async function saveFieldSurveyAction(data: FormData): Promise<FieldSurvey
     if (parsed.data.projectId) revalidatePath(`/projektek/${parsed.data.projectId}`);
     return { ok: true, surveyId: saved[0].survey_id, version: saved[0].version };
   } catch {
-    return { ok: false, error: "A felmérés mentése nem érte el a szervert. Ellenőrizd a kapcsolatot." };
+    return { ok: false, error: "A mentés eredménye nem egyértelmű. Ellenőrizd a kapcsolatot, majd próbáld újra." };
   }
 }

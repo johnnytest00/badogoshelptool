@@ -284,8 +284,10 @@ localDescribe("F9.7.7.2a.1 local authenticated covering persistence", () => {
     if (!v1) throw new Error("project covering V1 was not readable");
 
     const productId = randomUUID(); const variantId = randomUUID();
+    const categories = await admin.from("material_categories").select("id").eq("organization_id", org).eq("legacy_category", "roof_covering").eq("is_default", true).single();
+    if (categories.error || !categories.data) throw categories.error ?? new Error("Missing DEMO category");
     const product = await admin.from("material_products").insert({ id: productId, organization_id: org,
-      name: `DEMO fedés termék ${fixture}`, category: "roof_covering", status: "active", data_provenance: "demo" });
+      name: `DEMO fedés termék ${fixture}`, category_id: categories.data.id, category: "roof_covering", status: "active", data_provenance: "demo" });
     if (product.error) throw product.error;
     const variant = await admin.from("material_variants").insert({ id: variantId, organization_id: org,
       product_id: productId, name: `DEMO 1100×1000×5000 ${fixture}`, purchasing_unit: "piece",

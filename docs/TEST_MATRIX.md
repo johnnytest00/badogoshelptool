@@ -1,5 +1,24 @@
 # Tesztmátrix
 
+## F9.22 — termék-UX és Anyagkezelő
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Survey: munkatípus → mérés → mentés → újranyitás | BROWSER VERIFIED, LOCAL DEMO | Helyi Auth Brave: új Ereszcsatorna felmérés, 8,5 m mérés, V1 mentés, frissítés és pontos adat visszatöltése. Survey `64e3d9f1-17c4-4c78-9837-e42dad9791ad`; nincs projekthez vagy naplóhoz kötve. |
+| Munkanapló egyszerű bejegyzés | BROWSER VERIFIED, LOCAL DEMO | Meglévő `DEMO F9.19 browser workflow` naplón új, mai dátumú DEMO szöveg mentése, frissítés és visszatöltés; napló `ec23335e-ece9-4d67-8f7e-01959e4b3d23`. A kötelező UI mező a tartalom; a mai dátum automatikus, további mezők disclosure-ben vannak. |
+| Anyagkezelő | BROWSER VERIFIED, LOCAL DEMO | Kategória létrehozása; `DEMO Csatorna 333 mm antracit`, m, nettó 3500.50 HUF/m mentés, keresés, név szerkesztése, újranyitás és ár/kategória ellenőrzése. Egy sorban egy Archiválás művelet maradt. |
+| Anyaglista | BROWSER VERIFIED, LOCAL DEMO | Önálló lista, katalógusválasztás és automatikus m/ár, mennyiség 2.5 → 3; kézi `DEMO Rögzítő csomag`, 2 csomag, nettó 990 HUF; mentés V1 és újranyitás. Forrás lista `7fd71829-37c7-4c0c-b3b1-f1a7b2a559ef`, revízió `9c5e0fcd-2160-4076-b06a-93552f30a3df`. |
+| Ajánlatpiszkozat | BROWSER VERIFIED, LOCAL DEMO | A fenti anyaglista V1 importja, mindkét sor mennyiségének/egységének/árának és nettó összegének ellenőrzése; mentés és újranyitás. Ajánlat `447a2f24-b6bd-4a91-b6fc-643a747bfb74`; draft V1. ÁFA és hivatalos véglegesítés nem futott. |
+| Fő navigáció / téma / mobil | PARTIAL | Dashboard öt jóváhagyott fő útvonala látszott; ezen a körön Kalkulátor, alternatív téma és konkrét szélességű reszponzív mátrix nem kapott böngészős lefedést. Nincs WCAG teljes mátrix vagy képernyőolvasó próba. |
+| Vitest | PASS, FOCUSED | `npx vitest run src/features/field-surveys/field-survey-editor.test.tsx src/features/field-surveys/field-survey-actions.test.ts src/features/execution/execution-planning.test.tsx src/domain/materials/contracts.test.ts src/domain/materials/material-list-contract.test.ts src/features/quotations/material-list-quotation-import.test.ts`: 6 fájl / 27 teszt. Teljes suite nem futott. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Helyi pgTAP | PASS, LOCAL | `034_material_manager.sql`: 29/29; `032_standalone_material_lists.sql`: 15/15; `033_quotation_material_list_sources.sql`: 13/13. Migration up helyben, reset és hosted DB nélkül. |
+| Helyi Auth/RLS és konkurencia | PASS, LOCAL DEMO | Manager authenticated integration: 2/2; két Auth klienssel idempotens termék létrehozás és anyaglista-revízió egy példányra konvergált. Survey workspace integráció fókuszált `A: standalone gutter saves` tesztje: 1 PASS / 2 skipped. A korábbi leválasztott `rpc` hiba ezzel reprodukálódott, klienskötés után PASS. |
+| Teljes elfogadás | PARTIAL | Hitelesített böngészőben kijelölt desktop workflow-k megfigyelve. Nem ellenőrzött: 1440/1024/768/390/320 összes érintett oldalon, téma- és skálázásmátrix, screen reader, fizikai eszköz, minden üres/validációs/offline állapot, teljes route-by-route smoke. |
+| Hosted / kiadási állapot | NEM ÉRINTETT | Nincs hosted migráció/Auth írás, reset, commit, push, deploy, számlázás vagy ajánlatvéglegesítés. |
+
+Részletes döntések és állapot: `docs/F9.22_PRODUCT_UX_AND_MATERIAL_MANAGER.md`.
+
 ## F9.18 — iOS hibajavítások és mobil UX-megerősítés
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |
