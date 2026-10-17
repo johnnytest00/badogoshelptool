@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateRoofGeometry, type RoofGeometryInput } from "./roof-geometry";
+import { calculateRoofGeometry, type RoofGeometry, type RoofGeometryInput, type RoofPoint } from "./roof-geometry";
 import { calculateRoofTimberLayout } from "./roof-timber-layout";
 import { geometryFromSurveyMeasurements } from "@/domain/field-surveys/roof-geometry";
 
@@ -15,12 +15,51 @@ const DEMO_ROOFS: readonly RoofGeometryInput[] = [
 ];
 const rafter = { maxSpacingMm: 2500, startInsetMm: 0, endInsetMm: 0, sectionWidthMm: 50, sectionHeightMm: 150 };
 const batten = { maxSpacingMm: 1000, startInsetMm: 0, endInsetMm: 0, sectionWidthMm: 30, sectionHeightMm: 100 };
+type ManualPolygon = Readonly<{ id: string; points: readonly (readonly [number, number, number])[] }>;
+const MANUAL_L_T_POLYGONS: Readonly<Record<"lShape" | "tShape", readonly ManualPolygon[]>> = {
+  lShape: [
+    { id: "wing-west-0", points: [[0,-5000,0],[2000,-5000,2000],[2000,0,2000],[0,0,0]] },
+    { id: "wing-east-1", points: [[2000,-5000,2000],[4000,-5000,0],[4000,0,0],[2000,0,2000]] },
+    { id: "main-south-2", points: [[0,0,0],[2000,2000,2000],[2000,3000,3000],[0,3000,3000]] },
+    { id: "wing-west-3", points: [[0,0,0],[2000,0,2000],[2000,2000,2000]] },
+    { id: "main-south-4", points: [[4000,0,0],[4000,3000,3000],[2000,3000,3000],[2000,2000,2000]] },
+    { id: "wing-east-5", points: [[2000,0,2000],[4000,0,0],[2000,2000,2000]] },
+    { id: "main-north-6", points: [[0,3000,3000],[4000,3000,3000],[4000,6000,0],[0,6000,0]] },
+    { id: "main-south-7", points: [[4000,0,0],[10000,0,0],[10000,3000,3000],[4000,3000,3000]] },
+    { id: "main-north-8", points: [[4000,3000,3000],[10000,3000,3000],[10000,6000,0],[4000,6000,0]] },
+  ],
+  tShape: [
+    { id: "main-south-0", points: [[0,0,0],[3000,0,0],[3000,3000,3000],[0,3000,3000]] },
+    { id: "main-north-1", points: [[0,3000,3000],[3000,3000,3000],[3000,6000,0],[0,6000,0]] },
+    { id: "wing-west-2", points: [[3000,-5000,0],[5000,-5000,2000],[5000,0,2000],[3000,0,0]] },
+    { id: "wing-east-3", points: [[5000,-5000,2000],[7000,-5000,0],[7000,0,0],[5000,0,2000]] },
+    { id: "main-south-4", points: [[3000,0,0],[5000,2000,2000],[5000,3000,3000],[3000,3000,3000]] },
+    { id: "wing-west-5", points: [[3000,0,0],[5000,0,2000],[5000,2000,2000]] },
+    { id: "main-south-6", points: [[7000,0,0],[7000,3000,3000],[5000,3000,3000],[5000,2000,2000]] },
+    { id: "wing-east-7", points: [[5000,0,2000],[7000,0,0],[5000,2000,2000]] },
+    { id: "main-north-8", points: [[3000,3000,3000],[7000,3000,3000],[7000,6000,0],[3000,6000,0]] },
+    { id: "main-south-9", points: [[7000,0,0],[10000,0,0],[10000,3000,3000],[7000,3000,3000]] },
+    { id: "main-north-10", points: [[7000,3000,3000],[10000,3000,3000],[10000,6000,0],[7000,6000,0]] },
+  ],
+};
+function manualLTGeometry(type: "lShape" | "tShape"): RoofGeometry {
+  const planes = MANUAL_L_T_POLYGONS[type].map(({ id, points }) => ({
+    id,
+    vertices: points.map(([xMm, yMm, zMm]): RoofPoint => ({ xMm, yMm, zMm })),
+    areaMm2: 1,
+    projectedAreaMm2: 1,
+    pitchDegrees: 45,
+  }));
+  return { type, modelVersion: "1.0.0", planes, edges: [], totalAreaMm2: 1, projectedAreaMm2: 1 };
+}
 
 describe("roof rafter and batten geometric layout", () => {
   it("independently checks rectangular gable lengths, positions, spacing and volumes", () => {
     const result = calculateRoofTimberLayout(calculateRoofGeometry(DEMO_ROOFS[0]), { rafter, batten });
     expect(result.status).toBe("available");
     if (result.status !== "available") return;
+    expect(result.quantityClassification).toBe("verified-geometric-quantity");
+    expect(result.physicalLayout.status).toBe("unsupported");
     expect(result.rafters).toMatchObject({ count: 10, actualSpacingMm: 2500, totalLengthMm: 50_000, sectionAreaMm2: 7500, nominalVolumeM3: .375 });
     expect(result.rafters?.positionsMm).toEqual([0, 0, 2500, 2500, 5000, 5000, 7500, 7500, 10000, 10000]);
     expect(result.battens).toMatchObject({ count: 11, totalLengthMm: 110_000, sectionAreaMm2: 3000, nominalVolumeM3: .33 });
@@ -74,7 +113,7 @@ describe("roof rafter and batten geometric layout", () => {
     expect(surveyResult).toEqual(standaloneResult);
   });
 
-  it.each(DEMO_ROOFS.slice(2))("calculates clipped and non-overlapping lines for %s geometry", (input) => {
+  it.each(DEMO_ROOFS.slice(2))("calculates clipped geometric lines for %s geometry", (input) => {
     const geometry = calculateRoofGeometry(input);
     const result = calculateRoofTimberLayout(geometry, { rafter, batten });
     expect(result.status).toBe("available");
@@ -85,10 +124,50 @@ describe("roof rafter and batten geometric layout", () => {
     expect(result.battens?.totalLengthMm).toBeGreaterThan(0);
     expect(result.rafters?.segments.every((segment) => Number.isFinite(segment.lengthMm) && segment.lengthMm > 0)).toBe(true);
     expect(result.battens?.segments.every((segment) => Number.isFinite(segment.lengthMm) && segment.lengthMm > 0)).toBe(true);
-    const segments = [...(result.rafters?.segments ?? []), ...(result.battens?.segments ?? [])];
-    const keys = segments.map((segment) => [segment.start, segment.end].map((point) => `${point.xMm.toFixed(4)},${point.yMm.toFixed(4)},${point.zMm.toFixed(4)}`).sort().join("|"));
-    console.log(input.type, keys.filter((key, index) => keys.indexOf(key) !== index).map((key) => segments[keys.indexOf(key)]));
-    expect(new Set(keys).size).toBe(keys.length);
+    for (const family of [result.rafters, result.battens]) {
+      if (!family) continue;
+      const keys = family.segments.map((segment) => [segment.start, segment.end].map((point) => `${point.xMm.toFixed(4)},${point.yMm.toFixed(4)},${point.zMm.toFixed(4)}`).sort().join("|"));
+      expect(new Set(keys).size).toBe(keys.length);
+      expect(family.planeLayouts.every((layout) => layout.actualSpacingMm <= (family === result.rafters ? rafter.maxSpacingMm : batten.maxSpacingMm) + 1e-6)).toBe(true);
+    }
+  });
+
+  it.each(["lShape", "tShape"] as const)("independently verifies %s clipping, spacing and units from hand-derived coordinates", (type) => {
+    const result = calculateRoofTimberLayout(manualLTGeometry(type), {
+      rafter,
+      batten: { ...batten, sectionWidthMm: 30, sectionHeightMm: 100 },
+    });
+    expect(result.status).toBe("available");
+    if (result.status !== "available") return;
+
+    // Rafter oracle: L main faces contribute (13.5 + 15)k√2; T contributes
+    // (13 + 15)k√2. The four wing faces together contribute 12k√2.
+    const expectedRafterLength = type === "lShape" ? 40_500 * Math.SQRT2 : 40_000 * Math.SQRT2;
+    expect(result.rafters?.count).toBe(16);
+    expect(result.rafters?.totalLengthMm).toBeCloseTo(expectedRafterLength, 6);
+    expect(result.rafters?.planeLayouts.map((layout) => layout.actualSpacingMm).every((spacing) => spacing <= 2500)).toBe(true);
+
+    // Batten oracle from the independently measured 45° polygon cuts:
+    // main south rows total 51.2m, main north 50m, west wing 24m, east wing 17m.
+    expect(result.battens?.count).toBe(18);
+    expect(result.battens?.totalLengthMm).toBe(142_200);
+    expect(result.battens?.nominalVolumeM3).toBeCloseTo(0.4266, 8);
+    expect(result.battens?.planeLayouts.map((layout) => layout.actualSpacingMm).every((spacing) => spacing <= 1000 + 1e-6)).toBe(true);
+  });
+
+  it("applies start and end insets in the declared horizontal and roof-surface units", () => {
+    const geometry = calculateRoofGeometry(DEMO_ROOFS[1]);
+    const result = calculateRoofTimberLayout(geometry, {
+      rafter: { maxSpacingMm: 2500, startInsetMm: 1000, endInsetMm: 500 },
+      batten: { maxSpacingMm: 2000, startInsetMm: 500, endInsetMm: 500 },
+    });
+    expect(result.status).toBe("available");
+    if (result.status !== "available") return;
+    expect(result.rafters?.positionsMm).toEqual([1000, 3125, 5250, 7375, 9500]);
+    expect(result.rafters?.actualSpacingMm).toBe(2125);
+    expect(result.battens?.positionsMm[0]).toBeCloseTo(500, 6);
+    expect(result.battens?.positionsMm.at(-1)).toBeCloseTo(6000 * Math.SQRT2 - 500, 6);
+    expect(result.battens?.actualSpacingMm).toBeCloseTo((6000 * Math.SQRT2 - 1000) / 4, 6);
   });
 
   it("honors explicit perimeters and returns unavailable for invalid spacing or a perimeter that leaves no span", () => {

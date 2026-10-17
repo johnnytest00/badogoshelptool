@@ -18,7 +18,7 @@ function familyResult(title: string, result: RoofTimberFamilyResult | null) {
     ? `${Math.min(...result.planeLayouts.map((item) => item.actualSpacingMm)).toLocaleString("hu-HU", { maximumFractionDigits: 1 })}–${Math.max(...result.planeLayouts.map((item) => item.actualSpacingMm)).toLocaleString("hu-HU", { maximumFractionDigits: 1 })} mm · síkcsoportonként`
     : `${result.actualSpacingMm.toLocaleString("hu-HU", { maximumFractionDigits: 1 })} mm`;
   return <section className="roof-timber-family-result"><h4>{title}</h4><dl>
-    <div><dt>Kiosztott tengely / sor</dt><dd>{result.count} db</dd></div><div><dt>Tényleges távolság</dt><dd>{spacingText}</dd></div>
+    <div><dt>Geometriai tengely / vonal</dt><dd>{result.count} db</dd></div><div><dt>Tényleges geometriai távolság</dt><dd>{spacingText}</dd></div>
     <div><dt>Geometriai összhossz</dt><dd>{(result.totalLengthM).toLocaleString("hu-HU", { maximumFractionDigits: 3 })} m</dd></div>
     {result.sectionAreaMm2 !== null && <div><dt>Névleges keresztmetszeti térfogat</dt><dd>{result.nominalVolumeM3?.toLocaleString("hu-HU", { maximumFractionDigits: 4 })} m³</dd></div>}
   </dl></section>;
@@ -40,7 +40,7 @@ export function RoofTimberQuantityPanel({ geometry, value: controlledValue, onCh
       if (onChange) onChange(clean); else setLocalValue(clean);
     }} /></label>)}</div>
     {result?.status === "unavailable" && <p className="form-message" role="status">A mennyiség nem számítható: {result.reason}</p>}
-    {result?.status === "available" && <div className="roof-timber-results" aria-live="polite">{familyResult("Szarufák", result.rafters)}{familyResult("Lécek", result.battens)}<ul>{result.assumptions.map((item) => <li key={item}>{item}</li>)}</ul></div>}
-    <p className="roof-timber-disclaimer">Geometriai kiosztás és névleges térfogat; nem tartalmaz vágást, toldást, nyílást, veszteséget vagy statikai ellenőrzést.</p>
+    {result?.status === "available" && <div className="roof-timber-results" aria-live="polite"><p className="roof-timber-physical-status"><strong>Fizikai kiosztás nem igazolt.</strong> {result.physicalLayout.reason}</p>{familyResult("Szarufák geometriai mennyisége", result.rafters)}{familyResult("Lécek geometriai mennyisége", result.battens)}<ul>{result.assumptions.map((item) => <li key={item}>{item}</li>)}</ul></div>}
+    <p className="roof-timber-disclaimer">Igazolt geometriai tengely- és vonalhossz, a megadott egyenletes kiosztási feltételezés mellett. Ez nem fizikai faelem-darabszám vagy statikai terv; nem tartalmaz vágást, toldást, nyílást, veszteséget vagy csomóponti kialakítást.</p>
   </GlassDisclosure>;
 }

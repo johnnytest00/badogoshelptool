@@ -28,7 +28,14 @@ export type RoofTimberFamilyInput = z.infer<typeof roofTimberFamilyInputSchema>;
 export type RoofTimberInput = z.infer<typeof roofTimberInputSchema>;
 export type RoofTimberSegment = Readonly<{ id: string; planeId: string; start: RoofPoint; end: RoofPoint; lengthMm: number }>;
 export type RoofTimberFamilyResult = Readonly<{ count: number; positionsMm: readonly number[]; actualSpacingMm: number | null; planeLayouts: readonly Readonly<{ planeId: string; count: number; positionsMm: readonly number[]; actualSpacingMm: number }>[]; totalLengthMm: number; totalLengthM: number; sectionAreaMm2: number | null; nominalVolumeM3: number | null; segments: readonly RoofTimberSegment[] }>;
-export type RoofTimberLayout = Readonly<{ status: "available"; assumptions: readonly string[]; rafters: RoofTimberFamilyResult | null; battens: RoofTimberFamilyResult | null }>;
+export type RoofTimberLayout = Readonly<{
+  status: "available";
+  quantityClassification: "verified-geometric-quantity";
+  physicalLayout: Readonly<{ status: "unsupported"; reason: string }>;
+  assumptions: readonly string[];
+  rafters: RoofTimberFamilyResult | null;
+  battens: RoofTimberFamilyResult | null;
+}>;
 export type RoofTimberUnavailable = Readonly<{ status: "unavailable"; reason: string }>;
 
 export function roofTimberInputFromParameters(value: RoofTimberParameters): RoofTimberInput | null {
@@ -180,5 +187,20 @@ export function calculateRoofTimberLayout(geometry: RoofGeometry, raw: RoofTimbe
   if (parsed.data.rafter && !rafters) return { status: "unavailable", reason: "A szarufakiosztás túl sűrű, vagy a peremsáv nem fér el minden tetősíkon." };
   const battens = parsed.data.batten ? calculateFamily(groups, parsed.data.batten, "u") : null;
   if (parsed.data.batten && !battens) return { status: "unavailable", reason: "A léckiosztás túl sűrű, vagy a peremsáv nem fér el minden tetősíkon." };
-  return { status: "available", rafters, battens, assumptions: ["Minden hely a tetősík határpoligonjának vetített koordinátáiból, egyenletes kiosztással adódik.", "A megadott tengelytávolság felső korlát; a két peremsáv között a tényleges osztás egyenletes.", "A vonalhossz a tetősík polygonjával vágott háromdimenziós szakaszok összege.", "Nincs nyílásmodell, vágási veszteség, toldás, túlnyúlás- vagy csomóponti levonás; a mennyiség nem statikai terv."] };
+  return {
+    status: "available",
+    quantityClassification: "verified-geometric-quantity",
+    physicalLayout: {
+      status: "unsupported",
+      reason: "A bemenet nem határozza meg, hogy az egybeeső vagy megszakított geometriai tengelyek a kivitelezésben egy vagy több fizikai faelemet alkotnak-e.",
+    },
+    rafters,
+    battens,
+    assumptions: [
+      "Minden hely a tetősík határpoligonjának vetített koordinátáiból, egyenletes kiosztással adódik.",
+      "A megadott tengelytávolság felső korlát; a két peremsáv között a tényleges osztás egyenletes.",
+      "A geometriai vonalhossz a tetősík polygonjával vágott háromdimenziós szakaszok egyedi összegéből adódik.",
+      "Nincs nyílásmodell, vágási veszteség, toldás, túlnyúlás- vagy csomóponti levonás; fizikai darabszám és statikai terv nem állítható elő.",
+    ],
+  };
 }

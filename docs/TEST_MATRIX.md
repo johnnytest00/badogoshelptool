@@ -2132,27 +2132,26 @@ Státusz: **PARTIAL**. A teljes forrásleltár, reprodukált picker-javítás, t
 | Whitespace | PASS | `git diff --check` — kód/docs patch után; új fájlokra külön trailing whitespace vizsgálat |
 
 Státusz: **PARTIAL**. A közös, ellenőrzött geometriai scope PASS. Az aszimmetrikus/eltérő hajlású geometria, generalizált L/T eltolás, nem-gable túlnyúlás, anyagkiosztás, statika, teljes regresszió és mobil/a11y elfogadás nem bizonyított. Részletek: [F9.33 coverage](CALCULATOR_COVERAGE_MATRIX.md) és [geometriai specifikáció](ROOF_CALCULATION_SPECIFICATION.md).
-## F9.35 — szarufa, léc és faanyag
+## F9.35.1 — tető-faanyag validáció és stabilizálás
 
 | Vizsgálat | Állapot | Bizonyíték / korlát |
 |---|---|---|
-| Független DEMO geometriai fixture | PASS, CÉLZOTT | `npx vitest run src/domain/calculations/roof-timber-layout.test.ts` — analitikus szarufa pozíció/darab/hossz nyereg, félnyereg, konty, sátor és félkonty esetre; lécsor, cross-section térfogat, peremsáv; L/T pozitív kivágott szakasz és kettőzés elleni ellenőrzés. |
+| Független DEMO geometriai fixture | PASS, CÉLZOTT | `npx vitest run src/domain/calculations/roof-timber-layout.test.ts --reporter=dot` — 1 fájl / 14 teszt PASS. Mind a hét forma; az L/T numerikus orákulum statikus, kézzel megadott 3D polygonokat használ, production geometry generátor nélkül. |
 | Survey schema / draft persistence | PASS, CÉLZOTT | `src/domain/field-surveys/workspace.test.ts`, `src/features/field-surveys/survey-draft-recovery.test.ts`: részleges opcionális bemenet round-trip, strict mező/range ellenőrzés. Immútábilis revision write path változatlan. |
-| Rajz overlay | PASS, CÉLZOTT | `src/features/roof-models/technical-drawing.test.tsx`: a domain szakaszok, spacing feliratok, sémajelleg és réteg neve SSR outputban ellenőrzött. Fizikai mobil interaction nincs tesztelve. |
-| Vitest / roof regresszió | PASS, CÉLZOTT | `npx vitest run` 19 fájl / 178 teszt PASS, az alábbi táblázatban felsorolt célzott parancs szerint. Nem teljes regresszió. |
+| Rajz overlay | PASS, CÉLZOTT | A domain geometriai szakaszok ugyanabból a layout eredményből kerülnek az SVG-be; a felület és Survey történeti nézete explicit jelzi, hogy a geometriai mennyiség nem igazolt fizikai tagozás vagy szerkezeti terv. Komponens-tesztek és authenticated V1/V2 UI megtekintés. |
+| Vitest / tető- és Survey-regresszió | PASS, RELEVÁNS SUITE | Pontos parancs: `npx vitest run src/domain/calculations/roof-timber-layout.test.ts src/features/field-surveys/field-survey-editor.test.tsx src/features/roof-models/technical-drawing.test.tsx src/domain/field-surveys/workspace.test.ts src/features/field-surveys/survey-draft-recovery.test.ts src/domain/calculations src/features/roof-models src/features/field-surveys --reporter=dot` — 52 fájl / 344 teszt PASS, 5 fájl / 15 teszt SKIP. Teljes projektszintű suite nem futott. |
 | Typecheck | PASS | `npm run typecheck` — `tsc --noEmit`. |
 | Lint | PASS | `npm run lint` — `eslint .`. |
-| Production build | PASS | `npm run build` — Next.js 16.4.0 webpack; 30 statikus oldal generálva. |
-| Survey DB snapshot/pgTAP | PASS, LOKÁLIS | Reset nélkül két pending additív migráció felment (`20261017130000`, `20261017140000`). `npx supabase test db --local supabase/tests/database/026_unified_field_survey_workspace.sql supabase/tests/database/038_survey_roof_timber_parameters.sql` — 2 fájl / 50 pgTAP PASS. Survey save, V1/V2, immutable snapshot, RLS/jogosultság és concurrency regression a 026-os tesztből is futott. Hosted DB-t nem érintett. |
-| Böngészős smoke | PASS, CÉLZOTT, NEM MENTŐ | Lokális production app. `/kalkulatorok`: 10×6 m nyeregtető, 2500 mm szarufa-táv, 50×150 mm szelvény, 42,426 m / 10 db; lécek 70 m / 7 db. `/felmeresek/uj`: 10×6 m/3 m nyeregtető; Survey panel 10 db / 42,426 m és rajzi overlay. Survey UI-ban nem mentettem; persistence/revision snapshottal a pgTAP fedte le. |
-| Whitespace | PASS | `git diff --check`. |
+| Survey DB snapshot/Auth/RLS/pgTAP | PASS, LOKÁLIS | `npx supabase test db --local supabase/tests/database/026_unified_field_survey_workspace.sql supabase/tests/database/038_survey_roof_timber_parameters.sql` — 2 fájl / 50 pgTAP PASS. A tesztek a Survey írási útvonal jogosultságát, verzióütközést, immutable revisiont és timber-paraméter snapshotot ellenőrzik. `npx supabase migration list --local`: a ledger helyi és remote oszlopai egyeznek `20261017140000`-ig; eltérés/pending verzió nincs. Reset vagy migration up nem történt. |
+| Böngészős Survey save/reopen | PASS, AUTHENTICATED LOCAL DEMO | Survey `c0ff0c40-ddb6-40a2-ba66-e96a9a7114b6`, V1/V2. V1 mentés után refresh és reopen helyreállította mind a 10 paramétert és a 42,426 m / 0,3182 m³ szarufa, 110 m / 0,33 m³ léc mennyiséget. A 2500→2000 mm szerkesztés V2-t hozott létre (12 geometriai tengely, 50,912 m, 0,3818 m³); V1 és V2 történeti nézete a saját snapshotjával egyezett. |
+| Böngészős rajz | PASS, AUTHENTICATED LOCAL DEMO | A mentett Survey V1 és V2 SVG-je ugyanazon domain layout eredményből rajzolta a szakaszokat; a fizikai kiosztás nem igazolt, a rajz nem szerkezeti terv üzenet megjelent. |
+| Production build | PASS | `npm run build` — Next.js 16.4.0 webpack; 30 statikus oldal. A build után csak tesztfixture és dokumentáció módosult. |
+| Whitespace | PASS | `git diff --check` — minden forrás- és dokumentációmódosítás után. |
 
-Vitest parancs: `npx vitest run src/domain/calculations/roof-timber-layout.test.ts src/domain/calculations/roof-geometry-results.test.ts src/domain/calculations/roof-geometry.test.ts src/domain/calculations/roof-geometry.engineering-audit.test.ts src/domain/drawings/gable-drawing.test.ts src/domain/field-surveys/roof-geometry.test.ts src/domain/field-surveys/workspace.test.ts src/features/field-surveys/survey-draft-recovery.test.ts src/features/field-surveys/gable-survey-preview.test.ts src/features/field-surveys/field-survey-editor.test.tsx src/features/roof-models/roof-geometry-results.test.tsx src/features/roof-models/roof-type-selector.test.tsx src/features/roof-models/technical-drawing.test.tsx src/features/roof-models/drawing-viewport.test.ts src/features/roof-models/multi-roof-form.test.tsx src/features/roof-models/measurement-guidance.test.tsx src/features/roof-models/project-roof-drawings.test.ts src/domain/calculations/construction/construction.test.ts src/domain/calculations/construction/catalog.test.tsx` — **19 fájl / 178 teszt PASS**.
-
-| Mobil / accessibility / teljes regresszió | NEM FUTOTT | Fizikai mobil, touch/pinch, screen reader, reduced motion és teljes Vitest suite nincs bizonyítva. |
+| Mobil / accessibility / teljes regresszió | RÉSZLEGES / NEM FUTOTT | Authenticated mobile viewport nem volt elérhető: a mobil viewportot kínáló IAB külön bejelentkezés nélküli cookie/sessionnel futott, és a Survey útvonal hozzáférhetetlen volt. Fizikai mobil, touch/pinch, screen reader, reduced motion és teljes Vitest suite nincs bizonyítva. |
 | Hosted DB / reset / commit / push / deploy | NEM FUTOTT | Hosted DB és romboló reset nem történt; commit/push/deploy nem kérve. |
 
-Státusz: **PARTIAL**. A célzott kód-, adatbázis- és desktop böngészős ellenőrzések PASS; a teljes Vitest suite, mobil/a11y és L/T független teljes összhossz-fixture nincs bizonyítva.
+Státusz: **VERIFIED GEOMETRIC QUANTITY / UNSUPPORTED PHYSICAL LAYOUT**. A hét geometriás fixture, független L/T numerikus oracle, releváns tető/Survey regresszió, local pgTAP, typecheck, lint, production build és authenticated V1/V2 save/reopen PASS. Teljes projektszintű Vitest, authenticated mobil viewport és fizikai kiosztás nincs bizonyítva.
 
 ## F9.34 — Tetőgeometria-lefedettség és él-egyediség
 

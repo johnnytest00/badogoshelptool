@@ -234,6 +234,25 @@ describe("field survey editor", () => {
     expect(html).toContain("Tető külső hossza");
   });
 
+  it("recomputes historical geometric timber quantities from the immutable survey section snapshot", () => {
+    const section = { ...roofSurvey("gable").sections![0], roofTimberParameters: {
+      rafterMaxSpacingMm: 2500, rafterStartInsetMm: 0, rafterEndInsetMm: 0, rafterSectionWidthMm: 50, rafterSectionHeightMm: 150,
+      battenMaxSpacingMm: 1000, battenStartInsetMm: 0, battenEndInsetMm: 0, battenSectionWidthMm: 30, battenSectionHeightMm: 100,
+    } };
+    const roofRecord: FieldSurveyRecord = { ...survey, workType: "roof", projectId: null, sections: [section] };
+    const revision: FieldSurveyRevisionRecord = {
+      id: "revision-roof-timber-1", surveyId: survey.id, organizationId: survey.organizationId, projectId: null,
+      version: 1, workType: "roof", measurements: [], sections: [section], notes: "DEMO roof timber V1", photosSnapshot: [], createdAt: survey.createdAt,
+    };
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofRecord} revisionVersions={[2, 1]} historicalRevision={revision} />);
+    expect(html).toContain("Szarufa legnagyobb osztása");
+    expect(html).toContain("2500 mm");
+    expect(html).toContain("Szarufa geometriai mennyisége: 10 geometriai tengely/vonal · 50 m");
+    expect(html).toContain("Léc geometriai mennyisége: 11 geometriai tengely/vonal · 110 m");
+    expect(html).toContain("Fizikai kiosztás nem igazolt");
+    expect(html).toContain("fizikai faelem tagolását és szerkezeti kialakítást nem igazol");
+  });
+
   it.each(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"] as const)("automatically draws %s geometry from survey measurements", (type) => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofSurvey(type)} />);
     expect(html).toContain('class="technical-drawing is-compact"');

@@ -204,7 +204,7 @@ Az alábbi F9.34 zárás idején az F9.35 még csak követelmény-specifikáció
 
 ## F9.35 — szarufa, léc és faanyag mennyiség
 
-Az új domain modul teljes fixture futtatása: `npx vitest run src/domain/calculations/roof-timber-layout.test.ts` — 11 teszt PASS. A kézzel felírt DEMO ellenőrzések:
+Az F9.35.1 után a domain modul teljes fixture futtatása: `npx vitest run src/domain/calculations/roof-timber-layout.test.ts --reporter=dot` — 14 teszt PASS. A kézzel felírt DEMO ellenőrzések:
 
 | Geometria | Bemenet | Függetlenül várt szarufa | Ellenőrzés |
 |---|---|---|---|
@@ -213,8 +213,17 @@ Az új domain modul teljes fixture futtatása: `npx vitest run src/domain/calcul
 | Kontytető | 10 000×6 000 mm, 45° | Hat fő-sík szarufa: `4·2 500√2+2·3 000√2`; négy kontyfelületi szarufa `4·2 000√2`; összes 10 tengely, a hiphatárig vágva | Analitikus összhossz `33 941,125… mm` |
 | Sátortető | 6 000×6 000 mm, 45° | 4 oldalon 2 belső szarufa/oldal; `8·2 000√2 mm`, 8 tengely. A csúcspontban degenerált tengelyek nem számlálódnak | Analitikus darabszám és összhossz |
 | Félkonty | 10 000×6 000 mm, 45°, félkonty-élemelkedés 1 000; max 2 500 mm | 10 fő sík tengely: `4·1 000√2+6·3 000√2`; 2 félkonty sík tengely `2·2 000√2`; összesen 12 db | Analitikus határvágott összhossz `36 769,553… mm` |
-| L/T | 10 000×6 000 mm, 45°, szárny 4 000×5 000 mm | Teljes kézi összhossz-orákulum nincs | Külön patch metszet, pozitív szakasz és azonos térbeli szakasz kettőzésének hiánya ellenőrzött; mennyiségi validálás részleges |
+| L alak | 10 000×6 000 mm, 45°, 4 000×5 000 mm-es szárny | Szarufa: `40 500√2 = 57 275,649… mm`; léc-vonal: `51 200+50 000+24 000+17 000=142 200 mm`; 16/18 geometriai tengely/vonal | A várt értékek a lejtős 45°-os és kézzel vágott polygon-hosszak összegéből jönnek, a timber-layout motor nélkül |
+| T alak | 10 000×6 000 mm, 45°, 4 000×5 000 mm-es szárny | Szarufa: `40 000√2 = 56 568,542… mm`; léc-vonal: `51 200+50 000+24 000+17 000=142 200 mm`; 16/18 geometriai tengely/vonal | A külön main/wing patch szakaszokat önálló, kézi numerikus oracle ellenőrzi; a geometriai tengely nem fizikai faelem-darabszám |
 
-A 10 000×6 000 mm, 4 000 mm emelkedésű nyeregtető léckontrollja szintén kézi: a slope run `3 000 mm`, a ferde felületi hossz `√(3 000²+4 000²)=5 000 mm`; max. 1 000 mm osztással 6 sor fut lejtőnként. A gerinc közös sora egyszer számolva 11 egyedi tengely, összhossz `2×6×10 000−10 000=110 000 mm`. A 30×100 mm keresztmetszet névleges térfogata `0,33 m³`. A sorpozíciók a lejtős felület tényleges hossztengelyén futnak.
+A 10 000×6 000 mm, 4 000 mm emelkedésű nyeregtető léckontrollja szintén kézi: a slope run `3 000 mm`, a ferde felületi hossz `√(3 000²+4 000²)=5 000 mm`; max. 1 000 mm osztással 6 sor fut lejtőnként. A gerinc közös geometriai vonala egyszer összegezve 11 egyedi vonal és 110 000 mm. Ez nem állítás arról, hogy a kivitelezésben egy vagy két fizikai lécet kell alkalmazni. A 30×100 mm keresztmetszet névleges geometriai térfogata `0,33 m³`. A sorpozíciók a lejtős felület tényleges hossztengelyén futnak.
 
-Tolerancia: tiszta szimmetrikus fixture-eknél `toBeCloseTo(..., 7–8)` a 3D euklideszi hosszakra; az inputpozíciók egész mm rácson vannak, a max osztás egyenletes újraosztása floating-point művelet, ezért a tényleges távolság toleranciával ellenőrzött. A keresztmetszeti térfogat képlete `Σ(lengthMm×widthMm×heightMm)/10⁹`. A számítás nem osztja a szálhosszt beszerzési darabokra.
+Tolerancia: tiszta szimmetrikus fixture-eknél `toBeCloseTo(..., 6–8)` a 3D euklideszi hosszakra; az inputpozíciók egész mm rácson vannak, a max osztás egyenletes újraosztása lebegőpontos művelet, ezért a tényleges távolság toleranciával ellenőrzött. Kezdő/záró peremsávot a nyereg/vetített tengelyen és a félnyereg tényleges lejtőhosszán külön fixture ellenőrzi. A keresztmetszeti térfogat képlete `Σ(lengthMm×widthMm×heightMm)/10⁹`; a hosszak 3D mm-ben, a kiírt összhossz m-ben (`/1000`), a keresztmetszet mm²-ben, a térfogat m³-ben szerepel. A számítás nem osztja a szálhosszt beszerzési darabokra.
+
+#### F9.35.1 minősítési határ
+
+- **VERIFIED GEOMETRIC QUANTITY:** a validált roof-plane polygonokkal metszett, egyedi geometriai vonalak és 3D összhosszuk; explicit peremsáv és a megadott egyenletes elosztás feltételével. A hétforma fixture-képletek a kiosztófüggvénytől függetlenek.
+- **ASSUMPTION-BASED ESTIMATE:** a fizikai kivitelezési kiosztás, toldás, támasz, csomópont, nyílás és anyagkihozatal becslése. A jelen motor ilyen fizikai mennyiséget nem állít elő; az egyenletes újraosztás bemeneti konvenció, nem szakmai kiosztási ajánlás.
+- **UNSUPPORTED PHYSICAL LAYOUT:** az egybeeső gerinc- vagy szakaszvonalak fizikai folytonossága, illetve különálló tagozása. A kimenet egy geometriai vonalat deduplikálhat, de ebből nem következtethet egyetlen fizikai léc szükségességére.
+
+`roof-timber-layout.test.ts` 14 tesztje ellenőrzi mind a hét geometriát, öt nem-L/T kézi szarufahosszt, L/T független összhossz-orákulumot, léc-vonalösszegeket, osztáskorlátot, kezdő/vég peremsávot, keresztmetszetet, egységeket, Survey/standalone azonosságot, invalid és kapacitástúllépő eseteket. Az F9.35.1 végső, széles tető/Survey/rajz regresszió állapotát a `docs/TEST_MATRIX.md` tartalmazza.
