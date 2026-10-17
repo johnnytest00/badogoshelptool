@@ -1,0 +1,117 @@
+import { describe, expect, it } from "vitest";
+import { calculateConcreteMix, calculateConcreteRing, calculateCylindricalPiles, calculateFoundationSlab, calculatePavingMaterials, calculateRectangularBlindArea, calculateReinforcementBars, calculateReinforcementMesh, calculateRightAngleDiagonal, calculateStripFoundation, concreteRingInputSchema, reinforcementMeshInputSchema } from "./concrete";
+import { calculateMansardGeometry, calculateRafterGeometry, calculateTriangularTrussGeometry } from "./roofs";
+import { calculateBeveledRiserGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry, spiralStairGeometryInputSchema } from "./stairs";
+import { calculateGableRoof } from "../gable-roof";
+import { calculateGableMetalTileCovering } from "../gable-metal-tile-covering";
+
+const m = 1_000;
+
+describe("independent construction calculations", () => {
+  it("solves diagonal and rafter right-triangle geometry", () => {
+    expect(calculateRightAngleDiagonal({ lengthMm: 4 * m, widthMm: 3 * m }).diagonalMm).toBe(5 * m);
+    const rafter = calculateRafterGeometry({ horizontalHalfSpanMm: 3 * m, riseMm: 4 * m, eaveProjectionMm: 0 });
+    expect(rafter.slopeLengthMm).toBe(5 * m);
+    expect(rafter.pitchDegrees).toBeCloseTo(53.13010235, 6);
+    expect(rafter.pitchDegrees + rafter.plumbCutToBoardAxisDegrees).toBeCloseTo(90, 10);
+  });
+
+  it("calculates broken-pitch and triangular truss envelope lengths", () => {
+    const mansard = calculateMansardGeometry({ buildingLengthMm: 10 * m, lowerRunMm: 2 * m, upperRunMm: 1 * m, lowerRiseMm: 2 * m, upperRiseMm: 2 * m });
+    expect(mansard.lowerSlopeMm).toBeCloseTo(Math.hypot(2, 2) * m, 6);
+    expect(mansard.totalRoofWidthMm).toBe(6 * m);
+    expect(mansard.totalAreaM2).toBeCloseTo(2 * 10 * (Math.hypot(2, 2) + Math.hypot(1, 2)), 8);
+    const truss = calculateTriangularTrussGeometry({ spanMm: 8 * m, riseMm: 3 * m, panelCountPerHalf: 4 });
+    expect(truss.halfRafterMm).toBeCloseTo(5 * m, 8);
+    expect(truss.nodes).toHaveLength(5);
+    expect(truss.nodes.at(-1)).toEqual({ xMm: 4 * m, yMm: 3 * m });
+  });
+
+  it("keeps straight stair risers uniform and computes straight and spiral paths", () => {
+    const straight = calculateStraightStairGeometry({ totalRiseMm: 2_800, availableRunMm: 4_200, riserCount: 16 });
+    expect(straight.riserHeightMm).toBe(175);
+    expect(straight.treadCount).toBe(15);
+    expect(straight.goingMm).toBe(280);
+    expect(straight.stepRuleMm).toBe(630);
+    const spiral = calculateSpiralStairGeometry({ totalRiseMm: 3_000, outerDiameterMm: 2_000, innerDiameterMm: 400, turnDegrees: 360, riserCount: 18 });
+    expect(spiral.walkingRadiusMm).toBe(600);
+    expect(spiral.walkingLineLengthMm).toBeCloseTo(1_200 * Math.PI, 8);
+    expect(spiral.riserHeightMm).toBeCloseTo(3000 / 18, 10);
+    expect(spiral.treadCount).toBe(17);
+  });
+
+  it("calculates a beveled riser profile without joinery assumptions", () => {
+    const result = calculateBeveledRiserGeometry({ goingMm: 280, riserHeightMm: 175, nosingProjectionMm: 30, treadThicknessMm: 40, riserBlankThicknessMm: 20 });
+    expect(result.diagonalMm).toBeCloseTo(Math.hypot(310, 175), 8);
+    expect(result.bevelAngleDegrees + result.slopeDegrees).toBeCloseTo(90, 10);
+  });
+
+  it("calculates foundation volumes and exposed geometric formwork", () => {
+    expect(calculateStripFoundation({ totalCenterlineLengthMm: 30 * m, widthMm: 400, depthMm: 800 })).toEqual({ volumeM3: 9.6, twoSideFormworkM2: 48 });
+    const slab = calculateFoundationSlab({ lengthMm: 10 * m, widthMm: 8 * m, thicknessMm: 200 });
+    expect(slab.volumeM3).toBe(16);
+    expect(slab.edgeFormworkM2).toBe(7.2);
+    expect(calculateCylindricalPiles({ count: 12, diameterMm: 400, lengthMm: 2 * m }).totalVolumeM3).toBeCloseTo(12 * Math.PI * 0.2 ** 2 * 2, 10);
+  });
+
+  it("calculates ring, paving and rectangular apron quantities", () => {
+    const ring = calculateConcreteRing({ outerDiameterMm: 1_500, wallThicknessMm: 100, heightMm: 1_000 });
+    expect(ring.innerDiameterMm).toBe(1_300);
+    expect(ring.concreteVolumeM3).toBeCloseTo(Math.PI * (0.75 ** 2 - 0.65 ** 2), 10);
+    expect(calculatePavingMaterials({ lengthMm: 10 * m, widthMm: 1_200, tileLengthMm: 200, tileWidthMm: 100 }).tilesByArea).toBe(600);
+    const apron = calculateRectangularBlindArea({ buildingLengthMm: 10 * m, buildingWidthMm: 8 * m, apronWidthMm: 1 * m, concreteThicknessMm: 100, gravelThicknessMm: 150 });
+    expect(apron.apronAreaM2).toBe(40);
+    expect(apron.concreteVolumeM3).toBe(4);
+    expect(apron.gravelVolumeM3).toBe(6);
+  });
+
+  it("uses user-provided mix inputs and explicit steel density", () => {
+    const mix = calculateConcreteMix({ concreteVolumeM3: 1.2, cementKgPerM3: 300, cementRatio: 1, sandRatio: 2, aggregateRatio: 4, bagWeightKg: 25 });
+    expect(mix).toEqual({ cementKg: 360, sandKg: 720, aggregateKg: 1_440, bagCount: 15 });
+    const bars = calculateReinforcementBars({ barDiameterMm: 12, cutLengthMm: 6 * m, pieceCount: 10, steelDensityKgPerM3: 7_850 });
+    expect(bars.totalLengthM).toBe(60);
+    expect(bars.totalMassKg).toBeCloseTo(Math.PI * 0.006 ** 2 * 60 * 7_850, 10);
+    const mesh = calculateReinforcementMesh({ lengthMm: 5 * m, widthMm: 4 * m, coverMm: 30, spacingMm: 200, barDiameterMm: 10, steelDensityKgPerM3: 7_850 });
+    expect(mesh.lengthwiseBarCount).toBe(21);
+    expect(mesh.widthwiseBarCount).toBe(26);
+    expect(mesh.actualSpacingAlongLengthMm).toBeLessThanOrEqual(200);
+    expect(mesh.actualSpacingAlongWidthMm).toBeLessThanOrEqual(200);
+  });
+
+  it("reuses the existing gable and metal-tile engines for a product-data-based estimate", () => {
+    const roof = calculateGableRoof({ inputMode: "height", buildingLengthMm: 10 * m, buildingWidthMm: 6 * m, roofRiseMm: 4 * m, eaveOverhangMm: 0, frontGableOverhangMm: 0, rearGableOverhangMm: 0 });
+    const material = calculateGableMetalTileCovering(roof, {
+      nominalSheetWidthMm: 1_200, effectiveCoveringWidthMm: 1_000, physicalSheetLengthMm: 5_100, effectiveCoveringLengthMm: 5_000,
+      minimumPhysicalLengthMm: null, maximumPhysicalLengthMm: null, eaveEndAllowanceMm: 0, ridgeEndAllowanceMm: 0, longitudinalOverlapMm: 0,
+      lengthCompatibilityConfirmed: true, lengthDataSource: "Independent test fixture", isModular: false, moduleBaseLengthMm: null, modulePitchMm: null, moduleCount: null,
+    });
+    expect(roof.areas.combinedRoofM2).toBe(100);
+    expect(material).toMatchObject({ status: "VALID", columnsPerPlane: 10, totalSheetCount: 20, totalNominalSheetAreaMm2: 122_400_000 });
+  });
+
+  it("preserves dimensional scaling for lengths, areas, volumes and steel mass", () => {
+    const diagonal = calculateRightAngleDiagonal({ lengthMm: 3 * m, widthMm: 4 * m });
+    const scaledDiagonal = calculateRightAngleDiagonal({ lengthMm: 6 * m, widthMm: 8 * m });
+    expect(scaledDiagonal.diagonalMm).toBe(2 * diagonal.diagonalMm);
+    const slab = calculateFoundationSlab({ lengthMm: 10 * m, widthMm: 8 * m, thicknessMm: 200 });
+    const scaledSlab = calculateFoundationSlab({ lengthMm: 20 * m, widthMm: 16 * m, thicknessMm: 400 });
+    expect(scaledSlab.planAreaM2).toBe(4 * slab.planAreaM2);
+    expect(scaledSlab.volumeM3).toBe(8 * slab.volumeM3);
+    const bars = calculateReinforcementBars({ barDiameterMm: 10, cutLengthMm: 1_000, pieceCount: 4, steelDensityKgPerM3: 7_850 });
+    const scaledBars = calculateReinforcementBars({ barDiameterMm: 20, cutLengthMm: 2_000, pieceCount: 4, steelDensityKgPerM3: 7_850 });
+    expect(scaledBars.totalLengthM).toBe(2 * bars.totalLengthM);
+    expect(scaledBars.totalMassKg).toBe(8 * bars.totalMassKg);
+    const stair = calculateStraightStairGeometry({ totalRiseMm: 2_800, availableRunMm: 4_200, riserCount: 16 });
+    const scaledStair = calculateStraightStairGeometry({ totalRiseMm: 5_600, availableRunMm: 8_400, riserCount: 16 });
+    expect(scaledStair.riserHeightMm).toBe(2 * stair.riserHeightMm);
+    expect(scaledStair.goingMm).toBe(2 * stair.goingMm);
+    expect(scaledStair.pitchDegrees).toBeCloseTo(stair.pitchDegrees, 10);
+  });
+
+  it("rejects invalid dimensions and geometries", () => {
+    expect(() => calculateRightAngleDiagonal({ lengthMm: 0, widthMm: 3 * m })).toThrow();
+    expect(concreteRingInputSchema.safeParse({ outerDiameterMm: 1_000, wallThicknessMm: 500, heightMm: 1_000 }).success).toBe(false);
+    expect(spiralStairGeometryInputSchema.safeParse({ totalRiseMm: 3_000, outerDiameterMm: 1_500, innerDiameterMm: 1_600, turnDegrees: 360, riserCount: 16 }).success).toBe(false);
+    expect(reinforcementMeshInputSchema.safeParse({ lengthMm: 1_000, widthMm: 1_000, coverMm: 500, spacingMm: 100, barDiameterMm: 10 }).success).toBe(false);
+  });
+});

@@ -31,16 +31,20 @@ export function quotationLinesFromMaterialList(revision: MaterialPreparationRevi
       && candidate.currency === "HUF" && candidate.priceKind === "net" && candidate.purchasingUnit === item.unit
       && cents(candidate.amount) === importedCents));
     const sourceStillSelectable = Boolean(variant);
+    const categoryId = product?.categoryId ?? item.categoryId ?? null;
     const sourceDescription = item.description;
     const noteParts = [item.notes, !sourceStillSelectable && item.variantId ? "A katalógusforrás jelenleg nem választható; kézi ellenőrzést igényel." : "",
       knownNetPrice && !priceIsCurrent ? "A mentett forrásár nem ellenőrizhető aktív katalógusárként; ellenőrizd mentés előtt." : "",
       raw.kind === "manual" && priceSnapshotExists(price) && !knownManualPrice ? "A mentett kézi ár egysége vagy pénzneme nem ellenőrizhető; add meg újra, ha használni szeretnéd." : ""]
       .filter((value): value is string => Boolean(value));
     return {
-      type: sourceStillSelectable ? "MATERIAL" : "OTHER",
+      // Every material-list row remains a material quote line. A missing catalog
+      // association is represented by an empty variantId and the immutable source id.
+      type: "MATERIAL",
       description: sourceDescription,
       quantity: item.quantity,
       unit: item.unit,
+      categoryId: categoryId ?? "",
       unitPrice: knownManualPrice || knownNetPrice ? priceAmount : "",
       priceClass: knownManualPrice ? manualPriceKind! : "net",
       variantId: sourceStillSelectable ? variant!.id : "",

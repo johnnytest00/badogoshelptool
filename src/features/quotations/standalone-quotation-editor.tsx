@@ -8,25 +8,35 @@ import { validateStandaloneLines } from "@/domain/quotations/standalone";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { generateSecureUuid } from "@/lib/secure-uuid";
-import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneManualRecipient, standaloneNetLabels, type StandaloneSaveOperation } from "./standalone-quotation-ui-state";
+import { materialProvenanceLabels, materialPurchasingUnitLabels } from "@/domain/materials/contracts";
+import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneManualRecipient, type StandaloneSaveOperation } from "./standalone-quotation-ui-state";
 import { quotationRecoveryKey, readQuotationRecovery, writeQuotationRecovery, isQuotationRecoveryCurrent, clearOtherQuotationRecoveryOwners, type QuotationRecovery, type QuotationDraftValues } from "./quotation-draft-recovery";
 import { resolveStandaloneQuotationCatalogItemAction, saveStandaloneQuotationDraftAction, updateStandaloneIssuerProfileAction, validateStandaloneQuotationDocumentAction, type StandaloneDocumentSources, type StandaloneQuotationResult } from "./standalone-quotation-actions";
 import type { MaterialProductRecord } from "@/features/materials/material-data";
 import type { MaterialCategoryRecord } from "@/features/materials/material-data";
 import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "@/features/material-takeoffs/workflow-material-product-picker";
+import { catalogReplacementNeedsConfirmation, changeQuotationMaterialCategory, quotationMaterialLinkState, quotationPricesEqual, quotationPurchasingUnitLabel, quotationPurchasingUnitsMatch } from "./quotation-material-state";
 import { emptyQuotationDocumentDraft, validateQuotationDocumentReadiness, type DocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
 
 type Line = QuotationDraftValues["lines"][number];
 type EditorLine = Line & { localId: string };
 type Revision = { id: string; revisionNumber: number; createdAt: string; subtotal: string | null };
 type CurrentRevision = { id: string; revision_number: number; input_snapshot: unknown; line_items_snapshot: unknown; subtotal: string | number | null; currency: string; price_class: "net" | "gross" | null };
-const empty = (type: Line["type"]): Line => ({ type, description: "", quantity: "", unit: "", unitPrice: "", priceClass: "net", variantId: "", priceId: "", takeoffItemId: "", sourceMaterialItemId: "", notes: "" });
+const empty = (type: Line["type"]): Line => ({ type, description: "", quantity: "", unit: "", unitPrice: "", priceClass: "net", variantId: "", categoryId: "", priceId: "", takeoffItemId: "", sourceMaterialItemId: "", priceProvenance: "missing", notes: "" });
 const toPersistedLine = (line: EditorLine): Line => {
   const { localId, ...persisted } = line;
   void localId;
   return persisted;
 };
-const money = (value: string | number | null) => value === null ? "—" : `${Number(value).toLocaleString("hu-HU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ft`;
+const money = (value: string | number | null) => {
+  if (value === null) return "—";
+  const normalized = String(value).trim().replace(",", ".");
+  const match = normalized.match(/^(\d+)(?:\.(\d{1,2}))?$/);
+  if (!match) return `${String(value)} Ft`;
+  return `${BigInt(match[1]).toLocaleString("hu-HU")},${(match[2] ?? "").padEnd(2, "0")} Ft`;
+};
+const provenanceLabel = (value: unknown) => typeof value === "string" && Object.prototype.hasOwnProperty.call(materialProvenanceLabels, value)
+  ? materialProvenanceLabels[value as keyof typeof materialProvenanceLabels] : "Forrás nincs megadva";
 const objectValue = (value: unknown): Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const textValue = (value: unknown) => typeof value === "string" ? value : "";
 
@@ -71,14 +81,25 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const issuerDirtyRef = useRef(false);
   const [lines, setLines] = useState<EditorLine[]>(() => {
     const raw = seed?.line_items_snapshot;
-    if (!Array.isArray(raw)) return initialLines.map((value) => ({ ...value, localId: makeLocalId() }));
+    if (!Array.isArray(raw)) return initialLines.map((value) => {
+      const product = products.find((entry) => entry.variants.some((variant) => variant.id === value.variantId));
+      return { ...empty(value.type), ...value, categoryId: value.categoryId || product?.categoryId || "", localId: makeLocalId() };
+    });
     const linkedSourceIndexes = new Map((materialSource?.sourceLineMap ?? []).map((source) => [source.quotationLineIndex, source.materialItemId]));
     return raw.map((entry, index) => {
       const value = entry as Partial<Line>;
-      return { ...empty(value.type === "MATERIAL" || value.type === "LABOR" || value.type === "OTHER" ? value.type : "OTHER"), ...value, sourceMaterialItemId: linkedSourceIndexes.get(index) ?? value.sourceMaterialItemId ?? "", priceClass: "net", localId: makeLocalId() } as EditorLine;
+      const sourceMaterialItemId = linkedSourceIndexes.get(index) ?? value.sourceMaterialItemId ?? "";
+      const type = value.type === "MATERIAL" || value.type === "LABOR" || value.type === "OTHER" ? value.type : "OTHER";
+      const product = products.find((candidate) => candidate.variants.some((variant) => variant.id === value.variantId));
+      return {
+        ...empty(type), ...value,
+        type: sourceMaterialItemId && type === "OTHER" ? "MATERIAL" : type,
+        categoryId: value.categoryId || product?.categoryId || "",
+        sourceMaterialItemId, priceClass: value.priceClass ?? "net", priceProvenance: value.priceProvenance ?? (value.priceId ? "catalog_snapshot" : "missing"), localId: makeLocalId(),
+      } as EditorLine;
     });
   });
-  const [lineCategoryIds, setLineCategoryIds] = useState<Record<string, string>>(() => Object.fromEntries(lines.map((line) => [line.localId, products.find((product) => product.variants.some((variant) => variant.id === line.variantId))?.categoryId ?? ""])));
+  const [expandedLineIds, setExpandedLineIds] = useState<Record<string, boolean>>({});
   const [dirty, setDirty] = useState(false);
   const [pdfPromptOpen, setPdfPromptOpen] = useState(false);
   const dirtyRef = useRef(false);
@@ -130,6 +151,9 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const localEstimate = useMemo(() => lines.reduce((sum, line) => {
     try { return sum + lineTotal(line.quantity || "0", line.unitPrice || "0").minor; } catch { return sum; }
   }, BigInt(0)), [lines]);
+  const currentPriceClasses = new Set(lines.map((line) => line.priceClass));
+  const mixedPriceClasses = currentPriceClasses.size > 1;
+  const currentPriceBasisLabel = mixedPriceClasses ? "vegyes árbesorolás" : [...currentPriceClasses][0] === "gross" ? "bruttó HUF" : "nettó HUF";
   const readinessDocument = document;
   const savedIssuerForReadiness: IssuerDocumentProfile | null = savedDocument.issuer ? {
     businessName: textValue(savedDocument.issuer.businessName) || null,
@@ -155,7 +179,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   });
   const displayedReadiness = serverReadiness ?? readiness;
 
-  const addLine = (type: Line["type"]) => { const next = [...lines, { ...empty(type), localId: makeLocalId() }]; setLines(next); syncDirty(name, next); };
+  const addLine = (type: Line["type"]) => { const next = [{ ...empty(type), localId: makeLocalId() }, ...lines]; setLines(next); syncDirty(name, next); };
   const moveLine = (index: number, offset: -1 | 1) => {
     const target = index + offset;
     if (target < 0 || target >= lines.length) return;
@@ -170,24 +194,72 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     setName(values.name); setLines(values.lines); setDocument(nextDocument); setDirtyState(JSON.stringify(values) !== baseline.current); setRecovery(null);
   };
   const catalogVariant = (variantId: string) => products.flatMap((product) => product.variants.map((variant) => ({ product, variant }))).find((entry) => entry.variant.id === variantId);
-  const resolvePrice = async (lineIndex: number, variantId: string, priceId: string) => {
+  const resolvePrice = async (lineIndex: number, variantId: string, requestedPriceId: string, useDefaultPrice = false) => {
     const selected = catalogVariant(variantId);
     if (!selected) { setCatalogMessage("A katalógustermék nem található a betöltött listában."); return; }
+    const previous = lines[lineIndex];
+    if (!previous) return;
+    const compatiblePrices = selected.variant.prices.filter((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === selected.variant.purchasingUnit);
+    const selectedPriceId = requestedPriceId
+      || (useDefaultPrice && previous.variantId === variantId ? previous.priceId : "")
+      || (useDefaultPrice && !previous.unitPrice.trim() ? compatiblePrices[0]?.id ?? "" : "");
+    const localPrice = compatiblePrices.find((price) => price.id === selectedPriceId);
+    const preserveOldSnapshotPrice = !selectedPriceId && previous.unitPrice.trim()
+      && previous.variantId !== variantId
+      && previous.priceProvenance !== "user_entered" && previous.priceProvenance !== "missing";
+    const needsConfirmation = catalogReplacementNeedsConfirmation(previous, selected.variant.purchasingUnit, localPrice ? localPrice.amount.toFixed(2) : undefined)
+      || Boolean(preserveOldSnapshotPrice);
+    if (needsConfirmation) {
+      const changes = [
+        previous.unit.trim() && !quotationPurchasingUnitsMatch(previous.unit, selected.variant.purchasingUnit)
+          ? `az egység ${quotationPurchasingUnitLabel(previous.unit)} helyett ${quotationPurchasingUnitLabel(selected.variant.purchasingUnit)} lesz` : "",
+        localPrice && previous.unitPrice.trim() && !quotationPricesEqual(previous.unitPrice, localPrice.amount.toFixed(2))
+          ? `az egységár ${previous.unitPrice} Ft helyett ${localPrice.amount.toLocaleString("hu-HU")} Ft lesz` : "",
+        preserveOldSnapshotPrice ? "a korábbi forrásár a kiválasztott termékhez kézi ajánlati árként marad meg" : "",
+      ].filter(Boolean).join("; ");
+      const accepted = await requestConfirmation({
+        title: "Katalógustermék cseréje",
+        message: `A kiválasztás módosítja az ajánlatsort: ${changes}. A megnevezés, mennyiség és anyaglista-forrás megmarad. Folytatod?`,
+        cancelLabel: "Mégse",
+        actions: [{ label: "Katalógustermék kiválasztása", tone: "primary", run: () => undefined }],
+      });
+      if (!accepted) { setCatalogMessage("A termékválasztás megszakadt; az ajánlatsor adatai változatlanok."); return; }
+    }
     let response: Awaited<ReturnType<typeof resolveStandaloneQuotationCatalogItemAction>>;
-    try { response = await resolveStandaloneQuotationCatalogItemAction(organizationId, variantId, priceId || undefined); }
+    try { response = await resolveStandaloneQuotationCatalogItemAction(organizationId, variantId, selectedPriceId || undefined); }
     catch { setCatalogMessage("A katalógus most nem érhető el. Ellenőrizd a kapcsolatot, majd válaszd ki újra a tételt."); return; }
     if (!response.ok) { setCatalogMessage(response.error); return; }
     const price = response.data.price as { amount: string; provenance: string | null; effectiveDate: string; priceKind: "net" | "gross" } | null;
     if (price && price.priceKind !== "net") { setCatalogMessage("Ez az ár bruttó besorolású. A standalone szerkesztő jelenleg nettó HUF árakat fogad el; válassz másik árat vagy kézi nettó árat."); return; }
-    const previous = lines[lineIndex];
-    update(lineIndex, { variantId, priceId, description: `${selected.product.name} · ${selected.variant.name}`, unit: selected.variant.purchasingUnit, unitPrice: price?.amount ?? (previous?.variantId === variantId ? previous.unitPrice : ""), priceClass: "net" });
-    setCatalogMessage(price ? `Katalógusár ellenőrizve · ${String(price.provenance ?? "forrás megadva")} · ${price.effectiveDate}` : "Katalógustermék kiválasztva; kézi nettó árat adj meg.");
+    update(lineIndex, {
+      variantId, categoryId: selected.product.categoryId, priceId: selectedPriceId,
+      unit: String(response.data.purchasingUnit ?? selected.variant.purchasingUnit),
+      unitPrice: price?.amount ?? previous.unitPrice,
+      priceClass: price?.priceKind ?? previous.priceClass,
+      priceProvenance: price ? "catalog_snapshot" : previous.unitPrice.trim() ? "user_entered" : "missing",
+    });
+    setCatalogMessage(price
+      ? `Katalógustermék: ${selected.product.name} · ${selected.variant.name}. Katalógusár: ${price.amount} Ft/${quotationPurchasingUnitLabel(selected.variant.purchasingUnit)} · ${materialProvenanceLabels[(price.provenance ?? "missing") as keyof typeof materialProvenanceLabels]} · ${price.effectiveDate}.`
+      : `Katalógustermék: ${selected.product.name} · ${selected.variant.name}. A megnevezés és a meglévő ajánlati ár megmaradt.`);
+  };
+  const removeLine = async (line: EditorLine) => {
+    const accepted = await requestConfirmation({
+      title: "Ajánlati tétel eltávolítása",
+      message: line.sourceMaterialItemId
+        ? `A „${line.description || "névtelen tétel"}” kikerül ebből a piszkozatból. A mentett anyaglista-forrás és a korábbi ajánlati revízió változatlan marad.`
+        : `A „${line.description || "névtelen tétel"}” kikerül ebből a piszkozatból. A már mentett ajánlati revíziók változatlanok maradnak.`,
+      cancelLabel: "Mégse",
+      actions: [{ label: "Tétel eltávolítása", tone: "danger", run: () => undefined }],
+    });
+    if (!accepted) return;
+    const next = lines.filter((candidate) => candidate.localId !== line.localId);
+    setLines(next); syncDirty(name, next);
   };
   const save = (saveIssuerProfileFirst = false) => {
     if (historical || pending) return;
     if (!name.trim()) { setResult({ ok: false, code: "VALIDATION", error: "Add meg az ajánlat nevét a mentéshez." }); return; }
     if (issuerDirty && !saveIssuerProfileFirst) { setResult({ ok: false, code: "VALIDATION", error: "Előbb mentsd a kibocsátói profilt, hogy az ajánlati revízió a friss adatokat rögzítse." }); return; }
-    const savedLines = lines.map((line) => ({ ...toPersistedLine(line), priceClass: "net" as const }));
+    const savedLines = lines.map(toPersistedLine);
     const payload = JSON.stringify({ quotationId, version, name: name.trim(), lines: savedLines, document, materialListId: materialSource?.materialListId ?? null, materialRevisionId: materialSource?.materialRevisionId ?? null });
     try {
       operation.current = getStandaloneSaveOperation(operation.current, payload, generateSecureUuid);
@@ -248,7 +320,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
 
   return <section className="quotation-editor detail-surface standalone-quotation-editor">
     <Link className="back-link" href={`/ajanlatok?organization=${organizationId}`}>← Vissza az ajánlatokhoz</Link>
-    <div className="section-heading standalone-quotation-header glass-bubble"><div className="standalone-quotation-title"><ClipboardList aria-hidden="true" className="standalone-quotation-icon" /><div><p className="section-eyebrow">Önálló ajánlat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2><p className="standalone-quotation-subtitle">Nettó HUF · Menthető piszkozat</p></div></div><span className="status-pill status-draft">Piszkozat</span></div>
+    <div className="section-heading standalone-quotation-header glass-bubble"><div className="standalone-quotation-title"><ClipboardList aria-hidden="true" className="standalone-quotation-icon" /><div><p className="section-eyebrow">Önálló ajánlat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2><p className="standalone-quotation-subtitle">HUF · Menthető piszkozat</p></div></div><span className="status-pill status-draft">Piszkozat</span></div>
     <p className="standalone-quotation-note">A véglegesítés, az ÁFA-kezelés és a hivatalos PDF még nem támogatott.</p>
     {materialSource && <section className="glass-bubble quotation-material-source" aria-label="Anyaglista forrás"><strong>Anyaglista-forrás · {materialSource.listName}</strong><span>V{materialSource.revisionNumber} revízió · {materialSource.sourceLineMap.length} forrástétel</span>{materialSource.currentRevisionId && materialSource.currentRevisionId !== materialSource.materialRevisionId && <p role="status">A lista azóta V{materialSource.currentVersion} verzióra változott. Az ajánlat a kiválasztott, változtathatatlan V{materialSource.revisionNumber} forrásból indul.</p>}</section>}
     <div className="standalone-revision-bar" aria-label="Ajánlati revíziók">
@@ -306,37 +378,78 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
         {serverReadiness && <small role="status">Az ellenőrzés hitelesített szerveroldali adatokkal lefutott.</small>}
         </div>
       </details>
-      <div className="quotation-lines"><div className="section-heading"><div><p className="section-eyebrow">Tételek</p><h3>Ártételek</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Kézi sor</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
+      <div className="quotation-lines"><div className="section-heading"><div><p className="section-eyebrow">Tételek</p><h3>Ártételek</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("MATERIAL")}>+ Kézi anyag</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
         {lines.length === 0 && <p className="empty-state">Még nincs tétel. Üres piszkozatot is elmenthetsz.</p>}
         {lines.map((line, index) => {
-          const categoryId = lineCategoryIds[line.localId] ?? products.find((product) => product.variants.some((variant) => variant.id === line.variantId))?.categoryId ?? "";
+          const selected = line.variantId ? catalogVariant(line.variantId) : undefined;
+          const categoryId = line.categoryId || selected?.product.categoryId || "";
+          const category = categories.find((candidate) => candidate.id === categoryId);
           const categoryProducts = products.filter((product) => product.categoryId === categoryId && product.categoryActive && product.status === "active");
-          const productOptions: WorkflowMaterialProductOption[] = categoryProducts.flatMap((product) => product.variants.map((variant) => ({
-            id: variant.id,
-            name: `${product.name} · ${variant.name}`,
-            detail: [variant.sku, variant.purchasingUnit, product.manufacturerName].filter(Boolean).join(" · "),
-            searchText: [product.productCode, product.description, product.manufacturerName, variant.sku, variant.name].filter(Boolean).join(" "),
-          })));
-          return <article className="quotation-line" key={line.localId}><div className="quotation-line-grid">
-          {line.sourceMaterialItemId && <small className="quotation-source-line">Anyaglista-forrás tétel · {line.sourceMaterialItemId.slice(0, 8)}</small>}
-          <label htmlFor={`line-${index}-type`}>Típus<select id={`line-${index}-type`} value={line.type} onChange={(event) => { const type = event.target.value as Line["type"]; if (type === "MATERIAL") { const selectedProduct = products.find((product) => product.variants.some((variant) => variant.id === line.variantId)); if (selectedProduct) setLineCategoryIds((current) => ({ ...current, [line.localId]: selectedProduct.categoryId })); update(index, { type }); } else { setLineCategoryIds((current) => { const next = { ...current }; delete next[line.localId]; return next; }); update(index, { type, variantId: "", priceId: "" }); } }}><option value="MATERIAL">Anyag</option><option value="LABOR">Munkadíj</option><option value="OTHER">Egyéb</option></select></label>
-          {line.type === "MATERIAL" && <div className="standalone-catalog-selection">
-            <label htmlFor={`line-${index}-category`}>Kategória<select id={`line-${index}-category`} aria-required="true" value={categoryId} onChange={(event) => { const nextCategoryId = event.target.value; setLineCategoryIds((current) => ({ ...current, [line.localId]: nextCategoryId })); if (line.variantId) update(index, { variantId: "", priceId: "", description: "", unit: "", unitPrice: "", priceClass: "net" }); }}><option value="">Válassz kategóriát…</option>{categories.filter((category) => category.isActive).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-            <label className="standalone-catalog-product-field">Termék<WorkflowMaterialProductPicker idPrefix={`quotation-${line.localId}-catalog`} options={productOptions} value={line.variantId} disabled={!categoryId} onSelect={(variantId) => { if (variantId) void resolvePrice(index, variantId, ""); }} /></label>
-          </div>}
-          <label htmlFor={`line-${index}-description`}>Megnevezés<input id={`line-${index}-description`} value={line.description} onChange={(event) => update(index, { description: event.target.value })} /></label>
-          <label htmlFor={`line-${index}-quantity`}>Mennyiség<input id={`line-${index}-quantity`} inputMode="decimal" value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} aria-describedby={`line-${index}-error`} /></label>
-          <label htmlFor={`line-${index}-unit`}>Egység<input id={`line-${index}-unit`} value={line.unit} onChange={(event) => update(index, { unit: event.target.value, priceId: "" })} /></label>
-          <label htmlFor={`line-${index}-price`}>{standaloneNetLabels.unitPrice}<input id={`line-${index}-price`} inputMode="decimal" value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value, priceId: "" })} /></label>
-          {line.sourceMaterialItemId && !line.unitPrice && <p className="quotation-source-price-note">Ehhez a forrástételhez nincs átvehető nettó ár. Adj meg egy ellenőrzött egységárat mentés előtt.</p>}
-          {line.variantId && <label htmlFor={`line-${index}-price-source`}>Katalógusárforrás<select id={`line-${index}-price-source`} value={line.priceId} onChange={(event) => { void resolvePrice(index, line.variantId, event.target.value); }}><option value="">Kézi nettó ár</option>{catalogVariant(line.variantId)?.variant.prices.filter((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === catalogVariant(line.variantId)?.variant.purchasingUnit).map((price) => <option key={price.id} value={price.id}>{price.amount.toLocaleString("hu-HU")} Ft · {price.effectiveDate}</option>)}</select><small>{line.priceId ? "Mentéskor a szerver ismét ellenőrzi a katalógusárat." : "Kézi árként kerül rögzítésre."}</small></label>}
-          <output className="quotation-line-total">{standaloneNetLabels.lineTotal}: {(() => { try { return scaledToDecimal(lineTotal(line.quantity || "0", line.unitPrice || "0").minor, 2); } catch { return "—"; } })()} <small>nem mentett becslés</small></output>
-          <div className="standalone-line-actions"><button className="text-button" type="button" disabled={index === 0} aria-label={`Tétel ${index + 1} mozgatása fel`} onClick={() => moveLine(index, -1)}>↑ Fel</button><button className="text-button" type="button" disabled={index === lines.length - 1} aria-label={`Tétel ${index + 1} mozgatása le`} onClick={() => moveLine(index, 1)}>↓ Le</button><button className="text-button" type="button" aria-label={`Tétel ${index + 1} törlése`} onClick={() => { const next = lines.filter((_, itemIndex) => itemIndex !== index); setLines(next); syncDirty(name, next); }}>Tétel törlése</button></div>
-        </div><p id={`line-${index}-error`} className="missing-data">Leírás, pozitív mennyiség, egység és nemnegatív nettó egységár szükséges a kitöltött sor mentéséhez.</p></article>;
+          const productOptions: WorkflowMaterialProductOption[] = categoryProducts.flatMap((product) => product.variants.map((variant) => {
+            const knownPrice = variant.prices.find((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === variant.purchasingUnit);
+            const priceDetail = knownPrice ? `${knownPrice.amount.toLocaleString("hu-HU")} Ft/${materialPurchasingUnitLabels[knownPrice.purchasingUnit]} · ${provenanceLabel(knownPrice.provenance)} · ${knownPrice.effectiveDate}` : "Ár nincs megadva";
+            return {
+              id: variant.id,
+              name: `${product.name} · ${variant.name}`,
+              detail: [`Egység ${materialPurchasingUnitLabels[variant.purchasingUnit]}`, product.manufacturerName, priceDetail].filter(Boolean).join(" · "),
+              searchText: [product.productCode, product.description, product.manufacturerName, variant.sku, variant.name].filter(Boolean).join(" "),
+            };
+          }));
+          const currentPrice = selected?.variant.prices.find((price) => price.id === line.priceId);
+          const latestKnownPrice = selected?.variant.prices.find((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === selected.variant.purchasingUnit);
+          const linkState = quotationMaterialLinkState(line);
+          const linkLabel = linkState === "catalog_linked"
+            ? selected ? "Katalógushoz kapcsolva" : "Katalóguskapcsolat nem található"
+            : linkState === "source_unmapped" ? "Anyaglista-forrás · nincs katalógustermék" : "Kézi anyag · nincs katalógustermék";
+          const priceOrigin = line.priceId
+            ? currentPrice ? `Katalógusár · ${provenanceLabel(currentPrice.provenance)} · ${currentPrice.effectiveDate}` : "Mentett katalógusár; az aktuális katalógusárforrás nem érhető el"
+            : line.priceProvenance === "catalog_snapshot" ? "Korábbi katalógusár-pillanatkép, kézi ajánlati árként megőrizve"
+              : line.priceProvenance === "takeoff_snapshot" ? "Korábbi anyagkimutatás-ár-pillanatkép"
+                : line.priceProvenance === "user_entered" ? "Kézi ajánlati ár"
+                  : "Ár eredete nincs megadva";
+          const lineAmount = (() => { try { return money(scaledToDecimal(lineTotal(line.quantity || "0", line.unitPrice || "0").minor, 2)); } catch { return "—"; } })();
+          const unitLabel = quotationPurchasingUnitLabel(line.unit) || "—";
+          const linePriceLabel = line.priceClass === "gross" ? "Bruttó egységár (Ft)" : "Nettó egységár (Ft)";
+          const lineTotalLabel = line.priceClass === "gross" ? "Bruttó tételösszeg" : "Nettó tételösszeg";
+          const editId = `line-${line.localId}-advanced`;
+          return <article className="quotation-line" key={line.localId}>
+            <div className="quotation-compact-row">
+              <div className="quotation-compact-title"><span className={`quotation-material-state state-${linkState}`}>{line.type === "MATERIAL" ? linkLabel : line.type === "LABOR" ? "Munkadíj" : "Egyéb tétel"}</span><strong>{line.description || "Névtelen tétel"}</strong><small>{category?.name ?? ""}</small></div>
+              <label className="quotation-compact-field"><span>Mennyiség</span><input aria-label={`${line.description || "Tétel"} mennyisége`} inputMode="decimal" value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} /></label>
+              <div className="quotation-compact-field quotation-compact-unit"><span>Egység</span><strong>{unitLabel}</strong></div>
+              <label className="quotation-compact-field"><span>{linePriceLabel}</span><input aria-label={`${line.description || "Tétel"} ${linePriceLabel.toLowerCase()}`} inputMode="decimal" value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value, priceId: "", priceProvenance: event.target.value.trim() ? "user_entered" : "missing" })} /></label>
+              <output className="quotation-compact-total"><span>{lineTotalLabel}</span><strong>{lineAmount}</strong></output>
+              <button className="secondary-button quotation-edit-toggle" type="button" aria-expanded={Boolean(expandedLineIds[line.localId])} aria-controls={editId} onClick={() => setExpandedLineIds((current) => ({ ...current, [line.localId]: !current[line.localId] }))}>{expandedLineIds[line.localId] ? "Bezárás" : "Szerkesztés"}</button>
+            </div>
+            {expandedLineIds[line.localId] && <div id={editId} className="quotation-line-edit">
+              <div className="quotation-line-grid quotation-advanced-grid">
+                <label htmlFor={`${line.localId}-type`}>Tétel típusa<select id={`${line.localId}-type`} value={line.type} onChange={(event) => {
+                  const type = event.target.value as Line["type"];
+                  if (type === "MATERIAL") update(index, { type, categoryId: line.categoryId || selected?.product.categoryId || "" });
+                  else update(index, { type, variantId: "", categoryId: "", priceId: "", priceProvenance: line.priceId ? "catalog_snapshot" : line.priceProvenance });
+                }}><option value="MATERIAL">Anyag</option><option value="LABOR">Munkadíj</option><option value="OTHER">Egyéb</option></select></label>
+                {line.type === "MATERIAL" && <>
+                  <label htmlFor={`${line.localId}-category`}>Kategória<select id={`${line.localId}-category`} value={categoryId} onChange={(event) => {
+                    const next = changeQuotationMaterialCategory(line, event.target.value, selected?.product.categoryId ?? null);
+                    update(index, next);
+                  }}><option value="">Nincs kategória</option>{categories.filter((entry) => entry.isActive || entry.id === categoryId).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}{entry.isActive ? "" : " · inaktív"}</option>)}</select></label>
+                  <label className="standalone-catalog-product-field">Katalógustermék<WorkflowMaterialProductPicker idPrefix={`quotation-${line.localId}-catalog`} options={productOptions} value={line.variantId} disabled={!categoryId} onSelect={(variantId) => { if (variantId) void resolvePrice(index, variantId, "", true); }} /></label>
+                </>}
+                <label htmlFor={`${line.localId}-description`}>Megnevezés<input id={`${line.localId}-description`} maxLength={240} value={line.description} onChange={(event) => update(index, { description: event.target.value })} /></label>
+                <label htmlFor={`${line.localId}-unit`}>Egység<input id={`${line.localId}-unit`} maxLength={40} value={line.variantId ? unitLabel : line.unit} readOnly={Boolean(line.variantId)} aria-describedby={`${line.localId}-unit-help`} onChange={(event) => update(index, { unit: event.target.value, priceId: "", priceProvenance: line.priceId ? "catalog_snapshot" : line.priceProvenance })} /></label>
+                <small id={`${line.localId}-unit-help`}>{line.variantId ? "Az egységet a katalógusváltozat határozza meg." : "Kézi tételnél az egység szerkeszthető."}</small>
+                {line.type === "MATERIAL" && selected && <label htmlFor={`${line.localId}-price-source`}>Ajánlati árforrás<select id={`${line.localId}-price-source`} value={line.priceId} onChange={(event) => { void resolvePrice(index, line.variantId, event.target.value); }}><option value="">Kézi ajánlati ár</option>{selected.variant.prices.filter((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === selected.variant.purchasingUnit).map((price) => <option key={price.id} value={price.id}>{price.amount.toLocaleString("hu-HU")} Ft/{materialPurchasingUnitLabels[price.purchasingUnit]} · {price.effectiveDate}</option>)}</select></label>}
+                <div className="quotation-price-provenance"><strong>{priceOrigin}</strong>{selected && <small>A katalógusváltozat eredete: {provenanceLabel(selected.variant.provenance)}.</small>}{latestKnownPrice && <small>Elérhető nettó katalógusár: {latestKnownPrice.amount.toLocaleString("hu-HU")} Ft/{materialPurchasingUnitLabels[latestKnownPrice.purchasingUnit]} · {provenanceLabel(latestKnownPrice.provenance)} · {latestKnownPrice.effectiveDate}.</small>}</div>
+                <label className="quotation-notes-field" htmlFor={`${line.localId}-notes`}>Megjegyzés<textarea id={`${line.localId}-notes`} maxLength={500} rows={2} value={line.notes} onChange={(event) => update(index, { notes: event.target.value })} /></label>
+              </div>
+              {line.sourceMaterialItemId && <div className="quotation-source-line"><strong>Változtathatatlan forrástétel</strong><code>{line.sourceMaterialItemId}</code>{materialSource && <small>{materialSource.listName} · V{materialSource.revisionNumber} · anyaglista-revízió {materialSource.materialRevisionId}</small>}</div>}
+              <div className="standalone-line-actions"><button className="text-button" type="button" disabled={index === 0} aria-label={`${line.description || "Tétel"} mozgatása fel`} onClick={() => moveLine(index, -1)}>↑ Fel</button><button className="text-button" type="button" disabled={index === lines.length - 1} aria-label={`${line.description || "Tétel"} mozgatása le`} onClick={() => moveLine(index, 1)}>↓ Le</button><button className="text-button" type="button" aria-label={`${line.description || "Tétel"} törlése`} onClick={() => void removeLine(line)}>Tétel törlése</button></div>
+            </div>}
+          </article>;
         })}
       </div>
       {catalogMessage && <p className="form-message" role="status">{catalogMessage}</p>}
-      <div className="quotation-summary"><div><span>{historical ? `${savedAmountLabel} (Ft)` : standaloneNetLabels.subtotal}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "A változtathatatlan szerver-pillanatkép összege." : "Nem mentett becslés; a szerver számítja és adja vissza az irányadó összeget."}</small></div>{!historical && <div><span>Legutóbbi mentett árbesorolási összeg</span><strong>{money(savedSubtotal === null ? null : String(savedSubtotal))}</strong></div>}</div>
+      <div className="quotation-summary"><div className="quotation-current-total"><span>{historical ? `Történeti revízió · ${savedAmountLabel}` : `Jelenlegi piszkozat becslése · ${currentPriceBasisLabel}`}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : mixedPriceClasses ? "Árbesorolás ellenőrzése" : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "Változtathatatlan ajánlati pillanatkép összege." : mixedPriceClasses ? "Nettó és bruttó tételek nem keverhetők; a mentés blokkolva marad." : "A szerver mentéskor újraszámítja; nem végleges ajánlat."}</small></div>{!historical && dirty && savedSubtotal !== null && <div className="quotation-saved-total"><span>Legutóbb mentve · v{currentRevision?.revision_number ?? version} · {savedAmountLabel}</span><strong>{money(String(savedSubtotal))}</strong></div>}</div>
     </fieldset>
     {!historical && dirty && <p className="form-message" role="status">Mentetlen módosításaid vannak.</p>}
     {!historical && !result.ok && result.error && <div className="form-message is-error" role="alert">{result.error}{result.code === "CONFLICT" && quotationId && <button type="button" className="secondary-button" onClick={async () => { const accepted = await requestConfirmation({ title: "Helyi változat elvetése", message: "A legfrissebb revízió megnyitása elveti ezt a helyi módosításcsomagot.", cancelLabel: "Maradok", actions: [{ label: "Legfrissebb revízió megnyitása", tone: "danger", run: () => undefined }] }); if (accepted) { discardRecovery(); router.replace(latestUrl); } }}>Legfrissebb revízió megnyitása</button>}</div>}

@@ -362,7 +362,7 @@ export async function resolveStandaloneQuotationCatalogItemAction(
   const { data: variant } = await supabase.from("material_variants").select("id, product_id, name, sku, purchasing_unit, data_provenance")
     .eq("id", variantId).eq("organization_id", organizationId).maybeSingle();
   if (!variant) return failure("CATALOG_SOURCE", "A katalógusváltozat nem található ebben a műhelyben.");
-  const { data: product } = await supabase.from("material_products").select("id, name, category, status")
+  const { data: product } = await supabase.from("material_products").select("id, name, category, category_id, status")
     .eq("id", variant.product_id).eq("organization_id", organizationId).maybeSingle();
   if (!product || product.status !== "active") return failure("CATALOG_SOURCE", "A katalógustermék nem elérhető.");
   let priceSnapshot: Record<string, unknown> | null = null;
@@ -372,7 +372,7 @@ export async function resolveStandaloneQuotationCatalogItemAction(
     if (!price || price.currency !== "HUF" || price.purchasing_unit !== variant.purchasing_unit) return failure("CATALOG_SOURCE", "A kiválasztott árforrás érvénytelen vagy nem HUF pénznemű.");
     priceSnapshot = { id: price.id, amount: String(price.amount), currency: price.currency, purchasingUnit: price.purchasing_unit, priceKind: price.price_kind, effectiveDate: price.effective_date, provenance: price.data_provenance };
   }
-  return { ok: true, data: { variantId: variant.id, productId: product.id, productName: product.name, category: product.category, variantName: variant.name, sku: variant.sku, purchasingUnit: variant.purchasing_unit, provenance: variant.data_provenance, price: priceSnapshot, manualPriceOverride: !priceId } };
+  return { ok: true, data: { variantId: variant.id, productId: product.id, productName: product.name, category: product.category, categoryId: product.category_id, variantName: variant.name, sku: variant.sku, purchasingUnit: variant.purchasing_unit, provenance: variant.data_provenance, price: priceSnapshot, manualPriceOverride: !priceId } };
 }
 
 export async function validateStandaloneQuotationLinesAction(lines: unknown): Promise<StandaloneQuotationResult<{ lines: QuotationLine[]; subtotal: string; currency: "HUF"; priceClass: string | null }>> {

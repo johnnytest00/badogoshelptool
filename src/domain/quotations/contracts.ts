@@ -8,6 +8,7 @@ export const quotationLineSchema = z.object({
   unitPrice: z.string().trim().regex(/^\d+(?:[.,]\d{1,2})?$/, "Az egységár legfeljebb 2 tizedesjegyű nemnegatív szám lehet."),
   priceClass: z.enum(["net", "gross"]),
   variantId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
+  categoryId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
   priceId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
   takeoffItemId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
   sourceMaterialItemId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),

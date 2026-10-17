@@ -1,5 +1,17 @@
 # F7.3.2 állapot
 
+## F9.27 — ajánlati termékpanel és új tétel elhelyezése
+
+Státusz: **IMPLEMENTED / PARTIAL — célzott kódellenőrzések PASS; mobil interakció böngészőben nem futott**.
+
+- A termékválasztó touch/coarse-pointer eszközökön nem fókuszálja automatikusan a keresőmezőt, ezért megnyitáskor nem nyitja fel a mobil billentyűzetet és nem kényszeríti viewport-átméretezésre a böngészőt. A keresőmező érintéssel továbbra is fókuszálható; finom pointeres eszközökön megmarad a megnyitáskori fókusz.
+- Az ajánlati szerkesztőben az új kézi, munkadíj vagy egyéb sor a tétellista elejére kerül, így a hozzáadott sor rögtön az add gomb alatt jelenik meg.
+- Nincs adatmodell-, mentési szerződés-, adatbázis- vagy jogosultságváltozás.
+
+**Ellenőrzések:** `npx vitest run src/features/material-takeoffs/workflow-material-product-picker.test.tsx src/features/quotations/standalone-quotation-ui-state.test.ts src/features/quotations/quotation-overview.test.tsx` — 3 fájl / 7 teszt PASS; az érintett fájlokra `npx eslint ...` PASS; `npm run typecheck`, `npm run build` (Next.js 16.4.0 webpack) és `git diff --check` PASS. Mobil billentyűzetes eszközpróba nem futott.
+
+Javasolt Conventional Commit: `fix(F9.27): prevent picker viewport jumps and show new quote lines first`.
+
 ## F9.26 — Kategóriás ajánlati termékválasztó
 
 Státusz: **IMPLEMENTED / PARTIAL — célzott kódellenőrzések PASS; interaktív böngészős mobilpróba nem futott**.
@@ -38,6 +50,38 @@ Státusz: **IMPLEMENTED / PARTIAL — kódellenőrzések PASS; böngészős megj
 **Ellenőrzések:** `node_modules/.bin/vitest run src/features/dashboard/dashboard.test.ts src/features/dashboard/dashboard-controls.test.tsx` — 2 fájl / 8 teszt PASS; `npm run typecheck` PASS; `npm run lint` PASS; `npm run build` PASS (Next.js 16.4.0 webpack; `/kalkulatorok` és az archivált route-ok lefordultak); `git diff --check` PASS. Teljes Vitest-regresszió és DB-teszt nem futott. A böngészős archívum-kibontás és vizuális ellenőrzés nincs igazolva.
 
 Javasolt Conventional Commit: `feat(F9.24): archive non-roof calculators and remove orphan files`.
+
+## F9.24.1 — Független építési kalkulátorcsomag
+
+Státusz: **PARTIAL — 22/33 referencia szűkített geometriai/mennyiségi körrel VERIFIED; 11/33 nincs implementálva.** A korábbi F9.24 mérföldkőbejegyzést változatlanul hagytam; ez az új kérés külön kiegészítő változatként szerepel.
+
+- A 33 nyilvános Zhitov-referencia funkciója, URL-je, publikus mezői, várható kimenete, újrahasznosítása, képletforrása, státusza és korlátja a [lefedettségi mátrixban](CALCULATOR_COVERAGE_MATRIX.md) követhető. A Zhitov-oldalak csak funkció- és mezőfelderítésre szolgáltak, képletek igazolására nem.
+- 22 tisztán tesztelhető, Zod-validált számítás: tető/szarufa/manzárd/rács geometria; egyenes, spirál és ferde lépcső geometria; sávalap, cölöp, lemez, gyűrű, térburkolat, épület körüli téglalap sáv, explicit receptarány, betonacél, háló és segédátló. A kategóriákon belüli funkciókör tudatosan szűkített; 90°/180°-os, háromkarú, húzott fokú és betonlépcső, továbbá gyártási/statikai részletek nem kerültek eredményadó UI-ba.
+- Újrahasznosított motorok: meglévő `calculateRoofGeometry`, `calculateGableRoof` és termékadatot megkövetelő `calculateGableMetalTileCovering`; tetőformáknál `RoofWorkspace`, `MeasurementGuidance` és dinamikusan betöltött `TechnicalDrawing`; közös Glass header/disclosure és navigációs komponensek, globális Liquid Glass CSS-tokenek. Az App Router külön kalkulátorszegmensbe kódosztja a suite-ot, a tetőrajz csak eredménynél töltődik be. Új domain motorok a `src/domain/calculations/construction/` alatt tiszta TypeScript függvények.
+- A `/kalkulatorok/epitesi` új, helyi állapotú, kereshető, 3 kategóriás felület; nem választ szervezetet/projektet, nem ment kalkulációt, és nem kapcsolódik felméréshez, Anyaglistához, Munkanaplóhoz vagy ajánlathoz. Adatbázis-, migráció-, Auth/RLS- és tartós adatszerződés-változtatás ehhez a mérföldkőhöz nem készült.
+- A képletek, egységek, tartományok, invariánsok és korlátok a [matematikai ellenőrzési dokumentumban](CALCULATOR_MATH_VERIFICATION.md) vannak; OpenStax alapgeometria/körív/térfogat és NIST acélsűrűség szerepel. Nem ad statikai, jogszabályi, gyártási vagy alapozási alkalmassági jóváhagyást.
+
+**Ellenőrzések:** fókuszált Vitest: `npx vitest run src/domain/calculations/construction/construction.test.ts src/domain/calculations/construction/catalog.test.tsx src/domain/calculations/roof-geometry.test.ts src/domain/calculations/gable-metal-tile-covering.test.ts` — 4 fájl / 31 teszt PASS; `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) és `git diff --check` PASS. Teljes Vitest regresszió, adatbázis-teszt és hosted Supabase teszt nem futott. A helyi production böngészőben a közvetlen `/kalkulatorok/epitesi?calculator=roof.gable` oldal szervezet/projekt query nélkül betöltött; 10 000×6 000 mm épület és 4 000 mm gerincemelkedés 60 m² vetületet, 100 m² geometriai tetőfelületet és 7 élt jelenített meg. A `TechnicalDrawing` rajzi méretgombja a megfelelő `buildingLengthMm` mezőre fókuszált, ahol a mérési útmutató megjelent; zoom 110%-ra, visszaállítás 100%-ra működött. A csigalépcső 3 000 mm emelkedés, Ø2 000/400 mm, 360°, 18 fellépés bemenetből 17 fokot, 600 mm járóvonal-sugarat, 221,759 mm belépőt és 166,667 mm fellépőt mutatott. 1440/1024/768/390/320 CSS px-nél `documentElement` és body szélessége a viewporttal egyezett, a lista és munkaterület nem fedte egymást, a mezők és rajz nem lógtak ki.
+
+**Korlátok / nem igazolt:** a 11 összetett referencia nem elérhető számításként; a fenti 22 csak saját, explicit `scope`-jukban igazolt, nem teljes Zhitov-helyettesítő. Böngészőben a nyeregtető és csigalépcső workflow, méretfókusz és kategóriaváltás lett kipróbálva; az összes kalkulátor képernyője és teljes billentyűzetes végigjárása, világos/sötét téma, reduced-motion/forced-colors, screen reader, fizikai mobil/touch/pinch és iOS Safari nem lett végigellenőrizve. Teljes auth-állapot mátrix, statika, helyi norma és anyag-előállítási terv nem volt a scope-ban.
+
+Javasolt Conventional Commit: `feat(F9.24.1): add independent construction calculator suite`.
+
+## F9.23.1 — Árajánlat-szerkesztő UX és katalóguskapcsolat
+
+Státusz: **IMPLEMENTED / PARTIAL — célzott automatizált és lokális browser smoke PASS; a teljes A–E képernyőmátrix nincs igazolva**.
+
+- A gyökérok az ajánlati sor kategóriájának hiánya a line contractból és a mentő RPC-ből, valamint a variáns nélküli `MATERIAL` sorok elutasítása volt. Az Anyaglista-import minden forrástételt `MATERIAL` sorként ad át; a nem társított tétel üres variánsazonosítóval és pontos forrásazonosítóval menthető.
+- Az ajánlati szerkesztő ugyanazt a `WorkflowMaterialProductPicker`-t használja, mint az Anyaglista; új termékválasztó nem készült. A közös picker Escape-re bezár, választás után bezár, és a billentyűzetes kiválasztást is kezeli.
+- A katalóguskapcsolt, kézi és forrásból érkező, de nem társított anyag külön állapotjelzést kap. Kategóriaváltás leválasztja az inkompatibilis katalóguskapcsolatot, miközben a leírás, mennyiség, egység, ár és forrásazonosító megmarad. A tényleges egység-/árfelülírás megerősítést igényel; az összehasonlítás tizedesértéken történik.
+- A sorok kompakt alapnézetet és összecsukható haladó mezőket kaptak. Az aktuális nettó piszkozatbecslés az elsődleges összeg; mentett összeg csak módosított, korábban mentett ajánlatnál jelenik meg. Adózás, véglegesítés és hivatalos PDF-korlátozás változatlan.
+- Új forward migration módosítja a meglévő mentő RPC-t, nem táblát: a `categoryId` és `priceProvenance` az ajánlati pillanatképbe kerül. Szervezeti kategória-ellenőrzés, variáns-kategória egyezés, eredeti anyaglista-revízió/forrástétel, idempotencia- és verzióellenőrzés megmarad; új Auth/RLS policy nem készült. Kereszt-szervezeti kategóriát pgTAP tilt.
+
+**Ellenőrzések:** 5 célzott Vitest fájl / 19 teszt PASS; `npm run lint`, `npm run typecheck`, `npm run build` (Next.js 16.4.0 webpack) PASS. A `SUPABASE_TELEMETRY_DISABLED=1 npx supabase migration up --local` migráció a lokális adatbázisra korábban felkerült; a célzott `supabase test db --local` 4 fájlon / 90 pgTAP teszten PASS (035, 018, 019, 033). DB-reset és hosted Supabase művelet nem történt. Lokális production böngésző-smoke: kategóriaváltás utáni kéziérték-megőrzés, keresés, ArrowDown+Enter, Escape, lokalizált `m`, azonos tizedesár prompt nélkül, eltérő katalógusár megerősítése és `7001,00 Ft` nettó összeg, sorátrendezés és törlési prompt. A smoke-piszkozat mentés nélkül el lett vetve.
+
+**Korlátok:** a lokális szervezetben nem volt önálló ajánlat vagy anyaglista, ezért A/B/C mentett forrássorai böngészőben nem nyithatók meg; mentés/újranyitásra a DB-teszt ad bizonyítékot. A haladó rész összecsukása és eltérő egységű katalógusválasztás nincs külön böngészőben ellenőrizve; a helper célzott tesztje fedi a numerikus egység/ár átmeneteket. A 1440/768/390/320 px, világos/sötét téma, fizikai mobilbillentyűzet és teljes Vitest suite nem futott. A státusz ezért PARTIAL.
+
+Javasolt Conventional Commit: `fix(F9.23.1): preserve unmapped quote materials and streamline editor`.
 
 ## F9.22 — termék-UX és Anyagkezelő
 

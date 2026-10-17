@@ -1,5 +1,18 @@
 # Tesztmátrix
 
+## F9.27 — termékpanel ugrás és új sor láthatósága
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Termékpanel nyitása touch eszközön | PASS, CODE REVIEW | A kereső automatikus fókusza touch/coarse-pointer eszközön kimarad, így a panel nyitása nem hozza fel önmagában a virtuális billentyűzetet. A kereső továbbra is koppintható. Fizikai mobilon nem próbáltam. |
+| Új ajánlati sor sorrendje | PASS, CODE REVIEW | Az új tétel az aktuális sorok elé kerül, ezért közvetlenül a tételcím alatt jelenik meg. A mentési sorrend is az új sorrendet követi. |
+| Automatizált minőségellenőrzés | PASS, FOCUSED | 3 Vitest fájl / 7 teszt; érintett fájlok ESLint, `npm run typecheck`, `npm run build` Next.js 16.4.0 webpack, `git diff --check`. |
+| Adat / DB / jogosultság | NEM VÁLTOZOTT | Kliensoldali fókusz- és sorbeszúrási változás, backend/schema nincs. |
+
+Státusz: **PARTIAL**, amíg a fizikai mobil billentyűzetes és interaktív böngészőpróba nincs igazolva.
+
+Javasolt Conventional Commit: `fix(F9.27): prevent picker viewport jumps and show new quote lines first`.
+
 ## F9.26 — kategóriás ajánlati termékválasztó
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |
@@ -39,6 +52,43 @@ Státusz: **PARTIAL**, mert automatizált kódellenőrzések sikeresek, a módos
 | Böngésző / adatbázis | NEM FUTOTT / NEM VÁLTOZOTT | Az archivált rész interaktív kibontása nem lett böngészőben ellenőrizve; DB tesztet nem futtattam, adatbázis és migráció változatlan. |
 
 Státusz: **PARTIAL**, mert a build és célzott ellenőrzések sikeresek, de a böngészős megjelenítés és kibontás nincs igazolva.
+
+## F9.24.1 — Független építési kalkulátorcsomag
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Referencia-inventár | PASS, DOC REVIEW | `docs/CALCULATOR_COVERAGE_MATRIX.md` tételesen tartalmazza a 6 tető-, 17 lépcső- és 10 beton/segédreferenciát, közvetlen publikus URL-lel, mezőkkel, kimenettel, implementációval, képletforrással és korlátokkal. Zhitov csak publikus funkció/mező referencia; nem matematikai bizonyíték. |
+| Lefedettség | PARTIAL, REGISTRY VERIFIED | 33/33 elszámolva; 22/33 `VERIFIED` szűkített scope-pal, 11/33 `NOT IMPLEMENTED`, 0 `IMPLEMENTED / UNVERIFIED`. A 22 eredményadó UI-kalkulátorok; elmaradó variánsok nincsenek placeholderként kiexponálva. |
+| Matematikai függvények | PASS, FOCUSED FIXTURES | Pozitív/finite Zod tartományok; derékszögű geometria, terület/térfogat, integer felfelé kerekítés, egyenletes lépcső- és hálóosztás. Független számolható fixture-ek, skálázási invariánsok, szögösszeg és érvénytelen gyűrű/háló/spirál tesztelve. A részletes derivációt és korlátot a `docs/CALCULATOR_MATH_VERIFICATION.md` rögzíti. |
+| Fókuszált Vitest | PASS | `npx vitest run src/domain/calculations/construction/construction.test.ts src/domain/calculations/construction/catalog.test.tsx src/domain/calculations/roof-geometry.test.ts src/domain/calculations/gable-metal-tile-covering.test.ts`: 4 fájl / 31 teszt PASS. Teljes Vitest suite nem futott. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. Az új `/kalkulatorok/epitesi` route szerepel a build route listában. |
+| Production böngésző smoke | PASS, LOCAL | Közvetlen route szervezet/projekt query nélkül betölt; a nyeregtető 10 000×6 000 mm / 4 000 mm bemenetére 60 m² vetület, 100 m² geometriai felület és 7 él. A rajzi hosszméret a `buildingLengthMm` mezőre fókuszált és megjelenítette a mérési útmutatót; zoom 110% → reset 100%. A spirál 3 000 mm, Ø2 000/400 mm, 360°, 18 fellépés bemenetére 17 fok, 600 mm járóvonal-sugár, 221,759 mm belépő és 166,667 mm fellépő jelent meg. Nincs mentés. |
+| Reszponzív mérések | PASS, EMULATED WIDTHS | 1440, 1024, 768, 390 és 320 CSS px emulált szélesség. Mindenhol a document/body szélesség a viewporttal egyezett, a kalkulátorlista és munkaterület nem fedte egymást, a beviteli mezők nem lógtak ki. Fizikai mobil nem tesztelt. |
+| UI/téma/hozzáférhetőség | PARTIAL | DOM szerepek és mezőnevek elérhetőek; minden kategória/kalkulátor részletes keyboard, dark/light, reduced-motion, forced-colors, screen reader, touch/pinch és popover vizsgálata nem történt. |
+| Adat, szervezeti hozzáférés, integráció | PASS, CODE REVIEW / NEM FUTOTT DB | Nincs új mentés, perzisztencia, adatmodell, migration vagy business workflow-integráció a suite-hoz. Számítás tisztán kliensoldali; alkalmazáson belüli minden auth-állapothoz külön hozzáférés-teszt nem futott. |
+
+Státusz: **PARTIAL**. Az elfogadási feltétel szerinti teljes 33 kalkulátor és minden workflow még nincs bizonyítva; 11 számítás nincs implementálva, ezért COMPLETE nem adható.
+
+Javasolt Conventional Commit: `feat(F9.24.1): add independent construction calculator suite`.
+
+## F9.23.1 — quotation editor UX és catalog integration
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Gyökérok / line contract | PASS, CODE + RPC REVIEW | A quote-line contract/RPC nem tárolt kategóriát, a writer pedig csak variánshoz kötött `MATERIAL` sort fogadott. Az új RPC-változat kategóriát és árprovenienciát ír a revízió snapshotba; tábla nem változott. |
+| Közös termékválasztó | PASS, UNIT + LOCAL PRODUCTION BROWSER | Az Anyaglista `WorkflowMaterialProductPicker` komponense fut az ajánlatban. Kategóriaszűrés, keresés, ArrowDown+Enter és Escape bezárás böngészőben ellenőrizve; találat ID `677d3e58-8d35-4db6-b9fb-85de414f469b` volt. |
+| Kézi / unmapped / katalógus állapot | PASS, UNIT + LOCAL PRODUCTION BROWSER | Kézi leírás, mennyiség, egység és ár kategóriaváltás után megmaradt; a katalóguskapcsolat állapota külön látszott. Katalógusegység `m` címkével jelent meg. Mentett anyaglista-forrásból betöltött A/B sort a helyi workspace nem tartalmazott, ezért az importált forrás esetét a helper és pgTAP fedte le. |
+| Ár- és egységkezelés | PASS, UNIT + LOCAL PRODUCTION BROWSER | Katalógusegység `m` címkével jelent meg. `3500.5` és `3500.50` azonos értékként, megerősítés nélkül kezelődött. `1234.56` kézi ár katalógusárra cserélése megerősítést kért; 2 × 3500.50 után a becslés `7001,00 Ft` lett. Eltérő katalógusegység megerősítése helper szinten tesztelt, külön böngészőben nem. |
+| Haladó szerkesztőrész | PARTIAL, LOCAL PRODUCTION BROWSER | Az összecsukott sorból a haladó rész megnyitása ellenőrizve; a bezárás gomb megjelent, de a bezárási műveletet külön nem futtattam. |
+| Új sor / sorrend / törlés | PASS, LOCAL PRODUCTION BROWSER | Új kézi sor, átrendezés, törlési megerősítés és a sor eltávolítása ellenőrizve. A tesztpiszkozatot „Kilépés mentés nélkül” útvonalon elvetettük; tartós ajánlat nem keletkezett. |
+| Mentés / újranyitás / forráspillanatkép | PASS, LOCAL pgTAP | `035_standalone_material_quote_rows.sql` V1/V2 kategória- és forrás-snapshotot, 3719.81 tizedes subtotal-t, exact source item/revision azonosítót és cross-organization kategóriaelutasítást ellenőriz. További 018/019/033 writer/source-regresszió; összesen 4 fájl / 90 teszt PASS. |
+| Automatizált ellenőrzések | PASS, FOCUSED | 5 Vitest fájl / 19 teszt; `npm run lint`; `npm run typecheck`; `npm run build` (Next.js 16.4.0 webpack); `git diff --check`. Teljes Vitest suite nem futott. |
+| Szervezeti jogosultság / adatkonzisztencia | PASS, LOCAL pgTAP + CONTRACT REVIEW | Szervezeti kategória-validáció, termék-kategória egyezés, revízióverzió/idempotencia és forrás-revízió megőrzése ellenőrizve. Új Auth/RLS policy nem készült; hosted Supabase nem érintett, DB-reset nem történt. |
+| Responsive / téma / fizikai mobil | NEM FUTOTT | 1440/768/390/320 px, világos/sötét téma, dropdown-clipping és fizikai mobilbillentyűzet nincs bizonyítva. |
+
+Státusz: **PARTIAL**, mert a lokális adatbázis-snapshot és interaktív desktop workflow bizonyított, de a kért viewport/téma-mátrix és meglévő mentett forrásajánlat böngészős újranyitása nem történt meg.
+
+Javasolt Conventional Commit: `fix(F9.23.1): preserve unmapped quote materials and streamline editor`.
 
 ## F9.22.1 — Global Vanta.NET performance
 

@@ -29,10 +29,10 @@ describe("quotationLinesFromMaterialList", () => {
 
   it("keeps unknown or incompatible prices blank and preserves manual source rows", () => {
     const lines = quotationLinesFromMaterialList(revision([
-      { id: "00000000-0000-4000-8000-000000000051", kind: "manual", description: "Kézi lemez", quantity: "2.5", unit: "linear_meter", notes: null },
+      { id: "00000000-0000-4000-8000-000000000051", kind: "manual", description: "Kézi lemez", quantity: "2.5", unit: "linear_meter", categoryId: "00000000-0000-4000-8000-000000000061", categoryName: "DEMO egyéb anyag", notes: null },
       { id: "00000000-0000-4000-8000-000000000052", kind: "catalog", productId: "00000000-0000-4000-8000-000000000020", variantId: "00000000-0000-4000-8000-000000000030", description: "Fedés", quantity: "2", unit: "piece", priceSnapshot: { amount: "88", currency: "HUF", purchasingUnit: "piece", priceKind: "gross" }, notes: null },
     ]), products);
-    expect(lines[0]).toMatchObject({ type: "OTHER", unitPrice: "", sourceMaterialItemId: "00000000-0000-4000-8000-000000000051" });
+    expect(lines[0]).toMatchObject({ type: "MATERIAL", categoryId: "00000000-0000-4000-8000-000000000061", variantId: "", unitPrice: "", sourceMaterialItemId: "00000000-0000-4000-8000-000000000051" });
     expect(lines[1]).toMatchObject({ type: "MATERIAL", unitPrice: "", priceId: "", sourceMaterialItemId: "00000000-0000-4000-8000-000000000052" });
     expect(lines.some((line) => line.unitPrice === "0")).toBe(false);
   });
@@ -42,6 +42,6 @@ describe("quotationLinesFromMaterialList", () => {
       id: "00000000-0000-4000-8000-000000000053", kind: "manual", description: "Kézi csatorna", quantity: "4", unit: "linear_meter",
       priceSnapshot: { amount: "0", currency: "HUF", purchasingUnit: "linear_meter", priceKind: "gross", manual: true, provenance: "user_provided" }, notes: null,
     }]), products);
-    expect(lines[0]).toMatchObject({ type: "OTHER", unitPrice: "0", priceClass: "gross", priceProvenance: "user_entered", sourceMaterialItemId: "00000000-0000-4000-8000-000000000053" });
+    expect(lines[0]).toMatchObject({ type: "MATERIAL", variantId: "", unitPrice: "0", priceClass: "gross", priceProvenance: "user_entered", sourceMaterialItemId: "00000000-0000-4000-8000-000000000053" });
   });
 });

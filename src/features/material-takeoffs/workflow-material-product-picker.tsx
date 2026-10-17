@@ -41,6 +41,7 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
   const listId = `${idPrefix}-options`;
 
   const close = useCallback((restoreFocus = true) => {
+    if (dialogRef.current?.open) dialogRef.current.close();
     setIsOpen(false);
     setQuery("");
     setActiveId(null);
@@ -76,7 +77,11 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
       setPosition({ left, top, width, maxHeight });
     };
 
-    const focusSearch = window.requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
+    // Don't summon the mobile keyboard as a side effect of opening the picker;
+    // its visual-viewport resize otherwise moves the page and the popup at once.
+    const focusSearch = window.matchMedia("(pointer: coarse)").matches
+      ? null
+      : window.requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
     positionDialog();
     const onOutsidePointer = (event: PointerEvent) => {
       const target = event.target as Node;
@@ -87,7 +92,7 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
     window.addEventListener("scroll", positionDialog, true);
     visualViewportListeners(window.visualViewport, positionDialog, true);
     return () => {
-      window.cancelAnimationFrame(focusSearch);
+      if (focusSearch !== null) window.cancelAnimationFrame(focusSearch);
       document.removeEventListener("pointerdown", onOutsidePointer, true);
       window.removeEventListener("resize", positionDialog);
       window.removeEventListener("scroll", positionDialog, true);
@@ -108,8 +113,8 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
   }
 
   function select(id: string) {
-    onSelect(id);
     close();
+    onSelect(id);
   }
 
   return <>
@@ -138,6 +143,10 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
         else if (event.key === "Enter") {
           event.preventDefault();
           if (activeId && filteredOptions.some((option) => option.id === activeId)) select(activeId);
+        } else if (event.key === "Escape" || event.key === "Esc") {
+          event.preventDefault();
+          event.stopPropagation();
+          close();
         } else if (event.key === "Tab") close(false);
       }}
     >
