@@ -835,3 +835,10 @@ A Phase 1 után újraolvasott architekturális összefoglaló: ez UI/alkalmazás
 - `supabase/migrations/20261017140000_survey_roof_timber_parameters.sql`, `supabase/tests/database/038_survey_roof_timber_parameters.sql` — snapshot-validátor bővítés és pgTAP teszt; tényleges helyi DB futást a TEST_MATRIX külön jelöli.
 
 Állapot: **IMPLEMENTED / VERIFIED GEOMETRIC QUANTITY; UNSUPPORTED PHYSICAL LAYOUT**. F9.35.1 alatt a hitelesített LOCAL DEMO Survey V1/V2 mentését, frissítését, szerkesztését és történeti visszanyitását ellenőriztük. Részletek: [F9.35.1 ellenőrzési mátrix](docs/TEST_MATRIX.md).
+
+
+## F9.36.1 — tetőfedés és alátétfólia mennyiségi alapjai
+
+A Survey tetőszakaszán és a meglévő önálló nyeregtető/félnyeregtető/kontytető kalkulátorban opcionális, összecsukható „Tetőfedés és alátétfólia” panel érhető el. A Survey alapgeometriája tekercsadatok nélkül is működik. A közös `calculateRoofUnderlayLayout` a nyeregtető, félnyeregtető és kontytető konvex síkpoligonjain ad fóliacsík-geometriát; a félkonty, sátor, L és T topológiához ez a fázis `UNSUPPORTED` állapotot ad. A nettó geometriát, a teljes szélességű vágott blankok bruttó felületét, a csíkok vágási hosszát és a korlátos, pontos 1D tekercsvágási minimumot külön jelöli. A tekercsszám nem rendelési mennyiség. Termék- vagy telepítési adatot a felhasználó ad meg; gyártói specifikációt, ráhagyást, felhajtást, áttörést vagy fizikai fedési tervet a rendszer nem talál ki.
+
+A fedési termékparaméterek közös szigorú szerződése kezeli a névleges/hasznos méretet, fizikai/használható hosszt, átfedést, irányt, vágási korlátozásokat és a felhasználó által hivatkozott gyártói korlátot. A már ellenőrzött trapézlemez- és cserepeslemez-motorok változatlanok; általános lemezkiosztás és beszerzési darabszám az F9.36.2 feladat.

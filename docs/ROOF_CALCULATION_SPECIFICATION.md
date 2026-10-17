@@ -184,3 +184,45 @@ Az eredmények geometriai elhelyezést, vonalhosszt és névleges keresztmetszet
 - **UNSUPPORTED PHYSICAL LAYOUT:** nincs támasz-, rögzítés-, toldás-, csomópont-, nyílás- vagy vágásmodell. A közös gerincvonal egyszer számolható a geometriai vonalhosszban, de a fizikai batten folytonossága/tagolása nem ismert; a fizikai kiosztás ezért nem igazolt.
 - A történeti Survey nézet a konkrét immutable section snapshot beállításait és az azokból azonos domain motorral újraszámolt mennyiségeket/rajzi overlayt mutatja.
 - L/T számszerű kézi oracle, offsetsávok és egységek: `docs/CALCULATOR_MATH_VERIFICATION.md`; célzott teszt, Auth/RLS, lokális migráció és authenticated browser V1/V2 save/reopen állapot: `docs/TEST_MATRIX.md`.
+
+
+## F9.36.1 — Alátétfólia mennyiségi alap és fedési paraméterszerződés
+
+### Állapot és újrafelhasználás
+
+- A már ellenőrzött `RoofGeometry` síkpoligonjai a Survey és az önálló `roof.gable`, `roof.shed`, `roof.hip` kalkulátor bemenetei. Mindkét UI a `calculateRoofUnderlayLayout` tiszta domain motort hívja; saját paraméterállapotuk külön marad.
+- A gable trapézlemez (`gable-trapezoidal-covering`), cserepeslemez (`gable-metal-tile-covering`) és gable geometriai strip layout (`metal-sheet-layout`) marad a saját validált szerződésén. Ezek képlete nem duplikálódott és nem lett általános tetőmotorba átírva.
+- Az új `roofCoveringProductParametersSchema` a tekercs és táblás fedés közös, szigorú termékadat-alapja. Kötelező `form`, opcionális explicit névleges/hasznos szélesség, fizikai/használható hossz, átfedések, irány, minimum/maximum hossz, szélességi/hosszanti vághatóság és hivatkozás kezelhető. Hiányzó adat nem kap szakmai alapértéket. Az alátétmotor ehhez validálja a megadott tekercsadatok normalizált részét. A meglévő sheet-termékmotorok automatikus átkötése nem része ennek a fázisnak.
+
+### Alátét bemenet és képlet
+
+`roofUnderlayParametersSchema`: tekercsszélesség és -hossz egész mm-ben; oldalátfedés és végtoldás egész mm-ben (a nulla is explicit adat); eresz–gerinc vagy gerinc–eresz telepítési irány. Hiány esetén `INCOMPLETE`, hibás méret/átfedés esetén `INVALID`. Nettó tetőfelület továbbra is megjeleníthető, ha a fóliaadat hiányos.
+
+Síkpolygononként az engine 3D tetősíkból lejtő- és eresz-párhuzamos ortonormált helyi koordinátát állít elő, majd a polygon lejtőtengelyét tekercsszélességű sávokra vágja. A sorok eltolása `rollWidth − sideOverlap`; az első sor a választott fektetési irány szerinti peremről indul. A vágási hossz az adott sáv ereszirányú befoglaló hossza. A lap-polygonokat ugyanebből a sávból és a sorpárok metszetéből származtatja a motor. Hosszanti toldásnál az előretolás `rollLength − endOverlap`; `N` darabnál az utolsó vágás `cutLength − (N−1)×(rollLength−endOverlap)`, amely a kezdő toldást már magában foglalja. Minden koordináta/hossz mm, terület mm²; a UI m/m²-re vált.
+
+A bruttó vágott felület a teljes szélességű blankok `rollWidth × cutLength` összege. A tekercsdarabszám kizárólag a blankhosszak tekercshosszon belüli, pontos korlátos 1D bin-packing minimuma lehet: maximum 24 vágási darab és 100 000 keresési csomópont. A szélességi maradék újrafelhasználása nincs benne. Ha egy csík hosszabb a tekercsnél és nincs explicit pozitív végtoldás, fizikai mennyiség helyett `UNSUPPORTED`; a packing korlát túllépésekor a geometria `PARTIAL`, a tekercsszám null. Area/roll-area hányados nem használható darabszámként.
+
+### Támogatás és minősítési státusz
+
+- **VERIFIED GEOMETRIC QUANTITY:** `gable`, `shed`, `hip`, érvényes konvex síkpoligon és teljes explicit tekercs/átfedés/irány bemenet esetén a levágott csíkok, hosszok, átfedési poligonok és bruttó blank-felület matematikailag ellenőrzött geometriája.
+- **ASSUMPTION-BASED ESTIMATE:** a pontos 1D tekercsszám minimum teljes szélességű, téglalapként vágott blankok, kizárólag hosszmenti vágás és felhasználó-adta lapok feltételezésétől függ; UI kifejezetten vágási minimumnak és nem beszerzési mennyiségnek nevezi.
+- **UNSUPPORTED PHYSICAL LAYOUT:** félkonty, sátor, L/T és minden más nem támogatott topológia; nem konvex/degenerált sík; hiányzó vagy ellentmondó termékadat; lehetetlen vágás; továbbá gyártói alkalmasság, felhajtás, áttörés, kivágás, szélesség-maradék újrahasznosítás és szerelési terv. Ezekre a motor null darabszámot ad.
+
+Nem modellezett pótlék: élre felhajtás, eresz/gerinc túlnyúlás, nyíláslevonás, szél/toldás gyártói szabálya, veszteségszázalék és ár. Nincs ilyen default, illetve az F9.36.1 nem hoz létre anyaglistát.
+
+### Survey, standalone és rajz
+
+A tetőszakasz `roofUnderlayParameters` mezője opcionális, strict, csak roof szakaszon engedélyezett. A már meglévő revision snapshot mezője és írója őrzi a felhasználói paramétert; output nem duplikálódik a snapshotban, újbóli megnyitáskor ugyanabból a revízióból újraszámolódik. A csak geometriai workflow tekercsparaméter nélkül változatlanul menthető. Az additív helyi migration kizárólag a section JSON allowlist validátorát bővíti, táblát/writert/RLS-t nem módosít.
+
+Az SVG ugyanazon `RoofUnderlayLayout.courses` és `.overlaps` poligonokat rajzolja, amelyből a panel számai jönnek. A rajz neve és leírása sematikus fóliageometriát, nem gyártási szabástervet jelent.
+
+## F9.36.2 — Lemezkiosztás és beszerzési mennyiségek: implementációs követelmény
+
+1. **Forrás-topológia:** csak validált `RoofGeometry` síkpolygon, adjacency, eave/ridge/hip/valley/side élazonosító és fizikai tetőhatár alapján induljon. Ha az élmapping vagy coplanar patch összevonás nem elég az anyagoldalankénti kiosztáshoz, `UNSUPPORTED`; ne használjon teljes tetőterületet vagy befoglaló téglalapot darabszámhoz.
+2. **Termékadat snapshot:** termékforma/profil és forrásazonosító; névleges, fizikai, effektív és használható szélesség/hossz; oldal-, vég- és hosszanti átfedés külön; fektetési tengely/irány; megengedett min/max gyártási hossz; hossz- és szélességi vágási/forgathatóság; modul-/bordaméret, ha a megadott gyártói forrás előírja; explicit kompatibilitási megerősítés és forrás-verzió/dátum. Gyártói korlát csak hivatkozott adatként, soha nem becsült defaultként szerepelhet.
+3. **Él- és kiterjesztés-szabály:** eresz-, gerinc-, orom-, konty-, vápa- és csatlakozó élhez szükséges tényleges szegély/visszafordulás, peremsáv, vágási hézag, végkorlát, csatlakozási átfedés, viharszegély/oldalsáv és minden nyílás kivágási poligonja sík lokális koordinátában; e nélkül az érintett sík kiosztása nem vásárlási szintű.
+4. **Algoritmikus lépések:** síkonként határoló régió és szabályos sor/kolonna-generálás; hasznos szélesség/hossz és explicit átfedés szerinti fedési intervallum; lapos/törött végélű lapok fizikai hosszra vágása; kivágásokból megmaradó darab felhasználása kizárólag ha orientáció, vágás, toldás és gyártói megszorítás bizonyítható; anyagoldalanként és geometriánként külön darabjegyzék. A vágási optimalizálás pontos optimumot csak korlátos, reprodukálható algoritmus esetén állíthat; limitnél typed `PARTIAL/UNSUPPORTED`, és estimated darabszám nem jelölhető verified mennyiségnek. Terület-alapú darabszámtilalom.
+5. **Fizikai különállás:** az azonos globális él vagy gerinc két tetősíkhoz tartozhat, de ez nem bizonyít egyetlen vagy közös lemezdarabot. A két fizikai sík darabszámát külön kell adni; közös anyag csak felhasználó vagy gyártói csomóponti szabály explicit levezetésével. A geometriai polygon-átfedés nem fizikai átfedés, amíg a termék- és szerelési kapcsolat nincs megadva.
+6. **Kimenet és provenance:** nettó síkfelület, tényleges lefedett felület, teljes szélességű blank/bruttó anyag, névleges/hasznos darabméret, darabszám, hulladék és maradék külön mértékegységgel; minden mezőhöz `verified geometry`, `assumption-based estimate` vagy `unsupported physical layout` státusz, paraméter-forrás és indok. Sem az estimated darabszám, sem geometriai felület nem kerülhet verified beszerzési mennyiségként Survey/anyaglistába.
+7. **Független fixture-k:** kézi polygonos gable/shed, hip trapez és háromszög sík, shared ridge/hip kétoldali fizikai tagolással, vágott ferde vég, L/T patchhatár, ablak/áttörés, aszimmetrikus polygon csak ha inputja létezik; minden fixture-hez kézi koordináta, hasznos szélesség/laplevezetés és kézzel számolt darab-oracle. Nulla/teljes/többszörös átfedés, tükrözött telepítési irány, max hossz, vágási korlát, maradék újrafelhasználás, túl nagy optimalizáció és invalid gyártói hivatkozás eset is kötelező.
+8. **Integrációs korlát:** csak a meglévő roof workflow-kba bekötött közös domain engine; nincs új kalkulátorkatalógus-entry, duplikált formula, business workflow/takeoff mentés vagy hosted migráció e specifikáció önmagában alapján. Előfeltétel review: tervezett geometriai scope, termékadat provenance és a megoldható optimalizálási tartomány elfogadása.

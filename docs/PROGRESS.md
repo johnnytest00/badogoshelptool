@@ -3142,3 +3142,16 @@ Státusz: **IMPLEMENTED / F9.35.1 MATEMATIKAILAG ÉS HELYI PERSISTENCE-SZEL STAB
 - Nincs reset, hosted DB-változtatás, commit, push vagy deploy.
 
 Javasolt Conventional Commit: `fix(F9.35.1): validate roof timber quantities and revisions`
+
+
+## F9.36.1 — tető alátétfólia és fedési mennyiségi alap
+
+Állapot: **IMPLEMENTED / VERIFIED GEOMETRIC QUANTITY; 1D CUTTING MINIMUM IS ASSUMPTION-BASED; OTHER PHYSICAL LAYOUTS UNSUPPORTED**. Új közös alátétmotor a meglévő RoofGeometry síkpoligonjaiból csíkozást, lap-polygonokat, vágási hosszakat és korlátos pontos 1D tekercsvágási minimumot ad. Támogatott `gable`, `shed`, `hip`; `halfHip`, `pyramid`, `lShape`, `tShape` expliciten unsupported. Új strict roll/sheet covering product-paraméter séma készült; a meglévő trapéz- és cserepeslemez motor változatlan, univerzális sheet packing nincs.
+
+A Survey roof section optional `roofUnderlayParameters` snapshotot tárol, az immutable revisionből újraszámol; a standalone gable/shed/hip kalkulátorok ugyanazt a motort használják külön UI-state mellett. Az SVG a panel azonos `courses`/`overlaps` poligonjait rajzolja, sematikus nem-gyártási címkével. Nincs business workflow vagy anyaglista integráció.
+
+Bizonyított demo: 10×6 m alaprajz, 4 m emelkedés, 1500×50000 mm tekercs, 150 mm oldalátfedés, nulla végtoldás, eresztől fektetés: 100 m² nettó, 8 csík, 80 m össz-vágáshossz, 120 m² teljes szélességű blank, 2 tekercs pontos hosszmenti packing minimum. LOCAL Auth böngészőben V1 mentés és frissítés utáni visszaállítás; 200 mm oldalátfedéssel V2 mentés; V1 történeti olvasás és V2 újranyitás igazolta a snapshotokat és újraszámítást. A tekercsszám matematikai vágási minimum, nem beszerzési mennyiség.
+
+ `npx vitest run` a releváns domain/drawing/field-survey/roof-model/calculator könyvtárakon — 64 fájl / 398 PASS, 5 skip; `npm run typecheck`, `npm run lint` és az izolált ideiglenes másolaton futó `npm run build` (Next.js 16.4 webpack, 30 statikus oldal) PASS. Egy későbbi audit long-cut fixture-e megtalált és javított egy end-lap végdarab többletet; az ezt követő fókuszteszt 11/11 PASS. Helyi migration ledger olvasva; egyetlen pending `20261017150000_survey_roof_underlay_parameters.sql` additív migrációt helyi DB-re alkalmaztuk, reset nélkül. `npx supabase test db --local` az új 039 és korábbi 026/038 survey contractokra 3 fájl / 63 pgTAP PASS. Hosted DB nem érintett. A végső patch után a 64 fájlos releváns suite, typecheck, lint és build ismét PASS; `git diff --check` PASS. A migration ledger újraolvasva `20261017150000`-ig egyezik; hosted projekt nincs kapcsolva.
+
+**F9.36.2 átadás:** a metal sheet layout/purchase spec a `ROOF_CALCULATION_SPECIFICATION.md` alján található; physical/effective méretek, gyártói provenance, sík/éltopológia, fizikai különállás, korlátos exact-or-unsupported vágási optimalizáció és kézi polygonos fixture követelményekkel. Lemezdarabszám területből továbbra sem állítható elő.

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { calculateGableRoof } from "@/domain/calculations/gable-roof";
 import { calculateRoofGeometry } from "@/domain/calculations/roof-geometry";
 import { calculateRoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
+import { calculateRoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
@@ -53,5 +54,15 @@ describe("compact technical drawing controls", () => {
     expect(html).toContain("Léc · 1697 mm");
     expect(html).toContain("sematikus geometriai mennyiség");
     expect(html).toContain("Szarufa- és lécekiosztás");
+  });
+
+  it("draws underlay strips and lap regions from the calculated layout and labels it schematic", () => {
+    const geometry = calculateRoofGeometry({ type: "gable", geometry: { inputMode: "height", buildingLengthMm: 10_000, buildingWidthMm: 6_000, roofRiseMm: 4_000, eaveOverhangMm: 0, frontGableOverhangMm: 0, rearGableOverhangMm: 0 } });
+    const layout = calculateRoofUnderlayLayout(geometry, { rollWidthMm: 2500, rollLengthMm: 50_000, sideOverlapMm: 100, endOverlapMm: 0, installationDirection: "eave-to-ridge" });
+    expect(layout.status).toBe("VALID");
+    const html = renderToStaticMarkup(<TechnicalDrawing geometry={geometry} underlayLayout={layout} isSaved={false} compact />);
+    expect(html.match(/class="technical-underlay-course"/g)).toHaveLength(layout.courses.length);
+    expect(html.match(/class="technical-underlay-overlap"/g)).toHaveLength(layout.overlaps.length);
+    expect(html).toContain("nem gyártási szabásterv");
   });
 });

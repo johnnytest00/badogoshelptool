@@ -203,3 +203,16 @@ Részletes bemeneti korlátok és F9.35 követelmények: [tetőszámítási spec
 **Adatkonszisztencia és jogosultság:** csak Survey bemeneti paraméterek kerülnek mentésre, a már meglévő szervezeti, optimistic version és immutable revision írási útvonalon. Az additív migration új mezőt enged a szigorú snapshot-validátorban. A helyi 026/038 pgTAP futás 50/50 ellenőrzéssel igazolta a Survey writer, jogosultság/verzióütközés és paraméter-snapshot megőrzését; az F9.35.1 authenticated LOCAL DEMO UI save/reopen mindkét revízióval böngészőben bizonyított. A paraméterek opcionálisak, a történeti nézet a kiválasztott revision snapshotjából számol újra. Hosted DB-hez nem nyúltunk. Beszerzési darabszám, anyagár, veszteség, toldás, nyílás és statika nincs.
 
 **F9.35.1 regresszió:** a releváns tető/Survey/rajz futás 52 fájl / 344 teszt PASS, 5 fájl / 15 teszt SKIP; `npm run typecheck`, `npm run lint`, `npm run build` (30 statikus oldal) PASS. A teljes projektszintű Vitest suite nem futott. Authenticated V1/V2 save-refresh-reopen és történeti revízióellenőrzés részletei a [TEST_MATRIX](TEST_MATRIX.md) F9.35.1 szakaszában.
+
+
+## F9.36.1 — Fedési és alátétfólia lefedettség
+
+| Folyamat / forma | Engine | Eredmény és státusz | Korábbi kalkulátorok határa |
+|---|---|---|---|
+| Survey roof section | `calculateRoofUnderlayLayout` | Opcionális, verziózott tekercsinput; gable/shed/hip csíksík-geometria és explicit bemenet esetén matematikai 1D packing-minimum; complex topológia unsupported | Alap geometriához nincs szükség fóliaadatra; Survey külön UI marad |
+| `/kalkulatorok` gable, shed, hip | Ugyanaz a domain motor külön kalkulátorpanelek állapotával | Survey-vel azonos motor és output | Nincs új katalógus-entry, Survey handoff, anyaglista vagy quotation integráció |
+| Gable trapézlemez / cserepeslemez | Meglévő dedikált, validált product covering engines | Feltételes quantity a saját termékparaméter-szerződés szerint | F9.36.1 nem írja át vagy duplikálja ezeket |
+| HalfHip, pyramid, L, T underlay | Nincs | `UNSUPPORTED PHYSICAL LAYOUT`, darabszám null | Fázisban nincs elég telepítési/termék topológia |
+| Általános fémlemez layout | Nincs új motor | Nem állít becsült fizikai darabot | F9.36.2 specifikáció külön elkészült; nincs implementálva |
+
+Minősítés: `VERIFIED GEOMETRIC QUANTITY` a támogatott gable/shed/hip polygon-csíkozásra; `ASSUMPTION-BASED ESTIMATE` kizárólag a panelben vágási minimumnak nevezett, korlátos 1D tekercs-optimumra; `UNSUPPORTED PHYSICAL LAYOUT` nem támogatott topológiára és hiányzó gyártási adatra.

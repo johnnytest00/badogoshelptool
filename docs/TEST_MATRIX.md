@@ -2165,3 +2165,20 @@ Státusz: **VERIFIED GEOMETRIC QUANTITY / UNSUPPORTED PHYSICAL LAYOUT**. A hét 
 | DB/Auth/RLS | NEM ALKALMAZHATÓ | Nincs schema, persistence, action vagy business workflow változás; nincs tartós adatmutáció. |
 | Whitespace | PASS | `git diff --check` — nincs trailing whitespace. |
 | Hosted DB / migráció / reset | NEM FUT | Nem szükséges és tiltott scope-on kívüli. |
+
+
+## F9.36.1 — alátétfólia és fedési paraméterek
+
+| Vizsgálat | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Alátét matematika, termékséma és roof regression | PASS | 8 Vitest fájl / 79 teszt: `roof-underlay`, `roof-covering-parameters`, Survey `workspace`, editor, technical drawing, meglévő gable trapezoidal covering, gable metal tile covering és metal sheet layout. Kézi gable oracle, statikus hip polygon, irányváltás, lap-pair overlap, packing határ és unsupported complex topology. |
+| Local Survey/Auth/RLS pgTAP | PASS | `npx supabase test db --local 039_survey_roof_underlay_parameters.sql 026_unified_field_survey_workspace.sql 038_survey_roof_timber_parameters.sql` — 3 fájl / 63 teszt PASS. Az új optional field strict validációja, authenticated owner writer, V1/V2 immutable snapshot és korábbi survey/timber contractok. |
+| Migration history | PASS | `npx supabase migration list --local` — helyi/remote ledger egyezett `20261017140000`-ig; egy lokális migration pending volt, `20261017150000_survey_roof_underlay_parameters.sql`; ezt egyszer, `migration up --local` alkalmazta. Reset nem történt; hosted projekt nincs kapcsolva. |
+| Authenticated LOCAL DEMO browser | PASS | Helyi gable Survey V1: 10×6 m alaprajz / 4 m rise / roll 1500×50000 / side-lap 150 / end-lap 0 / eave→ridge. Mentés után refresh és reopen: minden input visszajött; számok 100 m², 8 csík, 80 m, 120 m², 2 tekercs. Side-lap 200 mm → V2 save; V1 history 150 mm és azonos újraszámolás; V2 aktuális revízióként kiválasztva és újranyitva 200 mm. |
+| Rajz és input egyezés | PASS | Browser SVG-n 8 csík és 6 oldalátfedés-sáv; V2 input frissülése után overlay változott. Hozzáférhető leírás: sematikus, nem gyártási szabásterv. |
+| Full relevant roof regression | PASS | `npx vitest run src/domain/calculations src/domain/drawings src/domain/field-surveys src/features/roof-models src/features/field-surveys src/features/calculators --reporter=dot` — 64 fájl / 398 PASS, 5 skip. |
+| Typecheck / lint / build / whitespace | PASS | `npm run typecheck`, `npm run lint`, izolált másolaton `npm run build` (Next.js 16.4 webpack, 30 static pages), `git diff --check`. A build izolált `.next` könyvtárban futott a meglévő hitelesített dev session érintése nélkül. |
+| Mobil viewport | NEM FUTOTT | Hitelesített Brave workflow elérhető, de külön mobil viewport override az app-native tabon nem áll rendelkezésre ebben az eszközmódban; fizikai mobil nincs. A CSS meglévő 560 px alatti egyoszlopos `.roof-timber-input-grid` szabályát használja. |
+| Hosted DB / reset / commit / push / deploy | NEM TÖRTÉNT | Csak helyi adatbázis; reset, hosted módosítás, commit, push és deploy nincs. |
+
+Státusz: **COMPLETE (F9.36.1 VERIFIED SCOPE)**; a mennyiségi minősítések: `VERIFIED GEOMETRIC QUANTITY`, `ASSUMPTION-BASED 1D CUTTING MINIMUM`, `UNSUPPORTED PHYSICAL LAYOUT`. A releváns teljes tető-regresszió, helyi Auth/RLS, böngészős V1/V2 mentési flow, typecheck, lint, production build és diff-check PASS. Teljes repository Vitest és mobil viewport/fizikai eszköz nincs bizonyítva.

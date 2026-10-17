@@ -1,11 +1,12 @@
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
+import type { RoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
 import { roofPlaneGroupId, summarizeRoofGeometry } from "@/domain/calculations/roof-geometry-results";
-import { formatDrawingMeasurement, type DrawingDimension, type GableDrawingModel, type DrawingPoint } from "./gable-drawing";
+import { formatDrawingMeasurement, type DrawingDimension, type DrawingUnderlayPolygon, type GableDrawingModel, type DrawingPoint } from "./gable-drawing";
 
 const xy = (point: { xMm: number; yMm: number }): DrawingPoint => ({ x: point.xMm, y: -point.yMm });
 const edgeNames = { eave: "Eresz", upper: "Felső él", ridge: "Gerinc", rake: "Oromél", hip: "Kontyél", valley: "Vápavonal" } as const;
 
-export function createRoofDrawingModel(geometry: RoofGeometry): GableDrawingModel {
+export function createRoofDrawingModel(geometry: RoofGeometry, underlayLayout?: RoofUnderlayLayout | null): GableDrawingModel {
   const vertices = geometry.planes.flatMap((plane) => plane.vertices);
   const minX = Math.min(...vertices.map((point) => point.xMm));
   const maxX = Math.max(...vertices.map((point) => point.xMm));
@@ -32,6 +33,10 @@ export function createRoofDrawingModel(geometry: RoofGeometry): GableDrawingMode
       dimensions.push({ kind: "vertical", start: { x: wingMinX, y: 0 }, end: { x: wingMinX, y: -Math.min(...wing.map((point) => point.yMm)) }, offset: -xMargin * 1.55, label: formatDrawingMeasurement(Math.abs(Math.min(...wing.map((point) => point.yMm)))), sourceMm: Math.abs(Math.min(...wing.map((point) => point.yMm))), sourceKey: "wingProjectionMm", description: "A főtető külső vonalától a szárny külső kontúrjáig mért kinyúlás." });
     }
   }
+  const underlayPolygons: DrawingUnderlayPolygon[] = underlayLayout?.status === "VALID" || underlayLayout?.status === "PARTIAL" ? [
+    ...underlayLayout.courses.map((course) => ({ id: course.id, points: course.polygon.map(xy), kind: "course" as const, planeId: course.planeId, indexFromStart: course.indexFromStart })),
+    ...underlayLayout.overlaps.map((overlap) => ({ id: overlap.id, points: overlap.polygon.map(xy), kind: "overlap" as const, planeId: overlap.planeId })),
+  ] : [];
   return {
     view: "top", title: "Felülnézeti műszaki rajz",
     bounds: { minX, maxX, minY: -maxY, maxY: -minY },
@@ -44,6 +49,6 @@ export function createRoofDrawingModel(geometry: RoofGeometry): GableDrawingMode
     }),
     segments: geometry.edges.map((edge, index) => ({ id: edge.id, start: xy(edge.start), end: xy(edge.end), label: `${edgeNames[edge.kind]} ${index + 1}` })),
     dimensions,
-    angles: [], guides: [], sheetStrips: [], timberSegments: [],
+    angles: [], guides: [], sheetStrips: [], underlayPolygons, timberSegments: [],
   };
 }

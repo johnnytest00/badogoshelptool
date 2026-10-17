@@ -30,6 +30,15 @@ describe("unified survey contracts", () => {
     expect(surveySectionsSchema.safeParse([{ ...saved[0], roofTimberParameters: { rafterMaxSpacingMm: 0 } }]).success).toBe(false);
     expect(surveySectionsSchema.safeParse([{ ...saved[0], roofTimberParameters: { unknown: 1 } }]).success).toBe(false);
   });
+  it("retains optional underlay inputs in a roof section without requiring them for basic survey data", () => {
+    const parameters = { rollWidthMm: 1500, rollLengthMm: 50000, sideOverlapMm: 150, endOverlapMm: 0, installationDirection: "eave-to-ridge" as const };
+    const parsed = surveySectionsSchema.parse([{ id, name: "DEMO tető", workType: "roof", notes: "", photoIds: [], measurements: [], roofUnderlayParameters: parameters }]);
+    expect(parsed[0].roofUnderlayParameters).toEqual(parameters);
+    expect(surveySectionsSchema.parse([{ id, name: "DEMO tető", workType: "roof", notes: "", photoIds: [], measurements: [] }])[0]).not.toHaveProperty("roofUnderlayParameters");
+    expect(surveySectionsSchema.safeParse([{ ...parsed[0], workType: "gutter" }]).success).toBe(false);
+    expect(surveySectionsSchema.safeParse([{ ...parsed[0], roofUnderlayParameters: { ...parameters, sideOverlapMm: 1500 } }]).success).toBe(false);
+    expect(surveySectionsSchema.safeParse([{ ...parsed[0], roofUnderlayParameters: { ...parameters, extra: true } }]).success).toBe(false);
+  });
   it("maps legacy data without rewriting its identity, measurements or history", () => {
     const record = { id, workType: "gutter" as const, measurements: [measurement], notes: "DEMO" };
     expect(surveySections(record)[0]).toMatchObject({ id, measurements: [measurement], notes: "DEMO" });

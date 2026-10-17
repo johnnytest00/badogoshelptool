@@ -227,3 +227,24 @@ Tolerancia: tiszta szimmetrikus fixture-eknél `toBeCloseTo(..., 6–8)` a 3D eu
 - **UNSUPPORTED PHYSICAL LAYOUT:** az egybeeső gerinc- vagy szakaszvonalak fizikai folytonossága, illetve különálló tagozása. A kimenet egy geometriai vonalat deduplikálhat, de ebből nem következtethet egyetlen fizikai léc szükségességére.
 
 `roof-timber-layout.test.ts` 14 tesztje ellenőrzi mind a hét geometriát, öt nem-L/T kézi szarufahosszt, L/T független összhossz-orákulumot, léc-vonalösszegeket, osztáskorlátot, kezdő/vég peremsávot, keresztmetszetet, egységeket, Survey/standalone azonosságot, invalid és kapacitástúllépő eseteket. Az F9.35.1 végső, széles tető/Survey/rajz regresszió állapotát a `docs/TEST_MATRIX.md` tartalmazza.
+
+
+## F9.36.1 — Alátét és termékparaméter matematikai ellenőrzése
+
+### Kézi számpéldák
+
+- Gable DEMO `length=10 000 mm`, `width=6 000 mm`, `rise=4 000 mm`, túlnyúlás 0. Minden lejtő `sqrt(3000²+4000²)=5000 mm`; a nettó felület `2×10 000×5000=100 000 000 mm² = 100 m²`. A 2 500 mm tekercs és 100 mm side-lap előtolása 2 400 mm. 5 000 mm lejtőnként 3 csík, összesen 6; ereszirányú blankhosszok egyenként 10 000 mm; vágási összhossz 60 000 mm; bruttó full-width blank `6×2500×10000=150 000 000 mm²=150 m²`. 50 000 mm tekercshosszon a 10 m darabok packing minimuma `ceil(60/50)=2` tekercs; ebből az alakból a minimum igazolható, nem a területhányadosból. Ezt a test kézzel rögzített orákulummal összeveti.
+- Független browser DEMO: `rise=4000`, `width=6000`, `length=10000`, roll `1500×50000 mm`, side-lap 150 mm, end-lap 0; előtolás 1350 mm, 4 csík/sík, 8 összesen, csíkhossz 80 m, bruttó blank 120 m², 2 tekercs hosszmenti packing minimum. V1 mentés/újranyitás azonos paramétert és eredményt adott. V2 side-lap 200 mm-re módosításával a sorok száma és blank összhossz nem változott, az átfedésrajz az új inputot kapta.
+- Külön `hip` teszt fixture kézzel rögzített négy 3D háromszög/trapéz síkkal dolgozik, köztük a két háromszög hip-vég polygonjával; nem veszi át a production geometry outputot. L/T, half-hip és pyramid fixture kifejezetten `UNSUPPORTED` kimenetet vár, nem extrapolál.
+
+### Egység- és státuszellenőrzés
+
+- Bemenet/koordináta/vágáshossz mm; terület mm²; kimeneti m és m² kizárólag osztásból 1000/1 000 000 által. Nincs kereszt-egységű összeadás.
+- Nettó síkfelület, bruttó full-width blank-terület és 1D tekercsvágási minimum külön mező. A tekercsminimum nem verified purchasing quantity, mert a szélességi maradék, nyílás, túlnyúlás, gyártói szabály és telepíthetőség nincs számítva.
+- Null end-lap megengedett, de ha csíkhossz tekercshossznál nagyobb, toldási megoldás hiányában typed unsupported; területhányados nem készít darabszámot.
+- A 60 000 mm hosszú csík, 30 000 mm tekercs és 2 000 mm végtoldás kézi darabjai `30 000 + 30 000 + 4 000 = 64 000 mm`; a két toldás 4 000 mm-t fed le, így a lefedett hossz 60 000 mm. A hat csík 18 blankja összesen 384 000 mm, a pontos 1D vágási minimum 13 tekercs. Ez a fixture egy végdarab-felülbecslést talált és javított.
+- Ellenőrzött további esetek: irány megfordítása, side/end overlap határok, 18 vágási darabos exact packing, nagyobb side-lapnál minden metsző fizikai csíkpár átfedése, product roll/sheet schema, invalid méret és L/T tiltás.
+
+### Evidence status
+
+A pontos Vitest, pgTAP, typecheck, lint, production build és authenticated browser eredményt a F9.36.1 TEST_MATRIX/PROGRESS bejegyzése tartalmazza. A matematikai fixture-k nem gyártói szabályt vagy fizikai beépíthetőséget verifikálnak.

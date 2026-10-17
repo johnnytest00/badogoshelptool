@@ -1,14 +1,16 @@
 import type { GableRoofOutput, RoofVertex } from "@/domain/calculations/gable-roof";
 import type { MetalSheetLayoutOutput } from "@/domain/calculations/metal-sheet-layout";
+import type { RoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
 
 export type DrawingView = "top" | "gable" | "cross-section" | "longitudinal";
-export type DrawingLayerId = "planes" | "outlines" | "ridge-eaves" | "dimensions" | "angles" | "guides" | "sheet-layout" | "timber-layout";
+export type DrawingLayerId = "planes" | "outlines" | "ridge-eaves" | "dimensions" | "angles" | "guides" | "sheet-layout" | "underlay-layout" | "timber-layout";
 export type DrawingPoint = Readonly<{ x: number; y: number }>;
 export type DrawingSegment = Readonly<{ id?: string; start: DrawingPoint; end: DrawingPoint; label?: string; hidden?: boolean }>;
 export type DrawingPolygon = Readonly<{ id?: string; points: readonly DrawingPoint[]; label: string; side?: "left" | "right"; outline?: boolean }>;
 export type DrawingDimension = Readonly<{ kind: "horizontal" | "vertical" | "aligned"; start: DrawingPoint; end: DrawingPoint; offset: number; label: string; sourceMm: number; sourceKey?: string; description?: string; optional?: boolean }>;
 export type DrawingAngle = Readonly<{ vertex: DrawingPoint; start: DrawingPoint; end: DrawingPoint; label: string; sourceKey?: string; description?: string }>;
 export type DrawingSheetStrip = Readonly<{ id: string; points: readonly DrawingPoint[]; planeSide: "left" | "right"; indexFromStart: number; isPartial: boolean }>;
+export type DrawingUnderlayPolygon = Readonly<{ id: string; points: readonly DrawingPoint[]; kind: "course" | "overlap"; planeId: string; indexFromStart?: number }>;
 
 export type GableDrawingModel = Readonly<{
   view: DrawingView;
@@ -20,6 +22,7 @@ export type GableDrawingModel = Readonly<{
   angles: readonly DrawingAngle[];
   guides: readonly DrawingSegment[];
   sheetStrips: readonly DrawingSheetStrip[];
+  underlayPolygons: readonly DrawingUnderlayPolygon[];
   timberSegments: readonly (DrawingSegment & { family: "rafter" | "batten" })[];
 }>;
 
@@ -38,6 +41,7 @@ export const drawingLayers: readonly { id: DrawingLayerId; label: string; defaul
   { id: "angles", label: "Hajlásszögek", defaultVisible: true },
   { id: "guides", label: "Segédvonalak", defaultVisible: true },
   { id: "sheet-layout", label: "Lemezkiosztás", defaultVisible: false },
+  { id: "underlay-layout", label: "Alátétfólia-csíkok és átfedések", defaultVisible: true },
   { id: "timber-layout", label: "Szarufa- és lécekiosztás", defaultVisible: true },
 ];
 
@@ -70,7 +74,7 @@ function dimension(kind: DrawingDimension["kind"], start: DrawingPoint, end: Dra
   return { kind, start, end, offset, sourceMm, sourceKey, description, label: formatDrawingMeasurement(sourceMm), optional };
 }
 
-export function createGableDrawingModel(output: GableRoofOutput, view: DrawingView, sheetLayout?: MetalSheetLayoutOutput | null): GableDrawingModel {
+export function createGableDrawingModel(output: GableRoofOutput, view: DrawingView, sheetLayout?: MetalSheetLayoutOutput | null, underlayLayout?: RoofUnderlayLayout | null): GableDrawingModel {
   const left = output.planes.find((plane) => plane.side === "left");
   const right = output.planes.find((plane) => plane.side === "right");
   if (!left || !right || left.vertices.length !== 4 || right.vertices.length !== 4) throw new Error("A rajzhoz hiányos tetősík-geometria érkezett.");
@@ -88,6 +92,10 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
   let guides: DrawingSegment[];
   let allPoints: DrawingPoint[];
   let sheetStrips: DrawingSheetStrip[] = [];
+  const underlayPolygons: DrawingUnderlayPolygon[] = view === "top" && underlayLayout?.courses ? [
+    ...underlayLayout.courses.map((course) => ({ id: course.id, points: course.polygon.map(xy), kind: "course" as const, planeId: course.planeId, indexFromStart: course.indexFromStart })),
+    ...underlayLayout.overlaps.map((overlap) => ({ id: overlap.id, points: overlap.polygon.map(xy), kind: "overlap" as const, planeId: overlap.planeId })),
+  ] : [];
 
   if (view === "top") {
     const leftPoints = left.vertices.map(xy);
@@ -152,11 +160,11 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
     allPoints = [...points, ...guides.flatMap((item) => [item.start, item.end])];
   }
   const flatPoints = allPoints.filter((item) => Number.isFinite(item.x) && Number.isFinite(item.y));
-  return { view, title: titles[view], bounds: bounds(flatPoints), polygons, segments, dimensions, angles, guides, sheetStrips, timberSegments: [] };
+  return { view, title: titles[view], bounds: bounds(flatPoints), polygons, segments, dimensions, angles, guides, sheetStrips, underlayPolygons, timberSegments: [] };
 }
 
 export function filterDrawingModel(model: GableDrawingModel, visible: Readonly<Record<DrawingLayerId, boolean>>): GableDrawingModel {
   const isRidgeOrEave = (label: string | undefined) => Boolean(label && (label.includes("Gerinc") || label.includes("eresz")));
-  return { ...model, polygons: visible.planes ? model.polygons : [], segments: model.segments.filter((segment) => isRidgeOrEave(segment.label) ? visible["ridge-eaves"] : visible.outlines), dimensions: visible.dimensions ? model.dimensions : [], angles: visible.angles ? model.angles : [], guides: visible.guides ? model.guides : [], sheetStrips: visible["sheet-layout"] ? model.sheetStrips : [], timberSegments: visible["timber-layout"] ? model.timberSegments : [] };
+  return { ...model, polygons: visible.planes ? model.polygons : [], segments: model.segments.filter((segment) => isRidgeOrEave(segment.label) ? visible["ridge-eaves"] : visible.outlines), dimensions: visible.dimensions ? model.dimensions : [], angles: visible.angles ? model.angles : [], guides: visible.guides ? model.guides : [], sheetStrips: visible["sheet-layout"] ? model.sheetStrips : [], underlayPolygons: visible["underlay-layout"] ? model.underlayPolygons : [], timberSegments: visible["timber-layout"] ? model.timberSegments : [] };
 }
 

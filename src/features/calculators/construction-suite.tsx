@@ -18,8 +18,11 @@ import { calculateGableMetalTileCovering } from "@/domain/calculations/gable-met
 import type { RoofGeometry, RoofGeometryType } from "@/domain/calculations/roof-geometry";
 import { calculateRoofTimberLayout, roofTimberInputFromParameters, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
 import type { RoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
+import { calculateRoofUnderlayLayout, type RoofUnderlayParameters } from "@/domain/calculations/roof-underlay";
+import type { RoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
 import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-results";
 import { RoofTimberQuantityPanel } from "@/features/roof-models/roof-timber-quantity-panel";
+import { RoofUnderlayQuantityPanel } from "@/features/roof-models/roof-underlay-quantity-panel";
 import { ConstructionCalculatorThumbnail, ConstructionMaterialDrawing, ConstructionStairDrawing } from "./construction-visuals";
 
 type Field = { key: string; label: string; unit: string; initial?: string; integer?: boolean; advanced?: boolean; kind?: "text" | "checkbox" | "select"; options?: readonly { value: string; label: string }[] };
@@ -337,10 +340,10 @@ function reusableRoofGeometry(definition: CalculatorDefinition, values: Record<s
   return null;
 }
 
-function ConstructionDrawing({ definition, values, roofGeometry, timberLayout, focusedDimension, activeDimensionDescription, onDimensionSelect }: { definition: CalculatorDefinition; values: Record<string, string>; roofGeometry: RoofGeometry | null; timberLayout?: RoofTimberLayout | null; focusedDimension?: string | null; activeDimensionDescription?: string; onDimensionSelect?: (key: string) => void }) {
+function ConstructionDrawing({ definition, values, roofGeometry, timberLayout, underlayLayout, focusedDimension, activeDimensionDescription, onDimensionSelect }: { definition: CalculatorDefinition; values: Record<string, string>; roofGeometry: RoofGeometry | null; timberLayout?: RoofTimberLayout | null; underlayLayout?: RoofUnderlayLayout | null; focusedDimension?: string | null; activeDimensionDescription?: string; onDimensionSelect?: (key: string) => void }) {
   const dims = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value.replace(",", ".")) || 0]));
   const title = `${definition.reference.title} sematikus rajza`;
-  if (roofGeometry) return <TechnicalDrawing geometry={roofGeometry} timberLayout={timberLayout} isSaved={false} compact heading={title} headingId="construction-roof-drawing-heading" activeDimension={focusedDimension ? roofDrawingDimensionKey(definition, focusedDimension) : null} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect ? (key) => onDimensionSelect(roofFieldKeyForDrawingDimension(definition, key)) : undefined} />;
+  if (roofGeometry) return <TechnicalDrawing geometry={roofGeometry} timberLayout={timberLayout} underlayLayout={underlayLayout} isSaved={false} compact heading={title} headingId="construction-roof-drawing-heading" activeDimension={focusedDimension ? roofDrawingDimensionKey(definition, focusedDimension) : null} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect ? (key) => onDimensionSelect(roofFieldKeyForDrawingDimension(definition, key)) : undefined} />;
   const lines = (points: string, key = "main") => <polyline key={key} points={points} fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />;
   let geometry;
   if (definition.reference.id === "roof.mansard") {
@@ -377,6 +380,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries((definitions[initialCalculatorId] ?? definitions["roof.rafter"]).fields.map((field) => [field.key, field.initial ?? ""])));
   const [focusedDimension, setFocusedDimension] = useState<string | null>(null);
   const [roofTimberByCalculator, setRoofTimberByCalculator] = useState<Record<string, RoofTimberParameters>>({});
+  const [roofUnderlayByCalculator, setRoofUnderlayByCalculator] = useState<Record<string, RoofUnderlayParameters>>({});
   const definition = definitions[selectedId];
   const roofGeometryType = roofGeometryTypeForDefinition(definition);
   const activeGuide = roofGeometryType ? measurementGuideFor(roofGeometryType, focusedDimension ?? "") : null;
@@ -399,6 +403,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const timberParameters = roofTimberByCalculator[selectedId] ?? {};
   const timberInput = roofTimberInputFromParameters(timberParameters);
   const timberLayout = calculation.geometry && timberInput ? calculateRoofTimberLayout(calculation.geometry, timberInput) : null;
+  const underlayParameters = roofUnderlayByCalculator[selectedId] ?? {};
+  const underlayLayout = calculation.geometry ? calculateRoofUnderlayLayout(calculation.geometry, underlayParameters) : null;
   const selectCalculator = (item: ConstructionReference) => {
     const next = definitions[item.id];
     if (!next || item.status !== "verified") return;
@@ -422,7 +428,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   </>;
   const resultsContent = <>
     {inputsReady && calculation.error && <p className="form-message is-error" role="alert">{calculation.error}</p>}
-    {calculation.geometry && <><RoofGeometryResults geometry={calculation.geometry} heading="Geometriai eredmények" provenanceLabel="Kézi bemenetek · számított geometriai eredmények." /><RoofTimberQuantityPanel geometry={calculation.geometry} value={timberParameters} onChange={(next) => setRoofTimberByCalculator((current) => ({ ...current, [selectedId]: next }))} /></>}
+    {calculation.geometry && <><RoofGeometryResults geometry={calculation.geometry} heading="Geometriai eredmények" provenanceLabel="Kézi bemenetek · számított geometriai eredmények." /><RoofTimberQuantityPanel geometry={calculation.geometry} value={timberParameters} onChange={(next) => setRoofTimberByCalculator((current) => ({ ...current, [selectedId]: next }))} /><RoofUnderlayQuantityPanel geometry={calculation.geometry} value={underlayParameters} onChange={(next) => setRoofUnderlayByCalculator((current) => ({ ...current, [selectedId]: next }))} /></>}
     {calculation.rows.length > 0 && <section className="construction-suite-results" aria-live="polite"><h3>További eredmények</h3><dl>{calculation.rows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl><p className="construction-suite-limit">{definition.reference.limitation}</p></section>}
   </>;
   const drawingContent = calculation.geometry !== null || calculation.rows.length > 0
@@ -430,7 +436,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
       ? <ConstructionStairDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
       : definition.reference.category === "concrete" || definition.reference.category === "auxiliary"
         ? <ConstructionMaterialDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
-      : <ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
+      : <ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
     : undefined;
   const independentContent = <p className="construction-suite-independent">Az eredmény helyi előnézet. Nem mentődik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>;
   const workspace = roofGeometryType

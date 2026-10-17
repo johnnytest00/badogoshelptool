@@ -6,6 +6,7 @@ import { completeSectionMeasurements, savedQuantitySummary, type SurveySection, 
 import { geometryFromSurveyMeasurements } from "@/domain/field-surveys/roof-geometry";
 import { calculateRoofGeometry } from "@/domain/calculations/roof-geometry";
 import { calculateRoofTimberLayout, roofTimberInputFromParameters, type RoofTimberFamilyResult, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
+import { calculateRoofUnderlayLayout, type RoofUnderlayParameters } from "@/domain/calculations/roof-underlay";
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
 import { TechnicalDrawing } from "@/features/roof-models/technical-drawing";
 import { buildGableSurveyPreview } from "./gable-survey-preview";
@@ -71,7 +72,8 @@ function HistoricalSurveyRoofGeometry({ section }: Readonly<{ section: SurveySec
     if (!preview.output) return <p role="status">A tetőforma rajza hiányos vagy hibás mérések miatt nem számítható újra. A mentett mérések változatlanok.</p>;
     const timberInput = section.roofTimberParameters ? roofTimberInputFromParameters(section.roofTimberParameters) : null;
     const timberLayout = preview.geometry && timberInput ? calculateRoofTimberLayout(preview.geometry, timberInput) : null;
-    return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><TechnicalDrawing output={preview.output} timberLayout={timberLayout?.status === "available" ? timberLayout : null} compact isSaved /><p>Mentett felmérési mérésekből újraszámított tetőfelület: <strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(preview.output.areas.combinedRoofM2)} m²</strong> · {preview.output.planes.length} tetősík.</p>{preview.geometry && <HistoricalSurveyTimberLayout section={section} geometry={preview.geometry} />}</section>;
+    const underlayLayout = preview.geometry && section.roofUnderlayParameters ? calculateRoofUnderlayLayout(preview.geometry, section.roofUnderlayParameters) : null;
+    return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><TechnicalDrawing output={preview.output} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact isSaved /><p>Mentett felmérési mérésekből újraszámított tetőfelület: <strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(preview.output.areas.combinedRoofM2)} m²</strong> · {preview.output.planes.length} tetősík.</p>{preview.geometry && <>{section.roofTimberParameters && <HistoricalSurveyTimberLayout section={section} geometry={preview.geometry} />} {section.roofUnderlayParameters && <HistoricalSurveyUnderlay section={section} geometry={preview.geometry} />}</>}</section>;
   }
 
   const input = geometryFromSurveyMeasurements(section.roofType, completeSectionMeasurements(section));
@@ -79,7 +81,18 @@ function HistoricalSurveyRoofGeometry({ section }: Readonly<{ section: SurveySec
   const geometry = calculateRoofGeometry(input);
   const timberInput = section.roofTimberParameters ? roofTimberInputFromParameters(section.roofTimberParameters) : null;
   const timberLayout = timberInput ? calculateRoofTimberLayout(geometry, timberInput) : null;
-  return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><TechnicalDrawing geometry={geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} compact isSaved /><p>Mentett felmérési mérésekből újraszámított tetőfelület: <strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(geometry.totalAreaMm2 / 1_000_000)} m²</strong> · {geometry.planes.length} tetősík.</p>{section.roofTimberParameters && <HistoricalSurveyTimberLayout section={section} geometry={geometry} />}</section>;
+  const underlayLayout = section.roofUnderlayParameters ? calculateRoofUnderlayLayout(geometry, section.roofUnderlayParameters) : null;
+  return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><TechnicalDrawing geometry={geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact isSaved /><p>Mentett felmérési mérésekből újraszámított tetőfelület: <strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(geometry.totalAreaMm2 / 1_000_000)} m²</strong> · {geometry.planes.length} tetősík.</p>{section.roofTimberParameters && <HistoricalSurveyTimberLayout section={section} geometry={geometry} />}{section.roofUnderlayParameters && <HistoricalSurveyUnderlay section={section} geometry={geometry} />}</section>;
+}
+
+function HistoricalSurveyUnderlay({ section, geometry }: Readonly<{ section: SurveySection; geometry: RoofGeometry }>) {
+  const parameters = section.roofUnderlayParameters as RoofUnderlayParameters;
+  const result = calculateRoofUnderlayLayout(geometry, parameters);
+  const entries: readonly [keyof RoofUnderlayParameters, string, string][] = [
+    ["rollWidthMm", "Tekercs szélessége", "mm"], ["rollLengthMm", "Tekercs hossza", "mm"],
+    ["sideOverlapMm", "Oldalátfedés", "mm"], ["endOverlapMm", "Végtoldás átfedése", "mm"],
+  ];
+  return <section className="roof-timber-history" aria-label="Mentett alátétfólia paraméterek és eredmények"><h4>Mentett alátétfólia-paraméterek és újraszámított mennyiség</h4><dl>{entries.filter(([key]) => parameters[key] !== undefined).map(([key, label, unit]) => <div key={key}><dt>{label}</dt><dd>{parameters[key]} {unit}</dd></div>)}{parameters.installationDirection && <div><dt>Fektetés iránya</dt><dd>{parameters.installationDirection === "eave-to-ridge" ? "Eresztől a gerinc felé" : "Gerinctől az eresz felé"}</dd></div>}</dl><p>Nettó geometriai tetőfelület: {result.netRoofAreaMm2 === null ? "nem elérhető" : `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(result.netRoofAreaMm2 / 1_000_000)} m²`}</p>{result.courses.length > 0 && <p>{result.courseCount} csík · {new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format((result.calculatedStripLengthMm ?? 0) / 1000)} m összes vágási hossz{result.grossRequiredUnderlayAreaMm2 === null ? "" : ` · ${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(result.grossRequiredUnderlayAreaMm2 / 1_000_000)} m² bruttó vágott fóliafelület`}{result.rollCount === null ? "" : ` · ${result.rollCount} tekercs pontos vágási minimum`}</p>}{result.reasons.map((reason) => <p key={reason} role="status">{reason}</p>)}</section>;
 }
 
 const timberParameterLabels: Readonly<Record<keyof RoofTimberParameters, string>> = {
