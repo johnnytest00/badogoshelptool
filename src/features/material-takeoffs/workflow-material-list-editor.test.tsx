@@ -52,6 +52,8 @@ describe("survey material list editor", () => {
     expect(html).toContain("Még nincs anyag a listában");
     expect(html).toContain("Anyag hozzáadása");
     expect(html).toContain("Az árösszesítés az első tétel után jelenik meg.");
+    expect(html).toContain('class="workflow-material-field workflow-material-product-field" role="group" aria-label="Termék keresése"');
+    expect(html).not.toContain('<label class="workflow-material-field workflow-material-product-field"');
     expect(html).not.toContain('disabled="">Anyaglista mentése');
   });
 

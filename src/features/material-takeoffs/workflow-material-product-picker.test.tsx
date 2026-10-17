@@ -33,4 +33,16 @@ describe("workflow material product picker", () => {
     expect(html).toContain("Ár nincs megadva");
     expect(html).not.toContain('aria-selected="true"');
   });
+
+  it("uses a contextual trigger label for its host workflow", () => {
+    const html = renderToStaticMarkup(createElement(WorkflowMaterialProductPicker, {
+      options,
+      value: "variant-channel",
+      disabled: false,
+      label: "Katalógustermék",
+      onSelect: () => undefined,
+    }));
+
+    expect(html).toContain('aria-label="Katalógustermék: Csatorna 333 mm. Másik termék kiválasztása"');
+  });
 });

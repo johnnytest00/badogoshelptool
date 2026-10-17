@@ -3,7 +3,7 @@
 import type { SavedSurveyCalculation } from "@/domain/field-surveys/workspace";
 
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput } from "@/domain/calculations/gable-roof";
 import { TechnicalDrawing } from "./technical-drawing";
 import { isMeasurementGuidanceFocusTarget, MeasurementGuidance, measurementGuideFor } from "./measurement-guidance";
@@ -14,6 +14,7 @@ import type { RoofPrefill, SurveyHandoffSource } from "@/domain/field-surveys/ca
 import { useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
+import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 
 type Draft = Record<string, string> & { inputMode: "height" | "angle" };
 const emptyDraft: Draft = {
@@ -45,6 +46,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
   const [savedGeometry, setSavedGeometry] = useState<GableRoofInput | null>(source ?? null);
   const [historical, setHistorical] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [geometryEditing, setGeometryEditing] = useState(false);
   const [savePending, setSavePending] = useState(false);
   const [coveringDirty, setCoveringDirty] = useState(false);
   const geometryDirty = !historical && (handoffSource ? handoffModified : JSON.stringify(draft) !== JSON.stringify(savedGeometry ? draftFromInput(savedGeometry) : emptyDraft));
@@ -52,6 +54,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
   useEffect(() => { onWorkspaceState?.({ dirty: geometryDirty || coveringDirty, pending: savePending }); }, [geometryDirty, coveringDirty, savePending, onWorkspaceState]);
   const input = useMemo(() => toInput(draft), [draft]);
   const result = useMemo(() => input ? calculateGableRoof(input) : null, [input]);
+  const reuseSurveyGeometry = Boolean(embedded && handoffSource && initialHandoff && input && missingHandoffFields.length === 0);
   const lastValid = useRef<{ input: GableRoofInput; result: NonNullable<typeof result> } | null>(null);
   if (input && result) lastValid.current = { input, result };
   const set = (key: keyof Draft, value: string) => setDraft((current) => ({ ...current, [key]: value }));
@@ -66,23 +69,28 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
     { key: "frontGableOverhangMm", label: "Első oromtúlnyúlás", unit: "mm" },
     { key: "rearGableOverhangMm", label: "Hátsó oromtúlnyúlás", unit: "mm" },
   ];
+  const geometryForm = <form className="roof-form roof-measurement-inputs roof-form-grid-compact" onSubmit={(event) => event.preventDefault()}>
+    <label className="roof-field"><span>Bemenet módja</span><select value={draft.inputMode} disabled={historical || savePending} onChange={(event) => { const inputMode = event.target.value as Draft["inputMode"]; setDraft((current) => ({ ...current, inputMode, roofRiseMm: "", roofPitchDegrees: "" })); }}><option value="height">Tetőemelkedés</option><option value="angle">Tetőhajlás</option></select></label>
+    {fields.map((field) => <label className="roof-field" key={field.key}><span>{field.label} <small>{field.unit}</small></span><input id={String(field.key)} inputMode="decimal" value={draft[field.key]} disabled={historical || savePending} onFocus={() => setFocusedField(field.key)} onBlur={handleMeasurementBlur} onChange={(event) => set(field.key, event.target.value)} aria-label={`${field.label} (${field.unit})`} /></label>)}
+  </form>;
+  const measurements = reuseSurveyGeometry ? <div className="survey-imported-geometry">
+    <GlassDisclosure summary="Átvett tetőméretek"><dl className="survey-geometry-summary">{fields.map((field) => <Fragment key={field.key}><dt>{field.label}</dt><dd>{parse(draft[field.key]) === undefined ? "—" : format(parse(draft[field.key])!, field.unit)}</dd></Fragment>)}</dl></GlassDisclosure>
+    <button type="button" className="secondary-button" aria-expanded={geometryEditing} onClick={() => setGeometryEditing((editing) => !editing)}>{geometryEditing ? "Méretek szerkesztésének bezárása" : "Tetőméretek szerkesztése"}</button>
+    {geometryEditing && geometryForm}
+  </div> : geometryForm;
   return (
     <>
       {showBackNavigation && <Link className="back-navigation glass-navigation" href={`/kalkulatorok?organization=${organizationId}`}><span aria-hidden="true">←</span><span>Vissza a kalkulátorokhoz</span></Link>}
-      <section className="standalone-roof-page" aria-labelledby="standalone-gable-title">
-        <GlassPageHeader titleId="standalone-gable-title" title="Nyeregtető" context="Önálló tetőgeometria" actions={onChangeRoofType && <button className="secondary-button" type="button" onClick={onChangeRoofType}>← Tetőtípus kiválasztása</button>} />
-        <p className="roof-disclaimer">A meglévő roof.gable motor számítja az eredményeket. A fedési eredmény külön menthető; anyagkimutatás és statikai méretezés nem készül.</p>
-        {handoffSource && <div className={`survey-handoff-banner ${handoffModified ? "is-modified" : ""}`} role="status"><strong>{handoffModified ? "A kalkuláció módosított adatokat tartalmaz" : "Adatok átvéve a felmérésből"}</strong><small>Felmérés: {handoffSource.surveyId} · V{handoffSource.version} · revízió: {handoffSource.revisionId}. A forrás változatlan marad.</small>{missingHandoffFields.length > 0 && <span>Ehhez a számításhoz még add meg: {missingHandoffFields.join(", ")}.</span>}</div>}
+      <section className="standalone-roof-page" aria-label={embedded ? "Tetőgeometria és fedés számítása" : undefined} aria-labelledby={embedded ? undefined : "standalone-gable-title"}>
+        {!embedded && <GlassPageHeader titleId="standalone-gable-title" title="Nyeregtető" context="Önálló tetőgeometria" actions={onChangeRoofType && <button className="secondary-button" type="button" onClick={onChangeRoofType}>← Tetőtípus kiválasztása</button>} />}
+        {!embedded && <p className="roof-disclaimer">A meglévő roof.gable motor számítja az eredményeket. A fedési eredmény külön menthető; anyagkimutatás és statikai méretezés nem készül.</p>}
+        {embedded && <GlassDisclosure summary="A számítás határai"><p>A tetőgeometria a felmért méretekből számít. A trapézlemez-fedés külön, megadott termékadatokkal menthető. Ez a számítás nem készít automatikusan anyaglistát, és nem statikai méretezés.</p></GlassDisclosure>}
+        {handoffSource && <div className={`survey-handoff-banner ${handoffModified ? "is-modified" : ""}`} role="status"><strong>{handoffModified ? "A méretek módosultak" : `Méretek átvéve a felmérésből · V${handoffSource.version}`}</strong>{handoffModified && <small>A számítás az itt látható módosított adatokat használja; a felmérés forrása változatlan.</small>}{missingHandoffFields.length > 0 && <span>Még szükséges: {missingHandoffFields.join(", ")}.</span>}<GlassDisclosure summary="Forrás adatai"><small>Felmérés: {handoffSource.surveyId} · felmérésrevízió: {handoffSource.revisionId} · V{handoffSource.version}</small></GlassDisclosure></div>}
         <RoofWorkspace
           className="roof-workspace-standalone"
           context={<div className="roof-workspace-context"><div className="roof-guidance-slot"><MeasurementGuidance compact guide={measurementGuideFor("gable", focusedField ?? "")} /></div></div>}
           measurements={
-            <>
-              <form className="roof-form roof-measurement-inputs roof-form-grid-compact" onSubmit={(event) => event.preventDefault()}>
-                <label className="roof-field"><span>Bemenet módja</span><select value={draft.inputMode} disabled={historical || savePending} onChange={(event) => { const inputMode = event.target.value as Draft["inputMode"]; setDraft((current) => ({ ...current, inputMode, roofRiseMm: "", roofPitchDegrees: "" })); }}><option value="height">Tetőemelkedés</option><option value="angle">Tetőhajlás</option></select></label>
-                {fields.map((field) => <label className="roof-field" key={field.key}><span>{field.label} <small>{field.unit}</small></span><input id={String(field.key)} inputMode="decimal" value={draft[field.key]} disabled={historical || savePending} onFocus={() => setFocusedField(field.key)} onBlur={handleMeasurementBlur} onChange={(event) => set(field.key, event.target.value)} aria-label={`${field.label} (${field.unit})`} /></label>)}
-              </form>
-            </>
+            measurements
           }
           drawing={result && <TechnicalDrawing output={result} compact activeDimension={focusedField} activeDimensionDescription={measurementGuideFor("gable", focusedField ?? "")?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} isSaved={false} />}
           results={result ? <section className="roof-results" aria-live="polite"><div className="roof-result-highlight"><span>Teljes tetőfelület</span><strong>{format(result.areas.combinedRoofM2, "m²")}</strong><small>Vízszintes vetület: {format(result.areas.horizontalProjectedM2, "m²")}</small></div><div className="roof-result-grid">
@@ -96,7 +104,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
           </div></section> : <p className="missing-data">Add meg az összes méretet egész milliméterben, vagy válassz érvényes tetőhajlást a geometriai előnézethez.</p>}
         />
         {lastValid.current && <details className="roof-related-workflows" hidden={!result}><summary>Fedési számítás és mentés</summary><GableTrapezoidalCoveringPanel onSaved={onSaved} mode="standalone" organizationId={organizationId} saved={saved} geometryInput={result && input ? input : lastValid.current.input} onLoadGeometry={(value) => setDraft(draftFromInput(value))} onRevisionModeChange={setHistorical} onSavePendingChange={setSavePending} onSaveComplete={setSavedGeometry} onDirtyChange={setCoveringDirty} geometry={result ?? lastValid.current.result} sourceLabel="Kézi tetőméretek · projekt nélküli előnézet" /></details>}
-        <p className="roof-disclaimer">A ferde hossz geometriai érték; nem igazolt szarufavágási méret. A felület és hosszak nem jelentenek fedőanyag-, léc-, fólia- vagy szerkezeti mennyiséget.</p>
+        {embedded ? <GlassDisclosure summary="Eredmények értelmezése"><p>A ferde hossz geometriai érték, nem igazolt szarufavágási méret. A tetőfelület és hosszak önmagukban nem adnak megvásárolható fedőanyag-, léc-, fólia- vagy szerkezeti mennyiséget.</p></GlassDisclosure> : <p className="roof-disclaimer">A ferde hossz geometriai érték; nem igazolt szarufavágási méret. A felület és hosszak nem jelentenek fedőanyag-, léc-, fólia- vagy szerkezeti mennyiséget.</p>}
       </section>
     </>
   );

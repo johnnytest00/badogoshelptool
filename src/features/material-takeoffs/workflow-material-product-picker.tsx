@@ -22,12 +22,13 @@ export function filterMaterialProductOptions(options: readonly WorkflowMaterialP
   return options.filter((option) => normalizeMaterialProductSearch(`${option.name} ${option.searchText}`).includes(normalizedQuery));
 }
 
-export function WorkflowMaterialProductPicker({ options, value, disabled, onSelect, idPrefix = "workflow-material-product" }: Readonly<{
+export function WorkflowMaterialProductPicker({ options, value, disabled, onSelect, idPrefix = "workflow-material-product", label = "Termék kiválasztása" }: Readonly<{
   options: readonly WorkflowMaterialProductOption[];
   value: string;
   disabled: boolean;
   onSelect: (id: string) => void;
   idPrefix?: string;
+  label?: string;
 }>) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -124,7 +125,7 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
       type="button"
       aria-haspopup="dialog"
       aria-expanded={isOpen}
-      aria-label={selectedOption ? `Termék: ${selectedOption.name}. Másik termék kiválasztása` : "Termék kiválasztása"}
+      aria-label={selectedOption ? `${label}: ${selectedOption.name}. Másik termék kiválasztása` : label}
       disabled={disabled}
       onClick={() => { setQuery(""); setActiveId(null); setIsOpen(true); }}
     >

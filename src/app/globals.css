@@ -451,7 +451,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .standalone-quotation-editor .quotation-line-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .standalone-catalog-selection { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: .8rem; min-width: 0; }
 .standalone-catalog-selection > label { display: grid; align-content: start; gap: .35rem; min-width: 0; color: var(--foreground); font-size: .78rem; font-weight: 800; }
-.standalone-catalog-product-field { position: relative; z-index: 2; }
+.standalone-catalog-product-field { display: grid; gap: .35rem; min-width: 0; color: var(--foreground); font-size: .78rem; font-weight: 800; position: relative; z-index: 2; }
 .standalone-quotation-editor .quotation-line-total { display: grid; gap: .25rem; padding: .4rem 0; }
 .standalone-quotation-editor .quotation-line-total small { color: var(--muted); font-size: .68rem; font-weight: 500; }
 .standalone-line-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; align-self: end; }
@@ -871,12 +871,40 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .survey-section-tabs, .survey-workspace-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin: 1rem 0; }
 .survey-section-tabs > button, .survey-workspace-actions > button { min-height: 48px; white-space: normal; }
 .survey-workspace-calculator { border-top: 1px solid var(--border); padding-top: 1.5rem; margin-top: 1.5rem; min-width: 0; }
+.survey-workspace-calculator .field-survey-section-heading { align-items: center; }
+.survey-workspace-calculator .field-survey-section-heading > div { min-width: 0; }
+.survey-workspace-calculator .field-survey-section-heading h2 { margin: 0; }
+.survey-workspace-calculator .field-survey-section-heading p { margin: .25rem 0 0; color: var(--muted); font-size: calc(.82rem * var(--tp-text-scale)); }
+.survey-calculator-choice { min-width: 0; margin: .75rem 0; border: 0; padding: 0; }
+.survey-calculator-choice legend { margin-bottom: .4rem; color: var(--muted); font-size: calc(.78rem * var(--tp-text-scale)); font-weight: 750; }
+.survey-calculator-choice > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
+.survey-calculator-choice button { display: grid; min-width: 0; min-height: 3.5rem; align-content: center; gap: .2rem; border: 1px solid var(--glass-border); border-radius: .85rem; background: var(--surface-glass); color: var(--foreground); padding: .55rem .7rem; text-align: left; font: inherit; cursor: pointer; }
+.survey-calculator-choice button:hover:not(:disabled), .survey-calculator-choice button.is-selected { border-color: color-mix(in srgb, var(--brand) 58%, var(--glass-border)); background: color-mix(in srgb, var(--brand-soft) 34%, var(--surface-glass)); }
+.survey-calculator-choice button:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.survey-calculator-choice button strong { font-size: calc(.85rem * var(--tp-text-scale)); line-height: 1.3; }
+.survey-calculator-choice button small { color: var(--muted); font-size: calc(.7rem * var(--tp-text-scale)); line-height: 1.35; }
+.survey-geometry-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem .8rem; margin: 0; }
+.survey-geometry-summary dt { color: var(--muted); }
+.survey-geometry-summary dd { margin: 0; text-align: end; font-variant-numeric: tabular-nums; }
+.survey-imported-geometry { display: grid; gap: .55rem; min-width: 0; }
+.survey-imported-geometry > .secondary-button { justify-self: start; min-height: 48px; }
+.standalone-metal-geometry { display: grid; gap: .7rem; min-width: 0; }
+.standalone-metal-geometry > p { margin: 0; color: var(--muted); font-size: calc(.8rem * var(--tp-text-scale)); line-height: 1.45; }
+.standalone-metal-geometry > .secondary-button { justify-self: start; min-height: 48px; }
+.survey-calculation-source { margin-block: .5rem; }
+.survey-calculation-source ul { display: grid; gap: .25rem; margin: 0; padding-left: 1.2rem; color: var(--muted); }
+.survey-calculation-receipt { display: grid; gap: .4rem; }
+.survey-calculation-receipt > p { margin: 0; }
+.survey-calculation-receipt dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .3rem .7rem; margin: 0; overflow-wrap: anywhere; }
+.survey-calculation-receipt dt { color: var(--muted); font-weight: 700; }
+.survey-calculation-receipt dd { min-width: 0; margin: 0; font-family: ui-monospace, monospace; font-size: .8em; }
 .survey-workspace-summary { margin-top: 1.5rem; overflow-wrap: anywhere; }
 .survey-workspace-summary article { border-bottom: 1px solid var(--border); padding: 1rem 0; }
 .survey-workspace-summary fieldset { display: grid; gap: 1rem; margin: 1.5rem 0; }
 .survey-photo-choice { display: flex; align-items: center; gap: .7rem; min-height: 48px; }
 .survey-workspace-summary input[type="checkbox"], .survey-photo-choice input { width: 22px; height: 22px; vertical-align: middle; }
 @media (max-width: 600px) { .survey-workspace-actions > button { width: 100%; } .survey-section-tabs > button { flex: 1 1 42%; } }
+@media (max-width: 500px) { .survey-calculator-choice > div { grid-template-columns: minmax(0, 1fr); } }
 .survey-section-add, .survey-section-settings-actions { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
 .survey-section-add .secondary-button, .survey-section-settings-actions .secondary-button { min-height: 48px; }
 .survey-section-add details, .survey-section-settings { min-width: 0; }
@@ -3248,7 +3276,7 @@ textarea {
   display: grid;
   width: 100%;
   max-width: none;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
   gap: calc(.5rem * var(--tp-spacing-scale));
   margin: 0;
@@ -4099,7 +4127,7 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 .workflow-material-price-editor { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: .4rem; }
 .workflow-material-catalog-price { display: grid; min-width: 0; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); align-items: end; gap: .4rem; }
 .workflow-material-row-source-product { display: flex; min-width: 0; flex-wrap: wrap; align-items: end; gap: .5rem .8rem; border-top: 1px solid color-mix(in srgb, var(--glass-border) 72%, transparent); padding-top: .55rem; }
-.workflow-material-row-source-product > label { display: grid; min-width: min(100%, 24rem); flex: 1 1 18rem; gap: .25rem; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); font-weight: 700; }
+.workflow-material-row-source-product > [role="group"] { display: grid; min-width: min(100%, 24rem); flex: 1 1 18rem; gap: .25rem; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); font-weight: 700; }
 .workflow-material-row-source-product > small { flex-basis: 100%; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); line-height: 1.4; }
 .workflow-material-empty { display: flex; min-height: 5rem; align-items: center; gap: .65rem; border: 1px dashed color-mix(in srgb, var(--glass-border) 80%, var(--border)); border-radius: .9rem; background: color-mix(in srgb, var(--surface-glass) 58%, transparent); color: var(--muted); padding: .8rem; }
 .workflow-material-empty > svg { flex: 0 0 auto; color: var(--brand-ink); }

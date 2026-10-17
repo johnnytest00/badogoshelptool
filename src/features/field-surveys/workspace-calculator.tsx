@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { GutterCalculator } from "@/features/gutters/gutter-calculator";
 import { FlashingCalculator } from "@/features/flashings/flashing-calculator";
 import { StandaloneGablePreview } from "@/features/roof-models/standalone-gable-preview";
@@ -10,9 +11,9 @@ import { gutterInputFromSelectedEaves } from "@/features/gutters/gutter-handoff"
 import { useAppInteraction } from "@/components/feedback/app-interaction-provider";
 
 type Context = Awaited<ReturnType<typeof loadSurveyCalculator>>;
-export function WorkspaceCalculator({ organizationId, surveyId, sectionId, version, context, onClose, onLinked, onState }: {
+export function WorkspaceCalculator({ organizationId, surveyId, sectionId, version, context, onClose, onShowSummary, onLinked, onState }: {
   organizationId: string; surveyId: string; sectionId: string; version: number; context: Context;
-  onClose: () => void; onLinked: () => void; onState: (state: { dirty: boolean; pending: boolean }) => void;
+  onClose: () => void; onShowSummary: () => void; onLinked: () => void; onState: (state: { dirty: boolean; pending: boolean }) => void;
 }) {
   const { requestConfirmation, notify } = useAppInteraction();
   const [kind, setKind] = useState<"roof" | "metal">("roof");
@@ -49,16 +50,17 @@ export function WorkspaceCalculator({ organizationId, surveyId, sectionId, versi
     }
     report({ dirty: false, pending: false }); onClose();
   }
-  return <section className="survey-workspace-calculator" aria-label="Számítás a munkaszakaszhoz">
-    <div className="field-survey-section-heading"><h2>Számítás hozzáadása</h2><button type="button" className="secondary-button" onClick={() => void close()} disabled={pending || state.current.pending}>Kalkulátor bezárása</button></div>
-    {handoff.missing.length > 0 && !(handoff.calculator === "gutter" && gutterInput?.gutterStockLengthMm) && <p className="missing-data">Hiányzó adatok: {handoff.missing.join(", ")}. A kalkulátorban pótolhatók.</p>}
-    {receipt ? <div role="status"><p>Számítás mentve · V{receipt.revisionNumber} · {receipt.calculationId} · revízió: {receipt.revisionId}</p><p>{linked ? "A pontos számításrevízió a munkaszakaszhoz kapcsolva." : "A mentett számítás kapcsolása folyamatban vagy újrapróbálásra vár."}</p>{!linked && <button className="primary-button" type="button" disabled={pending} onClick={() => void associate(receipt)}>Kapcsolás újrapróbálása</button>}</div> : <>
+  const sectionTitle = handoff.calculator === "roof" ? "Tető számítása" : handoff.calculator === "gutter" ? "Ereszcsatorna-szükséglet" : "Szegélyanyag számítása";
+  const sectionIntro = handoff.calculator === "roof" ? "A felmérés tetőméretei már be vannak töltve." : handoff.calculator === "gutter" ? "A felmért ereszszakaszok már be vannak töltve." : "A felmért szegélyszakaszok már be vannak töltve.";
+  return <section className="survey-workspace-calculator" aria-label={sectionTitle}>
+    <div className="field-survey-section-heading"><div><h2>{sectionTitle}</h2><p>{sectionIntro}</p></div><button type="button" className="secondary-button" onClick={() => void close()} disabled={pending || state.current.pending}>Vissza a felméréshez</button></div>
+    {handoff.missing.length > 0 && !(handoff.calculator === "gutter" && gutterInput?.gutterStockLengthMm) && <p className="missing-data">Még szükséges: {handoff.missing.join(", ")}.</p>}
+    {receipt ? <div role="status" className="survey-calculation-receipt"><p>Számítás mentve · V{receipt.revisionNumber}</p><p>{linked ? "A számítás a megnyitott felmérés-változathoz kapcsolódik." : "A számítás mentve; a felméréskapcsolat újrapróbálható."}</p>{!linked && <button className="primary-button" type="button" disabled={pending} onClick={() => void associate(receipt)}>Kapcsolás újrapróbálása</button>}{linked && <button className="primary-button" type="button" onClick={onShowSummary}>Tovább a felmérés összesítőjéhez</button>}<GlassDisclosure summary="Mentés és forrás részletei"><dl><dt>Számításazonosító</dt><dd>{receipt.calculationId}</dd><dt>Számításrevízió</dt><dd>{receipt.revisionId}</dd><dt>Felméret-revízió</dt><dd>{handoff.source.revisionId} · V{handoff.source.version}</dd></dl></GlassDisclosure></div> : <>
       {handoff.calculator === "gutter" && <GutterCalculator organizationId={organizationId} projectId={context.projectId ?? undefined} saved={context.savedGutter} suggestions={context.availableGutter} selectedSuggestions={context.selectedGutter} catalogVariants={context.gutterCatalog} initialInput={gutterInput ?? handoff.input} handoffSource={handoff.source} onSaved={associate} onWorkspaceState={stableReport} />}
       {handoff.calculator === "flashing" && <FlashingCalculator organizationId={organizationId} projectId={context.projectId ?? undefined} saved={context.savedFlashing} suggestions={context.availableFlashing} selectedSuggestions={context.selectedFlashing} catalogVariants={context.flashingCatalog} initialHandoff={handoff.input} handoffSource={handoff.source} onSaved={associate} onWorkspaceState={stableReport} />}
       {handoff.calculator === "roof" && <>
-        <label className="field-survey-field"><span>Kalkulátor</span><select value={kind} onChange={async (event) => { if (state.current.pending) return; if (state.current.dirty) { const accepted = await requestConfirmation({ title: "Mentetlen módosítások", message: "A másik kalkulátor megnyitásával a jelenlegi nem mentett adatok elvesznek.", cancelLabel: "Maradok", actions: [{ label: "Kalkulátor váltása", tone: "danger", run: () => undefined }] }); if (!accepted) return; } setKind(event.target.value as "roof" | "metal"); }}><option value="roof">Nyeregtető-geometria és trapézlemez-fedés</option><option value="metal">Cserepeslemez-fedés</option></select></label>
-        <p>A geometria előnézet. A fedési számítás termékadatok megadása után külön menthető. Névleges lemezfelületből nem készül beszerzési mennyiség.</p>
-        {kind === "roof" ? <StandaloneGablePreview embedded organizationId={organizationId} initialHandoff={handoff.input} handoffSource={handoff.source} missingHandoffFields={handoff.missing} onSaved={associate} onWorkspaceState={stableReport} /> : <StandaloneGableMetalTilePreview organizationId={organizationId} initialHandoff={handoff.input} handoffSource={handoff.source} onSaved={associate} onWorkspaceState={stableReport} />}
+        <fieldset className="survey-calculator-choice"><legend>Mit szeretnél számítani?</legend><div><button type="button" className={kind === "roof" ? "is-selected" : ""} aria-pressed={kind === "roof"} disabled={pending} onClick={() => setKind("roof")}><strong>Geometria és trapézlemez</strong><small>Felület, méretek és lemezkiosztás</small></button><button type="button" className={kind === "metal" ? "is-selected" : ""} aria-pressed={kind === "metal"} disabled={pending} onClick={() => setKind("metal")}><strong>Cserepeslemez-fedés</strong><small>Fedési mennyiség termékadatokból</small></button></div></fieldset>
+        {kind === "roof" ? <StandaloneGablePreview embedded organizationId={organizationId} initialHandoff={handoff.input} handoffSource={handoff.source} missingHandoffFields={handoff.missing} onSaved={associate} onWorkspaceState={stableReport} /> : <StandaloneGableMetalTilePreview embedded organizationId={organizationId} initialHandoff={handoff.input} handoffSource={handoff.source} onSaved={associate} onWorkspaceState={stableReport} />}
       </>}
     </>}
     {error && <p className="form-message is-error" role="alert">{error}</p>}

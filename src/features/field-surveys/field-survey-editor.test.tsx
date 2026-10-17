@@ -58,6 +58,17 @@ describe("field survey editor", () => {
     expect(html).toContain('aria-label="Ereszszakasz törlése"');
   });
 
+  it("keeps only roof and other in the primary section toolbar while retaining specialized work types", () => {
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={survey} />);
+
+    expect(html.match(/>Új (?:tetőszakasz|egyéb szakasz)<\/button>/g)).toHaveLength(2);
+    expect(html).not.toContain("Új ereszcsatorna-szakasz");
+    expect(html).not.toContain("Új szegélyszakasz");
+    expect(html).toMatch(/<option value="gutter"(?: selected="")?>Ereszcsatorna<\/option>/);
+    expect(html).toContain('<option value="flashing">Bádogos szegély</option>');
+    expect(html).toContain('value="8.5"');
+  });
+
   it("restores the active work section after the first save changes the URL", () => {
     const flashingId = "123e4567-e89b-42d3-a456-426614174005";
     const withSections: FieldSurveyRecord = {

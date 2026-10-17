@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("./gable-metal-tile-covering-actions", () => ({ saveGableMetalTileCovering: vi.fn() }));
 vi.mock("./gable-metal-tile-takeoff-actions", () => ({ createGableMetalTileTakeoffAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }) }));
+vi.mock("@/components/feedback/app-interaction-provider", () => ({ useAppInteraction: () => ({ notify: vi.fn(), requestConfirmation: vi.fn() }), useUnsavedChangeGuard: vi.fn() }));
 import { calculateGableRoof } from "@/domain/calculations/gable-roof";
 import { calculateGableMetalTileCovering } from "@/domain/calculations/gable-metal-tile-covering";
 import { GableMetalTileCoveringPreview, MetalTileDrawing, StandaloneGableMetalTilePreview } from "./gable-metal-tile-covering-preview";
@@ -27,6 +28,24 @@ describe("cserepeslemez-fedés preview", () => {
     expect(html).toContain("Projekt nélküli kézi geometria");
     expect(html).toContain("Épület hossza");
     expect(html).toContain("Add meg az összes érvényes tetőméretet");
+  });
+
+  it("reuses valid survey geometry and keeps revision identifiers behind a disclosure", () => {
+    const handoff = { inputMode: "height" as const, buildingLengthMm: "10000", buildingWidthMm: "6000", roofRiseMm: "4000", roofPitchDegrees: "", eaveOverhangMm: "0", frontGableOverhangMm: "0", rearGableOverhangMm: "0" };
+    const html = renderToStaticMarkup(createElement(StandaloneGableMetalTilePreview, {
+      organizationId: "organization",
+      embedded: true,
+      initialHandoff: handoff,
+      handoffSource: { surveyId: "survey-uuid", revisionId: "revision-uuid", version: 3 },
+    }));
+
+    expect(html).toContain("Méretek átvéve a felmérésből · V3");
+    expect(html).toContain("Tetőméretek szerkesztése");
+    expect(html).toContain("Átvett tetőméretek");
+    expect(html).toContain("További termékadat szükséges");
+    expect(html).not.toContain('value="10000"');
+    expect(html.indexOf("revision-uuid")).toBeGreaterThan(html.indexOf("Forrás adatai"));
+    expect(html).not.toContain("Projekt nélküli kézi geometria");
   });
 
   it("draws the same two-plane column and modular counts as the valid calculation", () => {
