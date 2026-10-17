@@ -7,7 +7,7 @@ const cases = [
   ["concrete.pile", { count: "4", diameterMm: "300", lengthMm: "5000" }, ["diameterMm"]],
   ["concrete.slab", { lengthMm: "10000", widthMm: "8000", thicknessMm: "200" }, ["lengthMm", "widthMm"]],
   ["concrete.ring", { outerDiameterMm: "1200", wallThicknessMm: "100", heightMm: "1000" }, ["outerDiameterMm", "wallThicknessMm"]],
-  ["concrete.paving", { lengthMm: "10000", widthMm: "2000", tileLengthMm: "200", tileWidthMm: "100" }, ["lengthMm", "widthMm"]],
+  ["concrete.paving", { lengthMm: "10000", widthMm: "2000", tileLengthMm: "200", tileWidthMm: "100", baseLayerThicknessMm: "150" }, ["lengthMm", "widthMm"]],
   ["concrete.blind_area", { buildingLengthMm: "10000", buildingWidthMm: "8000", apronWidthMm: "1000", concreteThicknessMm: "100", gravelThicknessMm: "150" }, ["buildingLengthMm", "apronWidthMm"]],
   ["concrete.mix", { concreteVolumeM3: "4", cementKgPerM3: "300", cementRatio: "1", sandRatio: "2", aggregateRatio: "3" }, ["cementRatio", "sandRatio", "aggregateRatio"]],
   ["concrete.rebar", { barDiameterMm: "12", cutLengthMm: "6000", pieceCount: "10" }, ["cutLengthMm"]],
@@ -21,6 +21,7 @@ const alternateViews = [
   ["concrete.slab", "section", cases[2][1], ["lengthMm", "thicknessMm"]],
   ["concrete.ring", "section", cases[3][1], ["outerDiameterMm", "wallThicknessMm", "heightMm"]],
   ["concrete.paving", "tile", cases[4][1], ["tileLengthMm", "tileWidthMm"]],
+  ["concrete.paving", "section", cases[4][1], ["lengthMm", "baseLayerThicknessMm"]],
   ["concrete.blind_area", "section", cases[5][1], ["concreteThicknessMm", "gravelThicknessMm"]],
   ["concrete.rebar", "section", cases[7][1], ["barDiameterMm"]],
 ] as const;

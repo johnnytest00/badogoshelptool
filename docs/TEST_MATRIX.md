@@ -1,5 +1,34 @@
 # Tesztmátrix
 
+## F9.38.1 — Bemenetek és műszaki rajzok
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Kalkulátoronkénti input és rajz coverage | PASS, CÉLZOTT VITEST | A construction coverage teszt mind a 27 ID kötelező/opcionális mezőit, a spirálfordulás és acélsűrűség explicit kezelését, az összes rajznézet szöveg nélküli SVG-jét, a legendákat, alapérték-egyezést, mintákat és NaN/Infinity hiányát ellenőrzi. |
+| Teljes releváns regresszió | PASS | `npx vitest run src/domain/calculations/construction src/domain/drawings/construction-stairs.test.ts src/features/roof-models/drawing-viewport.test.ts src/features/calculators/calculator-navigation.test.ts` — 9 fájl / 145 teszt PASS. |
+| Teljes Vitest | PASS, VÉGLEGES FUTÁS | `npm test` — 141 fájl PASS, 9 skip; 718 teszt PASS, 27 skip (745 összes). |
+| Typecheck / lint / build | PASS | `npm run typecheck`; `npm run lint`; `npm run build` — Next.js 16.4.0 webpack, 30 static page. |
+| Helyi browser smoke | PASS, SZŰKÍTETT DESKTOP | 2026-10-18, helyi read-only DEMO, sötét témában S16: 280/175 mm alapgeometria; üres kiülésnél nincs lila szakasz vagy 0 mm legendasor. Opcionális 30 mm kiülésnél 310 mm vetület, 355,985 mm ferde vonal és a rajzhoz illő lila szakasz/30 mm legenda. Az SVG-ben nem volt látható méret- vagy magyarázó szöveg. |
+| Témák és responsive viewportok | NEM TELJES / RÉSZBEN KÓD+TESZT | Natív böngészővezérlés nem kínált CSS viewport override-ot; 1440/1024/768/390/320 px és világos téma browser mátrix, fizikai mobil, valódi touch/pinch és manuális screen-reader audit nem futott. CSS legend breakpoints és a hozzáférhető markup céltesztje nem helyettesíti ezeket. |
+| Adatbázis/Auth/RLS/hosted | NEM ÉRINTETT / NEM FUTOTT | Nincs tartós írás, adatbázis-, jogosultsági, hosted vagy üzleti workflow változás; DB teszt nem releváns. |
+| Dokumentáció és diff | PASS | Hat kért dokumentációs fájl frissítve; végső git diff --check lefutott és PASS. |
+
+Az egyedi inputkészletet és a kalkulátoronkénti eredmény/rajz/korlát táblát a [F9.38.1 teljesítési riport](F9_38_CALCULATOR_COMPLETION_REPORT.md) tartalmazza. A vizuális smoke-ban talált nulla orrkiülés legendasort a teljes suite első futása után javítottam, majd a végső kódon újrafuttattam a teljes kört. Az alábbi számok a végleges futást mutatják.
+
+## F9.38 — Lépcső- és betonozási kalkulátorok
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Kalkulátor-specifikus regresszió | PASS | `npx vitest run src/domain/calculations/construction/construction.test.ts src/domain/calculations/construction/stair-landings.test.ts src/domain/calculations/construction/winder-stairs.test.ts src/domain/calculations/construction/concrete-drawings.test.tsx src/domain/calculations/construction/catalog.test.tsx` — 5 fájl / 52 teszt PASS. |
+| Teljes Vitest | PASS | `npm test` — 140 fájl PASS, 9 fájl skip; 640 teszt PASS, 27 skip. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`; `npm run lint`; `npm run build` — Next.js 16.4.0 webpack, 30 static page; `git diff --check`. |
+| Hitelesített helyi DEMO browser, mind a 27 kalkulátor | PASS, DESKTOP SMOKE | A 17 stair, 9 concrete és 1 átlósegéd kalkulátor érvényes DEMO input után eredményt és saját SVG-t mutatott. A C5 opcionális 150 mm alapréteg 1,8 m³-t, a C6 100/150 mm réteg 4/6 m³-t jelzett. Ez helyi read-only számítás volt; mentés és üzleti rekordmódosítás nem történt. |
+| Hibás browser-bemenet | RÉSZLEGES | C4 külső Ø1500 mm, falvastagság 750 mm esetén a pozitív belső átmérőt megkövetelő magyar hibaüzenet jelent meg. A további 26 kalkulátor invalid-input browser próbája nem futott; domain tesztek néhány séma- és határesetet fednek, de a teljes 27-es mátrixot nem. |
+| Témák és rajzvezérlés | PASS, RÉSZLEGES | Sötét és világos téma megtekintve, a sötét visszaállítva. S1 rajz zoom 90→100→120%, Enteres nagyítás és dimenziófeliratból kapcsolt mezőfókusz megfigyelve. Pásztázás/húzás nem futott. |
+| Responsive viewport és fizikai eszköz | NEM FUTOTT | A böngészővezérlés nem kínált viewport emulációt; 1440/1024/768/390/320 px, érintés/pinch, fizikai mobil és teljes responsive overflow mátrix nincs bizonyítva. |
+| Zhitov referenciaoldalak | FORRÁS-AUDIT RÉSZLEGES | Mind a 27 publikus oldalt és a statikus mező-/kimenetleírást áttekintettem. A dinamikus beágyazott űrlapok egyedi referenciaeredményeit nem tudtam reprodukálni; a TetőPro teljes referencia-paritása nincs igazolva. Hivatkozások és kalkulátoronkénti korlátok: [F9.38 completion report](F9_38_CALCULATOR_COMPLETION_REPORT.md). |
+| Adatbázis, Auth/RLS, hosted, commit/deploy | NEM ÉRINTETT / NEM FUTOTT | Nincs adatbázis-migráció, jogosultsági vagy üzleti workflow változás; hosted művelet és commit/push/deploy nem történt. |
+
 ## F9.37.3 — Háttér finomítása és Safari React script-hiba
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

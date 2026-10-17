@@ -30,8 +30,8 @@ const landingStairBaseSchema = z.object({
   goingMm: constructionLengthMm,
   landingDepthMm: constructionLengthMm,
   flightRiserCounts: z.array(constructionCount.min(2).max(100)).min(2).max(3),
-  landingGapMm: constructionNonNegativeMm.default(0),
-  turnDirection: z.enum(["right", "left"]).default("right"),
+  landingGapMm: constructionNonNegativeMm.optional(),
+  turnDirection: z.enum(["right", "left"]),
   openingLengthMm: constructionLengthMm.optional(),
   openingWidthMm: constructionLengthMm.optional(),
 }).superRefine((input, context) => {
@@ -42,7 +42,10 @@ const landingStairBaseSchema = z.object({
   if (input.landingDepthMm < input.stairWidthMm) {
     context.addIssue({ code: "custom", path: ["landingDepthMm"], message: "A pihenő mélysége nem lehet kisebb a lépcsőkar szélességénél." });
   }
-  if (input.layout !== "half_turn" && input.landingGapMm !== 0) {
+  if (input.layout === "half_turn" && input.landingGapMm === undefined) {
+    context.addIssue({ code: "custom", path: ["landingGapMm"], message: "Az U-alakú elrendezés karhézagát adja meg." });
+  }
+  if (input.layout !== "half_turn" && input.landingGapMm !== undefined && input.landingGapMm !== 0) {
     context.addIssue({ code: "custom", path: ["landingGapMm"], message: "Köztes karhézag csak az U-alakú elrendezésben adható meg." });
   }
   if (input.flightRiserCounts.reduce((total, value) => total + value, 0) > 200) {
@@ -62,9 +65,12 @@ type StairPlanFlight = Readonly<{ index: number; riserCount: number; treadCount:
  */
 export function calculateLandingStairGeometry(rawInput: LandingStairGeometryInput) {
   const input = landingStairGeometryInputSchema.parse(rawInput);
+  const landingGapMm = input.landingGapMm ?? 0;
   const riserCount = input.flightRiserCounts.reduce((total, value) => total + value, 0);
   const treadCount = input.flightRiserCounts.reduce((total, value) => total + value - 1, 0);
   const riserHeightMm = input.totalRiseMm / riserCount;
+  const pitchDegrees = Math.atan2(riserHeightMm, input.goingMm) * 180 / Math.PI;
+  const stepRuleMm = 2 * riserHeightMm + input.goingMm;
   const direction = input.turnDirection === "right" ? 1 : -1;
   const rawFlights: { riserCount: number; treadCount: number; runMm: number; startRiseMm: number; endRiseMm: number; treads: StairPlanTread[] }[] = [];
   const landings: StairPlanPoint[][] = [];
@@ -94,11 +100,11 @@ export function calculateLandingStairGeometry(rawInput: LandingStairGeometryInpu
     pushFlight(input.flightRiserCounts[1], "north", secondX, input.landingDepthMm, input.flightRiserCounts[0] * riserHeightMm);
   } else if (input.layout === "half_turn") {
     const firstRun = (input.flightRiserCounts[0] - 1) * input.goingMm;
-    const landingWidth = 2 * input.stairWidthMm + input.landingGapMm;
+    const landingWidth = 2 * input.stairWidthMm + landingGapMm;
     pushFlight(input.flightRiserCounts[0], "east", 0, 0, 0);
     landings.push(makeRect(firstRun, 0, firstRun + input.landingDepthMm, landingWidth));
     const secondStartX = firstRun + input.landingDepthMm;
-    pushFlight(input.flightRiserCounts[1], "west", secondStartX, input.stairWidthMm + input.landingGapMm, input.flightRiserCounts[0] * riserHeightMm);
+    pushFlight(input.flightRiserCounts[1], "west", secondStartX, input.stairWidthMm + landingGapMm, input.flightRiserCounts[0] * riserHeightMm);
   } else {
     const firstRun = (input.flightRiserCounts[0] - 1) * input.goingMm;
     const secondRun = (input.flightRiserCounts[1] - 1) * input.goingMm;
@@ -122,10 +128,17 @@ export function calculateLandingStairGeometry(rawInput: LandingStairGeometryInpu
   const normalizedLandings = landings.map((polygon) => polygon.map((point) => normalize(mirrorPoint(point))));
   const planWidthMm = maxX - minX;
   const planDepthMm = maxY - minY;
+  const flightGeometricLengthsMm = flights.map((flight) => Math.hypot(flight.runMm, flight.endRiseMm - flight.startRiseMm));
+  const flightTreadSurfaceAreaM2 = treadCount * input.goingMm * input.stairWidthMm / 1_000_000;
+  const polygonAreaMm2 = (polygon: readonly StairPlanPoint[]) => Math.abs(polygon.reduce((sum, point, index) => {
+    const next = polygon[(index + 1) % polygon.length];
+    return sum + point.xMm * next.yMm - next.xMm * point.yMm;
+  }, 0)) / 2;
+  const landingSurfaceAreaM2 = normalizedLandings.reduce((sum, polygon) => sum + polygonAreaMm2(polygon), 0) / 1_000_000;
   if (input.openingLengthMm !== undefined && planWidthMm > input.openingLengthMm) throw new RangeError("A megadott tervhossz kisebb a lépcső számított alaprajzi kiterjedésénél.");
   if (input.openingWidthMm !== undefined && planDepthMm > input.openingWidthMm) throw new RangeError("A megadott tervszélesség kisebb a lépcső számított alaprajzi kiterjedésénél.");
-  assertFiniteResult([riserHeightMm, treadCount, planWidthMm, planDepthMm, ...flights.flatMap((flight) => [flight.runMm, flight.startRiseMm, flight.endRiseMm])]);
-  return { layout: input.layout, totalRiseMm: input.totalRiseMm, stairWidthMm: input.stairWidthMm, goingMm: input.goingMm, landingDepthMm: input.landingDepthMm, landingGapMm: input.landingGapMm, turnDirection: input.turnDirection, riserCount, treadCount, riserHeightMm, totalFlightRunMm: flights.reduce((total, flight) => total + flight.runMm, 0), planWidthMm, planDepthMm, flights, landings: normalizedLandings };
+  assertFiniteResult([riserHeightMm, pitchDegrees, stepRuleMm, treadCount, planWidthMm, planDepthMm, flightTreadSurfaceAreaM2, landingSurfaceAreaM2, ...flightGeometricLengthsMm, ...flights.flatMap((flight) => [flight.runMm, flight.startRiseMm, flight.endRiseMm])]);
+  return { layout: input.layout, totalRiseMm: input.totalRiseMm, stairWidthMm: input.stairWidthMm, goingMm: input.goingMm, landingDepthMm: input.landingDepthMm, landingGapMm, turnDirection: input.turnDirection, riserCount, treadCount, riserHeightMm, pitchDegrees, stepRuleMm, totalFlightRunMm: flights.reduce((total, flight) => total + flight.runMm, 0), totalGeometricFlightLengthMm: flightGeometricLengthsMm.reduce((total, length) => total + length, 0), flightGeometricLengthsMm, flightTreadSurfaceAreaM2, landingSurfaceAreaM2, totalPlanSurfaceAreaM2: flightTreadSurfaceAreaM2 + landingSurfaceAreaM2, planWidthMm, planDepthMm, flights, landings: normalizedLandings };
 }
 
 export const concreteStairGeometryInputSchema = z.object({
@@ -143,10 +156,12 @@ export function calculateConcreteStairGeometry(rawInput: ConcreteStairGeometryIn
   const goingMm = input.availableRunMm / treadCount;
   const riserHeightMm = input.totalRiseMm / input.riserCount;
   const pitchLengthM = Math.hypot(mmToM(input.availableRunMm), mmToM(input.totalRiseMm));
+  const pitchLengthMm = Math.hypot(input.availableRunMm, input.totalRiseMm);
   const wedgeVolumeM3 = mm3ToM3(input.stairWidthMm * input.availableRunMm * input.totalRiseMm / 2);
   const pitchDegrees = Math.atan2(input.totalRiseMm, input.availableRunMm) * 180 / Math.PI;
-  assertFiniteResult([goingMm, riserHeightMm, pitchLengthM, wedgeVolumeM3, pitchDegrees]);
-  return { totalRiseMm: input.totalRiseMm, availableRunMm: input.availableRunMm, stairWidthMm: input.stairWidthMm, riserCount: input.riserCount, treadCount, goingMm, riserHeightMm, pitchLengthM, pitchDegrees, wedgeVolumeM3 };
+  const stepRuleMm = 2 * riserHeightMm + goingMm;
+  assertFiniteResult([goingMm, riserHeightMm, pitchLengthM, pitchLengthMm, wedgeVolumeM3, pitchDegrees, stepRuleMm]);
+  return { totalRiseMm: input.totalRiseMm, availableRunMm: input.availableRunMm, stairWidthMm: input.stairWidthMm, riserCount: input.riserCount, treadCount, goingMm, riserHeightMm, pitchLengthM, pitchLengthMm, pitchDegrees, stepRuleMm, wedgeVolumeM3 };
 }
 
 export const spiralStairGeometryInputSchema = z.object({
@@ -170,27 +185,30 @@ export function calculateSpiralStairGeometry(rawInput: SpiralStairGeometryInput)
   const walkingGoingMm = walkingLineLengthMm / treadCount;
   const riserHeightMm = input.totalRiseMm / input.riserCount;
   const stepAngleDegrees = input.turnDegrees / treadCount;
-  assertFiniteResult([walkingRadiusMm, walkingLineLengthMm, walkingGoingMm, riserHeightMm, stepAngleDegrees]);
-  return { innerRadiusMm, outerRadiusMm, walkingRadiusMm, walkingLineLengthMm, walkingGoingMm, riserHeightMm, stepAngleDegrees, riserCount: input.riserCount, treadCount };
+  const stepRuleMm = 2 * riserHeightMm + walkingGoingMm;
+  const pitchDegrees = Math.atan2(input.totalRiseMm, walkingLineLengthMm) * 180 / Math.PI;
+  const developedWalkingLengthMm = Math.hypot(input.totalRiseMm, walkingLineLengthMm);
+  const planAreaM2 = Math.PI * (outerRadiusMm ** 2 - innerRadiusMm ** 2) * input.turnDegrees / 360 / 1_000_000;
+  assertFiniteResult([walkingRadiusMm, walkingLineLengthMm, walkingGoingMm, riserHeightMm, stepAngleDegrees, stepRuleMm, pitchDegrees, developedWalkingLengthMm, planAreaM2]);
+  return { innerRadiusMm, outerRadiusMm, walkingRadiusMm, walkingLineLengthMm, walkingGoingMm, riserHeightMm, stepAngleDegrees, stepRuleMm, pitchDegrees, developedWalkingLengthMm, planAreaM2, riserCount: input.riserCount, treadCount };
 }
 
 export const beveledRiserInputSchema = z.object({
   goingMm: constructionLengthMm,
   riserHeightMm: constructionLengthMm,
-  nosingProjectionMm: z.number().finite().nonnegative().max(100_000),
-  treadThicknessMm: constructionLengthMm,
-  riserBlankThicknessMm: constructionLengthMm,
+  nosingProjectionMm: z.number().finite().nonnegative().max(100_000).optional(),
 });
 export type BeveledRiserInput = z.infer<typeof beveledRiserInputSchema>;
 
 /** Right-triangle step profile; output is blank geometry, not a joinery or fastening design. */
 export function calculateBeveledRiserGeometry(rawInput: BeveledRiserInput) {
   const input = beveledRiserInputSchema.parse(rawInput);
-  const horizontalMm = input.goingMm + input.nosingProjectionMm;
+  const nosingProjectionMm = input.nosingProjectionMm ?? 0;
+  const horizontalMm = input.goingMm + nosingProjectionMm;
   const diagonalMm = Math.hypot(horizontalMm, input.riserHeightMm);
   const slopeDegrees = Math.atan2(input.riserHeightMm, horizontalMm) * 180 / Math.PI;
   const bevelAngleDegrees = 90 - slopeDegrees;
   const riserBlankLengthMm = Math.hypot(input.goingMm, input.riserHeightMm);
-  assertFiniteResult([horizontalMm, diagonalMm, slopeDegrees, bevelAngleDegrees, riserBlankLengthMm, input.treadThicknessMm, input.riserBlankThicknessMm]);
-  return { horizontalMm, diagonalMm, slopeDegrees, bevelAngleDegrees, riserBlankLengthMm };
+  assertFiniteResult([horizontalMm, diagonalMm, slopeDegrees, bevelAngleDegrees, riserBlankLengthMm]);
+  return { horizontalMm, diagonalMm, slopeDegrees, bevelAngleDegrees, riserBlankLengthMm, nosingProjectionMm };
 }

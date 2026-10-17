@@ -6,7 +6,7 @@ import { GlassToolbar } from "@/components/ui/glass-toolbar";
 import { calculateBeveledRiserGeometry, calculateConcreteStairGeometry, calculateLandingStairGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry } from "@/domain/calculations/construction/stairs";
 import { calculateWinderStairGeometry } from "@/domain/calculations/construction/winder-stairs";
 import { constructionCalculatorCatalog } from "@/domain/calculations/construction/catalog";
-import { calculateReinforcementMesh } from "@/domain/calculations/construction/concrete";
+import { calculateConcreteRing, calculateRectangularBlindArea, calculateReinforcementMesh, calculateRightAngleDiagonal } from "@/domain/calculations/construction/concrete";
 import { createStraightStairDrawingGeometry, type BeveledRiserDrawingGeometry, type SpiralStairDrawingGeometry, type StraightStairDrawingGeometry } from "@/domain/drawings/construction-stairs";
 import { clampDrawingZoom, clientPointToViewBox, drawingInitialViewport, fitDrawingViewport, panViewport, pinchViewport, rebasePanGesture, type ViewportPoint } from "@/features/roof-models/drawing-viewport";
 
@@ -24,11 +24,111 @@ function n(values: Readonly<Record<string, string>>, key: string) {
   return Number.isFinite(value) ? value : 0;
 }
 
-function nullablePositive(values: Readonly<Record<string, string>>, key: string) {
+type DrawingLegendTone = "height" | "width" | "slope" | "special";
+type DrawingLegendEntry = Readonly<{ tone: DrawingLegendTone; name: string; value: number | string; unit: string; detail?: string; pattern?: "solid" | "dashed" | "dotted" }>;
+
+function DrawingLegend({ entries }: Readonly<{ entries: readonly DrawingLegendEntry[] }>) {
+  if (entries.length === 0) return <p className="construction-stair-legend-empty">Ehhez a nézethez még nincs megadott rajzolható méret.</p>;
+  return <ul className="construction-stair-legend" aria-label="Rajzjelmagyarázat">
+    {entries.map((entry, index) => <li key={`${entry.name}-${index}`}>
+      <span className={`construction-stair-legend-indicator semantic-line is-${entry.tone}${entry.pattern ? ` pattern-${entry.pattern}` : ""}`} aria-hidden="true" />
+      <span className="construction-stair-legend-copy"><strong>{entry.name}</strong><span>{typeof entry.value === "number" ? formatNumber(entry.value) : entry.value}{entry.unit ? ` ${entry.unit}` : ""}</span>{entry.detail && <small>{entry.detail}</small>}</span>
+    </li>)}
+  </ul>;
+}
+
+function legendMeasure(name: string, value: number, unit = "mm", tone: DrawingLegendTone = "width", detail?: string, pattern?: DrawingLegendEntry["pattern"]): DrawingLegendEntry {
+  return { name, value: formatNumber(value), unit, tone, ...(detail ? { detail } : {}), ...(pattern ? { pattern } : {}) };
+}
+
+function stairLegend(model: StairDrawingModel, view: string): DrawingLegendEntry[] {
+  if (model.kind === "straight") {
+    const geometry = model.geometry;
+    if (view === "plan" && geometry.widthMm) return [legendMeasure("Vízszintes futás", geometry.totalRunMm), legendMeasure("Lépcsőkar szélessége", geometry.widthMm), { tone: "special", name: "Fokosztások", value: geometry.treadCount, unit: "db" }];
+    return [legendMeasure("Teljes emelkedés", geometry.totalRiseMm, "mm", "height"), legendMeasure("Vízszintes futás", geometry.totalRunMm), legendMeasure("Tartótengely geometriai hossza", geometry.stringerLengthMm, "mm", "slope"), legendMeasure("Egy fellépő", geometry.riserHeightMm, "mm", "height"), legendMeasure("Egy belépő", geometry.goingMm)];
+  }
+  if (model.kind === "spiral") {
+    const geometry = model.geometry;
+    if (view === "rise") return [legendMeasure("Teljes emelkedés", geometry.totalRiseMm, "mm", "height"), legendMeasure("Egyenletes fellépő", geometry.riserHeightMm, "mm", "height"), { tone: "height", name: "Fellépések", value: geometry.riserCount, unit: "db" }];
+    return [legendMeasure("Külső átmérő", geometry.outerDiameterMm), legendMeasure("Belső átmérő", geometry.innerDiameterMm, "mm", "special"), legendMeasure("Járóvonal sugara", geometry.walkingRadiusMm, "mm", "slope"), legendMeasure("Fordulási szög", geometry.turnDegrees, "°", "special"), legendMeasure("Járóvonal-belépő", geometry.walkingGoingMm)];
+  }
+  if (model.kind === "landing") {
+    const geometry = model.geometry;
+    return [legendMeasure("Alaprajzi hossz", geometry.planWidthMm), legendMeasure("Alaprajzi szélesség", geometry.planDepthMm), legendMeasure("Lépcsőkar szélessége", geometry.stairWidthMm), legendMeasure("Pihenő mélysége", geometry.landingDepthMm, "mm", "special")];
+  }
+  if (model.kind === "winder") {
+    const geometry = model.geometry;
+    if (view === "elevation") return [legendMeasure("Teljes emelkedés", geometry.totalRiseMm, "mm", "height"), legendMeasure("Kiterített járóvonal-futás", geometry.developedWalkingRunMm), legendMeasure("Járóvonal ferde hossza", geometry.walkingPitchLengthMm, "mm", "slope"), legendMeasure("Egy fellépő", geometry.riserHeightMm, "mm", "height")];
+    return [legendMeasure("Alaprajzi hossz", geometry.planWidthMm), legendMeasure("Alaprajzi szélesség", geometry.planDepthMm), legendMeasure("Belső sugár", geometry.innerRadiusMm, "mm", "special"), legendMeasure("Fordulási szög", geometry.turnDegrees, "°", "special"), { tone: "special", name: "Húzott fokok", value: geometry.treads.filter((tread) => tread.kind === "winder").length, unit: "db" }];
+  }
+  if (model.kind === "concrete") {
+    const geometry = model.geometry;
+    return [legendMeasure("Teljes emelkedés", geometry.totalRiseMm, "mm", "height"), legendMeasure("Vízszintes futás", geometry.availableRunMm), legendMeasure("Ferde vetületi hossz", geometry.pitchLengthMm, "mm", "slope"), legendMeasure("Egy fellépő", geometry.riserHeightMm, "mm", "height")];
+  }
+  const geometry = model.geometry;
+  return [
+    legendMeasure("Vízszintes vetület", geometry.horizontalMm),
+    legendMeasure("Fellépő", geometry.riserHeightMm, "mm", "height"),
+    legendMeasure("Ferde vágásvonal", geometry.diagonalMm, "mm", "slope"),
+    ...(geometry.nosingProjectionMm > 0 ? [legendMeasure("Orrkiülés", geometry.nosingProjectionMm, "mm", "special")] : []),
+  ];
+}
+
+function materialLegend(id: string, view: string, values: Readonly<Record<string, string>>): DrawingLegendEntry[] {
+  const v = (key: string) => n(values, key);
+  if (id === "concrete.strip") return view === "section"
+    ? [legendMeasure("Sávalap szélessége", v("widthMm")), legendMeasure("Sávalap mélysége", v("depthMm"), "mm", "height")]
+    : [legendMeasure("Összes tengelyhossz", v("totalCenterlineLengthMm")), legendMeasure("Sávalap szélessége", v("widthMm"))];
+  if (id === "concrete.pile") return view === "section"
+    ? [legendMeasure("Cölöpszár hossza", v("lengthMm"), "mm", "height"), legendMeasure("Cölöpátmérő", v("diameterMm"), "mm", "special")]
+    : [legendMeasure("Egy cölöp átmérője", v("diameterMm"), "mm", "special"), { tone: "special", name: "Ábrán látható cölöpök", value: Math.min(12, Math.max(1, Math.round(v("count")))), unit: "db", detail: v("count") > 12 ? "Az ábra legfeljebb 12 elemet mutat." : undefined }];
+  if (id === "concrete.slab") return view === "section"
+    ? [legendMeasure("Lemez hossza", v("lengthMm")), legendMeasure("Lemezvastagság", v("thicknessMm"), "mm", "height")]
+    : [legendMeasure("Lemez hossza", v("lengthMm")), legendMeasure("Lemez szélessége", v("widthMm"))];
+  if (id === "concrete.ring") {
+    const ring = calculateConcreteRing({ outerDiameterMm: v("outerDiameterMm"), wallThicknessMm: v("wallThicknessMm"), heightMm: v("heightMm") });
+    const innerDiameter = ring.innerDiameterMm;
+    return view === "section"
+      ? [legendMeasure("Külső átmérő", v("outerDiameterMm")), legendMeasure("Falvastagság", v("wallThicknessMm"), "mm", "special"), legendMeasure("Magasság", v("heightMm"), "mm", "height")]
+      : [legendMeasure("Külső átmérő", v("outerDiameterMm")), legendMeasure("Belső átmérő", innerDiameter, "mm", "special")];
+  }
+  if (id === "concrete.paving") {
+    if (view === "tile") return [legendMeasure("Burkolólap hossza", v("tileLengthMm")), legendMeasure("Burkolólap szélessége", v("tileWidthMm"))];
+    if (view === "section") return v("baseLayerThicknessMm") > 0 ? [legendMeasure("Burkolandó hossz", v("lengthMm")), legendMeasure("Megadott alapréteg", v("baseLayerThicknessMm"), "mm", "special")] : [];
+    return [legendMeasure("Burkolandó hossz", v("lengthMm")), legendMeasure("Burkolandó szélesség", v("widthMm"))];
+  }
+  if (id === "concrete.blind_area") {
+    const apron = calculateRectangularBlindArea({ buildingLengthMm: v("buildingLengthMm"), buildingWidthMm: v("buildingWidthMm"), apronWidthMm: v("apronWidthMm"), ...(v("concreteThicknessMm") > 0 ? { concreteThicknessMm: v("concreteThicknessMm") } : {}), ...(v("gravelThicknessMm") > 0 ? { gravelThicknessMm: v("gravelThicknessMm") } : {}) });
+    if (view === "section") return [
+      ...(v("concreteThicknessMm") > 0 ? [legendMeasure("Megadott betonréteg", v("concreteThicknessMm"), "mm", "height")] : []),
+      ...(v("gravelThicknessMm") > 0 ? [legendMeasure("Megadott kavicsréteg", v("gravelThicknessMm"), "mm", "special")] : []),
+    ];
+    return [legendMeasure("Külső hossz", apron.outerLengthMm), legendMeasure("Külső szélesség", apron.outerWidthMm), legendMeasure("Körüljáró sáv", v("apronWidthMm"), "mm", "special"), { tone: "special", name: "Épületkontúr", value: `${formatNumber(v("buildingLengthMm"))} × ${formatNumber(v("buildingWidthMm"))}`, unit: "mm" }];
+  }
+  if (id === "concrete.mix") return [
+    { tone: "special", name: "Cement tömegaránya", value: formatNumber(v("cementRatio")), unit: "rész", detail: "A sáv az arányt jelöli, nem betonreceptet." },
+    { tone: "width", name: "Homok tömegaránya", value: formatNumber(v("sandRatio")), unit: "rész" },
+    { tone: "slope", name: "Adalék tömegaránya", value: formatNumber(v("aggregateRatio")), unit: "rész" },
+  ];
+  if (id === "concrete.rebar") {
+    const visibleCount = Math.min(12, Math.max(1, Math.round(v("pieceCount"))));
+    return view === "section"
+      ? [legendMeasure("Rúdátmérő", v("barDiameterMm"), "mm", "special", "Jelképesen nagyított keresztmetszet.")]
+      : [legendMeasure("Egy rúd vágott hossza", v("cutLengthMm"), "mm", "width"), { tone: "special", name: "Ábrán látható rudak", value: visibleCount, unit: "db", detail: v("pieceCount") > 12 ? "Az ábra legfeljebb 12 rudat mutat." : undefined }];
+  }
+  if (id === "concrete.mesh") {
+    const mesh = calculateReinforcementMesh({ lengthMm: v("lengthMm"), widthMm: v("widthMm"), coverMm: v("coverMm"), spacingMm: v("spacingMm"), barDiameterMm: v("barDiameterMm") });
+    return [legendMeasure("Háló hossza", v("lengthMm")), legendMeasure("Háló szélessége", v("widthMm")), legendMeasure("Szélső fedés", v("coverMm"), "mm", "special"), legendMeasure("Tényleges osztás hossz mentén", mesh.actualSpacingAlongLengthMm, "mm", "special", mesh.widthwiseBarCount > 29 ? "A sűrű háló ismétlése ritkítva látható." : undefined, "dotted"), legendMeasure("Tényleges osztás szélesség mentén", mesh.actualSpacingAlongWidthMm, "mm", "special", mesh.lengthwiseBarCount > 21 ? "A sűrű háló ismétlése ritkítva látható." : undefined, "dashed")];
+  }
+  const diagonal = calculateRightAngleDiagonal({ lengthMm: v("lengthMm"), widthMm: v("widthMm") });
+  return [legendMeasure("Téglalap hossza", v("lengthMm")), legendMeasure("Téglalap szélessége", v("widthMm")), legendMeasure("Átló", diagonal.diagonalMm, "mm", "slope")];
+}
+
+function optionalNumber(values: Readonly<Record<string, string>>, key: string) {
   const raw = (values[key] ?? "").trim();
   if (!raw) return undefined;
   const value = Number(raw.replace(",", "."));
-  return Number.isFinite(value) && value > 0 ? value : undefined;
+  return Number.isFinite(value) ? value : Number.NaN;
 }
 
 type StraightDrawingModel = Readonly<{ kind: "straight"; id: string; geometry: StraightStairDrawingGeometry }>;
@@ -42,8 +142,9 @@ type StairDrawingModel = StraightDrawingModel | SpiralDrawingModel | BevelDrawin
 function buildDrawingModel(id: string, values: Readonly<Record<string, string>>): StairDrawingModel | null {
   const winderLayout = id === "stair.wood.90_winder" ? "quarter_turn" : id === "stair.wood.180_winder" ? "half_turn" : id === "stair.wood.three_winder" ? "three_flight" : null;
   if (winderLayout) {
-    const openingLengthMm = nullablePositive(values, "openingLengthMm");
-    const openingWidthMm = nullablePositive(values, "openingWidthMm");
+    if (values.turnDirection !== "left" && values.turnDirection !== "right") return null;
+    const openingLengthMm = optionalNumber(values, "openingLengthMm");
+    const openingWidthMm = optionalNumber(values, "openingWidthMm");
     const geometry = calculateWinderStairGeometry({
       layout: winderLayout,
       totalRiseMm: n(values, "totalRiseMm"), stairWidthMm: n(values, "stairWidthMm"), innerRadiusMm: n(values, "innerRadiusMm"),
@@ -56,9 +157,11 @@ function buildDrawingModel(id: string, values: Readonly<Record<string, string>>)
   }
   const landingLayout = id.includes("three_landing") ? "three_flight" : id.includes("180_landing") || id.includes("180_zigzag") ? "half_turn" : id.includes("90_landing") || id.includes("90_zigzag") ? "quarter_turn" : null;
   if (landingLayout) {
+    if (values.turnDirection !== "left" && values.turnDirection !== "right") return null;
+    if (landingLayout === "half_turn" && (values.landingGapMm ?? "").trim() === "") return null;
     const riserKeys = landingLayout === "three_flight" ? ["firstFlightRiserCount", "secondFlightRiserCount", "thirdFlightRiserCount"] : ["firstFlightRiserCount", "secondFlightRiserCount"];
-    const openingLengthMm = nullablePositive(values, "openingLengthMm");
-    const openingWidthMm = nullablePositive(values, "openingWidthMm");
+    const openingLengthMm = optionalNumber(values, "openingLengthMm");
+    const openingWidthMm = optionalNumber(values, "openingWidthMm");
     const landingGapMm = Math.max(0, n(values, "landingGapMm"));
     const geometry = calculateLandingStairGeometry({
       layout: landingLayout,
@@ -78,7 +181,7 @@ function buildDrawingModel(id: string, values: Readonly<Record<string, string>>)
     return { kind: "concrete", geometry: calculateConcreteStairGeometry({ totalRiseMm: n(values, "totalRiseMm"), availableRunMm: n(values, "availableRunMm"), stairWidthMm: n(values, "stairWidthMm"), riserCount: n(values, "riserCount") }) };
   }
   if (["stair.wood.closed_straight", "stair.wood.open_straight", "stair.metal.straight", "stair.metal.zigzag"].includes(id)) {
-    const stairWidthMm = nullablePositive(values, "stairWidthMm");
+    const stairWidthMm = optionalNumber(values, "stairWidthMm");
     const result = calculateStraightStairGeometry({
       totalRiseMm: n(values, "totalRiseMm"),
       availableRunMm: n(values, "availableRunMm"),
@@ -94,9 +197,11 @@ function buildDrawingModel(id: string, values: Readonly<Record<string, string>>)
     return { kind: "spiral", geometry: { totalRiseMm, outerDiameterMm: n(values, "outerDiameterMm"), innerDiameterMm: n(values, "innerDiameterMm"), turnDegrees, ...result } };
   }
   if (id === "stair.beveled_riser") {
-    const input = { goingMm: n(values, "goingMm"), riserHeightMm: n(values, "riserHeightMm"), nosingProjectionMm: n(values, "nosingProjectionMm"), treadThicknessMm: n(values, "treadThicknessMm"), riserBlankThicknessMm: n(values, "riserBlankThicknessMm") };
-    const result = calculateBeveledRiserGeometry(input);
-    return { kind: "bevel", geometry: { goingMm: input.goingMm, nosingProjectionMm: input.nosingProjectionMm, riserHeightMm: input.riserHeightMm, ...result } };
+    const goingMm = n(values, "goingMm");
+    const riserHeightMm = n(values, "riserHeightMm");
+    const nosingProjectionMm = optionalNumber(values, "nosingProjectionMm");
+    const geometry = calculateBeveledRiserGeometry({ goingMm, riserHeightMm, ...(nosingProjectionMm === undefined ? {} : { nosingProjectionMm }) });
+    return { kind: "bevel", geometry: { goingMm, riserHeightMm, ...geometry } };
   }
   return null;
 }
@@ -118,20 +223,32 @@ function StairStepPath({ geometry, activeDimension, onDimensionSelect }: Readonl
     if (index < geometry.treads.length - 1) commands.push(`L ${xEnd} ${y - rise}`);
   });
   commands.push(`L ${endX} ${topY}`);
+  const treadLines = geometry.treads.map((tread) => {
+    const xStart = x0 + tread.xStartMm * scale;
+    const xEnd = x0 + tread.xEndMm * scale;
+    const y = baseY - tread.levelMm * scale;
+    return `M ${xStart} ${y} L ${xEnd} ${y}`;
+  });
+  const riserLines = geometry.treads.map((tread, index) => {
+    const xStart = x0 + tread.xStartMm * scale;
+    const y = baseY - tread.levelMm * scale;
+    const previousY = index === 0 ? baseY : baseY - geometry.treads[index - 1].levelMm * scale;
+    return `M ${xStart} ${previousY} L ${xStart} ${y}`;
+  });
+  const lastLevelY = baseY - geometry.treads[geometry.treads.length - 1].levelMm * scale;
+  riserLines.push(`M ${endX} ${lastLevelY} L ${endX} ${topY}`);
   return <>
     <line className="stair-floor-line" x1={x0 - 36} y1={baseY} x2={endX + 38} y2={baseY} />
     <line className="stair-floor-line" x1={endX - 12} y1={topY} x2={endX + 42} y2={topY} />
     <path className="stair-profile" d={commands.join(" ")} />
+    <path className="semantic-line is-width" d={treadLines.join(" ")} />
+    <path className="semantic-line is-height" d={riserLines.join(" ")} />
     <line className="stair-stringer-centerline" x1={x0} y1={baseY} x2={endX} y2={topY} />
-    <text className={`stair-note-label${activeDimension === "availableRunMm" || activeDimension === "totalRiseMm" ? " is-active" : ""}`} x={x0 + (endX - x0) * .54} y={baseY - (baseY - topY) * .48 - 18} textAnchor="middle">Tartó elvi hossza {formatMm(geometry.stringerLengthMm)}</text>
     <Dimension x1={x0} y1={480} x2={endX} y2={480} extension1={{ x: x0, y: baseY + 4 }} extension2={{ x: endX, y: baseY + 4 }} label={`Vízszintes hely ${formatMm(geometry.totalRunMm)}`} dataKey="availableRunMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={endX + 58} y1={baseY} x2={endX + 58} y2={topY} extension1={{ x: endX + 8, y: baseY }} extension2={{ x: endX + 8, y: topY }} label={`Teljes emelkedés ${formatMm(geometry.totalRiseMm)}`} dataKey="totalRiseMm" rotateLabel activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={x0} y1={baseY - rise - 24} x2={x0 + going} y2={baseY - rise - 24} extension1={{ x: x0, y: baseY - rise }} extension2={{ x: x0 + going, y: baseY - rise }} label={`Belépő ${formatMm(geometry.goingMm)}`} dataKey="availableRunMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={x0 - 38} y1={baseY} x2={x0 - 38} y2={baseY - rise} extension1={{ x: x0 - 5, y: baseY }} extension2={{ x: x0 - 5, y: baseY - rise }} label={`Fellépő ${formatMm(geometry.riserHeightMm)}`} dataKey="riserCount" rotateLabel activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <path className="stair-angle-mark" d={`M ${x0 + 60} ${baseY} A 60 60 0 0 0 ${x0 + 60 * Math.cos(geometry.pitchDegrees * Math.PI / 180)} ${baseY - 60 * Math.sin(geometry.pitchDegrees * Math.PI / 180)}`} />
-    <text className={`stair-angle-label${activeDimension === "availableRunMm" ? " is-active" : ""}`} x={x0 + 72} y={baseY - 18} data-dimension="availableRunMm">{formatNumber(geometry.pitchDegrees)}°</text>
-    <text className={`stair-count-label${activeDimension === "riserCount" ? " is-active" : ""}`} x={x0 + (endX - x0) / 2} y={topY - 35} textAnchor="middle" data-dimension="riserCount">{geometry.riserCount} fellépés · {geometry.treadCount} fok</text>
-    {geometry.widthMm && <text className={`stair-count-label${activeDimension === "stairWidthMm" ? " is-active" : ""}`} x={x0 + (endX - x0) / 2} y={topY - 14} textAnchor="middle" data-dimension="stairWidthMm">Kar szélessége {formatMm(geometry.widthMm)}</text>}
   </>;
 }
 
@@ -146,11 +263,10 @@ function StraightPlan({ geometry, activeDimension, onDimensionSelect }: Readonly
   return <>
     <rect className="stair-plan-outline" x={x0} y={y0} width={runPx} height={widthPx} />
     {geometry.treads.map((tread, index) => index % 2 === 0 && <rect key={`tread-${index}`} className="stair-tread-highlight" x={x0 + tread.xStartMm * scale} y={y0} width={goingPx} height={widthPx} />)}
-    {geometry.treads.map((tread, index) => index < geometry.treads.length - 1 && <line key={index} className="stair-tread-separator" x1={x0 + tread.xEndMm * scale} y1={y0} x2={x0 + tread.xEndMm * scale} y2={y0 + widthPx} />)}
+    {geometry.treads.map((tread, index) => index < geometry.treads.length - 1 && <line key={index} className="stair-tread-separator semantic-line is-special" x1={x0 + tread.xEndMm * scale} y1={y0} x2={x0 + tread.xEndMm * scale} y2={y0 + widthPx} />)}
     <rect className="stair-plan-outline" x={x0} y={y0} width={runPx} height={widthPx} />
     <Dimension x1={x0} y1={y0 + widthPx + 64} x2={x0 + runPx} y2={y0 + widthPx + 64} extension1={{ x: x0, y: y0 + widthPx }} extension2={{ x: x0 + runPx, y: y0 + widthPx }} label={`Vízszintes hely ${formatMm(geometry.totalRunMm)}`} dataKey="availableRunMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={x0 + runPx + 48} y1={y0} x2={x0 + runPx + 48} y2={y0 + widthPx} extension1={{ x: x0 + runPx, y: y0 }} extension2={{ x: x0 + runPx, y: y0 + widthPx }} label={`Kar szélessége ${formatMm(geometry.widthMm)}`} dataKey="stairWidthMm" rotateLabel activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
-    <text className={`stair-count-label${activeDimension === "riserCount" ? " is-active" : ""}`} x="500" y="70" textAnchor="middle" data-dimension="riserCount">Felülnézet · {geometry.treadCount} fokosztás</text>
   </>;
 }
 
@@ -181,12 +297,8 @@ function SpiralPlan({ geometry, activeDimension, onDimensionSelect }: Readonly<{
     <circle className="spiral-boundary" cx={center.x} cy={center.y} r={innerRadius} />
     <circle className="spiral-walking-line" cx={center.x} cy={center.y} r={midRadius} />
     <line className="spiral-radius" x1={center.x} y1={center.y} x2={walkingPoint.x} y2={walkingPoint.y} />
-    <text className="stair-note-label" x={walkingPoint.x + 8} y={walkingPoint.y - 12} data-dimension="outerDiameterMm">Járóvonal r {formatMm(geometry.walkingRadiusMm)}</text>
     <Dimension x1={center.x - outerRadius} y1={48} x2={center.x + outerRadius} y2={48} extension1={{ x: center.x - outerRadius, y: center.y - outerRadius }} extension2={{ x: center.x + outerRadius, y: center.y - outerRadius }} label={`Külső Ø ${formatMm(geometry.outerDiameterMm)}`} dataKey="outerDiameterMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={center.x - innerRadius} y1={84} x2={center.x + innerRadius} y2={84} extension1={{ x: center.x - innerRadius, y: center.y - innerRadius }} extension2={{ x: center.x + innerRadius, y: center.y - innerRadius }} label={`Belső Ø ${formatMm(geometry.innerDiameterMm)}`} dataKey="innerDiameterMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
-    <text className={`stair-count-label${activeDimension === "turnDegrees" ? " is-active" : ""}`} x="500" y="486" textAnchor="middle" data-dimension="turnDegrees">Fordulás {formatNumber(geometry.turnDegrees)}° · {geometry.treadCount} fok · {formatNumber(geometry.stepAngleDegrees)}°/fok</text>
-    <text className={`stair-count-label${activeDimension === "riserCount" ? " is-active" : ""}`} x="500" y="516" textAnchor="middle" data-dimension="riserCount">Járóvonal-belépő {formatMm(geometry.walkingGoingMm)}</text>
-    {geometry.turnDegrees > 360 && <text className="stair-view-note" x="500" y="544" textAnchor="middle">A több fordulat felülnézeti vetülete egymásra esik.</text>}
   </>;
 }
 
@@ -200,9 +312,6 @@ function SpiralRise({ geometry, activeDimension, onDimensionSelect }: Readonly<{
     <line className="stair-rise-axis" x1={x} y1={top} x2={x} y2={bottom} />
     {Array.from({ length: geometry.riserCount + 1 }, (_, index) => <line key={index} className="stair-rise-tick" x1={x - tickWidth / 2} y1={bottom - span * index / geometry.riserCount} x2={x + tickWidth / 2} y2={bottom - span * index / geometry.riserCount} />)}
     <Dimension x1={650} y1={bottom} x2={650} y2={top} extension1={{ x: x + 20, y: bottom }} extension2={{ x: x + 20, y: top }} label={`Teljes emelkedés ${formatMm(geometry.totalRiseMm)}`} dataKey="totalRiseMm" rotateLabel activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
-    <text className={`stair-count-label${activeDimension === "riserCount" ? " is-active" : ""}`} x="490" y="68" textAnchor="middle" data-dimension="riserCount">Fellépések {geometry.riserCount} · fokok {geometry.treadCount}</text>
-    <text className={`stair-count-label${activeDimension === "totalRiseMm" ? " is-active" : ""}`} x="490" y="502" textAnchor="middle" data-dimension="totalRiseMm">Egyenletes geometriai fellépő {formatMm(geometry.riserHeightMm)}</text>
-    <text className="stair-view-note" x="490" y="532" textAnchor="middle">Függőleges kiosztás · vízszintes vetület nélkül</text>
   </>;
 }
 
@@ -211,15 +320,16 @@ function BevelProfile({ geometry, activeDimension, onDimensionSelect }: Readonly
   const x0 = 185;
   const baseY = 438;
   const x1 = x0 + geometry.horizontalMm * scale;
+  const goingX = x0 + geometry.goingMm * scale;
   const topY = baseY - geometry.riserHeightMm * scale;
   return <>
     <path className="bevel-profile" d={`M ${x0} ${baseY} L ${x1} ${baseY} L ${x1} ${topY} Z`} />
+    <line className="semantic-line is-width" x1={x0} y1={baseY} x2={geometry.nosingProjectionMm > 0 ? goingX : x1} y2={baseY} />
+    {geometry.nosingProjectionMm > 0 && <line className="semantic-line is-special" x1={goingX} y1={baseY} x2={x1} y2={baseY} />}
+    <line className="semantic-line is-height" x1={x1} y1={baseY} x2={x1} y2={topY} />
     <line className="bevel-diagonal" x1={x0} y1={baseY} x2={x1} y2={topY} />
     <Dimension x1={x0} y1={478} x2={x1} y2={478} extension1={{ x: x0, y: baseY }} extension2={{ x: x1, y: baseY }} label={`Belépő + orrkiülés ${formatMm(geometry.horizontalMm)}`} dataKey="goingMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={x1 + 46} y1={baseY} x2={x1 + 46} y2={topY} extension1={{ x: x1, y: baseY }} extension2={{ x: x1, y: topY }} label={`Fellépő ${formatMm(geometry.riserHeightMm)}`} dataKey="riserHeightMm" rotateLabel activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
-    <text className={`stair-note-label${activeDimension === "nosingProjectionMm" ? " is-active" : ""}`} x={(x0 + x1) / 2 + 12} y={(baseY + topY) / 2 - 16} textAnchor="middle" data-dimension="nosingProjectionMm">Átló {formatMm(geometry.diagonalMm)}</text>
-    <text className={`stair-angle-label${activeDimension === "riserHeightMm" ? " is-active" : ""}`} x={x1 - 75} y={baseY - 22} data-dimension="riserHeightMm">{formatNumber(geometry.slopeDegrees)}°</text>
-    <text className="stair-count-label" x="500" y="76" textAnchor="middle">Névleges vágási geometria · illesztés és fűrészrés nélkül</text>
   </>;
 }
 
@@ -233,17 +343,8 @@ function LandingPlan({ geometry, activeDimension, onDimensionSelect }: Readonly<
   return <>
     {geometry.landings.map((polygon, index) => <polygon key={`landing-${index}`} className="stair-landing-fill" points={polygonPoints(polygon)} />)}
     {geometry.flights.flatMap((flight) => flight.treads.map((tread) => <polygon key={`flight-${flight.index}-tread-${tread.index}`} className={`stair-landing-tread${tread.index % 2 === 0 ? " is-alternate" : ""}${activeDimension === "goingMm" ? " is-focused" : ""}`} points={polygonPoints(tread.polygon)} />))}
-    {geometry.flights.map((flight) => {
-      const points = flight.treads.flatMap((tread) => tread.polygon);
-      const minX = Math.min(...points.map((point) => point.xMm));
-      const maxX = Math.max(...points.map((point) => point.xMm));
-      const minY = Math.min(...points.map((point) => point.yMm));
-      const maxY = Math.max(...points.map((point) => point.yMm));
-      return <text key={`flight-label-${flight.index}`} className="stair-count-label stair-landing-flight-label" x={mapX((minX + maxX) / 2)} y={mapY((minY + maxY) / 2)} textAnchor="middle" dominantBaseline="middle">{flight.index}. kar · {flight.treadCount} fok</text>;
-    })}
     <Dimension x1={mapX(0)} y1={y0 + geometry.planDepthMm * scale + 70} x2={mapX(geometry.planWidthMm)} y2={y0 + geometry.planDepthMm * scale + 70} extension1={{ x: mapX(0), y: y0 + geometry.planDepthMm * scale }} extension2={{ x: mapX(geometry.planWidthMm), y: y0 + geometry.planDepthMm * scale }} label={`Tervhossz ${formatMm(geometry.planWidthMm)}`} dataKey="openingLengthMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={x0 + geometry.planWidthMm * scale + 60} y1={y0} x2={x0 + geometry.planWidthMm * scale + 60} y2={y0 + geometry.planDepthMm * scale} extension1={{ x: x0 + geometry.planWidthMm * scale, y: y0 }} extension2={{ x: x0 + geometry.planWidthMm * scale, y: y0 + geometry.planDepthMm * scale }} label={`Tervszélesség ${formatMm(geometry.planDepthMm)}`} dataKey="openingWidthMm" rotateLabel activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
-    <text className="stair-view-note" x="500" y="20" textAnchor="middle">{geometry.layout === "quarter_turn" ? "90° pihenős lépcső" : geometry.layout === "half_turn" ? `180° U-alakú pihenő · karhézag ${formatMm(geometry.landingGapMm)}` : "Háromkarú lépcső · két 90°-os pihenő"}</text>
   </>;
 }
 
@@ -255,14 +356,12 @@ function WinderPlan({ geometry, activeDimension, onDimensionSelect }: Readonly<{
   const widthY = Math.min(VIEWBOX.height - 28, y0 + geometry.planDepthMm * scale + 50);
   const depthX = Math.min(VIEWBOX.width - 48, x0 + geometry.planWidthMm * scale + 52);
   return <>
-    <text className="stair-count-label" x="500" y="38" textAnchor="middle">{geometry.turnDegrees}°-os forduló{geometry.turns === 2 ? " · két forduló" : ""} · {geometry.turnDirection === "right" ? "jobbra" : "balra"} · {geometry.windersPerTurn} húzott fok / forduló</text>
     <g className="stair-landing-fill">
       {geometry.treads.map((tread) => <polygon key={tread.index} points={tread.polygon.map(point).join(" ")} />)}
     </g>
-    {geometry.treads.filter((tread) => tread.kind === "winder").map((tread) => <polygon key={`outline-${tread.index}`} className="stair-profile" points={tread.polygon.map(point).join(" ")} />)}
-    <Dimension x1={x0} y1={widthY} x2={x0 + geometry.planWidthMm * scale} y2={widthY} extension1={{ x: x0, y: y0 + geometry.planDepthMm * scale }} extension2={{ x: x0 + geometry.planWidthMm * scale, y: y0 + geometry.planDepthMm * scale }} label={`Teljes tervhossz ${formatMm(geometry.planWidthMm)}`} dataKey="lowerTreadCount" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
-    <Dimension x1={depthX} y1={y0} x2={depthX} y2={y0 + geometry.planDepthMm * scale} extension1={{ x: x0 + geometry.planWidthMm * scale, y: y0 }} extension2={{ x: x0 + geometry.planWidthMm * scale, y: y0 + geometry.planDepthMm * scale }} label={`Tervszélesség ${formatMm(geometry.planDepthMm)}`} dataKey="stairWidthMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} rotateLabel />
-    <text className="stair-dimension-note" x="500" y="548" textAnchor="middle">Belső húr {formatMm(geometry.innerChordMm)} · járóvonal-belépő {formatMm(geometry.walkingGoingMm)}</text>
+    {geometry.treads.filter((tread) => tread.kind === "winder").map((tread) => <polygon key={`outline-${tread.index}`} className="stair-landing-fill" points={tread.polygon.map(point).join(" ")} />)}
+    <Dimension x1={x0} y1={widthY} x2={x0 + geometry.planWidthMm * scale} y2={widthY} extension1={{ x: x0, y: y0 + geometry.planDepthMm * scale }} extension2={{ x: x0 + geometry.planWidthMm * scale, y: y0 + geometry.planDepthMm * scale }} label={`Teljes tervhossz ${formatMm(geometry.planWidthMm)}`} dataKey="openingLengthMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
+    <Dimension x1={depthX} y1={y0} x2={depthX} y2={y0 + geometry.planDepthMm * scale} extension1={{ x: x0 + geometry.planWidthMm * scale, y: y0 }} extension2={{ x: x0 + geometry.planWidthMm * scale, y: y0 + geometry.planDepthMm * scale }} label={`Tervszélesség ${formatMm(geometry.planDepthMm)}`} dataKey="openingWidthMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} rotateLabel />
   </>;
 }
 
@@ -273,12 +372,14 @@ function WinderElevation({ geometry, activeDimension, onDimensionSelect }: Reado
   for (let index = 0; index < geometry.treadCount; index += 1) commands.push(`L ${x0 + index * stepWidth} ${baseY - (index + 1) * rise}`, `L ${x0 + (index + 1) * stepWidth} ${baseY - (index + 1) * rise}`);
   const totalX = x0 + geometry.developedWalkingRunMm * scale; const topY = baseY - geometry.totalRiseMm * scale;
   commands.push(`L ${totalX} ${topY}`);
+  const horizontalSteps = Array.from({ length: geometry.treadCount }, (_, index) => `M ${x0 + index * stepWidth} ${baseY - (index + 1) * rise} L ${x0 + (index + 1) * stepWidth} ${baseY - (index + 1) * rise}`).join(" ");
+  const verticalSteps = Array.from({ length: geometry.riserCount }, (_, index) => `M ${x0 + Math.min(index, geometry.treadCount) * stepWidth} ${baseY - index * rise} L ${x0 + Math.min(index, geometry.treadCount) * stepWidth} ${baseY - (index + 1) * rise}`).join(" ");
   return <>
     <path className="stair-profile" d={commands.join(" ")} />
+    <path className="semantic-line is-width" d={horizontalSteps} />
+    <path className="semantic-line is-height" d={verticalSteps} />
     <Dimension x1={x0} y1={495} x2={totalX} y2={495} extension1={{ x: x0, y: baseY }} extension2={{ x: totalX, y: topY }} label={`Kiterített járóvonal ${formatMm(geometry.developedWalkingRunMm)}`} dataKey="windersPerTurn" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={totalX + 42} y1={baseY} x2={totalX + 42} y2={topY} extension1={{ x: totalX, y: baseY }} extension2={{ x: totalX, y: topY }} label={`Emelkedés ${formatMm(geometry.totalRiseMm)}`} dataKey="totalRiseMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} rotateLabel />
-    <text className="stair-count-label" x="500" y="60" textAnchor="middle">{geometry.riserCount} fellépés · {geometry.treadCount} vízszintes fok · fellépő {formatMm(geometry.riserHeightMm)}</text>
-    <text className="stair-dimension-note" x="500" y="548" textAnchor="middle">Kiterített járóvonal-profil · nem oldalnézeti gyártási rajz</text>
   </>;
 }
 
@@ -308,13 +409,32 @@ function ConcreteProfile({ geometry, activeDimension, onDimensionSelect }: Reado
   }
   commands.push(`L ${x1} ${topY}`);
   const bodyPath = `${commands.join(" ")} L ${x1} ${baseY} Z`;
+  const horizontalSteps = Array.from({ length: geometry.treadCount }, (_, index) => `M ${x0 + index * going} ${baseY - (index + 1) * rise} L ${x0 + (index + 1) * going} ${baseY - (index + 1) * rise}`).join(" ");
+  const verticalSteps = Array.from({ length: geometry.riserCount }, (_, index) => `M ${x0 + Math.min(index, geometry.treadCount) * going} ${baseY - index * rise} L ${x0 + Math.min(index, geometry.treadCount) * going} ${baseY - (index + 1) * rise}`).join(" ");
   return <>
     <path className="stair-concrete-body" d={bodyPath} />
     <path className="stair-profile" d={commands.join(" ")} />
+    <path className="semantic-line is-width" d={horizontalSteps} />
+    <path className="semantic-line is-height" d={verticalSteps} />
+    <line className="semantic-line is-slope" x1={x0} y1={baseY} x2={x1} y2={topY} />
     <Dimension x1={x0} y1={492} x2={x1} y2={492} extension1={{ x: x0, y: baseY }} extension2={{ x: x1, y: topY }} label={`Vízszintes futás ${formatMm(geometry.availableRunMm)}`} dataKey="availableRunMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={x1 + 62} y1={baseY} x2={x1 + 62} y2={topY} extension1={{ x: x1, y: baseY }} extension2={{ x: x1, y: topY }} label={`Teljes emelkedés ${formatMm(geometry.totalRiseMm)}`} dataKey="totalRiseMm" rotateLabel activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
-    <text className={`stair-count-label${activeDimension === "riserCount" ? " is-active" : ""}`} x="500" y="70" textAnchor="middle" data-dimension="riserCount">{geometry.riserCount} fellépés · {geometry.treadCount} fok · {formatNumber(geometry.pitchDegrees)}°</text>
   </>;
+}
+
+function dimensionTone(key: string): DrawingLegendTone {
+  if (key === "riserCount") return "height";
+  if (key === "outerDiameterMm") return "width";
+  if (/diameter|cover|spacing|barDiameter|baseLayer|apron|wall|gravel/i.test(key)) return "special";
+  if (/Rise|riserHeight|depth|thickness|height/i.test(key)) return "height";
+  if (/diagonal|stringer/i.test(key)) return "slope";
+  if (/inner|nosing|landing|turn|radius/i.test(key)) return "special";
+  return "width";
+}
+
+function dimensionName(key: string) {
+  const labels: Record<string, string> = { totalRiseMm: "Teljes emelkedés", availableRunMm: "Vízszintes futás", riserCount: "Fellépések", stairWidthMm: "Lépcsőkar szélessége", goingMm: "Belépő", riserHeightMm: "Fellépő", outerDiameterMm: "Külső átmérő", innerDiameterMm: "Belső átmérő", turnDegrees: "Fordulási szög", nosingProjectionMm: "Orrkiülés", openingLengthMm: "Tervhossz", openingWidthMm: "Tervszélesség", landingDepthMm: "Pihenőmélység", landingGapMm: "Karok közötti hézag", innerRadiusMm: "Belső sugár", lowerTreadCount: "Alsó kar fokai", upperTreadCount: "Felső kar fokai", middleTreadCount: "Középső kar fokai", windersPerTurn: "Húzott fokok száma", cutLengthMm: "Rúd vágott hossza", lengthMm: "Hossz", widthMm: "Szélesség", depthMm: "Mélység", thicknessMm: "Vastagság", heightMm: "Magasság", diameterMm: "Átmérő", wallThicknessMm: "Falvastagság", totalCenterlineLengthMm: "Tengelyhossz", tileLengthMm: "Lap hossza", tileWidthMm: "Lap szélessége", baseLayerThicknessMm: "Alapréteg-vastagság", buildingLengthMm: "Épület hossza", buildingWidthMm: "Épület szélessége", apronWidthMm: "Sávszélesség", concreteThicknessMm: "Betonréteg-vastagság", gravelThicknessMm: "Kavicsréteg-vastagság", coverMm: "Fedés", spacingMm: "Rúdosztás", barDiameterMm: "Rúdátmérő", cementRatio: "Cementarány", sandRatio: "Homokarány", aggregateRatio: "Adalékarány" };
+  return labels[key] ?? key;
 }
 
 function Dimension({ x1, y1, x2, y2, extension1, extension2, label, dataKey, activeDimension, onDimensionSelect, rotateLabel = false }: Readonly<{
@@ -322,15 +442,17 @@ function Dimension({ x1, y1, x2, y2, extension1, extension2, label, dataKey, act
   extension1: { x: number; y: number }; extension2: { x: number; y: number };
   label: string; dataKey: string; activeDimension?: string | null; onDimensionSelect?: (key: string) => void; rotateLabel?: boolean;
 }>) {
+  void label;
+  void rotateLabel;
   const active = activeDimension === dataKey;
-  const labelX = (x1 + x2) / 2;
-  const labelY = (y1 + y2) / 2 - (rotateLabel ? 0 : 12);
+  const tone = dimensionTone(dataKey);
   const focus = () => onDimensionSelect?.(dataKey);
-  return <g className={`stair-dimension${active ? " is-active" : ""}`} data-dimension={dataKey} role={onDimensionSelect ? "button" : undefined} tabIndex={onDimensionSelect ? 0 : undefined} aria-label={`${label} mezőre fókuszálás`} aria-pressed={onDimensionSelect ? active : undefined} onPointerDown={onDimensionSelect ? (event) => { event.preventDefault(); event.stopPropagation(); } : undefined} onClick={focus} onKeyDown={onDimensionSelect ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); focus(); } } : undefined}>
-    <line className="stair-extension" x1={extension1.x} y1={extension1.y} x2={x1} y2={y1} />
-    <line className="stair-extension" x1={extension2.x} y1={extension2.y} x2={x2} y2={y2} />
-    <line className="stair-dimension-line" x1={x1} y1={y1} x2={x2} y2={y2} markerStart="url(#stair-arrow)" markerEnd="url(#stair-arrow)" />
-    <text x={labelX} y={labelY} textAnchor="middle" dominantBaseline="middle" transform={rotateLabel ? `rotate(-90 ${labelX} ${labelY})` : undefined}>{label}</text>
+  return <g className={`stair-dimension${active ? " is-active" : ""}`} data-dimension={dataKey} role={onDimensionSelect ? "button" : undefined} tabIndex={onDimensionSelect ? 0 : undefined} aria-label={`${dimensionName(dataKey)} méretvonal; kapcsolódó mezőre fókuszálás`} aria-pressed={onDimensionSelect ? active : undefined} onPointerDown={onDimensionSelect ? (event) => { event.preventDefault(); event.stopPropagation(); } : undefined} onClick={focus} onKeyDown={onDimensionSelect ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); focus(); } } : undefined}>
+    <line className={`stair-extension semantic-line is-${tone}`} x1={extension1.x} y1={extension1.y} x2={x1} y2={y1} />
+    <line className={`stair-extension semantic-line is-${tone}`} x1={extension2.x} y1={extension2.y} x2={x2} y2={y2} />
+    <line className={`stair-dimension-line semantic-line is-${tone}`} x1={x1} y1={y1} x2={x2} y2={y2} />
+    <line className={`stair-dimension-cap semantic-line is-${tone}`} x1={x1 - (x1 === x2 ? 5 : 0)} y1={y1 - (x1 === x2 ? 0 : 5)} x2={x1 + (x1 === x2 ? 5 : 0)} y2={y1 + (x1 === x2 ? 0 : 5)} />
+    <line className={`stair-dimension-cap semantic-line is-${tone}`} x1={x2 - (x1 === x2 ? 5 : 0)} y1={y2 - (x1 === x2 ? 0 : 5)} x2={x2 + (x1 === x2 ? 5 : 0)} y2={y2 + (x1 === x2 ? 0 : 5)} />
   </g>;
 }
 
@@ -346,17 +468,18 @@ function stairViews(model: StairDrawingModel) {
   return [{ id: "profile", label: "Keresztmetszet" }];
 }
 
-export function ConstructionStairDrawing({ referenceId, values, focusedDimension, onDimensionSelect }: Readonly<{
+export function ConstructionStairDrawing({ referenceId, values, focusedDimension, onDimensionSelect, initialView }: Readonly<{
   referenceId: string;
   values: Readonly<Record<string, string>>;
   focusedDimension?: string | null;
   onDimensionSelect?: (key: string) => void;
+  initialView?: string;
 }>) {
   const model = useMemo(() => {
     try { return buildDrawingModel(referenceId, values); } catch { return null; }
   }, [referenceId, values]);
   if (!model) return null;
-  return <InteractiveStairDrawing model={model} focusedDimension={focusedDimension} onDimensionSelect={onDimensionSelect} />;
+  return <InteractiveStairDrawing model={model} focusedDimension={focusedDimension} onDimensionSelect={onDimensionSelect} initialView={initialView} />;
 }
 
 /** Original quantity diagrams for the concrete, foundation and helper calculators. */
@@ -388,7 +511,7 @@ export function ConstructionMaterialDrawing({ referenceId, values, focusedDimens
     : id === "concrete.rebar" ? [{ id: "bars", label: "Rúdnézet" }, { id: "section", label: "Keresztmetszet" }]
     : id === "concrete.pile" || id === "concrete.ring" ? [{ id: "plan", label: "Felülnézet" }, { id: "section", label: "Metszet" }]
     : id === "concrete.strip" || id === "concrete.slab" ? [{ id: "plan", label: "Alaprajz" }, { id: "section", label: "Metszet" }]
-    : id === "concrete.paving" ? [{ id: "plan", label: "Felület" }, { id: "tile", label: "Lapméret" }]
+    : id === "concrete.paving" ? [{ id: "plan", label: "Felület" }, { id: "tile", label: "Lapméret" }, { id: "section", label: "Rétegmetszet" }]
     : id === "concrete.blind_area" ? [{ id: "plan", label: "Alaprajz" }, { id: "section", label: "Rétegmetszet" }]
     : [{ id: "plan", label: "Alaprajz" }];
   useEffect(() => { if (!views.some((item) => item.id === view)) setView(views[0].id); }, [id, view, views]);
@@ -398,6 +521,7 @@ export function ConstructionMaterialDrawing({ referenceId, values, focusedDimens
       : id === "concrete.slab" && focusedDimension === "thicknessMm" ? "section"
       : id === "concrete.ring" && focusedDimension === "heightMm" ? "section"
       : id === "concrete.paving" && (focusedDimension === "tileLengthMm" || focusedDimension === "tileWidthMm") ? "tile"
+      : id === "concrete.paving" && focusedDimension === "baseLayerThicknessMm" ? "section"
       : id === "concrete.blind_area" && (focusedDimension === "concreteThicknessMm" || focusedDimension === "gravelThicknessMm") ? "section"
       : id === "concrete.rebar" && focusedDimension === "barDiameterMm" ? "section"
       : null;
@@ -410,6 +534,17 @@ export function ConstructionMaterialDrawing({ referenceId, values, focusedDimens
     const nextPan = { x: Number.isFinite(next.pan.x) ? next.pan.x : 0, y: Number.isFinite(next.pan.y) ? next.pan.y : 0 };
     viewport.current = { zoom: nextZoom, pan: nextPan }; setZoom(nextZoom); setPan(nextPan);
   }, []);
+  const onDrawingKeyDown = (event: React.KeyboardEvent<SVGSVGElement>) => {
+    if (event.target !== event.currentTarget && (event.target as Element).closest("[data-dimension]")) return;
+    const current = viewport.current;
+    if (event.key === "Home") { event.preventDefault(); setViewport({ zoom: 1, pan: { x: 0, y: 0 } }); return; }
+    if (event.key === "+" || event.key === "=") { event.preventDefault(); setViewport({ zoom: current.zoom + .1, pan: current.pan }); return; }
+    if (event.key === "-") { event.preventDefault(); setViewport({ zoom: current.zoom - .1, pan: current.pan }); return; }
+    const delta = 32 / current.zoom;
+    const offsets = { ArrowLeft: { x: delta, y: 0 }, ArrowRight: { x: -delta, y: 0 }, ArrowUp: { x: 0, y: delta }, ArrowDown: { x: 0, y: -delta } } as const;
+    const offset = offsets[event.key as keyof typeof offsets];
+    if (offset) { event.preventDefault(); setViewport({ zoom: current.zoom, pan: { x: current.pan.x + offset.x, y: current.pan.y + offset.y } }); }
+  };
   const fitViewport = useCallback(() => {
     const svg = svgRef.current;
     const rect = svg?.getBoundingClientRect();
@@ -461,22 +596,25 @@ export function ConstructionMaterialDrawing({ referenceId, values, focusedDimens
   }, []);
   const dim = (x1: number, y1: number, x2: number, y2: number, label: string, key: string, vertical = false) => {
     const active = focusedDimension === key;
+    const tone = id === "concrete.pile" && key === "lengthMm" ? "height" : dimensionTone(key);
     const activate = () => onDimensionSelect?.(key);
-    return <g className={`construction-dimension${active ? " is-active" : ""}`} role="button" tabIndex={0} aria-label={`${label}; kapcsolódó mező megnyitása`} data-dimension={key} onClick={activate} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); } }}>
-      <line x1={x1} y1={y1} x2={x2} y2={y2} />
-      <line x1={x1 - (vertical ? 5 : 0)} y1={y1 - (vertical ? 0 : 5)} x2={x1 + (vertical ? 5 : 0)} y2={y1 + (vertical ? 0 : 5)} />
-      <line x1={x2 - (vertical ? 5 : 0)} y1={y2 - (vertical ? 0 : 5)} x2={x2 + (vertical ? 5 : 0)} y2={y2 + (vertical ? 0 : 5)} />
-      <text x={vertical ? x1 + 12 : (x1 + x2) / 2} y={vertical ? (y1 + y2) / 2 : y1 - 10} textAnchor={vertical ? "start" : "middle"}>{label}</text>
+    void label;
+    return <g className={`construction-dimension${active ? " is-active" : ""}`} role="button" tabIndex={0} aria-label={`${dimensionName(key)} méretvonal; kapcsolódó mező megnyitása`} aria-pressed={active} data-dimension={key} onClick={activate} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); } }}>
+      <line className={`semantic-line is-${tone}`} x1={x1} y1={y1} x2={x2} y2={y2} />
+      <line className={`semantic-line is-${tone}`} x1={x1 - (vertical ? 5 : 0)} y1={y1 - (vertical ? 0 : 5)} x2={x1 + (vertical ? 5 : 0)} y2={y1 + (vertical ? 0 : 5)} />
+      <line className={`semantic-line is-${tone}`} x1={x2 - (vertical ? 5 : 0)} y1={y2 - (vertical ? 0 : 5)} x2={x2 + (vertical ? 5 : 0)} y2={y2 + (vertical ? 0 : 5)} />
     </g>;
   };
   const ratioGroup = (item: { key: string; label: string }, amount: number, x: number, y: number, barWidth: number) => {
     const activate = () => onDimensionSelect?.(item.key);
-    return <g key={item.key} className={`construction-dimension${focusedDimension === item.key ? " is-active" : ""}`} role="button" tabIndex={0} aria-label={`${item.label}: ${amount} rész; kapcsolódó mező megnyitása`} data-dimension={item.key} onClick={activate} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); } }}>
-      <text x={x - 20} y={y + 30} textAnchor="end">{item.label} · {amount} rész</text><rect x={x} y={y} width={barWidth} height="48" rx="5" /><text x={x + barWidth + 12} y={y + 30}>arányos tömeg</text>
+    const pattern = item.key === "cementRatio" ? "cement" : item.key === "sandRatio" ? "sand" : "aggregate";
+    const tone = item.key === "cementRatio" ? "special" : item.key === "sandRatio" ? "width" : "slope";
+    return <g key={item.key} className={`construction-dimension${focusedDimension === item.key ? " is-active" : ""}`} role="button" tabIndex={0} aria-label={`${item.label} aránya; kapcsolódó mező megnyitása`} aria-pressed={focusedDimension === item.key} data-dimension={item.key} onClick={activate} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); } }}>
+      <rect className={`construction-ratio-bar is-${tone} pattern-${pattern}`} x={x} y={y} width={barWidth} height="48" rx="5" aria-hidden="true" />
     </g>;
   };
-  const centerText = (text: string, y = 525) => <text className="construction-drawing-label" x="500" y={y} textAnchor="middle">{text}</text>;
-  const centerDimensionText = (key: string, text: string, y = 490) => <text className={`construction-drawing-label construction-dimension-label${focusedDimension === key ? " is-active" : ""}`} x="500" y={y} textAnchor="middle" role="button" tabIndex={0} data-dimension={key} onClick={() => onDimensionSelect?.(key)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onDimensionSelect?.(key); } }}>{text}</text>;
+  const centerText = (_message: string, _y = 525): null => { void _y; return null; };
+  const centerDimensionText = (key: string, _message: string, y = 490) => <g className={`construction-dimension${focusedDimension === key ? " is-active" : ""}`} role="button" tabIndex={0} aria-label={`${dimensionName(key)} méretjel; kapcsolódó mező megnyitása`} data-dimension={key} onClick={() => onDimensionSelect?.(key)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onDimensionSelect?.(key); } }}><line className={`semantic-line is-${dimensionTone(key)}`} x1="476" y1={y} x2="524" y2={y} /><line className={`semantic-line is-${dimensionTone(key)}`} x1="476" y1={y - 5} x2="476" y2={y + 5} /><line className={`semantic-line is-${dimensionTone(key)}`} x1="524" y1={y - 5} x2="524" y2={y + 5} /></g>;
   const rectScale = (a: number, b: number, maxWidth = 560, maxHeight = 300) => {
     const scale = Math.min(maxWidth / a, maxHeight / b);
     return { scale, x: 500 - a * scale / 2, y: 260 - b * scale / 2, w: a * scale, h: b * scale };
@@ -485,7 +623,7 @@ export function ConstructionMaterialDrawing({ referenceId, values, focusedDimens
   if (id === "concrete.mix") {
     const ratios = [{ key: "cementRatio", label: "Cement" }, { key: "sandRatio", label: "Homok" }, { key: "aggregateRatio", label: "Adalék" }];
     const maxRatio = Math.max(1, ...ratios.map((item) => value(item.key)));
-    geometry = <>{ratios.map((item, index) => { const y = 145 + index * 102; const amount = value(item.key); return ratioGroup(item, amount, 280, y, Math.max(1, 430 * amount / maxRatio)); })}{centerText("Megadott tömegarány · receptet nem ajánl", 500)}</>;
+    geometry = <>{ratios.map((item, index) => { const y = 145 + index * 102; const amount = value(item.key); return ratioGroup(item, amount, 280, y, Math.max(1, 430 * amount / maxRatio)); })}</>;
   } else if (id === "concrete.strip") {
     const r = rectScale(length, width || 1);
     const crossScale = Math.min(270 / width, 220 / height); const crossW = width * crossScale; const crossH = height * crossScale; const crossX = 500 - crossW / 2; const crossY = 240 - crossH / 2;
@@ -507,44 +645,68 @@ export function ConstructionMaterialDrawing({ referenceId, values, focusedDimens
     const a = view === "tile" ? value("tileLengthMm") : length;
     const b = view === "tile" ? value("tileWidthMm") : width;
     const r = rectScale(a, b);
-    geometry = <><rect className="construction-technical-fill" x={r.x} y={r.y} width={r.w} height={r.h} />{view === "plan" && <text className="construction-drawing-label" x="500" y="260" textAnchor="middle">Terület · lapkiosztás nélkül</text>}{dim(r.x, r.y + r.h + 55, r.x + r.w, r.y + r.h + 55, `${a} mm`, view === "tile" ? "tileLengthMm" : "lengthMm")}{dim(r.x + r.w + 42, r.y, r.x + r.w + 42, r.y + r.h, `${b} mm`, view === "tile" ? "tileWidthMm" : "widthMm", true)}</>;
+    geometry = view === "section" ? (() => {
+      const baseThickness = value("baseLayerThicknessMm");
+      const sectionScale = Math.min(600 / length, 180 / Math.max(baseThickness, 1));
+      const sectionW = length * sectionScale; const sectionH = Math.max(1, baseThickness * sectionScale); const sectionX = 500 - sectionW / 2; const sectionY = 270 - sectionH / 2;
+      return <>{baseThickness > 0 && <rect className="construction-technical-layer" x={sectionX} y={sectionY} width={sectionW} height={sectionH} />}{dim(sectionX, sectionY + sectionH + 48, sectionX + sectionW, sectionY + sectionH + 48, `${length} mm burkolandó hossz`, "lengthMm")}{baseThickness > 0 ? dim(sectionX + sectionW + 42, sectionY, sectionX + sectionW + 42, sectionY + sectionH, `${baseThickness} mm alapréteg`, "baseLayerThicknessMm", true) : centerText("Alapréteg-vastagság nincs megadva", 340)}{centerText("Szemléltető rétegmetszet · a lap és aljzat vastagsága nincs megadva", 450)}</>;
+    })() : <><rect className="construction-technical-fill" x={r.x} y={r.y} width={r.w} height={r.h} />{dim(r.x, r.y + r.h + 55, r.x + r.w, r.y + r.h + 55, `${a} mm`, view === "tile" ? "tileLengthMm" : "lengthMm")}{dim(r.x + r.w + 42, r.y, r.x + r.w + 42, r.y + r.h, `${b} mm`, view === "tile" ? "tileWidthMm" : "widthMm", true)}</>;
   } else if (id === "concrete.blind_area") {
-    const outerL = length + 2 * value("apronWidthMm"); const outerW = width + 2 * value("apronWidthMm");
+    const apron = calculateRectangularBlindArea({ buildingLengthMm: length, buildingWidthMm: width, apronWidthMm: value("apronWidthMm"), ...(value("concreteThicknessMm") > 0 ? { concreteThicknessMm: value("concreteThicknessMm") } : {}), ...(value("gravelThicknessMm") > 0 ? { gravelThicknessMm: value("gravelThicknessMm") } : {}) });
+    const outerL = apron.outerLengthMm; const outerW = apron.outerWidthMm;
     const r = rectScale(outerL, outerW, 540, 310); const inset = value("apronWidthMm") * r.w / outerL;
-    geometry = view === "section" ? <>{value("concreteThicknessMm") > 0 && <rect className="construction-technical-fill" x="245" y="290" width="510" height={Math.max(16, value("concreteThicknessMm") / Math.max(value("concreteThicknessMm"), value("gravelThicknessMm"), 1) * 48)} />}{value("gravelThicknessMm") > 0 && <rect className="construction-technical-layer" x="245" y="340" width="510" height={Math.max(16, value("gravelThicknessMm") / Math.max(value("concreteThicknessMm"), value("gravelThicknessMm"), 1) * 48)} />}{value("concreteThicknessMm") === 0 && value("gravelThicknessMm") === 0 ? centerText("Rétegvastagság nincs megadva", 295) : centerText("Csak megadott rétegek · sematikus, nem lejtés- vagy vízelvezetési terv", 440)}{value("concreteThicknessMm") > 0 && dim(775, 290, 775, 338, `${value("concreteThicknessMm")} mm beton`, "concreteThicknessMm", true)}{value("gravelThicknessMm") > 0 && dim(820, 340, 820, 388, `${value("gravelThicknessMm")} mm kavics`, "gravelThicknessMm", true)}</> : <><rect className="construction-technical-band" x={r.x} y={r.y} width={r.w} height={r.h} /><rect className="construction-technical-cutout" x={r.x + inset} y={r.y + inset} width={r.w - 2 * inset} height={r.h - 2 * inset} />{dim(r.x, r.y + r.h + 48, r.x + r.w, r.y + r.h + 48, `${outerL} mm külső hossz`, "buildingLengthMm")}{dim(r.x + inset, r.y + r.h / 2, r.x + inset + 2 * inset, r.y + r.h / 2, `${value("apronWidthMm")} mm sáv`, "apronWidthMm")}{centerText(`Belső épület: ${length} × ${width} mm`)}</>;
+    geometry = view === "section" ? (() => {
+      const concrete = value("concreteThicknessMm"); const gravel = value("gravelThicknessMm"); const total = concrete + gravel;
+      const layerScale = total > 0 ? 100 / total : 0; const concreteH = concrete * layerScale; const gravelH = gravel * layerScale; const baseY = 410;
+      return <>{gravel > 0 && <rect className="construction-technical-layer" x="245" y={baseY - gravelH} width="510" height={gravelH} />}{concrete > 0 && <rect className="construction-technical-fill" x="245" y={baseY - gravelH - concreteH} width="510" height={concreteH} />}{total > 0 && <line className="stair-floor-line" x1="220" y1={baseY} x2="780" y2={baseY} />}{concrete > 0 && dim(775, baseY - gravelH - concreteH, 775, baseY - gravelH, `${concrete} mm beton`, "concreteThicknessMm", true)}{gravel > 0 && dim(820, baseY - gravelH, 820, baseY, `${gravel} mm kavics`, "gravelThicknessMm", true)}</>;
+    })() : <><rect className="construction-technical-band" x={r.x} y={r.y} width={r.w} height={r.h} /><rect className="construction-technical-cutout" x={r.x + inset} y={r.y + inset} width={r.w - 2 * inset} height={r.h - 2 * inset} />{dim(r.x, r.y + r.h + 48, r.x + r.w, r.y + r.h + 48, `${outerL} mm külső hossz`, "buildingLengthMm")}{dim(r.x + r.w + 42, r.y, r.x + r.w + 42, r.y + r.h, `${outerW} mm külső szélesség`, "buildingWidthMm", true)}{dim(r.x, r.y + r.h / 2, r.x + inset, r.y + r.h / 2, `${value("apronWidthMm")} mm sáv`, "apronWidthMm")}{centerText(`Belső épület: ${length} × ${width} mm`)}</>;
   } else if (id === "concrete.rebar") {
     const pieces = Math.min(12, Math.max(1, Math.round(value("pieceCount"))));
-    geometry = view === "section" ? <><circle className="construction-technical-fill" cx="500" cy="260" r="100" /><circle className="construction-technical-cutout" cx="500" cy="260" r="25" />{dim(475, 390, 525, 390, `Ø ${diameter} mm · jelképes nagyítás`, "barDiameterMm")}{centerText("A kör csak a megadott átmérőt jelöli; nincs tényleges keresztmetszeti lépték")}</> : <>{Array.from({ length: pieces }, (_, i) => <line key={i} className="construction-rebar-line" x1={240 + i * 44} y1="170" x2={240 + i * 44} y2="360" />)}{dim(240, 415, 240 + 190, 415, `${value("cutLengthMm")} mm / rúd`, "cutLengthMm")}{centerText(`${value("pieceCount")} db · ${diameter} mm átmérő · párhuzamos sematikus ábrázolás${value("pieceCount") > 12 ? " · legfeljebb 12 elem látszik" : ""}`)}</>;
+    const rodLengthPx = Math.min(600, 420 * value("cutLengthMm") / Math.max(value("cutLengthMm"), diameter * 8)); const rodX = 500 - rodLengthPx / 2;
+    geometry = view === "section" ? <><circle className="construction-technical-fill" cx="500" cy="260" r="100" /><circle className="construction-technical-cutout" cx="500" cy="260" r="25" />{dim(475, 390, 525, 390, `Ø ${diameter} mm · jelképes nagyítás`, "barDiameterMm")}{centerText("A kör csak a megadott átmérőt jelöli; nincs tényleges keresztmetszeti lépték")}</> : <>{Array.from({ length: pieces }, (_, i) => <line key={i} className="construction-rebar-line" x1={rodX} y1={185 + i * 18} x2={rodX + rodLengthPx} y2={185 + i * 18} />)}{dim(rodX, 415, rodX + rodLengthPx, 415, `${value("cutLengthMm")} mm / rúd`, "cutLengthMm")}{centerText(`${value("pieceCount")} db · ${diameter} mm átmérő · párhuzamos sematikus ábrázolás${value("pieceCount") > 12 ? " · legfeljebb 12 elem látszik" : ""}`)}</>;
   } else if (id === "concrete.mesh") {
     const l = value("lengthMm"); const w = value("widthMm"); const r = rectScale(l, w, 540, 300); const insetX = value("coverMm") * r.scale; const insetY = value("coverMm") * r.scale; const innerX = r.x + insetX; const innerY = r.y + insetY; const innerW = r.w - 2 * insetX; const innerH = r.h - 2 * insetY;
-    const mesh = calculateReinforcementMesh({ lengthMm: value("lengthMm"), widthMm: value("widthMm"), coverMm: value("coverMm"), spacingMm: value("spacingMm"), barDiameterMm: value("barDiameterMm"), steelDensityKgPerM3: value("steelDensityKgPerM3") || 7_850 });
+    const mesh = calculateReinforcementMesh({ lengthMm: value("lengthMm"), widthMm: value("widthMm"), coverMm: value("coverMm"), spacingMm: value("spacingMm"), barDiameterMm: value("barDiameterMm") });
     const intervalsX = Math.max(1, mesh.widthwiseBarCount - 1); const intervalsY = Math.max(1, mesh.lengthwiseBarCount - 1);
     const nx = Math.min(28, intervalsX); const ny = Math.min(20, intervalsY);
-    geometry = <><rect className="construction-technical-band" x={r.x} y={r.y} width={r.w} height={r.h} /><rect className="construction-technical-cutout" x={innerX} y={innerY} width={innerW} height={innerH} />{Array.from({ length: nx + 1 }, (_, i) => <line key={`v${i}`} className="construction-mesh-line" x1={innerX + i * innerW / nx} y1={innerY} x2={innerX + i * innerW / nx} y2={innerY + innerH} />)}{Array.from({ length: ny + 1 }, (_, i) => { const y = innerY + i * innerH / ny; return <line key={`h${i}`} className="construction-mesh-line" x1={innerX} y1={y} x2={innerX + innerW} y2={y} />; })}<rect className="construction-technical-outline" x={r.x} y={r.y} width={r.w} height={r.h} />{dim(r.x, r.y + r.h + 52, r.x + r.w, r.y + r.h + 52, `${l} mm teljes hossz`, "lengthMm")}{dim(r.x + r.w + 42, r.y, r.x + r.w + 42, r.y + r.h, `${w} mm teljes szélesség`, "widthMm", true)}{dim(r.x, r.y - 28, innerX, r.y - 28, `${value("coverMm")} mm fedés`, "coverMm")}{intervalsX <= 28 ? dim(innerX, innerY - 28, innerX + innerW / intervalsX, innerY - 28, `${mesh.actualSpacingAlongLengthMm} mm tényleges osztás`, "spacingMm") : centerDimensionText("spacingMm", `Tényleges osztás: ${mesh.actualSpacingAlongLengthMm} × ${mesh.actualSpacingAlongWidthMm} mm · ritkított sematikus rács`, 490)}{centerText(`${mesh.lengthwiseBarCount}/${mesh.widthwiseBarCount} rúd · a rajzon legfeljebb 28/20 ismétlés`, 525)}</>;
+    geometry = <><rect className="construction-technical-band" x={r.x} y={r.y} width={r.w} height={r.h} /><rect className="construction-technical-cutout" x={innerX} y={innerY} width={innerW} height={innerH} />{Array.from({ length: nx + 1 }, (_, i) => <line key={`v${i}`} className="construction-mesh-line is-widthwise" x1={innerX + i * innerW / nx} y1={innerY} x2={innerX + i * innerW / nx} y2={innerY + innerH} />)}{Array.from({ length: ny + 1 }, (_, i) => { const y = innerY + i * innerH / ny; return <line key={`h${i}`} className="construction-mesh-line is-lengthwise" x1={innerX} y1={y} x2={innerX + innerW} y2={y} />; })}<rect className="construction-technical-outline" x={r.x} y={r.y} width={r.w} height={r.h} />{dim(r.x, r.y + r.h + 52, r.x + r.w, r.y + r.h + 52, `${l} mm teljes hossz`, "lengthMm")}{dim(r.x + r.w + 42, r.y, r.x + r.w + 42, r.y + r.h, `${w} mm teljes szélesség`, "widthMm", true)}{dim(r.x, r.y - 28, innerX, r.y - 28, `${value("coverMm")} mm fedés`, "coverMm")}{intervalsX <= 28 ? dim(innerX, innerY - 28, innerX + innerW / intervalsX, innerY - 28, `${mesh.actualSpacingAlongLengthMm} mm tényleges osztás`, "spacingMm") : centerDimensionText("spacingMm", `Tényleges osztás: ${mesh.actualSpacingAlongLengthMm} × ${mesh.actualSpacingAlongWidthMm} mm · ritkított sematikus rács`, 490)}{centerText(`${mesh.lengthwiseBarCount}/${mesh.widthwiseBarCount} rúd · a rajzon legfeljebb 28/20 ismétlés`, 525)}</>;
   } else {
     const r = rectScale(length, width);
-    geometry = <><rect className="construction-technical-outline" x={r.x} y={r.y} width={r.w} height={r.h} /><line className="construction-diagonal-line" x1={r.x} y1={r.y + r.h} x2={r.x + r.w} y2={r.y} /><path className="construction-technical-outline" d={`M ${r.x + 18} ${r.y + r.h} v -18 h 18`} />{dim(r.x, r.y + r.h + 55, r.x + r.w, r.y + r.h + 55, `${length} mm`, "lengthMm")}{dim(r.x + r.w + 40, r.y, r.x + r.w + 40, r.y + r.h, `${width} mm`, "widthMm", true)}<text className="construction-drawing-label" x="500" y="245" textAnchor="middle">d = átló</text>{centerText("90° kitűzési segédgeometria")}</>;
+    geometry = <><rect className="construction-technical-outline" x={r.x} y={r.y} width={r.w} height={r.h} /><line className="construction-diagonal-line semantic-line is-slope" x1={r.x} y1={r.y + r.h} x2={r.x + r.w} y2={r.y} /><path className="construction-technical-outline" d={`M ${r.x + 18} ${r.y + r.h} v -18 h 18`} />{dim(r.x, r.y + r.h + 55, r.x + r.w, r.y + r.h + 55, `${length} mm`, "lengthMm")}{dim(r.x + r.w + 40, r.y, r.x + r.w + 40, r.y + r.h, `${width} mm`, "widthMm", true)}{centerText("90° kitűzési segédgeometria")}</>;
   }
+  const legendEntries = materialLegend(id, view, values);
+  const drawingNote = id === "concrete.strip" ? view === "plan" ? "A rajz egyenes, névleges kiterítés; a teljes tengelyhosszból sarkok és csomópontok kiosztása nem derül ki." : "Állandó téglalap keresztmetszet; a nyomvonal és a csatlakozások nincsenek megadva."
+    : id === "concrete.pile" && view === "plan" ? `A körök szemléltető rácsban vannak; tényleges cölöphely nincs megadva.${value("count") > 12 ? " Legfeljebb 12 cölöphely látszik." : ""}`
+    : id === "concrete.paving" && view === "section" ? value("baseLayerThicknessMm") > 0 ? "A megadott alapréteg metszeti vázlata. A burkolólap és az aljzat vastagsága nincs megadva." : "Az alapréteg-vastagság nincs megadva, ezért a metszetben réteg nem látszik. A lap és az aljzat vastagsága sincs megadva."
+    : id === "concrete.mix" ? "A sávhossz a megadott tömegarányt jelzi; receptet és szilárdsági osztályt nem ad meg."
+    : id === "concrete.rebar" && view === "section" ? "A keresztmetszeti jelölés szemléltető nagyítás, nem méretarányos."
+    : id === "concrete.rebar" && value("pieceCount") > 12 ? "Párhuzamos, egyenes rudak sematikus rajza; legfeljebb 12 látszik, az összes darabszám az eredményeknél szerepel."
+    : id === "concrete.blind_area" && view === "section" && legendEntries.length === 0 ? "Rétegvastagság nincs megadva; a rétegmetszethez töltse ki a Részletes számítás mezőit."
+    : id === "concrete.mesh" ? "Nagy rúdszámnál a rajz ismétlései ritkítva láthatók; a jelmagyarázat a számított osztást mutatja."
+    : id === "concrete.rebar" && view === "bars" ? `Párhuzamos, egyenes rudak sematikus rajza; hajlítás és kiosztás nincs modellezve.${value("pieceCount") > 12 ? " Legfeljebb 12 rúd látszik." : ""}`
+    : "Minden látható méret a megadott geometriához tartozik.";
   return <section className="construction-stair-drawing construction-material-drawing" aria-label={title}>
     <div className="construction-stair-drawing-heading"><div><p className="section-eyebrow">MÉRETEZETT MENNYISÉGI VÁZLAT</p><h3>Műszaki rajz</h3></div><span>{id.startsWith("aux.") ? "Segédgeometria" : "Beton és alapozás"}</span></div>
     <div className="construction-stair-view-tabs" role="group" aria-label="Műszaki rajz nézetei">{views.map((item) => <button key={item.id} type="button" aria-pressed={view === item.id} className={view === item.id ? "is-active" : ""} onClick={() => setView(item.id)}>{item.label}</button>)}</div>
     <GlassToolbar ariaLabel="Műszaki rajz vezérlői" className="construction-stair-toolbar"><div className="drawing-toolbar-group" aria-label="Nagyítás"><button type="button" aria-label="Rajz kicsinyítése" onClick={() => setViewport({ zoom: viewport.current.zoom - .1, pan: viewport.current.pan })}><Minus aria-hidden="true" className="size-4" /></button><output className="drawing-zoom-value" aria-live="polite">{Math.round(zoom * 100)}%</output><button type="button" aria-label="Rajz nagyítása" onClick={() => setViewport({ zoom: viewport.current.zoom + .1, pan: viewport.current.pan })}><Plus aria-hidden="true" className="size-4" /></button></div><div className="drawing-toolbar-group" aria-label="Rajz elrendezése"><button type="button" aria-label="Rajz illesztése" onClick={fitViewport}><Maximize2 aria-hidden="true" className="size-4" /></button><button type="button" aria-label="Nézet visszaállítása" onClick={() => setViewport({ zoom: 1, pan: { x: 0, y: 0 } })}><RotateCcw aria-hidden="true" className="size-4" /></button></div></GlassToolbar>
-    <div className="construction-stair-canvas" ref={canvasRef}><svg ref={svgRef} className="construction-stair-svg" viewBox="0 0 1000 560" role="group" aria-label={title} preserveAspectRatio="xMidYMid meet" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={stopPointer} onPointerCancel={stopPointer} onLostPointerCapture={stopPointer}><title>{title}</title><desc>A rajz az aktuális, ellenőrzött kalkulátor bemeneteinek geometriai méreteit mutatja. Nem szerkezeti terv.</desc><g transform={`translate(${500 + pan.x} ${280 + pan.y}) scale(${zoom}) translate(-500 -280)`}>{geometry}</g></svg></div>
+    <div className="construction-stair-canvas" ref={canvasRef}><svg ref={svgRef} className="construction-stair-svg" viewBox="0 0 1000 560" role="group" tabIndex={0} aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - Home" aria-label={title} preserveAspectRatio="xMidYMid meet" onKeyDown={onDrawingKeyDown} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={stopPointer} onPointerCancel={stopPointer} onLostPointerCapture={stopPointer}><title>{title}</title><desc>A rajz az aktuális, ellenőrzött kalkulátor bemeneteinek geometriai méreteit mutatja. Nem szerkezeti terv.</desc><g transform={`translate(${500 + pan.x} ${280 + pan.y}) scale(${zoom}) translate(-500 -280)`}>{geometry}</g></svg></div>
+    <DrawingLegend entries={legendEntries} />
+    <p className="construction-stair-caption">{drawingNote}</p>
     {focusedDimension && <p className="construction-stair-focus-note" role="status">A kiemelt méret a fókuszált adatmezőhöz tartozik.</p>}
-    <p className="construction-stair-caption">Mennyiségi geometriai vázlat. Nem szerkezeti vagy kivitelezési jóváhagyás.</p>
   </section>;
 }
 
-function InteractiveStairDrawing({ model, focusedDimension, onDimensionSelect }: Readonly<{
+function InteractiveStairDrawing({ model, focusedDimension, onDimensionSelect, initialView }: Readonly<{
   model: StairDrawingModel;
   focusedDimension?: string | null;
   onDimensionSelect?: (key: string) => void;
+  initialView?: string;
 }>) {
   const drawingId = useId().replace(/:/g, "");
   const titleId = `stair-drawing-title-${drawingId}`;
   const descriptionId = `stair-drawing-description-${drawingId}`;
   const views = useMemo(() => stairViews(model), [model]);
-  const [view, setView] = useState(views[0].id);
+  const [view, setView] = useState(() => views.some((item) => item.id === initialView) ? initialView! : views[0].id);
   const [zoom, setZoom] = useState<number>(drawingInitialViewport.zoom);
   const [pan, setPan] = useState<ViewportPoint>({ ...drawingInitialViewport.pan });
   const [compactPlanView, setCompactPlanView] = useState(false);
@@ -587,6 +749,17 @@ function InteractiveStairDrawing({ model, focusedDimension, onDimensionSelect }:
     setViewport(fitDrawingViewport(bounds, { width: rect.width, height: rect.height }, 30));
   }, [model, setViewport]);
   const setZoomBounded = useCallback((value: number) => setViewport({ zoom: value, pan: viewport.current.pan }), [setViewport]);
+  const onDrawingKeyDown = (event: React.KeyboardEvent<SVGSVGElement>) => {
+    if (event.target !== event.currentTarget && (event.target as Element).closest("[data-dimension]")) return;
+    const current = viewport.current;
+    if (event.key === "Home") { event.preventDefault(); resetViewport(); return; }
+    if (event.key === "+" || event.key === "=") { event.preventDefault(); setZoomBounded(current.zoom + .1); return; }
+    if (event.key === "-") { event.preventDefault(); setZoomBounded(current.zoom - .1); return; }
+    const delta = 32 / current.zoom;
+    const offsets = { ArrowLeft: { x: delta, y: 0 }, ArrowRight: { x: -delta, y: 0 }, ArrowUp: { x: 0, y: delta }, ArrowDown: { x: 0, y: -delta } } as const;
+    const offset = offsets[event.key as keyof typeof offsets];
+    if (offset) { event.preventDefault(); setViewport({ zoom: current.zoom, pan: { x: current.pan.x + offset.x, y: current.pan.y + offset.y } }); }
+  };
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(fitViewport);
@@ -680,6 +853,7 @@ function InteractiveStairDrawing({ model, focusedDimension, onDimensionSelect }:
   };
 
   const title = model.kind === "straight" ? model.id.startsWith("stair.metal") ? "Egyenes fémlépcső geometriai rajza" : "Egyenes fa lépcső geometriai rajza" : model.kind === "spiral" ? "Csigalépcső geometriai rajza" : model.kind === "bevel" ? "Ferde lépcsőelem metszeti rajza" : model.kind === "landing" ? "Pihenős lépcső alaprajzi geometriai rajza" : model.kind === "winder" ? "Húzott fokos lépcső geometriai rajza" : "Betonlépcső keresztmetszeti geometriai rajza";
+  const drawingNote = model.kind === "spiral" && view === "plan" && model.geometry.turnDegrees > 360 ? "Több teljes fordulatnál az alaprajzi vetületek egymásra esnek." : model.kind === "winder" && view === "elevation" ? "Kiterített járóvonal-profil; nem oldalnézeti gyártási rajz." : "A színek és vonalminták az eltérő geometriai irányokat jelölik.";
   return <section className="construction-stair-drawing" aria-labelledby={titleId}>
     <div className="construction-stair-drawing-heading"><div><p className="section-eyebrow">GEOMETRIAI VÁZLAT · NEM GYÁRTÁSI RAJZ</p><h3 id={titleId}>Műszaki rajz</h3></div><span>{model.kind === "straight" || model.kind === "landing" || model.kind === "winder" ? "Lépcső" : model.kind === "spiral" ? "Csigalépcső" : model.kind === "concrete" ? "Betonlépcső" : "Alkatrész"}</span></div>
     <div className="construction-stair-view-tabs" role="group" aria-label="Lépcsőrajz nézetei">{views.map((item) => <button key={item.id} type="button" aria-pressed={view === item.id} className={view === item.id ? "is-active" : ""} onClick={() => setView(item.id)}>{item.label}</button>)}</div>
@@ -689,14 +863,15 @@ function InteractiveStairDrawing({ model, focusedDimension, onDimensionSelect }:
       <span className="drawing-toolbar-hint"><Move aria-hidden="true" className="size-4" /> Húzás · két ujjal nagyítás</span>
     </GlassToolbar>
     <div className="construction-stair-canvas" ref={canvasRef}>
-      <svg ref={svgRef} className="construction-stair-svg" viewBox={compactPlanView ? "220 0 560 560" : `0 0 ${VIEWBOX.width} ${VIEWBOX.height}`} role="group" aria-labelledby={`${titleId} ${descriptionId}`} preserveAspectRatio="xMidYMid meet" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={(event) => stopPointer(event, true)} onPointerCancel={(event) => stopPointer(event, false)} onLostPointerCapture={(event) => stopPointer(event, false)}>
-        <title>{title}</title><desc id={descriptionId}>A rajz az ellenőrzött lépcső-geometriából készült. A rajzi méretek egységben is megjelennek az eredménylistában.</desc>
-        <defs><marker id="stair-arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
+      <svg ref={svgRef} className="construction-stair-svg" viewBox={compactPlanView ? "220 0 560 560" : `0 0 ${VIEWBOX.width} ${VIEWBOX.height}`} role="group" tabIndex={0} aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - Home" aria-labelledby={`${titleId} ${descriptionId}`} preserveAspectRatio="xMidYMid meet" onKeyDown={onDrawingKeyDown} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={(event) => stopPointer(event, true)} onPointerCancel={(event) => stopPointer(event, false)} onLostPointerCapture={(event) => stopPointer(event, false)}>
+        <title>{title}</title><desc id={descriptionId}>A számított geometriához tartozó méretek a rajz alatti jelmagyarázatban olvashatók.</desc>
         <g transform={`translate(${VIEWBOX.width / 2 + pan.x} ${VIEWBOX.height / 2 + pan.y}) scale(${zoom}) translate(${-VIEWBOX.width / 2} ${-VIEWBOX.height / 2})`}>
           {model.kind === "straight" ? view === "plan" ? <StraightPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <StairStepPath geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "spiral" ? view === "plan" ? <SpiralPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <SpiralRise geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "bevel" ? <BevelProfile geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "landing" ? <LandingPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "winder" ? view === "plan" ? <WinderPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <WinderElevation geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <ConcreteProfile geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} />}
         </g>
       </svg>
     </div>
+    <DrawingLegend entries={stairLegend(model, view)} />
+    <p className="construction-stair-caption">{drawingNote}</p>
     {focusedDimension && <p className="construction-stair-focus-note" role="status">A kiemelt rajzi méret a fókuszált mezőhöz kapcsolódik.</p>}
     <p className="construction-stair-caption">Geometriai szemléltetés. Nem tartalmaz szerkezeti ellenőrzést, gyártási méreteket vagy jogszabályi megfelelőség-igazolást.</p>
   </section>;
@@ -753,7 +928,7 @@ function concreteIcon(id: string) {
   if (id === "concrete.mix") return <><path className="construction-icon-concrete" d="M19 16 H46 L43 38 Q32 47 21 38 Z" /><path className="construction-icon-tread" d="M18 16 L11 10 L16 6 L27 15 M46 16 L55 10 L51 6 L40 15" /><path d="M23 40 L18 48 M41 40 L46 48 M15 49 H49" /></>;
   if (id === "concrete.rebar") return <><path className="construction-icon-rebar" d="M13 42 L44 11 M8 35 L37 6 M24 48 L54 18 M12 12 L43 43 M7 19 L36 48 M20 6 L52 38" /><path className="construction-icon-rib" d="M16 37 L19 40 M24 29 L27 32 M32 21 L35 24 M40 13 L43 16" /></>;
   if (id === "concrete.mesh") return <><rect className="construction-icon-concrete" x="8" y="8" width="48" height="40" />{[1, 2, 3, 4, 5].map((i) => <line key={`v${i}`} x1={8 + i * 8} y1="8" x2={8 + i * 8} y2="48" />)}{[1, 2, 3].map((i) => <line key={`h${i}`} x1="8" y1={8 + i * 10} x2="56" y2={8 + i * 10} />)}</>;
-  if (id === "aux.diagonal") return <><path className="construction-icon-band" d="M11 43 H52 V10 Z" /><path d="M43 43 V34 H52" /><text className="construction-icon-label" x="33" y="29">d</text></>;
+  if (id === "aux.diagonal") return <><path className="construction-icon-band" d="M11 43 H52 V10 Z" /><line className="construction-icon-diagonal" x1="11" y1="43" x2="52" y2="10" /><path d="M43 43 V34 H52" /></>;
   return null;
 }
 

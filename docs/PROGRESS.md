@@ -1,6 +1,6 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
-## F9.38 — Claude Code fejlesztői projektátadás
+## F9.37.4 — Claude Code fejlesztői projektátadás
 
 Státusz: **DOCUMENTATION COMPLETE / APP-CODE UNCHANGED**.
 
@@ -12,7 +12,40 @@ Státusz: **DOCUMENTATION COMPLETE / APP-CODE UNCHANGED**.
 - **Ellenőrzés:** a repó 35 Markdown-fájljának helyi fájlhivatkozás-ellenőrzése **PASS**; `git diff --check` **PASS**. Alkalmazásteszt, pgTAP, typecheck, lint, build és böngésző nem fut; csak dokumentáció változik.
 - **Konzisztencia/jogosultság:** adatbázis-, hitelesítési, jogosultsági és runtime állapotot nem módosítottam vagy ellenőriztem újra. A handoff a korábban dokumentált helyi teszteredményeket történeti bizonyítékként jelöli.
 
-Javasolt Conventional Commit: `docs(F9.38): prepare Claude Code project handoff`.
+Javasolt Conventional Commit: `docs(F9.37.4): prepare Claude Code project handoff`.
+
+## F9.38 — Lépcső- és betonozási kalkulátorok eredmény-lefedettsége
+
+Státusz: **IMPLEMENTÁLVA, CÉLZOTTAN TESZTELVE; A REFERENCIA-PARITÁS ÉS A TELJES BÖNGÉSZŐS MÁTRIX NEM IGAZOLT.**
+
+- A meglévő 33 kalkulátoros katalógusból mind a 17 lépcső- és mind a 10 beton/kapcsolódó referencia megmaradt; új ID, backend, adatbázis-, Auth/RLS- vagy üzleti workflow-változás nincs.
+- A lépcsőmotorok további geometriai eredményeket adnak: hajlásszög, 2R+G számtani mutató, egyes karok ferde tengelyhossza, fok- és pihenőfelület, húzott fokok járóvonali osztása, kiterített hossz és trapéz-szektorokból számított tervfelület. A 2R+G mellett csak tájékoztató, nem megfelelőségi tartomány jelenik meg.
+- A betonmotorok kiegészültek a sávalap névleges `tengelyhossz × szélesség` területével, cölöp palást-/összegzett kör alapfelületekkel, alaplemez kerületével, betongyűrű belső palást-/véglap-/teljes geometriai felületével, opcionális térkő alapréteg-térfogattal, téglalap sáv befoglaló méreteivel és beton/kavics térfogattal, keverék megadott száraz tömegösszegével, betonacél térfogattal és kg/m egységtömeggel, valamint háló rúdirányonkénti hosszaival és metszésszámával.
+- A betonrajzokon a C5 megadott alaprétegéhez külön metszeti nézet jelenik meg; az összes többi rajz a már meglévő domain-kimenetből épül. A lépcsők az első hat eredményt elsődleges blokkban, a továbbiakat lenyitható részletekben mutatják.
+- **Független bizonyíték:** kézzel levezetett 90°/180° pihenős, annularis húzottfokos és téglalap-/henger-/gyűrű-/háló fixture-ek a céltesztekben. Korlát: nincs fém-/faelem gyártmány, teherbírás, vasalási terv, mixajánlás, termék-/talajadat vagy normatív megfelelőség.
+- **Referencia-audit:** mind a 27 nyilvános Zhitov referencia statikus mező- és kimenetleírását áttekintettem; a futó számítási űrlapok külső/dinamikus iframe-ei miatt egyedi referenciaeredmények és teljes paritás nem reprodukálhatók ebből a forrásnézetből. A checklist ezt `PARTIAL` állapotként és capability-kategóriákkal dokumentálja.
+- **Konzisztencia és jogosultság:** minden új kimenet determinisztikusan a calculator bemeneteiből készül; nincs tartós adatírás, jogosultsági felület vagy konkurens módosítási útvonal. Külön adatbázisteszt nem releváns a változáshoz.
+- **Böngésző:** hitelesített helyi DEMO Brave smoke során mind a 27 kalkulátornál érvényes input→eredmény+SVG; C5 150 mm alapréteg→1,8 m³, C6 megadott rétegek→4/6 m³. C4 egy hibás falvastagságot magyar pozitív belső átmérő hibaüzenettel visszautasított. Sötét/világos téma, zoom, Enteres zoom és méretfeliratból mezőfókusz ellenőrizve; a sötét témát visszaállítottam. Pan/húzás nem futott; a böngészővezérlés nem kínált viewport-emulációt a 1440/1024/768/390/320 CSS-pixel mátrixhoz.
+- **Ellenőrzések:** kalkulátor-regresszió 5 fájl / 52 teszt PASS; teljes Vitest `npm test` 140 fájl / 640 teszt PASS, 9 fájl / 27 teszt SKIP; `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack, 30 static page), `git diff --check` PASS. DB/Auth/RLS/hosted teszt nem futott, mert adatbázis-kódot nem módosítottam.
+- Az implementációs checklist, kalkulátoronkénti állapot, kimenetek, SVG-nézetek, matematikai fixture-ek és ismert hiányok: [F9.38 teljesítési riport](F9_38_CALCULATOR_COMPLETION_REPORT.md). A pontos futtatott teszt/typecheck/lint/build/diff és browser státusz a [tesztmátrixban](TEST_MATRIX.md) szerepel.
+
+Javasolt Conventional Commit: `feat(F9.38): expand staircase and concrete calculator results`.
+
+## F9.38.1 — Bemenetek egyszerűsítése és műszaki rajzok
+
+Státusz: **IMPLEMENTÁLVA ÉS TELJESEN REGRESSZIÓTESZTELVE; A BÖNGÉSZŐS VIEWPORT/TÉMAMÁTRIX RÉSZLEGES.**
+
+- Mind a 27 lépcső-, beton/alapozási és átlósegéd-kalkulátornál az alapbemenetek a számításhoz matematikailag szükséges mérésekre szűkültek. A rajzot vagy kiegészítő eredményt adó méretek opcionális, részletes szakaszba kerültek. Az U-fordulós karhézag, fordulásirány és csigalépcső teljes fordulási szög explicit maradt; az acélsűrűség nem rejtett alapérték.
+- A fa/fém fok- és fellépővastagság kikerült az S16 kötelező bemeneteiből, mert nem befolyásolta a névleges profilképletet. Az orrkiülés opcionális; üres értékkel nincs vetületi többlet. A C8/C9 rudak térfogata és hossza sűrűség nélkül számolható, tömege csak explicit acélsűrűség esetén jelenik meg.
+- A 27 kalkulátor valamennyi technikai rajzváltozatából kikerültek a látható SVG-méretszámok és magyarázó címkék. A rajz alatti akadálymentes jelmagyarázat a látható geometriából és az ugyanazon számító motor eredményéből származó méretértékeket mutatja. A nem geometriai beton- és acéltömeg a főeredmények között marad.
+- Közös szín és vonalminta-rendszer: kék magasság/mélység, narancs vízszintes méret, zöld lejtés/átló, lila speciális geometria; a mesh két iránya eltérő szaggatást kap. A rajzmező-fókusz, zoom, fit/reset, billentyűzetes zoom és nyilakkal pan kódútja, egér/touch pan és pinch megmaradt. A legendakártyák mobil CSS-ben egy oszlopra váltanak.
+- **Ellenőrzések:** célzott Vitest 9 fájl / 145 teszt PASS; a teljes Vitest a megjelenítésben talált nullás legendasor javítása után végső futásként PASS: 141 fájl, 9 skip; 718 teszt, 27 skip. Typecheck, lint, Next.js 16.4.0 webpack build (30 static page) és végső `git diff --check` PASS.
+- **Böngésző:** 2026-10-18-án a sötét témájú, helyi read-only DEMO desktop workflow-ban S16 280/175 mm inputja, majd az opcionális 30 mm-es orrkiülés látszott. Üres kiülésnél nem jelent meg lila rajzi szakasz vagy legendasor; 30 mm-nél 310 mm vetület, 355,985 mm ferde hossz, látható lila szakasz és 30 mm-es legenda jelent meg. Az SVG-ben nem volt látható szöveg. A kalkulációt nem mentettem.
+- **Nem igazolt:** 1440/1024/768/390/320 CSS-pixeles browser ellenőrzés, világos téma, fizikai mobil/touch, teljes screen-reader/billentyűzetes manuális audit és minden egyes kalkulátor invalid-input browser mátrixa. A viewport-ellenőrzést a CUA vezérlés nem tette lehetővé; kód- és tesztalapú reszponzív bizonyíték ezeket nem helyettesíti.
+- **Konzisztencia/jogosultság:** eredmények tiszta domain számításokból származnak; tartós írási útvonal, adatbázis, Auth/RLS, snapshot és konkurencia-kezelés nem változott, ezért DB-jogosultsági teszt nem releváns. Hosted művelet, commit, push és deploy nem történt.
+- Kalkulátoronkénti alap/haladó inputok, eredmények, geometriák és korlátok: [F9.38 teljesítési riport](F9_38_CALCULATOR_COMPLETION_REPORT.md#f9381--bemenetek-egyszerusitese-es-muszaki-rajzok-atervezese). Tesztstátusz: [F9.38.1 tesztmátrix](TEST_MATRIX.md#f9381--bemenetek-es-muszaki-rajzok).
+
+Javasolt Conventional Commit: `feat(F9.38.1): simplify calculator inputs and redraw technical SVGs`.
 
 ## F9.37.3 — Háttér finomítása és Safari React script-hiba javítása
 

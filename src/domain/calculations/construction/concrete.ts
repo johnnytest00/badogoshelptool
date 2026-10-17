@@ -7,10 +7,11 @@ const count = constructionCount;
 export const stripFoundationInputSchema = z.object({ totalCenterlineLengthMm: dim, widthMm: dim, depthMm: dim });
 export function calculateStripFoundation(rawInput: z.infer<typeof stripFoundationInputSchema>) {
   const input = stripFoundationInputSchema.parse(rawInput);
+  const nominalPlanAreaM2 = mm2ToM2(input.totalCenterlineLengthMm * input.widthMm);
   const volumeM3 = mm3ToM3(input.totalCenterlineLengthMm * input.widthMm * input.depthMm);
   const twoSideFormworkM2 = mm2ToM2(2 * input.totalCenterlineLengthMm * input.depthMm);
-  assertFiniteResult([volumeM3, twoSideFormworkM2]);
-  return { volumeM3, twoSideFormworkM2 };
+  assertFiniteResult([nominalPlanAreaM2, volumeM3, twoSideFormworkM2]);
+  return { nominalPlanAreaM2, volumeM3, twoSideFormworkM2 };
 }
 
 export const cylindricalPileInputSchema = z.object({ count: count, diameterMm: dim, lengthMm: dim });
@@ -18,8 +19,10 @@ export function calculateCylindricalPiles(rawInput: z.infer<typeof cylindricalPi
   const input = cylindricalPileInputSchema.parse(rawInput);
   const onePileM3 = Math.PI * (mmToM(input.diameterMm) / 2) ** 2 * mmToM(input.lengthMm);
   const totalVolumeM3 = onePileM3 * input.count;
-  assertFiniteResult([onePileM3, totalVolumeM3]);
-  return { onePileM3, totalVolumeM3, count: input.count };
+  const onePileLateralAreaM2 = Math.PI * mmToM(input.diameterMm) * mmToM(input.lengthMm);
+  const onePilePlanAreaM2 = Math.PI * (mmToM(input.diameterMm) / 2) ** 2;
+  assertFiniteResult([onePileM3, totalVolumeM3, onePileLateralAreaM2, onePilePlanAreaM2]);
+  return { onePileM3, totalVolumeM3, onePileLateralAreaM2, totalLateralAreaM2: onePileLateralAreaM2 * input.count, onePilePlanAreaM2, totalPlanAreaM2: onePilePlanAreaM2 * input.count, count: input.count };
 }
 
 export const foundationSlabInputSchema = z.object({ lengthMm: dim, widthMm: dim, thicknessMm: dim });
@@ -27,8 +30,10 @@ export function calculateFoundationSlab(rawInput: z.infer<typeof foundationSlabI
   const input = foundationSlabInputSchema.parse(rawInput);
   const volumeM3 = mm3ToM3(input.lengthMm * input.widthMm * input.thicknessMm);
   const edgeFormworkM2 = mm2ToM2(2 * (input.lengthMm + input.widthMm) * input.thicknessMm);
-  assertFiniteResult([volumeM3, edgeFormworkM2]);
-  return { volumeM3, edgeFormworkM2, planAreaM2: mm2ToM2(input.lengthMm * input.widthMm) };
+  const planAreaM2 = mm2ToM2(input.lengthMm * input.widthMm);
+  const perimeterM = 2 * (mmToM(input.lengthMm) + mmToM(input.widthMm));
+  assertFiniteResult([volumeM3, edgeFormworkM2, planAreaM2, perimeterM]);
+  return { volumeM3, edgeFormworkM2, planAreaM2, perimeterM };
 }
 
 export const concreteRingInputSchema = z.object({ outerDiameterMm: dim, wallThicknessMm: dim, heightMm: dim })
@@ -42,18 +47,23 @@ export function calculateConcreteRing(rawInput: z.infer<typeof concreteRingInput
   const concreteVolumeM3 = Math.PI * (outerRadiusM ** 2 - innerRadiusM ** 2) * heightM;
   const internalVolumeM3 = Math.PI * innerRadiusM ** 2 * heightM;
   const outsideLateralAreaM2 = Math.PI * mmToM(input.outerDiameterMm) * heightM;
-  assertFiniteResult([concreteVolumeM3, internalVolumeM3, outsideLateralAreaM2]);
-  return { innerDiameterMm, concreteVolumeM3, internalVolumeM3, outsideLateralAreaM2 };
+  const insideLateralAreaM2 = Math.PI * mmToM(innerDiameterMm) * heightM;
+  const annularEndAreaM2 = Math.PI * (outerRadiusM ** 2 - innerRadiusM ** 2);
+  const totalGeometricSurfaceAreaM2 = outsideLateralAreaM2 + insideLateralAreaM2 + 2 * annularEndAreaM2;
+  assertFiniteResult([concreteVolumeM3, internalVolumeM3, outsideLateralAreaM2, insideLateralAreaM2, annularEndAreaM2, totalGeometricSurfaceAreaM2]);
+  return { innerDiameterMm, concreteVolumeM3, internalVolumeM3, outsideLateralAreaM2, insideLateralAreaM2, annularEndAreaM2, totalGeometricSurfaceAreaM2 };
 }
 
-export const pavingInputSchema = z.object({ lengthMm: dim, widthMm: dim, tileLengthMm: dim, tileWidthMm: dim });
+export const pavingInputSchema = z.object({ lengthMm: dim, widthMm: dim, tileLengthMm: dim, tileWidthMm: dim, baseLayerThicknessMm: dim.optional() });
 export function calculatePavingMaterials(rawInput: z.infer<typeof pavingInputSchema>) {
   const input = pavingInputSchema.parse(rawInput);
   const areaM2 = mm2ToM2(input.lengthMm * input.widthMm);
   const tileAreaM2 = mm2ToM2(input.tileLengthMm * input.tileWidthMm);
   const tilesByArea = Math.ceil(areaM2 / tileAreaM2);
-  assertFiniteResult([areaM2, tileAreaM2, tilesByArea]);
-  return { areaM2, tileAreaM2, tilesByArea };
+  const perimeterM = 2 * (mmToM(input.lengthMm) + mmToM(input.widthMm));
+  const baseLayerVolumeM3 = input.baseLayerThicknessMm === undefined ? null : areaM2 * mmToM(input.baseLayerThicknessMm);
+  assertFiniteResult([areaM2, tileAreaM2, tilesByArea, perimeterM, ...(baseLayerVolumeM3 === null ? [] : [baseLayerVolumeM3])]);
+  return { areaM2, tileAreaM2, tilesByArea, perimeterM, baseLayerVolumeM3 };
 }
 
 export const rectangularBlindAreaInputSchema = z.object({ buildingLengthMm: dim, buildingWidthMm: dim, apronWidthMm: dim, concreteThicknessMm: dim.optional(), gravelThicknessMm: dim.optional() });
@@ -62,10 +72,14 @@ export function calculateRectangularBlindArea(rawInput: z.infer<typeof rectangul
   const outerAreaM2 = mm2ToM2((input.buildingLengthMm + 2 * input.apronWidthMm) * (input.buildingWidthMm + 2 * input.apronWidthMm));
   const innerAreaM2 = mm2ToM2(input.buildingLengthMm * input.buildingWidthMm);
   const apronAreaM2 = outerAreaM2 - innerAreaM2;
+  const outerLengthMm = input.buildingLengthMm + 2 * input.apronWidthMm;
+  const outerWidthMm = input.buildingWidthMm + 2 * input.apronWidthMm;
+  const outerPerimeterM = 2 * (mmToM(outerLengthMm) + mmToM(outerWidthMm));
+  const buildingPerimeterM = 2 * (mmToM(input.buildingLengthMm) + mmToM(input.buildingWidthMm));
   const concreteVolumeM3 = input.concreteThicknessMm === undefined ? null : apronAreaM2 * mmToM(input.concreteThicknessMm);
   const gravelVolumeM3 = input.gravelThicknessMm === undefined ? null : apronAreaM2 * mmToM(input.gravelThicknessMm);
-  assertFiniteResult([outerAreaM2, innerAreaM2, apronAreaM2, ...(concreteVolumeM3 === null ? [] : [concreteVolumeM3]), ...(gravelVolumeM3 === null ? [] : [gravelVolumeM3])]);
-  return { apronAreaM2, outerAreaM2, concreteVolumeM3, gravelVolumeM3 };
+  assertFiniteResult([outerAreaM2, innerAreaM2, apronAreaM2, outerPerimeterM, buildingPerimeterM, ...(concreteVolumeM3 === null ? [] : [concreteVolumeM3]), ...(gravelVolumeM3 === null ? [] : [gravelVolumeM3])]);
+  return { apronAreaM2, outerAreaM2, innerAreaM2, outerLengthMm, outerWidthMm, outerPerimeterM, buildingPerimeterM, concreteVolumeM3, gravelVolumeM3 };
 }
 
 export const concreteMixInputSchema = z.object({
@@ -81,24 +95,28 @@ export function calculateConcreteMix(rawInput: z.infer<typeof concreteMixInputSc
   const cementKg = input.concreteVolumeM3 * input.cementKgPerM3;
   const sandKg = cementKg * input.sandRatio / input.cementRatio;
   const aggregateKg = cementKg * input.aggregateRatio / input.cementRatio;
+  const totalSpecifiedDryMaterialKg = cementKg + sandKg + aggregateKg;
   const bagCount = input.bagWeightKg === undefined ? null : Math.ceil(cementKg / input.bagWeightKg);
-  assertFiniteResult([cementKg, sandKg, aggregateKg, ...(bagCount === null ? [] : [bagCount])]);
-  return { cementKg, sandKg, aggregateKg, bagCount };
+  assertFiniteResult([cementKg, sandKg, aggregateKg, totalSpecifiedDryMaterialKg, ...(bagCount === null ? [] : [bagCount])]);
+  return { cementKg, sandKg, aggregateKg, totalSpecifiedDryMaterialKg, bagCount };
 }
 
 export const reinforcementBarsInputSchema = z.object({
   barDiameterMm: dim,
   cutLengthMm: dim,
   pieceCount: count,
-  steelDensityKgPerM3: z.number().finite().positive().max(30_000).default(7_850),
+  steelDensityKgPerM3: z.number().finite().positive().max(30_000).optional(),
 });
 export function calculateReinforcementBars(rawInput: z.infer<typeof reinforcementBarsInputSchema>) {
   const input = reinforcementBarsInputSchema.parse(rawInput);
   const totalLengthM = mmToM(input.cutLengthMm) * input.pieceCount;
   const crossSectionM2 = Math.PI * (mmToM(input.barDiameterMm) / 2) ** 2;
-  const totalMassKg = crossSectionM2 * totalLengthM * input.steelDensityKgPerM3;
-  assertFiniteResult([totalLengthM, crossSectionM2, totalMassKg]);
-  return { totalLengthM, crossSectionM2, totalMassKg, pieceCount: input.pieceCount };
+  const oneBarVolumeM3 = crossSectionM2 * mmToM(input.cutLengthMm);
+  const totalMassKg = input.steelDensityKgPerM3 === undefined ? null : crossSectionM2 * totalLengthM * input.steelDensityKgPerM3;
+  const unitMassKgPerM = input.steelDensityKgPerM3 === undefined ? null : crossSectionM2 * input.steelDensityKgPerM3;
+  const totalSteelVolumeM3 = oneBarVolumeM3 * input.pieceCount;
+  assertFiniteResult([totalLengthM, crossSectionM2, oneBarVolumeM3, totalSteelVolumeM3, ...(unitMassKgPerM === null ? [] : [unitMassKgPerM]), ...(totalMassKg === null ? [] : [totalMassKg])]);
+  return { totalLengthM, crossSectionM2, oneBarVolumeM3, totalSteelVolumeM3, unitMassKgPerM, totalMassKg, pieceCount: input.pieceCount };
 }
 
 export const reinforcementMeshInputSchema = z.object({
@@ -107,7 +125,7 @@ export const reinforcementMeshInputSchema = z.object({
   coverMm: z.number().finite().nonnegative().max(100_000),
   spacingMm: dim,
   barDiameterMm: dim,
-  steelDensityKgPerM3: z.number().finite().positive().max(30_000).default(7_850),
+  steelDensityKgPerM3: z.number().finite().positive().max(30_000).optional(),
 }).refine((value) => value.lengthMm > 2 * value.coverMm && value.widthMm > 2 * value.coverMm, { message: "A fedés mellett maradjon pozitív hálóméret." });
 export function calculateReinforcementMesh(rawInput: z.infer<typeof reinforcementMeshInputSchema>) {
   const input = reinforcementMeshInputSchema.parse(rawInput);
@@ -117,13 +135,17 @@ export function calculateReinforcementMesh(rawInput: z.infer<typeof reinforcemen
   const widthwiseIntervals = Math.ceil(clearLengthMm / input.spacingMm);
   const lengthwiseBarCount = lengthwiseIntervals + 1;
   const widthwiseBarCount = widthwiseIntervals + 1;
-  const totalBarLengthM = lengthwiseBarCount * mmToM(clearLengthMm) + widthwiseBarCount * mmToM(clearWidthMm);
+  const lengthwiseBarLengthM = lengthwiseBarCount * mmToM(clearLengthMm);
+  const widthwiseBarLengthM = widthwiseBarCount * mmToM(clearWidthMm);
+  const totalBarLengthM = lengthwiseBarLengthM + widthwiseBarLengthM;
   const crossSectionM2 = Math.PI * (mmToM(input.barDiameterMm) / 2) ** 2;
-  const totalMassKg = totalBarLengthM * crossSectionM2 * input.steelDensityKgPerM3;
+  const totalSteelVolumeM3 = totalBarLengthM * crossSectionM2;
+  const totalMassKg = input.steelDensityKgPerM3 === undefined ? null : totalBarLengthM * crossSectionM2 * input.steelDensityKgPerM3;
+  const intersectionCount = lengthwiseBarCount * widthwiseBarCount;
   const actualSpacingAlongLengthMm = clearLengthMm / widthwiseIntervals;
   const actualSpacingAlongWidthMm = clearWidthMm / lengthwiseIntervals;
-  assertFiniteResult([lengthwiseBarCount, widthwiseBarCount, totalBarLengthM, totalMassKg, actualSpacingAlongLengthMm, actualSpacingAlongWidthMm]);
-  return { lengthwiseBarCount, widthwiseBarCount, totalBarLengthM, totalMassKg, actualSpacingAlongLengthMm, actualSpacingAlongWidthMm };
+  assertFiniteResult([lengthwiseBarCount, widthwiseBarCount, lengthwiseBarLengthM, widthwiseBarLengthM, totalBarLengthM, totalSteelVolumeM3, ...(totalMassKg === null ? [] : [totalMassKg]), intersectionCount, actualSpacingAlongLengthMm, actualSpacingAlongWidthMm]);
+  return { lengthwiseBarCount, widthwiseBarCount, lengthwiseBarLengthM, widthwiseBarLengthM, totalBarLengthM, totalSteelVolumeM3, totalMassKg, intersectionCount, actualSpacingAlongLengthMm, actualSpacingAlongWidthMm };
 }
 
 export const diagonalInputSchema = z.object({ lengthMm: dim, widthMm: dim });

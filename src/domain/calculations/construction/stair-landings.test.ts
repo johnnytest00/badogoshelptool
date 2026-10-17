@@ -17,7 +17,12 @@ describe("orthogonal landing stair geometry", () => {
     expect(result.flights[0].treads[0].levelMm).toBe(result.riserHeightMm);
     expect(result.flights[1].startRiseMm).toBe(1_500);
     expect(result.flights[1].endRiseMm).toBe(3_000);
-    const scaled = calculateLandingStairGeometry({ layout: "quarter_turn", totalRiseMm: 6_000, stairWidthMm: 1_800, goingMm: 500, landingDepthMm: 1_800, flightRiserCounts: [8, 8] });
+    expect(result.pitchDegrees).toBeCloseTo(Math.atan2(187.5, 250) * 180 / Math.PI, 10);
+    expect(result.stepRuleMm).toBe(625);
+    expect(result.flightGeometricLengthsMm).toEqual([Math.hypot(1_750, 1_500), Math.hypot(1_750, 1_500)]);
+    expect(result.flightTreadSurfaceAreaM2).toBe(3.15);
+    expect(result.landingSurfaceAreaM2).toBe(0.81);
+    const scaled = calculateLandingStairGeometry({ layout: "quarter_turn", totalRiseMm: 6_000, stairWidthMm: 1_800, goingMm: 500, landingDepthMm: 1_800, flightRiserCounts: [8, 8], turnDirection: "right" });
     expect(scaled.planWidthMm).toBe(2 * result.planWidthMm);
     expect(scaled.planDepthMm).toBe(2 * result.planDepthMm);
     expect(scaled.riserHeightMm).toBe(2 * result.riserHeightMm);
@@ -26,7 +31,7 @@ describe("orthogonal landing stair geometry", () => {
   it("builds a 180 degree return layout with an explicit flight gap", () => {
     const result = calculateLandingStairGeometry({
       layout: "half_turn", totalRiseMm: 2_800, stairWidthMm: 900, goingMm: 280,
-      landingDepthMm: 1_000, landingGapMm: 200, flightRiserCounts: [8, 8],
+      landingDepthMm: 1_000, landingGapMm: 200, flightRiserCounts: [8, 8], turnDirection: "right",
     });
     expect(result.planWidthMm).toBe(2_960);
     expect(result.planDepthMm).toBe(2_000);
@@ -38,7 +43,7 @@ describe("orthogonal landing stair geometry", () => {
   });
 
   it("keeps the three-flight rises uniform and mirrors a left-turn plan", () => {
-    const input = { layout: "three_flight" as const, totalRiseMm: 3_000, stairWidthMm: 900, goingMm: 250, landingDepthMm: 900, flightRiserCounts: [6, 6, 6] };
+    const input = { layout: "three_flight" as const, totalRiseMm: 3_000, stairWidthMm: 900, goingMm: 250, landingDepthMm: 900, flightRiserCounts: [6, 6, 6] as [number, number, number] };
     const right = calculateLandingStairGeometry({ ...input, turnDirection: "right" });
     const left = calculateLandingStairGeometry({ ...input, turnDirection: "left" });
     expect(right.riserCount).toBe(18);
@@ -56,9 +61,10 @@ describe("orthogonal landing stair geometry", () => {
   });
 
   it("rejects mismatched flight counts, undersized landings, and layouts that exceed an explicit opening", () => {
-    expect(landingStairGeometryInputSchema.safeParse({ layout: "quarter_turn", totalRiseMm: 3_000, stairWidthMm: 900, goingMm: 250, landingDepthMm: 800, flightRiserCounts: [8, 8] }).success).toBe(false);
-    expect(landingStairGeometryInputSchema.safeParse({ layout: "three_flight", totalRiseMm: 3_000, stairWidthMm: 900, goingMm: 250, landingDepthMm: 900, flightRiserCounts: [8, 8] }).success).toBe(false);
-    expect(() => calculateLandingStairGeometry({ layout: "quarter_turn", totalRiseMm: 3_000, stairWidthMm: 900, goingMm: 250, landingDepthMm: 900, flightRiserCounts: [8, 8], openingLengthMm: 2_000 })).toThrow(/tervhossz/);
+    expect(landingStairGeometryInputSchema.safeParse({ layout: "quarter_turn", totalRiseMm: 3_000, stairWidthMm: 900, goingMm: 250, landingDepthMm: 800, flightRiserCounts: [8, 8], turnDirection: "right" }).success).toBe(false);
+    expect(landingStairGeometryInputSchema.safeParse({ layout: "three_flight", totalRiseMm: 3_000, stairWidthMm: 900, goingMm: 250, landingDepthMm: 900, flightRiserCounts: [8, 8], turnDirection: "right" }).success).toBe(false);
+    expect(landingStairGeometryInputSchema.safeParse({ layout: "half_turn", totalRiseMm: 3_000, stairWidthMm: 900, goingMm: 250, landingDepthMm: 900, flightRiserCounts: [8, 8], turnDirection: "right" }).success).toBe(false);
+    expect(() => calculateLandingStairGeometry({ layout: "quarter_turn", totalRiseMm: 3_000, stairWidthMm: 900, goingMm: 250, landingDepthMm: 900, flightRiserCounts: [8, 8], turnDirection: "right", openingLengthMm: 2_000 })).toThrow(/tervhossz/);
   });
 
   it("calculates an independently dimensioned solid concrete stair wedge", () => {

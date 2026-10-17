@@ -16,12 +16,12 @@ Az inputok hossza mm-ben, terület m²-ben, térfogat m³-ben, tömeg kg-ban, sz
 | Cserepeslemez-darabszám | Meglévő `calculateGableMetalTileCovering`: egy teljes hosszú sor/sík; `oszlop=ceil(tetőhossz/hasznos fedési szélesség)`, két sík; szükséges hossz = ferde fedési hossz + explicit eresz- és gerincvégi ráhagyás. | Egész lemezdarab; névleges terület fizikai szélesség × fizikai hossz. | Csak explicit névleges/hasznos szélesség, fizikai/hasznos hossz, termékadatforrás és igazolt hosszkompatibilitás mellett. Hosszirányú toldás nem támogatott; ilyen esetben nincs darabszám. |
 | Egyenes lépcső | `fellépő=teljes emelkedés/fellépések száma`; felső padló az utolsó fellépés, ezért `fokok= fellépések−1`; `belépő=vízszintes hely/fokok`; pofafa geometriai hossza `√(run²+rise²)`. | Minden méret mm; szög °; hányadosnál tört mm maradhat. | 2–200 fellépés, pozitív összemelkedés és vízszintes hely. A `2R+G` kijelzett érték puszta aritmetika, nem jogszabályi/ergonómiai minősítés. |
 | Csigalépcső | Járóvonal sugara `r=(belső sugár+külső sugár)/2`; fordulási ív `s=rθ`, ahol `θ=fordulás°·π/180`; fokonkénti járóvonal-belépő `s/fokszám`; fellépő `teljes emelkedés/fellépésszám`. | mm és ° bemenet; a trigonometria radiánt használ. | Külső átmérő > belső; fordulás `0° < fordulás ≤ 1440°`; fok- és fellépésszám explicit. Ez geometriai középvonal, nem járhatósági igazolás. |
-| Ferde lépcsőelem | `átló=√((belépő+orrkiülés)²+fellépő²)`; `dőlésszög=atan2(fellépő, belépő+kiülés)`; kiegészítő vágásszög `90°−dőlésszög`. | mm, fok; kijelzési kerekítés 3 tizedes. | Pozitív belépő/fellépő/fok- és lapvastagság; nem tartalmaz fűrészrés- vagy kötésráhagyást. |
+| Ferde lépcsőelem | `átló=√((belépő+orrkiülés)²+fellépő²)`; `dőlésszög=atan2(fellépő, belépő+kiülés)`; kiegészítő vágásszög `90°−dőlésszög`. | mm, fok; kijelzési kerekítés 3 tizedes. | Belépő és fellépő kötelező; orrkiülés opcionális, üresen 0 mm többlet. Vastagságot, fűrészrést és kötésráhagyást nem számol. |
 | Sávalap, alaplemez, cölöp, gyűrű | Téglalap-prizma `V=LWT`; henger `V=π(D/2)²L`; gyűrű `V=πh(R²−r²)`; belső tér `πhr²`; él-/oldalzsaluzat az explicit függőleges oldalfelület. | mm³→m³ `/10⁹`; mm²→m² `/10⁶`. | Állandó keresztmetszet és homogén geometriai test. Nem levonás betonacélra, üregre, csatlakozásra vagy munkahézagra, hacsak az input nem tartalmazza. |
 | Térkő | `terület=L×W`; `lapterület=l×w`; `darab=ceil(terület/lapterület)`. | m² és pozitív egész darabszám, felfelé kerekítve. | Csak területi arány: vágást, fugát, kiosztást, forgatást, mintát, szegélyt és veszteséget nem számol. |
 | Téglalap körüli sáv | `(L+2s)(W+2s)−LW`; rétegtérfogat = sávterület × explicit rétegvastagság. | m²/m³, mm átváltás explicit. | Téglalap alaprajz és minden oldalon állandó szélesség. Nem általános polygon offset. |
 | Betonkeverék | `cement kg = cél m³ × felhasználó által megadott cement kg/m³`; más tömegek = cementtömeg × megadott arány / cementarány. Zsák = `ceil(cement kg/zsáktömeg)`. | kg, egész zsák felfelé kerekítve. | Arány és cementigény kötelező input; nincs receptalapérték, hozam-, nedvesség- vagy szilárdsági feltevés. |
-| Betonacél-rúd | `A=π(d/2)²`; `tömeg=A×összhossz×ρ`. Alapértelmezett `ρ=7850 kg/m³` [G4], módosítható. | d mm→m; hossz m; tömeg kg. | Hengeres, egyenes, megadott hosszú rudak. Hajlítás, toldás és veszteség nincs. |
+| Betonacél-rúd | `A=π(d/2)²`; `tömeg=A×összhossz×ρ`. A ρ felhasználói bemenetként opcionális [G4]; tömeg csak explicit értékkel számolódik. | d mm→m; hossz m; tömeg kg. | Hengeres, egyenes, megadott hosszú rudak. Hajlítás, toldás és veszteség nincs. |
 | Háló | Tiszta méret `L−2fedés`, `W−2fedés`; intervallum `ceil(tiszta méret/max osztás)`; rúdszám intervallum+1; valós osztás `tiszta méret/intervallum`; tömeg kör keresztmetszet × összhossz × ρ. | Osztás és hossz mm/m; tömeg kg; rúdszám egész. | Téglalap ortogonális háló, állandó átmérő, végek a megadott fedésen. Átlapolás, réteg, kapcsolás vagy tervi megerősítés nincs. |
 
 ## Független deterministic fixtures
@@ -59,6 +59,32 @@ Az elvárt értékek az implementált függvényektől külön felírt geometria
 | Paraméterek nélküli mix recipe | Nincs alaprecept; szükséges inputok hiányában Zod hiba, eredmény nincs | **VERIFIED** a mező-sémával; keverék minőség/hozam nem számított |
 | Zhitov-kimenetek összehasonlítása | Nem használtuk oracle-ként. Publikus kalkulátorok mezői/segédszövege vizsgált; egyes aktuális kimeneti példák HTML/iframe-ből nem olvashatók ki | **Nem futott**; nincs Zhitov numerikus összehasonlítás |
 | Statika, normatív megfelelés, gyártói termék-/talajadat | Kívül esik a tiszta geometriai függvények határán | **Nem vizsgált / nincs kimenet** |
+
+## F9.38 — lépcső- és betoneredmények független fixture-ei
+
+Az új ellenőrzések az alapgeometriai levezetésekhez adódnak; a Zhitov oldalak továbbra is bemenet-/funkcióreferenciák, nem numerikus orákulumok. Az alábbi számok DEMO fixture-ek. A lépcsőkomfort-mutató `2R+G` csak két méret számtani összegzése; a 600–660 mm-es tartomány a referenciaoldali tájékoztató szöveg összevetésére szolgál, nem szabvány vagy megfelelőségi teszt.
+
+| Fixture | Független kézi levezetés | Ellenőrzött kimenet / korlát |
+|---|---|---|
+| Egyenes fa/fém lépcső (S1/S2/S10/S11) | `2 800/16=175 mm`; 15 fok miatt `4 200/15=280 mm`; `2×175+280=630 mm`; ferde tengely `√(4 200²+2 800²)` | 175 mm fellépő, 280 mm belépő, 630 mm aritmetikai mutató, 5 047,772 mm ferde hossz; nem tartó- vagy gyártmányméret |
+| 90° pihenős (S3/S12/S13) | 16 össz-fellépés, 8/kar; karfutás `7×250=1 750 mm`; karhossz `√(1 750²+1 500²)`; fokfelület `14×900×250`; pihenő `900²` | 187,5 mm, 14 fok, 625 mm `2R+G`, 2 304,886 mm/kar, 3,15 m² fok és 0,81 m² pihenő |
+| 180° pihenős (S5/S14/S15) | 8+8 fellépés, 280 mm belépő → karfutás `7×280=1 960 mm`; két párhuzamos kar és 200 mm karhézag | Terv 2 960×2 000 mm; az explicit karhézag megmarad, nincs szerkezeti fordulókapcsolat |
+| 3 kar pihenőkkel (S7) | `3 000/18=166,667 mm`; karonként 5 fok ×250 mm; szintek 0/1 000/2 000/3 000 mm | 15 fok és 2 pihenő; bal/jobb tükör befoglaló méretei egyeznek |
+| Húzott forduló (S4/S6/S8) | S4: 2 800 mm emelkedés, 13 fok, 300 mm belső sugár, 800 mm kar; járósugár `300+800/2=700 mm`; 90°/3=30° fokosztás. `s=700×π/6`; húr `2r sin(15°)` | 200 mm fellépő; 366,519 mm járóvonali ívbelépő; belső húr 155,291 mm, külső húr 569,401 mm. Tervfelület kézi poligon-összegből: `[10×800×(700π/6)+3×(1100²−300²)sin(30°)/2]/10⁶` m²; a rajzolt fokpoligonok chord-élei szerinti terület, nem íves foktest |
+| Csigalépcső (S9) | Külső/belső átmérő 2 000/400 → középvonal-sugár 600 mm; 360° ív `1 200π mm`; 17 járóvonal-belépő; alaprajzi gyűrű `π(1²−0,2²)` | 17 fok, 166,667 mm fellépő, tervterület 3,015929 m², `2R+G` a középvonali osztásból; nem járhatósági/fejmagasság-vizsgálat |
+| Beton lépcsőék (S17) | `Σ(i×175×280)` i=1…15, majd ×1 000 mm szélesség; azonos keresztmetszet `4 200×2 800/2` | 5,88 m³; az egyenletes fokos, felső fok nélküli tömör ék modellre érvényes, pihenő/waist nincs |
+| C1 sávalap | `L=30 m`, `w=0,4 m`, `d=0,8 m`: névleges sávösszeg `Lw`; beton `Lwd`; két oldal `2Ld` | 12 m² névleges tengelyhossz-alapú sáv, 9,6 m³ és 48 m². Nyomvonal nélkül a csatlakozási átfedés nem vonható le |
+| C2 hengeres cölöp | 12 db, `r=0,2 m`, `h=2 m`: egy térfogat `πr²h`, palást `πDh`, köralap `πr²`, mind ×12 | 0,251327 m³/db; 3,015929 m³; 30,1593 m² palást; 1,50796 m² összegzett köralap (nem csoport-befoglaló footprint) |
+| C3 alaplemez | `10×8×0,2`; kerület `2(10+8)` és függőleges négy oldalfelület = kerület × vastagság | 16 m³, 80 m², 36 m kerület, 7,2 m² élzsaluzat; kivágás és vasalás nincs |
+| C4 betongyűrű | `D=1,5 m`, fal `0,1 m`, `r=0,75`, `rᵢ=0,65`, `h=1 m`; anyag `π(R²−r²)h`; teljes palást + két annulus | belső Ø 1 300 mm; beton 0,439823 m³; belső tér 1,327323 m³; külső/belső palást 4,712389/4,084070 m²; két véglap 0,879646 m²; teljes geometriai felület 9,676105 m² |
+| C5 térkő/alapréteg | 10×1,2 m; lap 0,2×0,1 m; `ceil(12/0,02)`; alapréteg 0,15 m | 12 m², 600 db területi darab, 22,4 m perem, 1,8 m³ alapréteg; vágás/fuga/rendelt mennyiség nincs |
+| C6 téglalap sáv | Épület 10×8 m, sáv 1 m → külső téglalap 12×10; kivonás; rétegvastagság × 40 m² | 40 m² sáv; 12 000×10 000 mm külső méret; 44 m külső/36 m épületi perem; 100/150 mm esetén 4/6 m³ beton/kavics |
+| C7 keverék | 1,2 m³ × 300 kg/m³ = 360 kg cement; 1:2:4 tömegarány; `ceil(360/25)` | 360/720/1 440 kg cement/homok/adalék, 2 520 kg specifikált száraz összeg, 15 cementzsák; nem recept és nem kihozatali igazolás |
+| C8 rudak | Ø12 mm, 10×6 m, `ρ=7850`: `A=π0,006²`; térfogat `A×60`; tömeg `A×60×ρ` | 60 m, 0,006786 m³, 0,887836 kg/m, 53,2702 kg. Csak explicit egyenes rudak |
+| C9 háló | 5×4 m, 30 mm fedés → tiszta 4,94×3,94 m; 200 mm max osztás: `ceil(4940/200)+1=26`, `ceil(3940/200)+1=21`; 10 mm körszelvény | 26 hosszanti/21 keresztirányú darab a motor tengelyelnevezése szerint; 206,18 m összhossz; 546 metszés; térfogat `206,18×π×0,005²`; az osztás egyenletesen újraosztott, nem vasalási terv |
+| C10 derékszögű átló | `√(3 000²+4 000²)` és `atan2(4 000,3 000)` | 5 000 mm, 53,130102°; geometriai segédérték |
+
+A pontos céltesztfájlok és végső futási állapot a [TEST_MATRIX F9.38](TEST_MATRIX.md) részében vannak. A képletek forrásai [G1]–[G4]; a függvények nem foglalnak magukba tervi, gyártói, statikai vagy normatív jóváhagyást.
 
 ## Forrásjegyzék
 
@@ -248,3 +274,20 @@ Tolerancia: tiszta szimmetrikus fixture-eknél `toBeCloseTo(..., 6–8)` a 3D eu
 ### Evidence status
 
 A pontos Vitest, pgTAP, typecheck, lint, production build és authenticated browser eredményt a F9.36.1 TEST_MATRIX/PROGRESS bejegyzése tartalmazza. A matematikai fixture-k nem gyártói szabályt vagy fizikai beépíthetőséget verifikálnak.
+
+## F9.38.1 — Inputminimalizálás és rajzi értékegyezés
+
+A mezőkötelezettséget a képlet függése határozza meg. Egyenes lépcsőnél a szélesség csak opcionális felülnézeti rajzot ad. Pihenős fordulónál a fordulásirány és az U-alakú lépcső karhézaga a tervgeometriát módosítja, ezért kötelezők; a nyílásméret csak opcionális befoglaló-ellenőrzés. A csigalépcső teljes szögét a felhasználó adja meg, 360°-os rejtett default nincs. Az S16 alapképletéhez belépő és fellépő szükséges, a külön orrkiülés nem kötelező. C8/C9 rudak hossza/térfogata sűrűség nélkül is számítható, tömeghez a felhasználónak kell explicit sűrűséget megadnia.
+
+| Független fixture | Kézi levezetés | Ellenőrzött eredmény |
+|---|---|---|
+| S16 névleges profil, 280/175 mm | Ferdevonal: √(280²+175²); hajlásszög: atan2(175,280) | 330,189 mm és 32,005°. A rajzmodell és a legenda ugyanazt a geometriát használja; az üres orrkiülés nem módosítja a vetületet. |
+| S16 opcionális orrkiülés, 30 mm | A vízszintes vetület 280+30=310 mm; átló: √(310²+175²) | A megjelenített átló a megadott opcionális vetületi többlettel változik; vastagságokból levonást nem számol. |
+| S1/S2/S10/S11 width absent | Egyenes alapmotor a teljes emelkedést, vízszintes helyet és fellépésszámot használja; szélesség csak tervnézethez kell | Az alapgeometria továbbra is számítható; üres opcionális szélesség nem hoz létre fiktív tervméretet. |
+| C8 egyenes rudak, density absent | V = π(d/2)² × hossz; tömeghez külön ρ szükséges | Összhossz és geometriai térfogat elérhető; tömeg és kg/m elmarad, amíg explicit sűrűség nincs megadva. |
+| C9 háló, density absent | Darabszám = ceil(tiszta méret/max osztás)+1; tényleges osztás a szélső rudak között egyenletesen újraosztva | Irányonkénti darabszám, hossz, kiosztás, térfogat és metszésszám elérhető; tömeg csak explicit sűrűségből. |
+| C5/C6 opcionális rétegadat hiányzik | Rétegtérfogat = explicit rétegterület × explicit vastagság | Alapburkolat/sáv alapmennyisége használható; meg nem adott réteghez nem készül térfogat. |
+
+A rajzlefedettségi teszt az összes 17 staircase-azonosító és a 10 beton/segédrajz összes nézetét rendereli. Megerősíti, hogy a fő SVG-ben nincs látható text node, a legenda jelen van, a számolt értékek nem NaN/Infinity értékek, a mesh két kirajzolt rúdiránya eltérő vonalmintával azonosítható, a C6 tervlegenda pedig a számított épületkontúrt mutatja. A HTML/SSR-teszt nem bizonyít manuális screen-reader minőséget, fizikai mobilviselkedést vagy teljes böngészős viewport-mátrixot.
+
+A végső teljes Vitest-futás és a célzott 9 fájlos / 145 tesztes konstrukciós regresszió státuszát a [TEST_MATRIX F9.38.1](TEST_MATRIX.md#f9381--bemenetek-es-muszaki-rajzok) rögzíti. A műszaki eredmény továbbra sem statikai, gyártmányi, normatív vagy vasalási jóváhagyás.

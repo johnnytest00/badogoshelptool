@@ -15,7 +15,7 @@ export const winderStairInputSchema = z.object({
   middleTreadCount: constructionCount.min(1).max(200).optional(),
   upperTreadCount: constructionCount.min(1).max(200),
   windersPerTurn: constructionCount.min(2).max(24),
-  turnDirection: z.enum(["right", "left"]).default("right"),
+  turnDirection: z.enum(["right", "left"]),
   openingLengthMm: constructionLengthMm.optional(),
   openingWidthMm: constructionLengthMm.optional(),
 }).superRefine((input, context) => {
@@ -150,8 +150,12 @@ export function calculateWinderStairGeometry(rawInput: WinderStairInput) {
   if (input.openingLengthMm !== undefined && planWidthMm > input.openingLengthMm) throw new RangeError("A megadott tervhossz kisebb a lépcső számított alaprajzi kiterjedésénél.");
   if (input.openingWidthMm !== undefined && planDepthMm > input.openingWidthMm) throw new RangeError("A megadott tervszélesség kisebb a lépcső számított alaprajzi kiterjedésénél.");
   const developedWalkingRunMm = input.lowerTreadCount * walkingGoingMm + input.upperTreadCount * walkingGoingMm + (input.middleTreadCount ?? 0) * walkingGoingMm + winderCount * walkingGoingMm;
-  assertFiniteResult([riserHeightMm, walkingGoingMm, innerChordMm, outerChordMm, planWidthMm, planDepthMm, developedWalkingRunMm, ...treads.flatMap((tread) => tread.polygon.flatMap((point) => [point.xMm, point.yMm, tread.levelMm]))]);
-  return { layout: input.layout, turnDirection: input.turnDirection, turnDegrees, turns, totalRiseMm: input.totalRiseMm, stairWidthMm: input.stairWidthMm, innerRadiusMm, outerRadiusMm, walkingRadiusMm, lowerTreadCount: input.lowerTreadCount, middleTreadCount: input.middleTreadCount ?? 0, upperTreadCount: input.upperTreadCount, windersPerTurn: input.windersPerTurn, treadCount, riserCount, riserHeightMm, stepAngleDegrees, walkingGoingMm, innerChordMm, outerChordMm, developedWalkingRunMm, planWidthMm, planDepthMm, treads };
+  const stepRuleMm = 2 * riserHeightMm + walkingGoingMm;
+  const pitchDegrees = Math.atan2(input.totalRiseMm, developedWalkingRunMm) * 180 / Math.PI;
+  const walkingPitchLengthMm = Math.hypot(input.totalRiseMm, developedWalkingRunMm);
+  const treadSurfaceAreaM2 = treads.reduce((sum, tread) => sum + area(tread.polygon), 0) / 1_000_000;
+  assertFiniteResult([riserHeightMm, walkingGoingMm, innerChordMm, outerChordMm, planWidthMm, planDepthMm, developedWalkingRunMm, stepRuleMm, pitchDegrees, walkingPitchLengthMm, treadSurfaceAreaM2, ...treads.flatMap((tread) => tread.polygon.flatMap((point) => [point.xMm, point.yMm, tread.levelMm]))]);
+  return { layout: input.layout, turnDirection: input.turnDirection, turnDegrees, turns, totalRiseMm: input.totalRiseMm, stairWidthMm: input.stairWidthMm, innerRadiusMm, outerRadiusMm, walkingRadiusMm, lowerTreadCount: input.lowerTreadCount, middleTreadCount: input.middleTreadCount ?? 0, upperTreadCount: input.upperTreadCount, windersPerTurn: input.windersPerTurn, treadCount, riserCount, riserHeightMm, stepAngleDegrees, walkingGoingMm, stepRuleMm, pitchDegrees, walkingPitchLengthMm, treadSurfaceAreaM2, innerChordMm, outerChordMm, developedWalkingRunMm, planWidthMm, planDepthMm, treads };
 }
 
 export function winderTreadPolygonArea(polygon: readonly WinderPoint[]) { return area(polygon); }

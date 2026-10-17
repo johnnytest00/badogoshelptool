@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateWinderStairGeometry, winderPolygonIsConvex, winderTreadPolygonArea, winderTreadsOverlap } from "./winder-stairs";
+import { calculateWinderStairGeometry, winderPolygonIsConvex, winderStairInputSchema, winderTreadPolygonArea, winderTreadsOverlap } from "./winder-stairs";
 
 const base = {
   totalRiseMm: 2_800,
@@ -12,6 +12,11 @@ const base = {
 };
 
 describe("shared winder staircase geometry", () => {
+  it("requires an explicit turn direction", () => {
+    const withoutDirection = Object.fromEntries(Object.entries(base).filter(([key]) => key !== "turnDirection"));
+    expect(winderStairInputSchema.safeParse({ ...withoutDirection, layout: "quarter_turn" }).success).toBe(false);
+  });
+
   it("matches a hand-derived 90 degree annular-sector fixture", () => {
     const result = calculateWinderStairGeometry({ ...base, layout: "quarter_turn" });
     expect(result.turnDegrees).toBe(90);
@@ -24,6 +29,11 @@ describe("shared winder staircase geometry", () => {
     expect(result.innerChordMm).toBeCloseTo(600 * Math.sin(Math.PI / 12), 10);
     expect(result.outerChordMm).toBeCloseTo(2_200 * Math.sin(Math.PI / 12), 10);
     expect(result.developedWalkingRunMm).toBeCloseTo(13 * 700 * Math.PI / 6, 10);
+    expect(result.stepRuleMm).toBeCloseTo(2 * 200 + 700 * Math.PI / 6, 10);
+    expect(result.pitchDegrees).toBeCloseTo(Math.atan2(2_800, 13 * 700 * Math.PI / 6) * 180 / Math.PI, 10);
+    expect(result.walkingPitchLengthMm).toBeCloseTo(Math.hypot(2_800, 13 * 700 * Math.PI / 6), 10);
+    const independentlyDerivedTreadArea = 10 * 800 * (700 * Math.PI / 6) + 3 * ((1_100 ** 2 - 300 ** 2) * Math.sin(Math.PI / 6) / 2);
+    expect(result.treadSurfaceAreaM2).toBeCloseTo(independentlyDerivedTreadArea / 1_000_000, 10);
   });
 
   it("divides a 180 degree turn into equal sectors and preserves continuous counts", () => {

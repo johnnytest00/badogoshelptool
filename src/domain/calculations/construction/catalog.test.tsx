@@ -79,7 +79,7 @@ describe("construction calculator coverage and selection", () => {
     const html = renderToStaticMarkup(<ConstructionStairDrawing referenceId="stair.wood.spiral" values={{ totalRiseMm: "2400", outerDiameterMm: "1800", innerDiameterMm: "300", turnDegrees: "1440", riserCount: "2" }} />);
     expect(html).toContain("fill-rule=\"evenodd\"");
     expect(html).toContain("A 158 158 0 1 1");
-    expect(html).toContain("A több fordulat felülnézeti vetülete egymásra esik.");
+    expect(html).toContain("Több teljes fordulatnál az alaprajzi vetületek egymásra esnek.");
     expect(html).not.toContain("NaN");
     expect(html).not.toContain("Infinity");
   });

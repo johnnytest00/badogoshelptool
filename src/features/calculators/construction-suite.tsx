@@ -27,7 +27,7 @@ import { ConstructionCalculatorThumbnail, ConstructionMaterialDrawing, Construct
 
 type Field = { key: string; label: string; unit: string; initial?: string; integer?: boolean; advanced?: boolean; kind?: "text" | "checkbox" | "select"; options?: readonly { value: string; label: string }[] };
 type ResultLine = { label: string; value: number | string; unit: string };
-type CalculatorDefinition = { reference: ConstructionReference; fields: readonly Field[]; draw: "roof" | "rafter" | "truss" | "stairs" | "spiral" | "bevel" | "rectangle" | "ring" | "mesh" | "diagonal"; note: string; calculate: (input: Record<string, unknown>) => ResultLine[] };
+type CalculatorDefinition = { reference: ConstructionReference; fields: readonly Field[]; draw: "roof" | "rafter" | "truss" | "stairs" | "spiral" | "bevel" | "rectangle" | "ring" | "mesh" | "diagonal"; note: string; advancedHelp?: string; calculate: (input: Record<string, unknown>) => ResultLine[] };
 
 const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-drawing").then((module) => module.TechnicalDrawing), {
   ssr: false,
@@ -94,63 +94,70 @@ const definitions: Record<string, CalculatorDefinition> = {
   },
   "stair.wood.closed_straight": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "stair.wood.closed_straight")!, draw: "stairs", note: "Fellépőmagasság és belépő a megadott összemelkedésből, vízszintes helyből és fellépőszámból. A kényelmi képlet tájékoztató.",
-    fields: [{ key: "totalRiseMm", label: "Padlószintek közötti teljes emelkedés", unit: "mm" }, { key: "availableRunMm", label: "Vízszintes helyigény", unit: "mm" }, { key: "riserCount", label: "Fellépések száma", unit: "db", integer: true }, { key: "stairWidthMm", label: "Lépcsőkar szélessége · további nézetekhez", unit: "mm", advanced: true }],
-    calculate: (input) => { const result = calculateStraightStairGeometry({ totalRiseMm: mm(input, "totalRiseMm"), availableRunMm: mm(input, "availableRunMm"), riserCount: mm(input, "riserCount"), ...(input.stairWidthMm === undefined ? {} : { stairWidthMm: mm(input, "stairWidthMm") }) }); return [{ label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" }, { label: "Fokok száma", value: result.treadCount, unit: "db" }, { label: "Belépő", value: result.goingMm, unit: "mm" }, { label: "Pofafa/tartó geometriai hossza", value: result.stringerLengthMm, unit: "mm" }, { label: "Emelkedési szög", value: result.pitchDegrees, unit: "°" }, { label: "2 × fellépő + belépő", value: result.stepRuleMm, unit: "mm" }]; },
+    advancedHelp: "A kar szélességének megadásával az alaprajzi nézet is méretarányosan megjelenik. Az oldalnézeti eredményekhez nem szükséges.",
+    fields: [{ key: "totalRiseMm", label: "Padlószintek közötti teljes emelkedés", unit: "mm" }, { key: "availableRunMm", label: "Vízszintes helyigény", unit: "mm" }, { key: "riserCount", label: "Fellépések száma", unit: "db", integer: true }, { key: "stairWidthMm", label: "Lépcsőkar szélessége · alaprajzi nézethez", unit: "mm", advanced: true }],
+    calculate: (input) => { const width = nullableMm(input, "stairWidthMm"); const result = calculateStraightStairGeometry({ totalRiseMm: mm(input, "totalRiseMm"), availableRunMm: mm(input, "availableRunMm"), riserCount: mm(input, "riserCount"), ...(width === null ? {} : { stairWidthMm: width }) }); return [{ label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" }, { label: "Fokok száma", value: result.treadCount, unit: "db" }, { label: "Belépő", value: result.goingMm, unit: "mm" }, { label: "Pofafa/tartó tengelyének geometriai hossza", value: result.stringerLengthMm, unit: "mm" }, { label: "Lépcsőhajlás", value: result.pitchDegrees, unit: "°" }, { label: "2 × fellépő + belépő", value: result.stepRuleMm, unit: "mm" }]; },
   },
   "stair.wood.spiral": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "stair.wood.spiral")!, draw: "spiral", note: "A járóvonal-sugár a belső és külső sugár számtani közepe. A felső padló az utolsó fellépés, ezért a vízszintes fokok száma eggyel kevesebb.",
-    fields: [{ key: "totalRiseMm", label: "Padlószintek közötti teljes emelkedés", unit: "mm" }, { key: "outerDiameterMm", label: "Külső átmérő", unit: "mm" }, { key: "innerDiameterMm", label: "Belső átmérő", unit: "mm" }, { key: "turnDegrees", label: "Teljes fordulási szög", unit: "°", initial: "360" }, { key: "riserCount", label: "Fellépések száma", unit: "db", integer: true }],
-    calculate: (input) => { const result = calculateSpiralStairGeometry({ totalRiseMm: mm(input, "totalRiseMm"), outerDiameterMm: mm(input, "outerDiameterMm"), innerDiameterMm: mm(input, "innerDiameterMm"), turnDegrees: mm(input, "turnDegrees"), riserCount: mm(input, "riserCount") }); return [{ label: "Járóvonal sugara", value: result.walkingRadiusMm, unit: "mm" }, { label: "Járóvonal teljes ívhossza", value: result.walkingLineLengthMm, unit: "mm" }, { label: "Fokok száma", value: result.treadCount, unit: "db" }, { label: "Járóvonal-belépő / fok", value: result.walkingGoingMm, unit: "mm" }, { label: "Fellépőmagasság", value: result.riserHeightMm, unit: "mm" }, { label: "Fok szögszélessége", value: result.stepAngleDegrees, unit: "°" }]; },
+    fields: [{ key: "totalRiseMm", label: "Padlószintek közötti teljes emelkedés", unit: "mm" }, { key: "outerDiameterMm", label: "Külső átmérő", unit: "mm" }, { key: "innerDiameterMm", label: "Belső átmérő", unit: "mm" }, { key: "turnDegrees", label: "Teljes fordulási szög", unit: "°" }, { key: "riserCount", label: "Fellépések száma", unit: "db", integer: true }],
+    calculate: (input) => { const result = calculateSpiralStairGeometry({ totalRiseMm: mm(input, "totalRiseMm"), outerDiameterMm: mm(input, "outerDiameterMm"), innerDiameterMm: mm(input, "innerDiameterMm"), turnDegrees: mm(input, "turnDegrees"), riserCount: mm(input, "riserCount") }); return [{ label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" }, { label: "Fokok száma", value: result.treadCount, unit: "db" }, { label: "Járóvonal-belépő / fok", value: result.walkingGoingMm, unit: "mm" }, { label: "Járóvonal teljes ívhossza", value: result.walkingLineLengthMm, unit: "mm" }, { label: "Járóvonal sugara", value: result.walkingRadiusMm, unit: "mm" }, { label: "Fok szögszélessége", value: result.stepAngleDegrees, unit: "°" }, { label: "Lépcsőhajlás a kiterített járóvonalon", value: result.pitchDegrees, unit: "°" }, { label: "2 × fellépő + járóvonal-belépő", value: result.stepRuleMm, unit: "mm" }, { label: "Alaprajzi fokfelület összege", value: result.planAreaM2, unit: "m²" }]; },
   },
   "stair.beveled_riser": {
-    reference: constructionCalculatorCatalog.find((item) => item.id === "stair.beveled_riser")!, draw: "bevel", note: "Egyszerű lépcső-keresztmetszeti vágásgeometria. Nem tartalmaz illesztési vagy rögzítési ráhagyást.",
-    fields: [{ key: "goingMm", label: "Belépő", unit: "mm" }, { key: "riserHeightMm", label: "Fellépő", unit: "mm" }, { key: "nosingProjectionMm", label: "Orrkiülés", unit: "mm", initial: "0" }, { key: "treadThicknessMm", label: "Fokvastagság", unit: "mm" }, { key: "riserBlankThicknessMm", label: "Függőleges elem vastagsága", unit: "mm" }],
-    calculate: (input) => { const result = calculateBeveledRiserGeometry({ goingMm: mm(input, "goingMm"), riserHeightMm: mm(input, "riserHeightMm"), nosingProjectionMm: mm(input, "nosingProjectionMm"), treadThicknessMm: mm(input, "treadThicknessMm"), riserBlankThicknessMm: mm(input, "riserBlankThicknessMm") }); return [{ label: "Lépcső átlója", value: result.diagonalMm, unit: "mm" }, { label: "Fok dőlése", value: result.slopeDegrees, unit: "°" }, { label: "Ferde vágás szöge", value: result.bevelAngleDegrees, unit: "°" }, { label: "Függőleges elem névleges hossza", value: result.riserBlankLengthMm, unit: "mm" }]; },
+    reference: constructionCalculatorCatalog.find((item) => item.id === "stair.beveled_riser")!, draw: "bevel", note: "A belépő és fellépő derékszögű profilgeometriája. A megadott orrkiülés módosítja a vízszintes vetületet; illesztési és rögzítési levonást nem számít.",
+    advancedHelp: "Az orrkiülés a megadott belépőn túli vízszintes kinyúlást veszi figyelembe. Üresen hagyva a számítás a megadott belépővel készül, hozzáadott kiülés nélkül.",
+    fields: [{ key: "goingMm", label: "Belépő", unit: "mm" }, { key: "riserHeightMm", label: "Fellépő", unit: "mm" }, { key: "nosingProjectionMm", label: "Orrkiülés", unit: "mm", advanced: true }],
+    calculate: (input) => { const nosingProjectionMm = nullableMm(input, "nosingProjectionMm"); const result = calculateBeveledRiserGeometry({ goingMm: mm(input, "goingMm"), riserHeightMm: mm(input, "riserHeightMm"), ...(nosingProjectionMm === null ? {} : { nosingProjectionMm }) }); return [{ label: "Belépő és megadott orrkiülés", value: result.horizontalMm, unit: "mm" }, { label: "Geometriai átló", value: result.diagonalMm, unit: "mm" }, { label: "Ferde elem hajlásszöge", value: result.slopeDegrees, unit: "°" }, { label: "Merőleges szögkiegészítés", value: result.bevelAngleDegrees, unit: "°" }]; },
   },
   "concrete.strip": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "concrete.strip")!, draw: "rectangle", note: "A teljes középvonalhossz a felhasználó által előre összesített méret; belső sarkokat nem duplázza automatikusan.",
     fields: [{ key: "totalCenterlineLengthMm", label: "Sávalap összes tengelyhossza", unit: "mm" }, { key: "widthMm", label: "Szélesség", unit: "mm" }, { key: "depthMm", label: "Mélység", unit: "mm" }],
-    calculate: (input) => { const result = calculateStripFoundation({ totalCenterlineLengthMm: mm(input, "totalCenterlineLengthMm"), widthMm: mm(input, "widthMm"), depthMm: mm(input, "depthMm") }); return [{ label: "Geometriai betonmennyiség", value: result.volumeM3, unit: "m³" }, { label: "Kétoldali zsalufelület", value: result.twoSideFormworkM2, unit: "m²" }]; },
+    calculate: (input) => { const result = calculateStripFoundation({ totalCenterlineLengthMm: mm(input, "totalCenterlineLengthMm"), widthMm: mm(input, "widthMm"), depthMm: mm(input, "depthMm") }); return [{ label: "Geometriai betonmennyiség", value: result.volumeM3, unit: "m³" }, { label: "Két oldalfelület zsaluzata", value: result.twoSideFormworkM2, unit: "m²" }, { label: "Szakaszok névleges alapfelülete · tengelyhossz × szélesség", value: result.nominalPlanAreaM2, unit: "m²" }]; },
   },
   "concrete.pile": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "concrete.pile")!, draw: "ring", note: "Csak egyenes, kör keresztmetszetű cölöpszár. Talpbővítés és szerkezeti megfelelőség nincs.",
     fields: [{ key: "count", label: "Cölöpök száma", unit: "db", integer: true }, { key: "diameterMm", label: "Átmérő", unit: "mm" }, { key: "lengthMm", label: "Hossz", unit: "mm" }],
-    calculate: (input) => { const result = calculateCylindricalPiles({ count: mm(input, "count"), diameterMm: mm(input, "diameterMm"), lengthMm: mm(input, "lengthMm") }); return [{ label: "Egy cölöp térfogata", value: result.onePileM3, unit: "m³" }, { label: "Összes betonmennyiség", value: result.totalVolumeM3, unit: "m³" }]; },
+    calculate: (input) => { const result = calculateCylindricalPiles({ count: mm(input, "count"), diameterMm: mm(input, "diameterMm"), lengthMm: mm(input, "lengthMm") }); return [{ label: "Cölöpök száma", value: result.count, unit: "db" }, { label: "Összes betonmennyiség", value: result.totalVolumeM3, unit: "m³" }, { label: "Egy cölöp térfogata", value: result.onePileM3, unit: "m³" }, { label: "Összes palástfelület", value: result.totalLateralAreaM2, unit: "m²" }, { label: "Összes kör alapfelület", value: result.totalPlanAreaM2, unit: "m²" }]; },
   },
   "concrete.slab": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "concrete.slab")!, draw: "rectangle", note: "Téglalap alakú, állandó vastagságú lemez. A peremzsaluzat a négy oldalt veszi figyelembe.",
     fields: [{ key: "lengthMm", label: "Hossz", unit: "mm" }, { key: "widthMm", label: "Szélesség", unit: "mm" }, { key: "thicknessMm", label: "Vastagság", unit: "mm" }],
-    calculate: (input) => { const result = calculateFoundationSlab({ lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), thicknessMm: mm(input, "thicknessMm") }); return [{ label: "Alaprajzi terület", value: result.planAreaM2, unit: "m²" }, { label: "Geometriai betonmennyiség", value: result.volumeM3, unit: "m³" }, { label: "Élzsaluzat", value: result.edgeFormworkM2, unit: "m²" }]; },
+    calculate: (input) => { const result = calculateFoundationSlab({ lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), thicknessMm: mm(input, "thicknessMm") }); return [{ label: "Geometriai betonmennyiség", value: result.volumeM3, unit: "m³" }, { label: "Alaprajzi terület", value: result.planAreaM2, unit: "m²" }, { label: "Élzsaluzat", value: result.edgeFormworkM2, unit: "m²" }, { label: "Alaprajzi kerület", value: result.perimeterM, unit: "m" }]; },
   },
   "concrete.ring": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "concrete.ring")!, draw: "ring", note: "Körgyűrű keresztmetszetű, üreges test. A méretek a kész geometriai alakot írják le.",
     fields: [{ key: "outerDiameterMm", label: "Külső átmérő", unit: "mm" }, { key: "wallThicknessMm", label: "Falvastagság", unit: "mm" }, { key: "heightMm", label: "Magasság", unit: "mm" }],
-    calculate: (input) => { const result = calculateConcreteRing({ outerDiameterMm: mm(input, "outerDiameterMm"), wallThicknessMm: mm(input, "wallThicknessMm"), heightMm: mm(input, "heightMm") }); return [{ label: "Belső átmérő", value: result.innerDiameterMm, unit: "mm" }, { label: "Beton térfogata", value: result.concreteVolumeM3, unit: "m³" }, { label: "Belső hasznos térfogat", value: result.internalVolumeM3, unit: "m³" }, { label: "Külső palástfelület", value: result.outsideLateralAreaM2, unit: "m²" }]; },
+    calculate: (input) => { const result = calculateConcreteRing({ outerDiameterMm: mm(input, "outerDiameterMm"), wallThicknessMm: mm(input, "wallThicknessMm"), heightMm: mm(input, "heightMm") }); return [{ label: "Beton térfogata", value: result.concreteVolumeM3, unit: "m³" }, { label: "Belső átmérő", value: result.innerDiameterMm, unit: "mm" }, { label: "Belső hasznos térfogat", value: result.internalVolumeM3, unit: "m³" }, { label: "Külső palástfelület", value: result.outsideLateralAreaM2, unit: "m²" }, { label: "Belső palástfelület", value: result.insideLateralAreaM2, unit: "m²" }, { label: "Két gyűrűvéglap összege", value: result.annularEndAreaM2 * 2, unit: "m²" }, { label: "Teljes geometriai felület", value: result.totalGeometricSurfaceAreaM2, unit: "m²" }]; },
   },
   "concrete.paving": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "concrete.paving")!, draw: "rectangle", note: "A darabszám csak terület/lap-terület arány. Nem számol vágással, fugával, mintával vagy veszteséggel.",
-    fields: [{ key: "lengthMm", label: "Burkolandó hossz", unit: "mm" }, { key: "widthMm", label: "Burkolandó szélesség", unit: "mm" }, { key: "tileLengthMm", label: "Egy lap hossza", unit: "mm" }, { key: "tileWidthMm", label: "Egy lap szélessége", unit: "mm" }],
-    calculate: (input) => { const result = calculatePavingMaterials({ lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), tileLengthMm: mm(input, "tileLengthMm"), tileWidthMm: mm(input, "tileWidthMm") }); return [{ label: "Burkolandó terület", value: result.areaM2, unit: "m²" }, { label: "Egy lap területe", value: result.tileAreaM2, unit: "m²" }, { label: "Területből számított lapmennyiség", value: result.tilesByArea, unit: "db" }]; },
+    advancedHelp: "Az alapréteg vastagságával külön geometriai rétegtérfogat számítható. A terület és a lapmennyiség enélkül is elkészül.",
+    fields: [{ key: "lengthMm", label: "Burkolandó hossz", unit: "mm" }, { key: "widthMm", label: "Burkolandó szélesség", unit: "mm" }, { key: "tileLengthMm", label: "Egy lap hossza", unit: "mm" }, { key: "tileWidthMm", label: "Egy lap szélessége", unit: "mm" }, { key: "baseLayerThicknessMm", label: "Megadott alapréteg vastagsága", unit: "mm", advanced: true }],
+    calculate: (input) => { const baseLayerThicknessMm = nullableMm(input, "baseLayerThicknessMm"); const result = calculatePavingMaterials({ lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), tileLengthMm: mm(input, "tileLengthMm"), tileWidthMm: mm(input, "tileWidthMm"), ...(baseLayerThicknessMm === null ? {} : { baseLayerThicknessMm }) }); return [{ label: "Burkolandó terület", value: result.areaM2, unit: "m²" }, { label: "Területből számított lapmennyiség", value: result.tilesByArea, unit: "db" }, { label: "Egy lap területe", value: result.tileAreaM2, unit: "m²" }, ...(result.baseLayerVolumeM3 === null ? [] : [{ label: "Megadott alapréteg térfogata", value: result.baseLayerVolumeM3, unit: "m³" }]), { label: "Burkolat geometriai kerülete", value: result.perimeterM, unit: "m" }]; },
   },
   "concrete.blind_area": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "concrete.blind_area")!, draw: "rectangle", note: "Téglalap épületalaprajzot és minden oldalon azonos sávszélességet feltételez.",
+    advancedHelp: "A beton és a kavics megadott vastagságával külön rétegtérfogat számítható; a sáv alaprajzi területe ezek nélkül is elérhető.",
     fields: [{ key: "buildingLengthMm", label: "Épület hossza", unit: "mm" }, { key: "buildingWidthMm", label: "Épület szélessége", unit: "mm" }, { key: "apronWidthMm", label: "Körüljáró sáv szélessége", unit: "mm" }, { key: "concreteThicknessMm", label: "Betonréteg vastagsága", unit: "mm", advanced: true }, { key: "gravelThicknessMm", label: "Kavicsréteg vastagsága", unit: "mm", advanced: true }],
-    calculate: (input) => { const concreteThicknessMm = nullableMm(input, "concreteThicknessMm"); const gravelThicknessMm = nullableMm(input, "gravelThicknessMm"); const result = calculateRectangularBlindArea({ buildingLengthMm: mm(input, "buildingLengthMm"), buildingWidthMm: mm(input, "buildingWidthMm"), apronWidthMm: mm(input, "apronWidthMm"), ...(concreteThicknessMm === null ? {} : { concreteThicknessMm }), ...(gravelThicknessMm === null ? {} : { gravelThicknessMm }) }); return [{ label: "Sáv területe", value: result.apronAreaM2, unit: "m²" }, ...(result.concreteVolumeM3 === null ? [] : [{ label: "Megadott betonréteg térfogata", value: result.concreteVolumeM3, unit: "m³" }]), ...(result.gravelVolumeM3 === null ? [] : [{ label: "Megadott kavicsréteg térfogata", value: result.gravelVolumeM3, unit: "m³" }])]; },
+    calculate: (input) => { const concreteThicknessMm = nullableMm(input, "concreteThicknessMm"); const gravelThicknessMm = nullableMm(input, "gravelThicknessMm"); const result = calculateRectangularBlindArea({ buildingLengthMm: mm(input, "buildingLengthMm"), buildingWidthMm: mm(input, "buildingWidthMm"), apronWidthMm: mm(input, "apronWidthMm"), ...(concreteThicknessMm === null ? {} : { concreteThicknessMm }), ...(gravelThicknessMm === null ? {} : { gravelThicknessMm }) }); return [{ label: "Sáv területe", value: result.apronAreaM2, unit: "m²" }, { label: "Külső befoglaló hossz × szélesség", value: `${formatHuNumber(result.outerLengthMm)} × ${formatHuNumber(result.outerWidthMm)}`, unit: "mm" }, { label: "Külső peremhossz", value: result.outerPerimeterM, unit: "m" }, { label: "Épület melletti belső peremhossz", value: result.buildingPerimeterM, unit: "m" }, ...(result.concreteVolumeM3 === null ? [] : [{ label: "Megadott betonréteg térfogata", value: result.concreteVolumeM3, unit: "m³" }]), ...(result.gravelVolumeM3 === null ? [] : [{ label: "Megadott kavicsréteg térfogata", value: result.gravelVolumeM3, unit: "m³" }])]; },
   },
   "concrete.mix": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "concrete.mix")!, draw: "rectangle", note: "Minden receptarányt és cementigényt a felhasználó ad meg. Ez tömegarány-alapú mennyiségi becslés, nem betonrecept vagy szilárdsági osztály.",
+    advancedHelp: "A zsáktömeg megadásával a szükséges cementzsákok egész darabszáma is kiszámítható.",
     fields: [{ key: "concreteVolumeM3", label: "Szükséges betonmennyiség", unit: "m³" }, { key: "cementKgPerM3", label: "Cementigény", unit: "kg/m³" }, { key: "cementRatio", label: "Cement aránya", unit: "rész" }, { key: "sandRatio", label: "Homok aránya", unit: "rész" }, { key: "aggregateRatio", label: "Kavics / adalék aránya", unit: "rész" }, { key: "bagWeightKg", label: "Zsák tömege", unit: "kg", advanced: true }],
-    calculate: (input) => { const bagWeightKg = nullableMm(input, "bagWeightKg"); const result = calculateConcreteMix({ concreteVolumeM3: mm(input, "concreteVolumeM3"), cementKgPerM3: mm(input, "cementKgPerM3"), cementRatio: mm(input, "cementRatio"), sandRatio: mm(input, "sandRatio"), aggregateRatio: mm(input, "aggregateRatio"), ...(bagWeightKg === null ? {} : { bagWeightKg }) }); return [{ label: "Cement", value: result.cementKg, unit: "kg" }, { label: "Homok", value: result.sandKg, unit: "kg" }, { label: "Adalékanyag", value: result.aggregateKg, unit: "kg" }, ...(result.bagCount === null ? [] : [{ label: "Cementzsák", value: result.bagCount, unit: "db" }])]; },
+    calculate: (input) => { const bagWeightKg = nullableMm(input, "bagWeightKg"); const result = calculateConcreteMix({ concreteVolumeM3: mm(input, "concreteVolumeM3"), cementKgPerM3: mm(input, "cementKgPerM3"), cementRatio: mm(input, "cementRatio"), sandRatio: mm(input, "sandRatio"), aggregateRatio: mm(input, "aggregateRatio"), ...(bagWeightKg === null ? {} : { bagWeightKg }) }); return [{ label: "Cement", value: result.cementKg, unit: "kg" }, { label: "Homok", value: result.sandKg, unit: "kg" }, { label: "Adalékanyag", value: result.aggregateKg, unit: "kg" }, { label: "Megadott száraz összetevők tömege", value: result.totalSpecifiedDryMaterialKg, unit: "kg" }, ...(result.bagCount === null ? [] : [{ label: "Cementzsák", value: result.bagCount, unit: "db" }])]; },
   },
   "concrete.rebar": {
-    reference: constructionCalculatorCatalog.find((item) => item.id === "concrete.rebar")!, draw: "mesh", note: "A megadott rudak geometriai összhossza és közelítő tömege. A sűrűség alapértéke 7 850 kg/m³, az adatlap szerint módosítható.",
-    fields: [{ key: "barDiameterMm", label: "Rúdátmérő", unit: "mm" }, { key: "cutLengthMm", label: "Egy rúd vágott hossza", unit: "mm" }, { key: "pieceCount", label: "Rudak száma", unit: "db", integer: true }, { key: "steelDensityKgPerM3", label: "Acélsűrűség", unit: "kg/m³", initial: "7850", advanced: true }],
-    calculate: (input) => { const result = calculateReinforcementBars({ barDiameterMm: mm(input, "barDiameterMm"), cutLengthMm: mm(input, "cutLengthMm"), pieceCount: mm(input, "pieceCount"), steelDensityKgPerM3: mm(input, "steelDensityKgPerM3") }); return [{ label: "Teljes rúdhossz", value: result.totalLengthM, unit: "m" }, { label: "Geometriai össztömeg", value: result.totalMassKg, unit: "kg" }]; },
+    reference: constructionCalculatorCatalog.find((item) => item.id === "concrete.rebar")!, draw: "mesh", note: "A megadott rudak darabszámát, összhosszát és geometriai acéltérfogatát számítja. Tömeg csak külön megadott acélsűrűséggel jelenik meg.",
+    advancedHelp: "Az acélsűrűség szükséges a tömeg és a folyómétertömeg számításához. Sűrűség nélkül a geometriai hossz és térfogat továbbra is kiszámítható.",
+    fields: [{ key: "barDiameterMm", label: "Rúdátmérő", unit: "mm" }, { key: "cutLengthMm", label: "Egy rúd vágott hossza", unit: "mm" }, { key: "pieceCount", label: "Rudak száma", unit: "db", integer: true }, { key: "steelDensityKgPerM3", label: "Acélsűrűség", unit: "kg/m³", advanced: true }],
+    calculate: (input) => { const steelDensityKgPerM3 = nullableMm(input, "steelDensityKgPerM3"); const result = calculateReinforcementBars({ barDiameterMm: mm(input, "barDiameterMm"), cutLengthMm: mm(input, "cutLengthMm"), pieceCount: mm(input, "pieceCount"), ...(steelDensityKgPerM3 === null ? {} : { steelDensityKgPerM3 }) }); return [{ label: "Rudak száma", value: result.pieceCount, unit: "db" }, { label: "Teljes rúdhossz", value: result.totalLengthM, unit: "m" }, { label: "Geometriai össztérfogat", value: result.totalSteelVolumeM3, unit: "m³" }, ...(result.totalMassKg === null || result.unitMassKgPerM === null ? [] : [{ label: "Geometriai össztömeg", value: result.totalMassKg, unit: "kg" }, { label: "Tömeg folyóméterenként", value: result.unitMassKgPerM, unit: "kg/m" }])]; },
   },
   "concrete.mesh": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "concrete.mesh")!, draw: "mesh", note: "A megadott osztás felső korlát; a program egyenletes tényleges kiosztást igazít a fedett méretre. Átlapolás nincs.",
-    fields: [{ key: "lengthMm", label: "Háló hossza", unit: "mm" }, { key: "widthMm", label: "Háló szélessége", unit: "mm" }, { key: "coverMm", label: "Vasalás szélső fedés", unit: "mm" }, { key: "spacingMm", label: "Rúdosztás legfeljebb", unit: "mm" }, { key: "barDiameterMm", label: "Rúdátmérő", unit: "mm" }, { key: "steelDensityKgPerM3", label: "Acélsűrűség", unit: "kg/m³", initial: "7850", advanced: true }],
-    calculate: (input) => { const result = calculateReinforcementMesh({ lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), coverMm: mm(input, "coverMm"), spacingMm: mm(input, "spacingMm"), barDiameterMm: mm(input, "barDiameterMm"), steelDensityKgPerM3: mm(input, "steelDensityKgPerM3") }); return [{ label: "Hosszanti rudak száma", value: result.lengthwiseBarCount, unit: "db" }, { label: "Keresztirányú rudak száma", value: result.widthwiseBarCount, unit: "db" }, { label: "Rudak összhossza", value: result.totalBarLengthM, unit: "m" }, { label: "Geometriai össztömeg", value: result.totalMassKg, unit: "kg" }, { label: "Tényleges osztás a hossz mentén", value: result.actualSpacingAlongLengthMm, unit: "mm" }, { label: "Tényleges osztás a szélesség mentén", value: result.actualSpacingAlongWidthMm, unit: "mm" }]; },
+    advancedHelp: "Az acélsűrűséggel a háló geometriájából becsült tömeg is kiszámítható. Üresen hagyva a rúd- és osztásadatok továbbra is elérhetők.",
+    fields: [{ key: "lengthMm", label: "Háló hossza", unit: "mm" }, { key: "widthMm", label: "Háló szélessége", unit: "mm" }, { key: "coverMm", label: "Vasalás szélső fedés", unit: "mm" }, { key: "spacingMm", label: "Rúdosztás legfeljebb", unit: "mm" }, { key: "barDiameterMm", label: "Rúdátmérő", unit: "mm" }, { key: "steelDensityKgPerM3", label: "Acélsűrűség", unit: "kg/m³", advanced: true }],
+    calculate: (input) => { const steelDensityKgPerM3 = nullableMm(input, "steelDensityKgPerM3"); const result = calculateReinforcementMesh({ lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), coverMm: mm(input, "coverMm"), spacingMm: mm(input, "spacingMm"), barDiameterMm: mm(input, "barDiameterMm"), ...(steelDensityKgPerM3 === null ? {} : { steelDensityKgPerM3 }) }); return [{ label: "Hosszanti rudak száma", value: result.lengthwiseBarCount, unit: "db" }, { label: "Keresztirányú rudak száma", value: result.widthwiseBarCount, unit: "db" }, { label: "Rudak összhossza", value: result.totalBarLengthM, unit: "m" }, ...(result.totalMassKg === null ? [] : [{ label: "Geometriai össztömeg", value: result.totalMassKg, unit: "kg" }]), { label: "Rúdkeresztezések száma", value: result.intersectionCount, unit: "db" }, { label: "Tényleges osztás a hossz mentén", value: result.actualSpacingAlongLengthMm, unit: "mm" }, { label: "Tényleges osztás a szélesség mentén", value: result.actualSpacingAlongWidthMm, unit: "mm" }]; },
   },
   "aux.diagonal": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "aux.diagonal")!, draw: "diagonal", note: "Kizárólag geometriai segédszámítás: a két megadott befogóból számít átlót.",
@@ -173,11 +180,11 @@ const twoFlightFields: readonly Field[] = [
   { key: "firstFlightRiserCount", label: "1. kar fellépései", unit: "db", integer: true },
   { key: "secondFlightRiserCount", label: "2. kar fellépései", unit: "db", integer: true },
   { key: "landingDepthMm", label: "Pihenő mélysége", unit: "mm" },
-  { key: "turnDirection", label: "Fordulás iránya", unit: "", kind: "select", initial: "right", options: [{ value: "right", label: "Jobbra" }, { value: "left", label: "Balra" }] },
+  { key: "turnDirection", label: "Fordulás iránya", unit: "", kind: "select", options: [{ value: "right", label: "Jobbra" }, { value: "left", label: "Balra" }] },
   { key: "openingLengthMm", label: "Ellenőrző alaprajzi hossz", unit: "mm", advanced: true },
   { key: "openingWidthMm", label: "Ellenőrző alaprajzi szélesség", unit: "mm", advanced: true },
 ];
-const uFlightFields: readonly Field[] = [...twoFlightFields, { key: "landingGapMm", label: "Karok közötti hézag", unit: "mm", initial: "0", advanced: true }];
+const uFlightFields: readonly Field[] = [...twoFlightFields, { key: "landingGapMm", label: "Karok közötti hézag", unit: "mm" }];
 const threeFlightFields: readonly Field[] = [
   ...twoFlightFields.filter((field) => field.key !== "firstFlightRiserCount" && field.key !== "secondFlightRiserCount" && field.key !== "openingLengthMm" && field.key !== "openingWidthMm"),
   { key: "firstFlightRiserCount", label: "1. kar fellépései", unit: "db", integer: true },
@@ -193,6 +200,7 @@ function landingStairDefinition(id: string, layout: "quarter_turn" | "half_turn"
   return {
     reference,
     draw: "stairs",
+    advancedHelp: "A tervhossz és tervszélesség ellenőrzi, hogy a kiszámított alaprajzi geometria elfér-e a megadott nyílásban.",
     note: "Egyenletes fellépőt és megadott belépőt használ. A pihenő és a karok mérete explicit bemenet; csak alaprajzi/fokgeometriát számít, nem szerkezeti kialakítást.",
     fields,
     calculate: (input) => {
@@ -207,7 +215,7 @@ function landingStairDefinition(id: string, layout: "quarter_turn" | "half_turn"
         goingMm: mm(input, "goingMm"),
         landingDepthMm: mm(input, "landingDepthMm"),
         flightRiserCounts: riserKeys.map((key) => mm(input, key)),
-        turnDirection: input.turnDirection === "left" ? "left" : "right",
+        turnDirection: input.turnDirection as "left" | "right",
         ...(landingGapMm === null ? {} : { landingGapMm }),
         ...(openingLengthMm === null ? {} : { openingLengthMm }),
         ...(openingWidthMm === null ? {} : { openingWidthMm }),
@@ -216,9 +224,15 @@ function landingStairDefinition(id: string, layout: "quarter_turn" | "half_turn"
         { label: "Egy fellépő minden karon", value: result.riserHeightMm, unit: "mm" },
         { label: "Összes fellépés", value: result.riserCount, unit: "db" },
         { label: "Összes fok", value: result.treadCount, unit: "db" },
+        { label: "Lépcsőhajlás", value: result.pitchDegrees, unit: "°" },
+        { label: "2 × fellépő + belépő", value: result.stepRuleMm, unit: "mm" },
         { label: "Alaprajzi kiterjedés · hossz", value: result.planWidthMm, unit: "mm" },
         { label: "Alaprajzi kiterjedés · szélesség", value: result.planDepthMm, unit: "mm" },
-        ...result.flights.map((flight) => ({ label: `${flight.index}. kar · ${flight.treadCount} fok · futás`, value: flight.runMm, unit: "mm" })),
+        { label: "Fokok alaprajzi felülete", value: result.flightTreadSurfaceAreaM2, unit: "m²" },
+        { label: "Pihenők alaprajzi felülete", value: result.landingSurfaceAreaM2, unit: "m²" },
+        { label: "Karfutások geometriai összhossza", value: result.totalGeometricFlightLengthMm, unit: "mm" },
+        ...result.flights.map((flight) => ({ label: `${flight.index}. kar · vízszintes futás`, value: flight.runMm, unit: "mm" })),
+        ...result.flightGeometricLengthsMm.map((length, index) => ({ label: `${index + 1}. kar · geometriai tengelyhossz`, value: length, unit: "mm" })),
       ];
     },
   };
@@ -234,13 +248,14 @@ function winderStairDefinition(id: string, layout: "quarter_turn" | "half_turn" 
     ...(layout === "three_flight" ? [{ key: "middleTreadCount", label: "Középső kar fokainak száma", unit: "db", integer: true } as const] : []),
     { key: "upperTreadCount", label: "Felső kar fokainak száma", unit: "db", integer: true },
     { key: "windersPerTurn", label: "Húzott fokok száma fordulónként", unit: "db", integer: true },
-    { key: "turnDirection", label: "Fordulás iránya", unit: "", kind: "select", initial: "right", options: [{ value: "right", label: "Jobbra" }, { value: "left", label: "Balra" }] },
+    { key: "turnDirection", label: "Fordulás iránya", unit: "", kind: "select", options: [{ value: "right", label: "Jobbra" }, { value: "left", label: "Balra" }] },
     { key: "openingLengthMm", label: "Ellenőrző alaprajzi hossz", unit: "mm", advanced: true },
     { key: "openingWidthMm", label: "Ellenőrző alaprajzi szélesség", unit: "mm", advanced: true },
   ];
   return {
     reference,
     draw: "stairs",
+    advancedHelp: "A tervhossz és tervszélesség ellenőrzi, hogy a húzott fokos alaprajz elfér-e a megadott nyílásban.",
     note: "Geometriai modell: egyenlő szögosztású, koncentrikus húzott fokok; a járóvonal a kar középvonalán azonos ívhosszal halad. A rajz sem gyártási, sem statikai igazolás.",
     fields,
     calculate: (input) => {
@@ -248,16 +263,20 @@ function winderStairDefinition(id: string, layout: "quarter_turn" | "half_turn" 
         layout,
         totalRiseMm: mm(input, "totalRiseMm"), stairWidthMm: mm(input, "stairWidthMm"), innerRadiusMm: mm(input, "innerRadiusMm"),
         lowerTreadCount: mm(input, "lowerTreadCount"), upperTreadCount: mm(input, "upperTreadCount"), windersPerTurn: mm(input, "windersPerTurn"),
-        turnDirection: input.turnDirection === "left" ? "left" : "right",
+        turnDirection: input.turnDirection as "left" | "right",
         ...(layout === "three_flight" ? { middleTreadCount: mm(input, "middleTreadCount") } : {}),
         ...(nullableMm(input, "openingLengthMm") === null ? {} : { openingLengthMm: nullableMm(input, "openingLengthMm")! }),
         ...(nullableMm(input, "openingWidthMm") === null ? {} : { openingWidthMm: nullableMm(input, "openingWidthMm")! }),
       });
       return [
         { label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" }, { label: "Összes fellépés", value: result.riserCount, unit: "db" },
-        { label: "Összes vízszintes fok", value: result.treadCount, unit: "db" }, { label: "Járóvonal-belépő a fordulóban", value: result.walkingGoingMm, unit: "mm" },
+        { label: "Összes vízszintes fok", value: result.treadCount, unit: "db" }, { label: "Járóvonal-belépő / fok", value: result.walkingGoingMm, unit: "mm" },
+        { label: "Kiterített járóvonal-futás", value: result.developedWalkingRunMm, unit: "mm" }, { label: "Fordulás", value: `${result.turnDegrees}° · ${result.turnDirection === "right" ? "jobbra" : "balra"}`, unit: "" },
+        { label: "2 × fellépő + járóvonal-belépő", value: result.stepRuleMm, unit: "mm" },
+        { label: "Kiterített járóvonalhajlás", value: result.pitchDegrees, unit: "°" },
+        { label: "Járóvonal menti ferde hossz", value: result.walkingPitchLengthMm, unit: "mm" },
         { label: "Húzott fok belső / külső húrja", value: `${formatHuNumber(result.innerChordMm)} / ${formatHuNumber(result.outerChordMm)}`, unit: "mm" },
-        { label: "Fok szögosztása", value: result.stepAngleDegrees, unit: "°" }, { label: "Kiterített járóvonal-futás", value: result.developedWalkingRunMm, unit: "mm" },
+        { label: "Fordulófok szögosztása", value: result.stepAngleDegrees, unit: "°" }, { label: "Kiosztott fokok alaprajzi felülete", value: result.treadSurfaceAreaM2, unit: "m²" },
         { label: "Alaprajzi kiterjedés · hossz", value: result.planWidthMm, unit: "mm" }, { label: "Alaprajzi kiterjedés · szélesség", value: result.planDepthMm, unit: "mm" },
       ];
     },
@@ -283,9 +302,13 @@ definitions["stair.concrete_straight"] = {
   calculate: (input) => {
     const result = calculateConcreteStairGeometry({ totalRiseMm: mm(input, "totalRiseMm"), availableRunMm: mm(input, "availableRunMm"), stairWidthMm: mm(input, "stairWidthMm"), riserCount: mm(input, "riserCount") });
     return [
+      { label: "Tömör betonék geometriai térfogata", value: result.wedgeVolumeM3, unit: "m³" },
       { label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" },
       { label: "Belépő", value: result.goingMm, unit: "mm" },
-      { label: "Tömör betonék geometriai térfogata", value: result.wedgeVolumeM3, unit: "m³" },
+      { label: "Fokok száma", value: result.treadCount, unit: "db" },
+      { label: "Lépcsőhajlás", value: result.pitchDegrees, unit: "°" },
+      { label: "Geometriai ferde vetületi hossz", value: result.pitchLengthMm, unit: "mm" },
+      { label: "2 × fellépő + belépő", value: result.stepRuleMm, unit: "mm" },
     ];
   },
 };
@@ -416,20 +439,28 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const updateValue = (key: string, value: string) => setValues((current) => ({ ...current, [key]: value }));
   const basicFields = definition.fields.filter((field) => !field.advanced);
   const advancedFields = definition.fields.filter((field) => field.advanced);
-  const renderField = (field: Field) => <label className={`construction-suite-field${field.kind === "checkbox" ? " is-checkbox" : ""}`} key={field.key}>
-    <span>{field.label}{field.unit && <small>{field.unit}</small>}</span>
-    {field.kind === "select" ? <select id={field.key} value={values[field.key] ?? field.initial ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, event.target.value)} aria-label={field.label}>{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input id={field.key} type={field.kind === "checkbox" ? "checkbox" : field.kind === "text" ? "text" : "number"} inputMode={field.kind === "text" ? "text" : field.kind === "checkbox" ? undefined : "decimal"} min={!field.kind ? "0" : undefined} step={field.integer ? "1" : "any"} checked={field.kind === "checkbox" ? values[field.key] === "true" : undefined} value={field.kind === "checkbox" ? undefined : values[field.key] ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, field.kind === "checkbox" ? String(event.target.checked) : event.target.value)} aria-label={`${field.label}${field.unit ? `, ${field.unit}` : ""}`} />}
-  </label>;
+  const renderField = (field: Field) => {
+    const isRequired = !field.advanced && field.initial === undefined && field.kind !== "checkbox";
+    return <label className={`construction-suite-field${field.kind === "checkbox" ? " is-checkbox" : ""}`} key={field.key}>
+      <span>{field.label}{field.unit && <small>{field.unit}</small>}</span>
+      {field.kind === "select" ? <select id={field.key} required={isRequired} value={values[field.key] ?? field.initial ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, event.target.value)} aria-label={field.label}>{field.initial === undefined && <option value="">Válasszon…</option>}{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input id={field.key} type={field.kind === "checkbox" ? "checkbox" : field.kind === "text" ? "text" : "number"} inputMode={field.kind === "text" ? "text" : field.kind === "checkbox" ? undefined : "decimal"} min={!field.kind ? "0" : undefined} step={field.integer ? "1" : "any"} required={isRequired} checked={field.kind === "checkbox" ? values[field.key] === "true" : undefined} value={field.kind === "checkbox" ? undefined : values[field.key] ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, field.kind === "checkbox" ? String(event.target.checked) : event.target.value)} aria-label={`${field.label}${field.unit ? `, ${field.unit}` : ""}`} />}
+    </label>;
+  };
   const headingContent = <header className="construction-suite-title"><span className="future-module-icon"><Construction aria-hidden="true" /></span><div><p className="section-eyebrow">ELLENŐRZÖTT GEOMETRIAI SZÁMÍTÁS</p><h2>{definition.reference.title}</h2></div></header>;
   const noteContent = <><p className="construction-suite-note">{definition.note}</p>{activeGuide && <MeasurementGuidance compact guide={activeGuide} />}</>;
   const fieldsContent = <>
     <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>
-    {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="További adatok · opcionális">{definition.reference.id === "roof.gable" && <p className="construction-suite-note">A cserepeslemez-darabszámhoz gyártói termékadat, igazolt hasznos szélesség és toldás nélküli fedési hossz szükséges. Hiányos vagy nem támogatott adatoknál darabszám nem jelenik meg.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}
+    {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="Részletes számítás · opcionális">{definition.advancedHelp && <p className="construction-suite-note">{definition.advancedHelp}</p>}{definition.reference.id === "roof.gable" && <p className="construction-suite-note">A cserepeslemez-darabszámhoz gyártói termékadat, igazolt hasznos szélesség és toldás nélküli fedési hossz szükséges. Hiányos vagy nem támogatott adatoknál darabszám nem jelenik meg.</p>}{!definition.advancedHelp && definition.reference.id !== "roof.gable" && <p className="construction-suite-note">Ezek az adatok további mennyiségi eredményt vagy ellenőrzést kapcsolnak be. Az alapgeometriai számításhoz nem szükségesek.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}
   </>;
+  const primaryRows = calculation.rows.slice(0, 6);
+  const detailRows = calculation.rows.slice(6);
+  const stepRuleLine = calculation.rows.find((line) => line.label.startsWith("2 × fellépő"));
+  const stepRuleValue = typeof stepRuleLine?.value === "number" ? stepRuleLine.value : null;
   const resultsContent = <>
     {inputsReady && calculation.error && <p className="form-message is-error" role="alert">{calculation.error}</p>}
     {calculation.geometry && <><RoofGeometryResults geometry={calculation.geometry} heading="Geometriai eredmények" provenanceLabel="Kézi bemenetek · számított geometriai eredmények." /><RoofTimberQuantityPanel geometry={calculation.geometry} value={timberParameters} onChange={(next) => setRoofTimberByCalculator((current) => ({ ...current, [selectedId]: next }))} /><RoofUnderlayQuantityPanel geometry={calculation.geometry} value={underlayParameters} onChange={(next) => setRoofUnderlayByCalculator((current) => ({ ...current, [selectedId]: next }))} /></>}
-    {calculation.rows.length > 0 && <section className="construction-suite-results" aria-live="polite"><h3>További eredmények</h3><dl>{calculation.rows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl><p className="construction-suite-limit">{definition.reference.limitation}</p></section>}
+    {primaryRows.length > 0 && <section className="construction-suite-results" aria-live="polite"><h3>Fő eredmények</h3><dl>{primaryRows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl>{stepRuleValue !== null && <p className="construction-suite-advisory">A számított 2R+G érték {formatHuNumber(stepRuleValue)} mm, {stepRuleValue < 600 || stepRuleValue > 660 ? "a közölt 600–660 mm-es referencia-tartományon kívül esik" : "a közölt 600–660 mm-es referencia-tartományon belül van"}. Ez csak számtani összevetés; nem ergonómiai minősítés és nem szabványi megfelelőség.</p>}<p className="construction-suite-limit">{definition.reference.limitation}</p></section>}
+    {detailRows.length > 0 && <GlassDisclosure className="construction-suite-result-details" summary={`Részletes eredmények · ${detailRows.length}`}><dl>{detailRows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl></GlassDisclosure>}
   </>;
   const drawingContent = calculation.geometry !== null || calculation.rows.length > 0
     ? definition.reference.category === "stair"
