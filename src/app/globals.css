@@ -3767,6 +3767,16 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 .workflow-material-row { grid-template-columns: auto minmax(8rem, .8fr) minmax(11rem, 1.5fr) minmax(6rem, .55fr) minmax(5rem, .45fr) minmax(11rem, 1fr) auto; }
 .workflow-material-row-title { display: grid; gap: .1rem; min-width: 0; overflow-wrap: anywhere; }
 .workflow-material-row-title > small, .workflow-material-field > span { color: var(--muted); font-size: calc(.68rem * var(--tp-text-scale)); }
+.workflow-material-source-label, .workflow-material-source-product { min-width: 0; margin: 0; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); overflow-wrap: anywhere; }
+.workflow-material-source-label strong { color: var(--foreground); }
+.workflow-material-source-product { display: grid; gap: .35rem; }
+.workflow-material-source-product > label { display: grid; gap: .3rem; min-width: 0; }
+.workflow-material-source-product .workflow-material-product-trigger { min-height: 2.6rem; }
+.survey-material-source-card { display: grid; gap: .5rem; }
+.survey-material-source-card h2, .survey-material-source-card p { margin: 0; }
+.survey-material-source-card ul { margin: 0; padding-left: 1.2rem; color: var(--muted); font-size: .82rem; line-height: 1.5; }
+.survey-material-stale-confirm { display: flex; align-items: flex-start; gap: .55rem; min-height: 2.75rem; color: var(--foreground); font-size: .84rem; line-height: 1.45; }
+.survey-material-stale-confirm input { width: 1.15rem; height: 1.15rem; flex: 0 0 auto; margin-top: .1rem; accent-color: var(--brand); }
 .workflow-material-field { display: grid; gap: .18rem; min-width: 0; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); }
 .workflow-material-field input, .workflow-material-field select { min-height: 2.6rem; }
 .workflow-material-field > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem; }

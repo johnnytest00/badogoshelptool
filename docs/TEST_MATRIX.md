@@ -1,5 +1,26 @@
 # Tesztmátrix
 
+## F9.27 — felmérésből szerkeszthető anyaglista
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Mentett felmérés → új anyaglista → frissítés/újranyitás | PASS, LOCAL AUTHENTICATED BROWSER / PARTIAL SOURCE DISPLAY | Standalone ereszfelmérés V1 összesítőjén az „Anyaglista készítése” megnyitotta a pontos survey/revízió útvonalat. Elmentettem az új listát `ef1f2259-d242-418d-9725-51c06baae283` azonosítóval, majd frissítés után V1, 8,5 m, m és hiányzó ár újratöltődött. A visszanyitott szerkesztőben nem jelent meg a forrásfelmérés-kártya és a tétel mért adat jelölése; ez böngészős adatbetöltési/kapcsolati ellenőrzést igényel. |
+| Standalone survey, ügyfél és munkanapló nélkül | PASS, BROWSER + PGTAP | Ugyanez az önálló survey kontextus a CTA-tól a piszkozatig működött; a DB-teszt önálló survey mellett új listát mentett customer/project/work-log kapcsolat nélkül. |
+| Biztonságos mennyiségkinyerés és hiányos/hibás adatok | PASS, FOCUSED VITEST + PGTAP | Csak pontos survey revízióhoz tartozó, figyelmeztetés nélküli `verified` nyeregtető `combinedRoofM2` (m²), illetve kitöltött `gutter_run_length` / `flashing_run_length` (m) vehető át. Figyelmeztetett, stale, hibás, hiányos, nem pozitív, más egységű vagy nem tárolható pontosságú esetet a domain teszt indoklással visszautasít. Stockméret, toldás, átfedés, ráhagyás, hulladék, darab és termékspecifikáció nem becslődik. |
+| Anyagválasztás, ár és egységkompatibilitás | PASS, UI TEST + PGTAP | Meglévő katalógus/kereső/kategória/picker marad; survey sor csak azonos `m`/`m²` egységű terméket fogad, konverzió `db`-re nincs. Csak egységhez illő, ellenőrzött HUF katalógusár menthető; hiányzó ár `null` marad és látható. Kézi sorok felvehetők, módosíthatók és törölhetők. |
+| Provenance, immutable revízió, idempotencia és stale forrás | PASS, LOCAL PGTAP / PARTIAL BROWSER | `036_survey_material_list_sources.sql`: 29/29. DB-teszt az alkotó source-row SELECT-jét, pontos survey revíziót és tételsnapshotot igazolja; lista szerkesztése új listarevíziót hoz létre és megtartja az eredeti survey-provenance-t. Ugyanazon retry kulcs nem duplikál; megváltozott kérés azonos kulccsal tiltott. Stale forrás új mentése alapból blokkolt, előző revízió külön megerősítéssel menthető. A böngészőben elmentett listán a provenance visszanyitás után nem jelent meg. |
+| Jogosultság és szervezeti határ | PASS, LOCAL PGTAP | Membership és survey-hozzáférés szerveroldali ellenőrzése; közvetlen kliens insert tiltott; anon execute tiltott; peer user nem olvashatja az alkotó standalone survey/lista forrást. Tábla és RPC csak helyi DB-n lett telepítve/tesztelve. |
+| Kézi anyaglista workflow | PASS, CONTRACT/UI REGRESSION | Survey nélküli meglévő lista- és kézi mentési útvonal megmaradt; survey nélküli kézi sorok contract tesztje PASS. Ajánlatot és munkanaplót nem alakítottam át. |
+| Teljes Vitest | PASS WITH SKIPS | `npx vitest run`: 131 fájl PASS / 8 SKIPPED; 546 teszt PASS / 25 SKIPPED / 571 összesen. Korábbi F9.26 négy teszthiba nem jelentkezett. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Teljes helyi DB suite | FAIL, RÉGEBBI HIBÁK | A migráció felvitele előtt futtatott teljes `supabase test db --local` 37 fájlból 6 régebbi fájlban hibázott (`001`, `009`, `011`, `015`, `028`, `029`); az új `036`-ot akkor a még hiányzó RPC miatt nem lehetett futtatni. A migráció helyi felvitele után a 036 célzottan 29/29 PASS; a teljes régi DB-suite nem futott újra, így ezek jelenlegi állapota nem igazolt. |
+| Böngészős mentés/újranyitás és reszponzív viewport | PARTIAL | Új lista mentése és frissítés utáni tételek/érték/egység/ár nélküli állapot vizuálisan PASS; forráskártya és sorprovenance nem jelent meg újranyitáskor. A Codex beépített böngészőjében megpróbált 1440/768/390/320 CSS px vizsgálatnál a helyi, védett útvonal 404-et adott, mert az IAB nem örökölte a Brave bejelentkezett Auth-sessionjét. Fizikai mobil, billentyűzetes használat és screen reader nem futott. |
+| Adatbázis-műveletek | LOCAL ONLY | `20261017100000_survey_material_list_sources.sql` kizárólag helyi Supabase DB-re lett felvive. DB-reset, hosted DB/Auth/RLS módosítás nem történt. |
+
+**F9.26 regressziók gyökéroka és javítása:** az anyagegység teszt a jelenlegi `m²` / `m` / `db` szerződés helyett régi szavazott feliratot várt; a nyeregtető teszt elavult címet és hiányzó `aria-labelledby` célcímet tárt fel (közös `GlassPageHeader.titleId` javítás); a mérési súgó teszt `<details`-t várt az aktuális accessible dialog-popover helyett, és a mező blur eseményénél valós fókuszhiba volt (a gomb/panel fókuszára megtartott popover); az adatbetöltési teszt a régi alsóbb rétegű hibaüzenetet várta a már pontos, biztonságos tetőmodell-betöltési üzenet helyett. A négy teszt az aktuális UI/API szerződést ellenőrzi, üzleti állítás gyengítése nélkül; teljes Vitest most 546 teszttel igazolja, hogy zöld.
+
+Javasolt Conventional Commit: `feat(F9.27): create material list drafts from surveys`.
+
 ## F9.27 — termékpanel ugrás és új sor láthatósága
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

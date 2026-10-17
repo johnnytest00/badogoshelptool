@@ -5,7 +5,7 @@ import { quotationLinesFromMaterialList } from "./material-list-quotation-import
 
 const revision = (items: unknown[]): MaterialPreparationRevision => ({
   id: "00000000-0000-4000-8000-000000000010", revisionNumber: 4, state: "ready", sourceTakeoffs: [],
-  items: items as MaterialPreparationRevision["items"], createdAt: "2026-10-16T00:00:00Z", staleTakeoffIds: [],
+  items: items as MaterialPreparationRevision["items"], createdAt: "2026-10-16T00:00:00Z", staleTakeoffIds: [], surveySource: null,
 });
 const products = [{
   id: "00000000-0000-4000-8000-000000000020", organizationId: "00000000-0000-4000-8000-000000000001", manufacturerId: null,

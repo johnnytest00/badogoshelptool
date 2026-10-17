@@ -16,9 +16,12 @@ describe("saved calculation in the survey summary", () => {
       id: "link-1", sectionId: section.id, surveyRevisionId: "survey-revision-1", surveyVersion: 1,
       calculationId: "calculation-1", revisionId: "calculation-revision-1", revisionNumber: 1,
       calculatorType: "gutters.material-estimate", name: "DEMO ereszszámítás", output: { totals: { gutterStockSections: 3 } }, warnings: [], provenance: {},
+      validationStatus: "verified",
     };
     const html = renderToStaticMarkup(<WorkspaceSummary organizationId="organization-1" surveyId="survey-1" version={2} sections={[section]} calculations={[linked]} initialFollowups={[]} projects={[]} originalProjectId={null} readOnly />);
     expect(html).toContain("Mentett számítás megnyitása");
+    expect(html).toContain("Anyaglista készítése");
+    expect(html).toContain("surveyVersion=2");
     expect(html).toContain("/kalkulatorok/ereszcsatorna?organization=organization-1&amp;calculation=calculation-1");
     expect(html).toContain("Forrásfelmérés: V1");
     expect(html).toContain("korábbi forrás");

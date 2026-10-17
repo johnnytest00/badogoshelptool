@@ -1,6 +1,7 @@
 import { createClient } from "@/infrastructure/supabase/server";
 import type { Json } from "@/infrastructure/supabase/database.types";
 import type { MaterialPreparationItem, PreparationSourceSnapshot } from "@/domain/material-preparations/contracts";
+import type { SurveyMaterialProvenanceItem } from "@/domain/material-takeoffs/survey-material-suggestions";
 
 type PreparationRevisionRow = {
   id: string;
@@ -21,6 +22,16 @@ export type MaterialPreparationRevision = Readonly<{
   items: readonly MaterialPreparationItem[];
   createdAt: string;
   staleTakeoffIds: readonly string[];
+  surveySource: MaterialPreparationSurveySource | null;
+}>;
+
+export type MaterialPreparationSurveySource = Readonly<{
+  surveyId: string;
+  surveyRevisionId: string;
+  surveyVersion: number;
+  currentSurveyVersion: number | null;
+  stale: boolean;
+  items: readonly SurveyMaterialProvenanceItem[];
 }>;
 
 export type MaterialPreparationList = Readonly<{
@@ -64,6 +75,7 @@ export async function getMaterialPreparationLists(organizationId: string, projec
       items: jsonArray<MaterialPreparationItem>(row.items_snapshot),
       createdAt: row.created_at,
       staleTakeoffIds,
+      surveySource: null,
     };
   };
   const revisionRows = (revisions ?? []) as PreparationRevisionRow[];
@@ -97,12 +109,34 @@ export async function getWorkflowMaterialLists(organizationId: string): Promise<
     .order("revision_number", { ascending: false }).limit(2000);
   if (revisionError) throw new Error("Az anyaglista korábbi változatai nem tölthetők be.");
   const rows = (revisions ?? []) as PreparationRevisionRow[];
+  const listIds = lists.map((list) => list.id);
+  const { data: sourceRows, error: sourceError } = rows.length ? await supabase.from("material_preparation_survey_sources")
+    .select("organization_id,material_list_id,material_revision_id,survey_id,survey_revision_id,survey_version,source_items_snapshot,created_by,created_at")
+    .eq("organization_id", organizationId).in("material_list_id", listIds) : { data: [], error: null };
+  if (sourceError) throw new Error("Az anyaglista felmérésforrásai nem tölthetők be.");
+  const surveyIds = [...new Set((sourceRows ?? []).map((source) => source.survey_id))];
+  const { data: surveys, error: surveyError } = surveyIds.length ? await supabase.from("field_surveys")
+    .select("id,version").eq("organization_id", organizationId).in("id", surveyIds) : { data: [], error: null };
+  if (surveyError) throw new Error("A felmérésforrások frissessége nem ellenőrizhető.");
+  const currentSurveyVersions = new Map((surveys ?? []).map((survey) => [survey.id, survey.version]));
+  const sourceByRevision = new Map((sourceRows ?? []).map((row) => {
+    const currentSurveyVersion = currentSurveyVersions.get(row.survey_id) ?? null;
+    return [row.material_revision_id, {
+      surveyId: row.survey_id,
+      surveyRevisionId: row.survey_revision_id,
+      surveyVersion: row.survey_version,
+      currentSurveyVersion,
+      stale: currentSurveyVersion !== null && currentSurveyVersion > row.survey_version,
+      items: jsonArray<SurveyMaterialProvenanceItem>(row.source_items_snapshot),
+    }] as const;
+  }));
   return lists.map((list) => {
     const history = rows.filter((revision) => revision.list_id === list.id).map((row) => ({
       id: row.id, revisionNumber: row.revision_number, state: row.preparation_state,
       sourceTakeoffs: jsonArray<PreparationSourceSnapshot>(row.source_takeoffs_snapshot),
       items: jsonArray<MaterialPreparationItem>(row.items_snapshot), createdAt: row.created_at,
       staleTakeoffIds: [],
+      surveySource: sourceByRevision.get(row.id) ?? null,
     }));
     return {
       id: list.id, projectId: list.project_id, executionPlanId: list.execution_plan_id,

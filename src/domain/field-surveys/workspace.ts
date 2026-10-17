@@ -30,7 +30,7 @@ export type SurveySection = z.infer<typeof surveySectionSchema>;
 export type SavedSurveyCalculation = { calculationId: string; revisionId: string; revisionNumber: number };
 export type SurveyCalculationLink = SavedSurveyCalculation & {
   id: string; sectionId: string; surveyRevisionId: string; surveyVersion: number; calculatorType: string;
-  name: string; output: unknown; warnings: unknown; provenance: unknown;
+  name: string; output: unknown; warnings: unknown; provenance: unknown; validationStatus: string;
 };
 export type SurveyFollowup = { id: string; kind: "project" | "quotation"; projectId: string | null; quotationId: string | null; quotationRevisionId: string | null; surveyRevisionId: string };
 export type SurveyExecutionPlanLink = { id: string; executionPlanId: string; surveyRevisionId: string; surveyVersion: number; planTitle: string };

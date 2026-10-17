@@ -727,6 +727,21 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"material_preparation_survey_sources": {
+                  Row: {
+                    "created_at": string,"created_by": string,"material_list_id": string,"material_revision_id": string,"organization_id": string,"source_items_snapshot": NonNullable<Json>,"survey_id": string,"survey_revision_id": string,"survey_version": number
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by": string,"material_list_id": string,"material_revision_id": string,"organization_id": string,"source_items_snapshot"?: NonNullable<Json>,"survey_id": string,"survey_revision_id": string,"survey_version": number
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string,"material_list_id"?: string,"material_revision_id"?: string,"organization_id"?: string,"source_items_snapshot"?: NonNullable<Json>,"survey_id"?: string,"survey_revision_id"?: string,"survey_version"?: number
+                  }
+                  Relationships: [
+                    { foreignKeyName: "material_preparation_survey_sources_revision_fk"; columns: ["material_revision_id", "material_list_id", "organization_id"]; isOneToOne: true; referencedRelation: "material_preparation_revisions"; referencedColumns: ["id", "list_id", "organization_id"] },
+                    { foreignKeyName: "material_preparation_survey_sources_survey_fk"; columns: ["survey_id", "organization_id"]; isOneToOne: false; referencedRelation: "field_surveys"; referencedColumns: ["id", "organization_id"] },
+                    { foreignKeyName: "material_preparation_survey_sources_survey_revision_fk"; columns: ["survey_revision_id", "survey_id", "organization_id"]; isOneToOne: false; referencedRelation: "field_survey_revisions"; referencedColumns: ["id", "survey_id", "organization_id"] }
+                  ]
                 },"material_prices": {
                   Row: {
                     "amount": number,"created_at": string,"created_by": string | null,"currency": string,"data_provenance": Database["public"]['Enums']["material_data_provenance"],"effective_date": string,"id": string,"organization_id": string,"price_kind": Database["public"]['Enums']["material_price_kind"],"price_source": string | null,"purchasing_unit": Database["public"]['Enums']["material_purchasing_unit"],"recorded_at": string,"source_date": string | null,"source_name": string | null,"source_notes": string | null,"source_url": string | null,"variant_id": string
@@ -1569,6 +1584,11 @@ isOneToOne: false
                            },
 "save_workflow_material_list_revision":
 { Args: { "p_execution_plan_id": string | null,"p_expected_version": number,"p_items": Json,"p_list_id": string | null,"p_name": string,"p_organization_id": string,"p_request_key": string }; Returns: {
+              "list_id": string,"revision_id": string,"revision_number": number,"version": number
+            }[]
+                           },
+"save_workflow_material_list_from_survey_revision":
+{ Args: { "p_allow_stale_source": boolean,"p_items": Json,"p_name": string,"p_organization_id": string,"p_request_key": string,"p_survey_id": string,"p_survey_revision_id": string }; Returns: {
               "list_id": string,"revision_id": string,"revision_number": number,"version": number
             }[]
                            },

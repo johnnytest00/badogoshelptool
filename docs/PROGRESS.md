@@ -1,5 +1,34 @@
 # F7.3.2 állapot
 
+## F9.27 — Felmérésből szerkeszthető anyaglista
+
+Státusz: **IMPLEMENTED / PARTIAL — a fő átadási útvonal, a mennyiségi korlátok és a lokális mentési/RLS-szerződés célzottan ellenőrizve; böngészős mentés/újranyitás és a kért viewport-sor nem igazolt.**
+
+- A mentett felmérés összesítőjében megjelent az „Anyaglista készítése” művelet. Az `organization`, felmérés-azonosító és kiválasztott változat a `/anyaglistak/uj` oldalon is megmarad; a szerver az eredeti felmérés- és számítás-revízióból tölti fel a piszkozatot. Standalone felmérésnél sem ügyfél, sem munkanapló nem szükséges.
+- Csak a pontos felmérésrevízióhoz kapcsolt, figyelmeztetés nélküli, `verified` nyeregtető-geometria `combinedRoofM2` területe (m²), illetve a kitöltött, `m` egységű `gutter_run_length` és `flashing_run_length` mérés (m) vehető át. A mért adat és a számított felület külön minősítést kap, az eredeti forrásérték és hivatkozás külön, változtathatatlan provenance-snapshotba kerül.
+- Szálhossz, toldás, átfedés, ráhagyás, hulladék, darabszám és hiányzó termékadat nem becsülődik. A más egységű, nulla, hiányos vagy 6 tizedesjegyű adatmodellben veszteség nélkül nem tárolható mérés magyarázatot kap; kézi tétellel folytatható. A számított felület az anyaglista 6 tizedesjegyű mezőjére kerekedik; a provenance az engine eredeti számértékét őrzi.
+- A meglévő Anyagkezelő-kategória, termékkatalógus, kereső és `WorkflowMaterialProductPicker` használatban marad. A felmérésből származó sor csak azonos beszerzési egységű terméket választhat; `m`/`m²` nem alakítható darabra. Ebben az útvonalban katalógusár csak azonos egységű, HUF, `verified` ár lehet. Ha nincs ilyen ár, a felület és a mentett snapshot ezt üresen/„Ár nincs megadva” állapottal őrzi.
+- Új `material_preparation_survey_sources` RLS-tábla a lista immutable revíziójához köti a survey, a pontos immutable survey-revízió és a forrástételek snapshotját. A dedikált SECURITY DEFINER RPC ellenőrzi a műhelytagságot, a survey hozzáférést, az exact source ID-ket, az egység- és árkompatibilitást, a stale állapotot és az idempotencia-kulcsot; a kliens közvetlen írása tiltott. Későbbi anyaglista-revízió az eredeti forrásrevíziót viszi tovább, és csak megmaradt sorokhoz tart meg tételprovenance-t.
+- Stale forrásnál a mentés alapból tiltott; korábbi revíziót csak külön jelölőnégyzettel, kifejezett megerősítés után enged a mentési RPC. Egy korábbi sikeres, azonos kulcsú retry az újabb survey-revízió után is ugyanarra a mentett listarevízióra oldódik fel.
+- A meglévő kézi anyaglista-mentés útvonala megmaradt; az existing-list szerkesztés az eredeti survey-linket a szerveroldali immutábilis forrástérképből viszi tovább. Ajánlatot és munkanaplót nem alakítottam át.
+
+**F9.26 négy korábbi regressziójának gyökéroka és javítása:**
+
+| Teszt | Gyökérok | Javítás |
+| --- | --- | --- |
+| Anyagegység címke | A teszt régi, kiírt „négyzetméter / folyóméter” címkét várt a közös egységszerződés `m² / m / db` jelölése helyett. | A business állításokat megtartva a tesztet a jelenlegi egységszerződésre igazítottuk. |
+| Nyeregtető cím | A teszt régi címszöveget várt, és a régió `aria-labelledby` hivatkozása nem talált célcímet. | A közös `GlassPageHeader` opcionális `titleId`-t kapott, a nyeregtető oldal ugyanazt az ID-t adja a fejlécnek és a régiónak. |
+| Mérési útmutató markup | A teszt már nem használt `<details>` elemet várt a jelenlegi hozzáférhető dialog-popover helyett; a böngészős próbán valódi blur/fókuszvesztés is előjött. | A teszt a jelenlegi markupot ellenőrzi, a mező blur-kezelése pedig megtartja a súgót, ha a fókusz az útmutató gombjára vagy paneljére kerül. |
+| Adatbetöltési üzenet | A teszt az alsóbb tetőadat-lekérdezés korábbi hibaüzenetét várta a tetőmodell-forrás pontos publikus hibája helyett. | A teszt a jelenlegi teljes, publikus „A tetőmodellek betöltése nem sikerült.” üzenetet ellenőrzi, belső DB-részlet megjelenítése nélkül. |
+
+**Ellenőrzések:** `npx vitest run src/domain/material-takeoffs/survey-material-suggestions.test.ts src/domain/materials/material-list-contract.test.ts src/features/material-takeoffs/workflow-material-list-editor.test.tsx src/features/field-surveys/workspace-summary.test.tsx src/features/material-takeoffs/workflow-material-product-picker.test.tsx` — 5 fájl / 14 teszt PASS. `env SUPABASE_TELEMETRY_DISABLED=1 npx supabase test db --local supabase/tests/database/036_survey_material_list_sources.sql` — 1 fájl / 29 pgTAP teszt PASS, beleértve az alkotó aktuális forrásrevízióhoz való olvasási hozzáférését; ehhez kizárólag a függő F9.27 migráció futott fel a helyi adatbázisra. `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) PASS. `git diff --check` a dokumentáció befejezése után futtatandó.
+
+**Teljes suite / korlátok:** a teljes `npx vitest run` F9.27-ben lefutott: 131 fájl PASS / 8 SKIPPED; 546 teszt PASS / 25 SKIPPED / 571 összesen. A négy korábbi regresszió ebben a teljes futásban nem jelentkezett. Egy teljes helyi `supabase test db` próba a F9.27 migráció alkalmazása előtt 37 fájlból 6 régebbi fájlt jelzett hibásnak (`001`, `009`, `011`, `015`, `028`, `029`), a `036` pedig azért nem tudott indulni, mert akkor az új RPC még nem volt a DB-ben. A célzott `036` az új migráció után, kiegészített alkotói olvasásellenőrzéssel 29/29 PASS; a régebbi fájlok hibáit nem vizsgáltam és nem javítottam ebben a mérföldkőben. A helyi, bejelentkezett böngészőben a Dashboard → Felmérések → Új felmérés útvonal és egy mentett önálló ereszfelmérés → összesítő → új anyaglista átadás működött; a V1 forrás és 8,5 m sor, valamint a hiányzó ár megjelent. A listát az `ef1f2259-d242-418d-9725-51c06baae283` azonosítóval elmentettem, majd az oldalt frissítve a V1, 8,5 m, `m`, hiányzó ár újratöltődött. A visszanyitott szerkesztőben viszont a forrásfelmérés-kártya és a tétel mérési eredetjelölése nem jelent meg, noha a lokális pgTAP az adatbázisban tárolt és az alkotó által olvasható provenance-t igazolja. Ez a böngészős app-adatbázis és a pgTAP adatbázis közti eltérést vagy forrásbetöltési hibát nyitva hagyja; a tényleges böngészős adatbázis közvetlen lekérdezése nem volt elérhető ebből a végrehajtási környezetből. A 1440/768/390/320 px emulált viewportot a Codex beépített böngészőjében megpróbáltam, de az nem örökölte a helyi bejelentkezett Auth-munkamenetet, a védett útvonal 404-et adott, ezért méretellenőrzés nem történt. Fizikai mobil, billentyűzetes mobil UX és képernyőolvasó sincs ellenőrizve. DB-reset, hosted DB/Auth/RLS módosítás, commit, push és deploy nem történt.
+
+Javasolt Conventional Commit: `feat(F9.27): create material list drafts from surveys`.
+
+---
+
 ## F9.27 — ajánlati termékpanel és új tétel elhelyezése
 
 Státusz: **IMPLEMENTED / PARTIAL — célzott kódellenőrzések PASS; mobil interakció böngészőben nem futott**.

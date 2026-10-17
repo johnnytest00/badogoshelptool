@@ -65,5 +65,6 @@ export function WorkspaceSummary({ organizationId, surveyId, version, sections, 
     </fieldset>}
     {error && <p role="alert" className="form-message is-error">{error}</p>}
     {followups.map((row) => <p key={row.id}>{row.kind === "project" ? <Link href={`/projektek/${row.projectId}?organization=${organizationId}`}>Régi projekthez kapcsolt adatok megnyitása</Link> : <Link href={row.projectId ? `/projektek/${row.projectId}/ajanlatok?organization=${organizationId}&edit=${row.quotationId}` : `/ajanlatok/${row.quotationId}?organization=${organizationId}`}>Árajánlatpiszkozat megnyitása</Link>}<small> · forrásrevízió: {row.surveyRevisionId}{row.quotationRevisionId ? ` · ajánlatrevízió: ${row.quotationRevisionId}` : ""}</small></p>)}
+    <div className="survey-material-list-handoff"><Link className="primary-button" href={`/anyaglistak/uj?organization=${organizationId}&surveyId=${surveyId}&surveyVersion=${version}`}>Anyaglista készítése</Link><p>A felmérés-revízióból csak biztonságosan átvehető mért vagy ellenőrzött mennyiségek kerülnek javaslatként a szerkeszthető listába.</p></div>
   </section>;
 }

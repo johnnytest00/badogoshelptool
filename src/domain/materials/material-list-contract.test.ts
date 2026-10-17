@@ -7,6 +7,10 @@ const ids = {
   variantId: "00000000-0000-4000-8000-000000000003",
   requestKey: "00000000-0000-4000-8000-000000000004",
   itemId: "00000000-0000-4000-8000-000000000005",
+  surveyId: "00000000-0000-4000-8000-000000000006",
+  surveyRevisionId: "00000000-0000-4000-8000-000000000007",
+  sectionId: "00000000-0000-4000-8000-000000000008",
+  measurementId: "00000000-0000-4000-8000-000000000009",
 };
 
 const input = (item: Record<string, unknown>) => workflowMaterialListInputSchema.safeParse({
@@ -39,5 +43,27 @@ describe("workflow material list contract", () => {
   it("rejects zero and malformed quantity or price", () => {
     expect(input({ quantity: "0" }).success).toBe(false);
     expect(input({ manualPriceAmount: "1.234", manualPriceKind: "net" }).success).toBe(false);
+  });
+
+  it("requires exact survey revision provenance and rejects incompatible source units", () => {
+    const measurementRef = { type: "measurement", sectionId: ids.sectionId, measurementId: ids.measurementId };
+    expect(input({ sourceRef: measurementRef }).success).toBe(false);
+    const validSource = workflowMaterialListInputSchema.safeParse({
+      organizationId: ids.organizationId, listId: null, executionPlanId: null, name: "DEMO survey lista",
+      expectedVersion: 0, requestKey: ids.requestKey,
+      surveySource: { surveyId: ids.surveyId, surveyRevisionId: ids.surveyRevisionId, surveyVersion: 1, allowStaleSource: false },
+      items: [{ id: ids.itemId, kind: "manual", description: "DEMO eresz", materialCategory: "gutter", categoryId: null,
+        quantity: "2", unit: "linear_meter", variantId: null, priceId: null, manualPriceAmount: "", manualPriceKind: null, sourceRef: measurementRef }],
+    });
+    expect(validSource.success).toBe(true);
+    if (validSource.success) expect(validSource.data.items[0].sourceRef).toEqual(measurementRef);
+
+    expect(workflowMaterialListInputSchema.safeParse({
+      organizationId: ids.organizationId, listId: null, executionPlanId: null, name: "DEMO hibás egység",
+      expectedVersion: 0, requestKey: ids.requestKey,
+      surveySource: { surveyId: ids.surveyId, surveyRevisionId: ids.surveyRevisionId, surveyVersion: 1, allowStaleSource: false },
+      items: [{ id: ids.itemId, kind: "manual", description: "DEMO eresz", materialCategory: "gutter", categoryId: null,
+        quantity: "2", unit: "piece", variantId: null, priceId: null, manualPriceAmount: "", manualPriceKind: null, sourceRef: measurementRef }],
+    }).success).toBe(false);
   });
 });
