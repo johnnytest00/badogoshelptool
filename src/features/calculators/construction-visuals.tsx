@@ -4,6 +4,9 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Maximize2, Minus, Move, Plus, RotateCcw } from "lucide-react";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
 import { calculateBeveledRiserGeometry, calculateConcreteStairGeometry, calculateLandingStairGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry } from "@/domain/calculations/construction/stairs";
+import { calculateWinderStairGeometry } from "@/domain/calculations/construction/winder-stairs";
+import { constructionCalculatorCatalog } from "@/domain/calculations/construction/catalog";
+import { calculateReinforcementMesh } from "@/domain/calculations/construction/concrete";
 import { createStraightStairDrawingGeometry, type BeveledRiserDrawingGeometry, type SpiralStairDrawingGeometry, type StraightStairDrawingGeometry } from "@/domain/drawings/construction-stairs";
 import { clampDrawingZoom, clientPointToViewBox, drawingInitialViewport, fitDrawingViewport, panViewport, pinchViewport, rebasePanGesture, type ViewportPoint } from "@/features/roof-models/drawing-viewport";
 
@@ -33,9 +36,24 @@ type SpiralDrawingModel = Readonly<{ kind: "spiral"; geometry: SpiralStairDrawin
 type BevelDrawingModel = Readonly<{ kind: "bevel"; geometry: BeveledRiserDrawingGeometry }>;
 type LandingDrawingModel = Readonly<{ kind: "landing"; id: string; geometry: ReturnType<typeof calculateLandingStairGeometry> }>;
 type ConcreteDrawingModel = Readonly<{ kind: "concrete"; geometry: ReturnType<typeof calculateConcreteStairGeometry> }>;
-type StairDrawingModel = StraightDrawingModel | SpiralDrawingModel | BevelDrawingModel | LandingDrawingModel | ConcreteDrawingModel;
+type WinderDrawingModel = Readonly<{ kind: "winder"; geometry: ReturnType<typeof calculateWinderStairGeometry> }>;
+type StairDrawingModel = StraightDrawingModel | SpiralDrawingModel | BevelDrawingModel | LandingDrawingModel | ConcreteDrawingModel | WinderDrawingModel;
 
 function buildDrawingModel(id: string, values: Readonly<Record<string, string>>): StairDrawingModel | null {
+  const winderLayout = id === "stair.wood.90_winder" ? "quarter_turn" : id === "stair.wood.180_winder" ? "half_turn" : id === "stair.wood.three_winder" ? "three_flight" : null;
+  if (winderLayout) {
+    const openingLengthMm = nullablePositive(values, "openingLengthMm");
+    const openingWidthMm = nullablePositive(values, "openingWidthMm");
+    const geometry = calculateWinderStairGeometry({
+      layout: winderLayout,
+      totalRiseMm: n(values, "totalRiseMm"), stairWidthMm: n(values, "stairWidthMm"), innerRadiusMm: n(values, "innerRadiusMm"),
+      lowerTreadCount: n(values, "lowerTreadCount"), upperTreadCount: n(values, "upperTreadCount"), windersPerTurn: n(values, "windersPerTurn"),
+      turnDirection: values.turnDirection === "left" ? "left" : "right",
+      ...(winderLayout === "three_flight" ? { middleTreadCount: n(values, "middleTreadCount") } : {}),
+      ...(openingLengthMm === undefined ? {} : { openingLengthMm }), ...(openingWidthMm === undefined ? {} : { openingWidthMm }),
+    });
+    return { kind: "winder", geometry };
+  }
   const landingLayout = id.includes("three_landing") ? "three_flight" : id.includes("180_landing") || id.includes("180_zigzag") ? "half_turn" : id.includes("90_landing") || id.includes("90_zigzag") ? "quarter_turn" : null;
   if (landingLayout) {
     const riserKeys = landingLayout === "three_flight" ? ["firstFlightRiserCount", "secondFlightRiserCount", "thirdFlightRiserCount"] : ["firstFlightRiserCount", "secondFlightRiserCount"];
@@ -229,6 +247,41 @@ function LandingPlan({ geometry, activeDimension, onDimensionSelect }: Readonly<
   </>;
 }
 
+function WinderPlan({ geometry, activeDimension, onDimensionSelect }: Readonly<{ geometry: ReturnType<typeof calculateWinderStairGeometry>; activeDimension?: string | null; onDimensionSelect?: (key: string) => void }>) {
+  const scale = Math.min(660 / geometry.planWidthMm, 340 / geometry.planDepthMm);
+  const x0 = (VIEWBOX.width - geometry.planWidthMm * scale) / 2;
+  const y0 = (VIEWBOX.height - geometry.planDepthMm * scale) / 2;
+  const point = (value: { xMm: number; yMm: number }) => `${x0 + value.xMm * scale},${y0 + value.yMm * scale}`;
+  const widthY = Math.min(VIEWBOX.height - 28, y0 + geometry.planDepthMm * scale + 50);
+  const depthX = Math.min(VIEWBOX.width - 48, x0 + geometry.planWidthMm * scale + 52);
+  return <>
+    <text className="stair-count-label" x="500" y="38" textAnchor="middle">{geometry.turnDegrees}°-os forduló{geometry.turns === 2 ? " · két forduló" : ""} · {geometry.turnDirection === "right" ? "jobbra" : "balra"} · {geometry.windersPerTurn} húzott fok / forduló</text>
+    <g className="stair-landing-fill">
+      {geometry.treads.map((tread) => <polygon key={tread.index} points={tread.polygon.map(point).join(" ")} />)}
+    </g>
+    {geometry.treads.filter((tread) => tread.kind === "winder").map((tread) => <polygon key={`outline-${tread.index}`} className="stair-profile" points={tread.polygon.map(point).join(" ")} />)}
+    <Dimension x1={x0} y1={widthY} x2={x0 + geometry.planWidthMm * scale} y2={widthY} extension1={{ x: x0, y: y0 + geometry.planDepthMm * scale }} extension2={{ x: x0 + geometry.planWidthMm * scale, y: y0 + geometry.planDepthMm * scale }} label={`Teljes tervhossz ${formatMm(geometry.planWidthMm)}`} dataKey="lowerTreadCount" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
+    <Dimension x1={depthX} y1={y0} x2={depthX} y2={y0 + geometry.planDepthMm * scale} extension1={{ x: x0 + geometry.planWidthMm * scale, y: y0 }} extension2={{ x: x0 + geometry.planWidthMm * scale, y: y0 + geometry.planDepthMm * scale }} label={`Tervszélesség ${formatMm(geometry.planDepthMm)}`} dataKey="stairWidthMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} rotateLabel />
+    <text className="stair-dimension-note" x="500" y="548" textAnchor="middle">Belső húr {formatMm(geometry.innerChordMm)} · járóvonal-belépő {formatMm(geometry.walkingGoingMm)}</text>
+  </>;
+}
+
+function WinderElevation({ geometry, activeDimension, onDimensionSelect }: Readonly<{ geometry: ReturnType<typeof calculateWinderStairGeometry>; activeDimension?: string | null; onDimensionSelect?: (key: string) => void }>) {
+  const scale = Math.min(680 / geometry.developedWalkingRunMm, 330 / geometry.totalRiseMm);
+  const x0 = 130; const baseY = 445; const stepWidth = geometry.walkingGoingMm * scale; const rise = geometry.riserHeightMm * scale;
+  const commands = [`M ${x0} ${baseY}`];
+  for (let index = 0; index < geometry.treadCount; index += 1) commands.push(`L ${x0 + index * stepWidth} ${baseY - (index + 1) * rise}`, `L ${x0 + (index + 1) * stepWidth} ${baseY - (index + 1) * rise}`);
+  const totalX = x0 + geometry.developedWalkingRunMm * scale; const topY = baseY - geometry.totalRiseMm * scale;
+  commands.push(`L ${totalX} ${topY}`);
+  return <>
+    <path className="stair-profile" d={commands.join(" ")} />
+    <Dimension x1={x0} y1={495} x2={totalX} y2={495} extension1={{ x: x0, y: baseY }} extension2={{ x: totalX, y: topY }} label={`Kiterített járóvonal ${formatMm(geometry.developedWalkingRunMm)}`} dataKey="windersPerTurn" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
+    <Dimension x1={totalX + 42} y1={baseY} x2={totalX + 42} y2={topY} extension1={{ x: totalX, y: baseY }} extension2={{ x: totalX, y: topY }} label={`Emelkedés ${formatMm(geometry.totalRiseMm)}`} dataKey="totalRiseMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} rotateLabel />
+    <text className="stair-count-label" x="500" y="60" textAnchor="middle">{geometry.riserCount} fellépés · {geometry.treadCount} vízszintes fok · fellépő {formatMm(geometry.riserHeightMm)}</text>
+    <text className="stair-dimension-note" x="500" y="548" textAnchor="middle">Kiterített járóvonal-profil · nem oldalnézeti gyártási rajz</text>
+  </>;
+}
+
 function landingPlanViewportBounds(geometry: ReturnType<typeof calculateLandingStairGeometry>) {
   const scale = Math.min(650 / geometry.planWidthMm, 420 / geometry.planDepthMm);
   const width = geometry.planWidthMm * scale;
@@ -285,6 +338,7 @@ function formatNumber(value: number) { return new Intl.NumberFormat("hu-HU", { m
 function formatMm(value: number) { return `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 1 }).format(value)} mm`; }
 
 function stairViews(model: StairDrawingModel) {
+  if (model.kind === "winder") return [{ id: "plan", label: "Alaprajz" }, { id: "elevation", label: "Kiterített profil" }];
   if (model.kind === "straight") return [{ id: "side", label: "Oldalnézet" }, ...(model.geometry.widthMm ? [{ id: "plan", label: "Felülnézet" }] : [])];
   if (model.kind === "spiral") return [{ id: "plan", label: "Alaprajz" }, { id: "rise", label: "Fellépés-kiosztás" }];
   if (model.kind === "landing") return [{ id: "plan", label: "Alaprajz" }];
@@ -303,6 +357,182 @@ export function ConstructionStairDrawing({ referenceId, values, focusedDimension
   }, [referenceId, values]);
   if (!model) return null;
   return <InteractiveStairDrawing model={model} focusedDimension={focusedDimension} onDimensionSelect={onDimensionSelect} />;
+}
+
+/** Original quantity diagrams for the concrete, foundation and helper calculators. */
+export function ConstructionMaterialDrawing({ referenceId, values, focusedDimension, onDimensionSelect, initialView }: Readonly<{
+  referenceId: string;
+  values: Readonly<Record<string, string>>;
+  focusedDimension?: string | null;
+  onDimensionSelect?: (key: string) => void;
+  initialView?: string;
+}>) {
+  const id = referenceId;
+  const value = (key: string) => {
+    const parsed = Number((values[key] ?? "").replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const length = value(id === "concrete.strip" ? "totalCenterlineLengthMm" : id === "concrete.paving" ? "lengthMm" : id === "concrete.blind_area" ? "buildingLengthMm" : "lengthMm");
+  const width = value(id === "concrete.strip" ? "widthMm" : id === "concrete.paving" ? "widthMm" : id === "concrete.blind_area" ? "buildingWidthMm" : "widthMm");
+  const height = value(id === "concrete.strip" ? "depthMm" : id === "concrete.slab" ? "thicknessMm" : id === "concrete.ring" ? "heightMm" : "heightMm");
+  const diameter = value(id === "concrete.pile" ? "diameterMm" : id === "concrete.ring" ? "outerDiameterMm" : "barDiameterMm");
+  const [view, setView] = useState(() => initialView ?? (id === "concrete.mix" ? "mix" : id === "concrete.rebar" ? "bars" : "plan"));
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState<ViewportPoint>({ x: 0, y: 0 });
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const pointers = useRef(new Map<number, ViewportPoint>());
+  const gesture = useRef<{ kind: "pan" | "pinch"; startPoint?: ViewportPoint; startPan: ViewportPoint; startZoom: number; distance?: number; midpoint?: ViewportPoint } | null>(null);
+  const viewport = useRef({ zoom: 1, pan: { x: 0, y: 0 } });
+  const views = id === "concrete.mix" ? [{ id: "mix", label: "Mennyiségek" }]
+    : id === "concrete.rebar" ? [{ id: "bars", label: "Rúdnézet" }, { id: "section", label: "Keresztmetszet" }]
+    : id === "concrete.pile" || id === "concrete.ring" ? [{ id: "plan", label: "Felülnézet" }, { id: "section", label: "Metszet" }]
+    : id === "concrete.strip" || id === "concrete.slab" ? [{ id: "plan", label: "Alaprajz" }, { id: "section", label: "Metszet" }]
+    : id === "concrete.paving" ? [{ id: "plan", label: "Felület" }, { id: "tile", label: "Lapméret" }]
+    : id === "concrete.blind_area" ? [{ id: "plan", label: "Alaprajz" }, { id: "section", label: "Rétegmetszet" }]
+    : [{ id: "plan", label: "Alaprajz" }];
+  useEffect(() => { if (!views.some((item) => item.id === view)) setView(views[0].id); }, [id, view, views]);
+  useEffect(() => {
+    const targetView = id === "concrete.strip" && focusedDimension === "depthMm" ? "section"
+      : id === "concrete.pile" && focusedDimension === "lengthMm" ? "section"
+      : id === "concrete.slab" && focusedDimension === "thicknessMm" ? "section"
+      : id === "concrete.ring" && focusedDimension === "heightMm" ? "section"
+      : id === "concrete.paving" && (focusedDimension === "tileLengthMm" || focusedDimension === "tileWidthMm") ? "tile"
+      : id === "concrete.blind_area" && (focusedDimension === "concreteThicknessMm" || focusedDimension === "gravelThicknessMm") ? "section"
+      : id === "concrete.rebar" && focusedDimension === "barDiameterMm" ? "section"
+      : null;
+    if (targetView && targetView !== view && views.some((item) => item.id === targetView)) setView(targetView);
+  }, [focusedDimension, id, view, views]);
+  useEffect(() => { viewport.current = { zoom: 1, pan: { x: 0, y: 0 } }; setZoom(1); setPan({ x: 0, y: 0 }); }, [id, values, view]);
+  const title = `${constructionCalculatorCatalog.find((item) => item.id === id)?.title ?? "Építési kalkulátor"} műszaki vázlata`;
+  const setViewport = useCallback((next: { zoom: number; pan: ViewportPoint }) => {
+    const nextZoom = clampDrawingZoom(next.zoom);
+    const nextPan = { x: Number.isFinite(next.pan.x) ? next.pan.x : 0, y: Number.isFinite(next.pan.y) ? next.pan.y : 0 };
+    viewport.current = { zoom: nextZoom, pan: nextPan }; setZoom(nextZoom); setPan(nextPan);
+  }, []);
+  const fitViewport = useCallback(() => {
+    const svg = svgRef.current;
+    const rect = svg?.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) return;
+    const bounds = id === "concrete.ring" && view === "section"
+      ? { minX: 280, minY: 40, maxX: 840, maxY: 520 }
+      : { minX: 72, minY: 55, maxX: 928, maxY: 505 };
+    setViewport(fitDrawingViewport(bounds, { width: rect.width, height: rect.height }, 24));
+  }, [id, setViewport, view]);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(fitViewport);
+    const element = svgRef.current;
+    const observer = typeof ResizeObserver === "undefined" || !element ? null : new ResizeObserver(fitViewport);
+    observer?.observe(element!);
+    if (!observer) window.addEventListener("resize", fitViewport);
+    return () => { window.cancelAnimationFrame(frame); observer?.disconnect(); if (!observer) window.removeEventListener("resize", fitViewport); };
+  }, [fitViewport, id, values, view]);
+  const pointAt = (event: { clientX: number; clientY: number }) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    return rect ? clientPointToViewBox({ x: event.clientX, y: event.clientY }, rect) : null;
+  };
+  const midpoint = (a: ViewportPoint, b: ViewportPoint): ViewportPoint => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const distance = (a: ViewportPoint, b: ViewportPoint) => Math.hypot(b.x - a.x, b.y - a.y);
+  const onPointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    if ((event.target as Element).closest("[data-dimension]")) return;
+    const point = pointAt(event); if (!point) return;
+    event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); pointers.current.set(event.pointerId, point);
+    if (pointers.current.size === 1) gesture.current = { kind: "pan", startPoint: point, startPan: viewport.current.pan, startZoom: viewport.current.zoom };
+    if (pointers.current.size >= 2) { const [first, second] = [...pointers.current.values()]; gesture.current = { kind: "pinch", startPan: viewport.current.pan, startZoom: viewport.current.zoom, distance: distance(first, second), midpoint: midpoint(first, second) }; }
+  };
+  const onPointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (!pointers.current.has(event.pointerId)) return;
+    const point = pointAt(event); if (!point) return; pointers.current.set(event.pointerId, point);
+    const current = gesture.current; const active = [...pointers.current.values()]; if (!current) return;
+    if (current.kind === "pinch" && active.length >= 2 && current.distance && current.midpoint) setViewport(pinchViewport({ zoom: current.startZoom, pan: current.startPan, distance: current.distance, midpoint: current.midpoint }, { distance: distance(active[0], active[1]), midpoint: midpoint(active[0], active[1]) }, { x: 500, y: 280 }));
+    else if (current.kind === "pan" && current.startPoint && active.length === 1) setViewport({ zoom: viewport.current.zoom, pan: panViewport({ pan: current.startPan, point: current.startPoint }, active[0], current.startZoom) });
+  };
+  const stopPointer = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (!pointers.current.has(event.pointerId)) return;
+    pointers.current.delete(event.pointerId); try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* The browser can release capture before this handler runs. */ }
+    const remaining = [...pointers.current.values()]; const rebased = rebasePanGesture(remaining, viewport.current);
+    gesture.current = rebased ? { kind: "pan", ...rebased } : null;
+  };
+  useEffect(() => () => {
+    for (const pointerId of pointers.current.keys()) {
+      try { if (svgRef.current?.hasPointerCapture(pointerId)) svgRef.current.releasePointerCapture(pointerId); } catch { /* Pointer capture may already be released during unmount. */ }
+    }
+    pointers.current.clear(); gesture.current = null;
+  }, []);
+  const dim = (x1: number, y1: number, x2: number, y2: number, label: string, key: string, vertical = false) => {
+    const active = focusedDimension === key;
+    const activate = () => onDimensionSelect?.(key);
+    return <g className={`construction-dimension${active ? " is-active" : ""}`} role="button" tabIndex={0} aria-label={`${label}; kapcsolódó mező megnyitása`} data-dimension={key} onClick={activate} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); } }}>
+      <line x1={x1} y1={y1} x2={x2} y2={y2} />
+      <line x1={x1 - (vertical ? 5 : 0)} y1={y1 - (vertical ? 0 : 5)} x2={x1 + (vertical ? 5 : 0)} y2={y1 + (vertical ? 0 : 5)} />
+      <line x1={x2 - (vertical ? 5 : 0)} y1={y2 - (vertical ? 0 : 5)} x2={x2 + (vertical ? 5 : 0)} y2={y2 + (vertical ? 0 : 5)} />
+      <text x={vertical ? x1 + 12 : (x1 + x2) / 2} y={vertical ? (y1 + y2) / 2 : y1 - 10} textAnchor={vertical ? "start" : "middle"}>{label}</text>
+    </g>;
+  };
+  const ratioGroup = (item: { key: string; label: string }, amount: number, x: number, y: number, barWidth: number) => {
+    const activate = () => onDimensionSelect?.(item.key);
+    return <g key={item.key} className={`construction-dimension${focusedDimension === item.key ? " is-active" : ""}`} role="button" tabIndex={0} aria-label={`${item.label}: ${amount} rész; kapcsolódó mező megnyitása`} data-dimension={item.key} onClick={activate} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); activate(); } }}>
+      <text x={x - 20} y={y + 30} textAnchor="end">{item.label} · {amount} rész</text><rect x={x} y={y} width={barWidth} height="48" rx="5" /><text x={x + barWidth + 12} y={y + 30}>arányos tömeg</text>
+    </g>;
+  };
+  const centerText = (text: string, y = 525) => <text className="construction-drawing-label" x="500" y={y} textAnchor="middle">{text}</text>;
+  const centerDimensionText = (key: string, text: string, y = 490) => <text className={`construction-drawing-label construction-dimension-label${focusedDimension === key ? " is-active" : ""}`} x="500" y={y} textAnchor="middle" role="button" tabIndex={0} data-dimension={key} onClick={() => onDimensionSelect?.(key)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onDimensionSelect?.(key); } }}>{text}</text>;
+  const rectScale = (a: number, b: number, maxWidth = 560, maxHeight = 300) => {
+    const scale = Math.min(maxWidth / a, maxHeight / b);
+    return { scale, x: 500 - a * scale / 2, y: 260 - b * scale / 2, w: a * scale, h: b * scale };
+  };
+  let geometry: React.ReactNode;
+  if (id === "concrete.mix") {
+    const ratios = [{ key: "cementRatio", label: "Cement" }, { key: "sandRatio", label: "Homok" }, { key: "aggregateRatio", label: "Adalék" }];
+    const maxRatio = Math.max(1, ...ratios.map((item) => value(item.key)));
+    geometry = <>{ratios.map((item, index) => { const y = 145 + index * 102; const amount = value(item.key); return ratioGroup(item, amount, 280, y, Math.max(1, 430 * amount / maxRatio)); })}{centerText("Megadott tömegarány · receptet nem ajánl", 500)}</>;
+  } else if (id === "concrete.strip") {
+    const r = rectScale(length, width || 1);
+    const crossScale = Math.min(270 / width, 220 / height); const crossW = width * crossScale; const crossH = height * crossScale; const crossX = 500 - crossW / 2; const crossY = 240 - crossH / 2;
+    geometry = view === "section" ? <><rect className="construction-technical-fill" x={crossX} y={crossY} width={crossW} height={crossH} />{dim(crossX, crossY + crossH + 40, crossX + crossW, crossY + crossH + 40, `${width} mm szélesség`, "widthMm")}{dim(crossX + crossW + 40, crossY, crossX + crossW + 40, crossY + crossH, `${height} mm mélység`, "depthMm", true)}{centerText("Állandó téglalap keresztmetszet · nincs sarkok kiosztása", 455)}</> : <><rect className="construction-technical-fill" x={r.x} y={r.y} width={r.w} height={r.h} />{dim(r.x, r.y + r.h + 55, r.x + r.w, r.y + r.h + 55, `${length} mm összes tengelyhossz`, "totalCenterlineLengthMm")}{dim(r.x + r.w + 36, r.y, r.x + r.w + 36, r.y + r.h, `${width} mm`, "widthMm", true)}{centerText("Egyenes sematikus kiterítés · nem mutat sarkokat", 460)}</>;
+  } else if (id === "concrete.pile") {
+    const count = Math.min(12, Math.max(1, Math.round(value("count"))));
+    const pileLength = value("lengthMm"); const pileScale = Math.min(150 / diameter, 310 / pileLength); const pileW = diameter * pileScale; const pileH = pileLength * pileScale; const pileX = 500 - pileW / 2; const pileY = 250 - pileH / 2;
+    geometry = view === "section" ? <><rect className="construction-technical-fill" x={pileX} y={pileY} width={pileW} height={pileH} rx={Math.min(pileW / 2, 18)} />{dim(pileX, pileY + pileH + 42, pileX + pileW, pileY + pileH + 42, `Ø ${diameter} mm`, "diameterMm")}{dim(pileX + pileW + 42, pileY, pileX + pileW + 42, pileY + pileH, `${pileLength} mm`, "lengthMm", true)}{centerText(`${value("count")} db azonos, egyenes körszárú elem · talpbővítés nélkül`)}</> : <>{Array.from({ length: count }, (_, i) => { const cols = Math.min(6, count); const rows = Math.ceil(count / cols); const x = 500 - (cols - 1) * 105 / 2 + (i % cols) * 105; const y = 250 - (rows - 1) * 105 / 2 + Math.floor(i / cols) * 105; return <circle key={i} className="construction-technical-fill" cx={x} cy={y} r="34" />; })}{dim(466, 360, 534, 360, `Ø ${diameter} mm`, "diameterMm")}{centerText(`${value("count")} db · a tervbeli helyzet és kiosztás nincs megadva${value("count") > 12 ? " · legfeljebb 12 elem látszik" : ""}`)}</>;
+  } else if (id === "concrete.slab") {
+    const r = rectScale(length, width);
+    const slabScale = Math.min(640 / length, 210 / height); const slabW = length * slabScale; const slabH = height * slabScale; const slabX = 500 - slabW / 2; const slabY = 255 - slabH / 2;
+    geometry = view === "section" ? <><rect className="construction-technical-fill" x={slabX} y={slabY} width={slabW} height={slabH} />{dim(slabX, slabY + slabH + 42, slabX + slabW, slabY + slabH + 42, `${length} mm hossz`, "lengthMm")}{dim(slabX + slabW + 42, slabY, slabX + slabW + 42, slabY + slabH, `${height} mm vastagság`, "thicknessMm", true)}</> : <><rect className="construction-technical-fill" x={r.x} y={r.y} width={r.w} height={r.h} />{dim(r.x, r.y + r.h + 55, r.x + r.w, r.y + r.h + 55, `${length} mm`, "lengthMm")}{dim(r.x + r.w + 42, r.y, r.x + r.w + 42, r.y + r.h, `${width} mm`, "widthMm", true)}</>;
+  } else if (id === "concrete.ring") {
+    const outer = 170;
+    const inner = outer * (value("outerDiameterMm") - 2 * value("wallThicknessMm")) / value("outerDiameterMm");
+    const ringScale = Math.min((view === "section" ? 400 : 240) / value("outerDiameterMm"), (view === "section" ? 400 : 250) / height); const outerWidth = value("outerDiameterMm") * ringScale; const wall = value("wallThicknessMm") * ringScale; const ringHeight = height * ringScale; const left = 500 - outerWidth / 2; const top = 260 - ringHeight / 2; const innerLeft = left + wall;
+    geometry = view === "section" ? <><rect className="construction-technical-fill" x={left} y={top} width={wall} height={ringHeight} /><rect className="construction-technical-fill" x={innerLeft + outerWidth - 2 * wall} y={top} width={wall} height={ringHeight} />{dim(left, top + ringHeight + 48, left + outerWidth, top + ringHeight + 48, `Ø ${value("outerDiameterMm")} mm külső`, "outerDiameterMm")}{dim(left, top - 24, left + wall, top - 24, `${value("wallThicknessMm")} mm fal`, "wallThicknessMm")}{dim(left + outerWidth + 42, top, left + outerWidth + 42, top + ringHeight, `${height} mm`, "heightMm", true)}</> : <><circle cx="500" cy="260" r={outer} className="construction-technical-fill" /><circle cx="500" cy="260" r={inner} className="construction-technical-cutout" />{dim(500 - outer, 485, 500 + outer, 485, `Ø ${value("outerDiameterMm")} mm`, "outerDiameterMm")}{dim(500 - inner, 445, 500 + inner, 445, `Ø ${value("outerDiameterMm") - 2 * value("wallThicknessMm")} mm belső`, "wallThicknessMm")}</>;
+  } else if (id === "concrete.paving") {
+    const a = view === "tile" ? value("tileLengthMm") : length;
+    const b = view === "tile" ? value("tileWidthMm") : width;
+    const r = rectScale(a, b);
+    geometry = <><rect className="construction-technical-fill" x={r.x} y={r.y} width={r.w} height={r.h} />{view === "plan" && <text className="construction-drawing-label" x="500" y="260" textAnchor="middle">Terület · lapkiosztás nélkül</text>}{dim(r.x, r.y + r.h + 55, r.x + r.w, r.y + r.h + 55, `${a} mm`, view === "tile" ? "tileLengthMm" : "lengthMm")}{dim(r.x + r.w + 42, r.y, r.x + r.w + 42, r.y + r.h, `${b} mm`, view === "tile" ? "tileWidthMm" : "widthMm", true)}</>;
+  } else if (id === "concrete.blind_area") {
+    const outerL = length + 2 * value("apronWidthMm"); const outerW = width + 2 * value("apronWidthMm");
+    const r = rectScale(outerL, outerW, 540, 310); const inset = value("apronWidthMm") * r.w / outerL;
+    geometry = view === "section" ? <>{value("concreteThicknessMm") > 0 && <rect className="construction-technical-fill" x="245" y="290" width="510" height={Math.max(16, value("concreteThicknessMm") / Math.max(value("concreteThicknessMm"), value("gravelThicknessMm"), 1) * 48)} />}{value("gravelThicknessMm") > 0 && <rect className="construction-technical-layer" x="245" y="340" width="510" height={Math.max(16, value("gravelThicknessMm") / Math.max(value("concreteThicknessMm"), value("gravelThicknessMm"), 1) * 48)} />}{value("concreteThicknessMm") === 0 && value("gravelThicknessMm") === 0 ? centerText("Rétegvastagság nincs megadva", 295) : centerText("Csak megadott rétegek · sematikus, nem lejtés- vagy vízelvezetési terv", 440)}{value("concreteThicknessMm") > 0 && dim(775, 290, 775, 338, `${value("concreteThicknessMm")} mm beton`, "concreteThicknessMm", true)}{value("gravelThicknessMm") > 0 && dim(820, 340, 820, 388, `${value("gravelThicknessMm")} mm kavics`, "gravelThicknessMm", true)}</> : <><rect className="construction-technical-band" x={r.x} y={r.y} width={r.w} height={r.h} /><rect className="construction-technical-cutout" x={r.x + inset} y={r.y + inset} width={r.w - 2 * inset} height={r.h - 2 * inset} />{dim(r.x, r.y + r.h + 48, r.x + r.w, r.y + r.h + 48, `${outerL} mm külső hossz`, "buildingLengthMm")}{dim(r.x + inset, r.y + r.h / 2, r.x + inset + 2 * inset, r.y + r.h / 2, `${value("apronWidthMm")} mm sáv`, "apronWidthMm")}{centerText(`Belső épület: ${length} × ${width} mm`)}</>;
+  } else if (id === "concrete.rebar") {
+    const pieces = Math.min(12, Math.max(1, Math.round(value("pieceCount"))));
+    geometry = view === "section" ? <><circle className="construction-technical-fill" cx="500" cy="260" r="100" /><circle className="construction-technical-cutout" cx="500" cy="260" r="25" />{dim(475, 390, 525, 390, `Ø ${diameter} mm · jelképes nagyítás`, "barDiameterMm")}{centerText("A kör csak a megadott átmérőt jelöli; nincs tényleges keresztmetszeti lépték")}</> : <>{Array.from({ length: pieces }, (_, i) => <line key={i} className="construction-rebar-line" x1={240 + i * 44} y1="170" x2={240 + i * 44} y2="360" />)}{dim(240, 415, 240 + 190, 415, `${value("cutLengthMm")} mm / rúd`, "cutLengthMm")}{centerText(`${value("pieceCount")} db · ${diameter} mm átmérő · párhuzamos sematikus ábrázolás${value("pieceCount") > 12 ? " · legfeljebb 12 elem látszik" : ""}`)}</>;
+  } else if (id === "concrete.mesh") {
+    const l = value("lengthMm"); const w = value("widthMm"); const r = rectScale(l, w, 540, 300); const insetX = value("coverMm") * r.scale; const insetY = value("coverMm") * r.scale; const innerX = r.x + insetX; const innerY = r.y + insetY; const innerW = r.w - 2 * insetX; const innerH = r.h - 2 * insetY;
+    const mesh = calculateReinforcementMesh({ lengthMm: value("lengthMm"), widthMm: value("widthMm"), coverMm: value("coverMm"), spacingMm: value("spacingMm"), barDiameterMm: value("barDiameterMm"), steelDensityKgPerM3: value("steelDensityKgPerM3") || 7_850 });
+    const intervalsX = Math.max(1, mesh.widthwiseBarCount - 1); const intervalsY = Math.max(1, mesh.lengthwiseBarCount - 1);
+    const nx = Math.min(28, intervalsX); const ny = Math.min(20, intervalsY);
+    geometry = <><rect className="construction-technical-band" x={r.x} y={r.y} width={r.w} height={r.h} /><rect className="construction-technical-cutout" x={innerX} y={innerY} width={innerW} height={innerH} />{Array.from({ length: nx + 1 }, (_, i) => <line key={`v${i}`} className="construction-mesh-line" x1={innerX + i * innerW / nx} y1={innerY} x2={innerX + i * innerW / nx} y2={innerY + innerH} />)}{Array.from({ length: ny + 1 }, (_, i) => { const y = innerY + i * innerH / ny; return <line key={`h${i}`} className="construction-mesh-line" x1={innerX} y1={y} x2={innerX + innerW} y2={y} />; })}<rect className="construction-technical-outline" x={r.x} y={r.y} width={r.w} height={r.h} />{dim(r.x, r.y + r.h + 52, r.x + r.w, r.y + r.h + 52, `${l} mm teljes hossz`, "lengthMm")}{dim(r.x + r.w + 42, r.y, r.x + r.w + 42, r.y + r.h, `${w} mm teljes szélesség`, "widthMm", true)}{dim(r.x, r.y - 28, innerX, r.y - 28, `${value("coverMm")} mm fedés`, "coverMm")}{intervalsX <= 28 ? dim(innerX, innerY - 28, innerX + innerW / intervalsX, innerY - 28, `${mesh.actualSpacingAlongLengthMm} mm tényleges osztás`, "spacingMm") : centerDimensionText("spacingMm", `Tényleges osztás: ${mesh.actualSpacingAlongLengthMm} × ${mesh.actualSpacingAlongWidthMm} mm · ritkított sematikus rács`, 490)}{centerText(`${mesh.lengthwiseBarCount}/${mesh.widthwiseBarCount} rúd · a rajzon legfeljebb 28/20 ismétlés`, 525)}</>;
+  } else {
+    const r = rectScale(length, width);
+    geometry = <><rect className="construction-technical-outline" x={r.x} y={r.y} width={r.w} height={r.h} /><line className="construction-diagonal-line" x1={r.x} y1={r.y + r.h} x2={r.x + r.w} y2={r.y} /><path className="construction-technical-outline" d={`M ${r.x + 18} ${r.y + r.h} v -18 h 18`} />{dim(r.x, r.y + r.h + 55, r.x + r.w, r.y + r.h + 55, `${length} mm`, "lengthMm")}{dim(r.x + r.w + 40, r.y, r.x + r.w + 40, r.y + r.h, `${width} mm`, "widthMm", true)}<text className="construction-drawing-label" x="500" y="245" textAnchor="middle">d = átló</text>{centerText("90° kitűzési segédgeometria")}</>;
+  }
+  return <section className="construction-stair-drawing construction-material-drawing" aria-label={title}>
+    <div className="construction-stair-drawing-heading"><div><p className="section-eyebrow">MÉRETEZETT MENNYISÉGI VÁZLAT</p><h3>Műszaki rajz</h3></div><span>{id.startsWith("aux.") ? "Segédgeometria" : "Beton és alapozás"}</span></div>
+    <div className="construction-stair-view-tabs" role="group" aria-label="Műszaki rajz nézetei">{views.map((item) => <button key={item.id} type="button" aria-pressed={view === item.id} className={view === item.id ? "is-active" : ""} onClick={() => setView(item.id)}>{item.label}</button>)}</div>
+    <GlassToolbar ariaLabel="Műszaki rajz vezérlői" className="construction-stair-toolbar"><div className="drawing-toolbar-group" aria-label="Nagyítás"><button type="button" aria-label="Rajz kicsinyítése" onClick={() => setViewport({ zoom: viewport.current.zoom - .1, pan: viewport.current.pan })}><Minus aria-hidden="true" className="size-4" /></button><output className="drawing-zoom-value" aria-live="polite">{Math.round(zoom * 100)}%</output><button type="button" aria-label="Rajz nagyítása" onClick={() => setViewport({ zoom: viewport.current.zoom + .1, pan: viewport.current.pan })}><Plus aria-hidden="true" className="size-4" /></button></div><div className="drawing-toolbar-group" aria-label="Rajz elrendezése"><button type="button" aria-label="Rajz illesztése" onClick={fitViewport}><Maximize2 aria-hidden="true" className="size-4" /></button><button type="button" aria-label="Nézet visszaállítása" onClick={() => setViewport({ zoom: 1, pan: { x: 0, y: 0 } })}><RotateCcw aria-hidden="true" className="size-4" /></button></div></GlassToolbar>
+    <div className="construction-stair-canvas" ref={canvasRef}><svg ref={svgRef} className="construction-stair-svg" viewBox="0 0 1000 560" role="group" aria-label={title} preserveAspectRatio="xMidYMid meet" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={stopPointer} onPointerCancel={stopPointer} onLostPointerCapture={stopPointer}><title>{title}</title><desc>A rajz az aktuális, ellenőrzött kalkulátor bemeneteinek geometriai méreteit mutatja. Nem szerkezeti terv.</desc><g transform={`translate(${500 + pan.x} ${280 + pan.y}) scale(${zoom}) translate(-500 -280)`}>{geometry}</g></svg></div>
+    {focusedDimension && <p className="construction-stair-focus-note" role="status">A kiemelt méret a fókuszált adatmezőhöz tartozik.</p>}
+    <p className="construction-stair-caption">Mennyiségi geometriai vázlat. Nem szerkezeti vagy kivitelezési jóváhagyás.</p>
+  </section>;
 }
 
 function InteractiveStairDrawing({ model, focusedDimension, onDimensionSelect }: Readonly<{
@@ -449,9 +679,9 @@ function InteractiveStairDrawing({ model, focusedDimension, onDimensionSelect }:
     gesture.current = rebased ? { kind: "pan", ...rebased } : null;
   };
 
-  const title = model.kind === "straight" ? model.id.startsWith("stair.metal") ? "Egyenes fémlépcső geometriai rajza" : "Egyenes fa lépcső geometriai rajza" : model.kind === "spiral" ? "Csigalépcső geometriai rajza" : model.kind === "bevel" ? "Ferde lépcsőelem metszeti rajza" : model.kind === "landing" ? "Pihenős lépcső alaprajzi geometriai rajza" : "Betonlépcső keresztmetszeti geometriai rajza";
+  const title = model.kind === "straight" ? model.id.startsWith("stair.metal") ? "Egyenes fémlépcső geometriai rajza" : "Egyenes fa lépcső geometriai rajza" : model.kind === "spiral" ? "Csigalépcső geometriai rajza" : model.kind === "bevel" ? "Ferde lépcsőelem metszeti rajza" : model.kind === "landing" ? "Pihenős lépcső alaprajzi geometriai rajza" : model.kind === "winder" ? "Húzott fokos lépcső geometriai rajza" : "Betonlépcső keresztmetszeti geometriai rajza";
   return <section className="construction-stair-drawing" aria-labelledby={titleId}>
-    <div className="construction-stair-drawing-heading"><div><p className="section-eyebrow">GEOMETRIAI VÁZLAT · NEM GYÁRTÁSI RAJZ</p><h3 id={titleId}>Műszaki rajz</h3></div><span>{model.kind === "straight" || model.kind === "landing" ? "Lépcső" : model.kind === "spiral" ? "Csigalépcső" : model.kind === "concrete" ? "Betonlépcső" : "Alkatrész"}</span></div>
+    <div className="construction-stair-drawing-heading"><div><p className="section-eyebrow">GEOMETRIAI VÁZLAT · NEM GYÁRTÁSI RAJZ</p><h3 id={titleId}>Műszaki rajz</h3></div><span>{model.kind === "straight" || model.kind === "landing" || model.kind === "winder" ? "Lépcső" : model.kind === "spiral" ? "Csigalépcső" : model.kind === "concrete" ? "Betonlépcső" : "Alkatrész"}</span></div>
     <div className="construction-stair-view-tabs" role="group" aria-label="Lépcsőrajz nézetei">{views.map((item) => <button key={item.id} type="button" aria-pressed={view === item.id} className={view === item.id ? "is-active" : ""} onClick={() => setView(item.id)}>{item.label}</button>)}</div>
     <GlassToolbar ariaLabel="Lépcsőrajz vezérlők" className="construction-stair-toolbar">
       <div className="drawing-toolbar-group" aria-label="Nagyítás"><button type="button" title="Kicsinyítés" aria-label="Lépcsőrajz kicsinyítése" onClick={() => setZoomBounded(viewport.current.zoom - .1)}><Minus aria-hidden="true" className="size-4" /></button><output className="drawing-zoom-value" aria-live="polite">{Math.round(zoom * 100)}%</output><button type="button" title="Nagyítás" aria-label="Lépcsőrajz nagyítása" onClick={() => setZoomBounded(viewport.current.zoom + .1)}><Plus aria-hidden="true" className="size-4" /></button></div>
@@ -463,7 +693,7 @@ function InteractiveStairDrawing({ model, focusedDimension, onDimensionSelect }:
         <title>{title}</title><desc id={descriptionId}>A rajz az ellenőrzött lépcső-geometriából készült. A rajzi méretek egységben is megjelennek az eredménylistában.</desc>
         <defs><marker id="stair-arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
         <g transform={`translate(${VIEWBOX.width / 2 + pan.x} ${VIEWBOX.height / 2 + pan.y}) scale(${zoom}) translate(${-VIEWBOX.width / 2} ${-VIEWBOX.height / 2})`}>
-          {model.kind === "straight" ? view === "plan" ? <StraightPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <StairStepPath geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "spiral" ? view === "plan" ? <SpiralPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <SpiralRise geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "bevel" ? <BevelProfile geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "landing" ? <LandingPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <ConcreteProfile geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} />}
+          {model.kind === "straight" ? view === "plan" ? <StraightPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <StairStepPath geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "spiral" ? view === "plan" ? <SpiralPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <SpiralRise geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "bevel" ? <BevelProfile geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "landing" ? <LandingPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : model.kind === "winder" ? view === "plan" ? <WinderPlan geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <WinderElevation geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} /> : <ConcreteProfile geometry={model.geometry} activeDimension={focusedDimension} onDimensionSelect={onDimensionSelect} />}
         </g>
       </svg>
     </div>

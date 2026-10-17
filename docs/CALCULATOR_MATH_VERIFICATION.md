@@ -126,3 +126,56 @@ Az ortogonális fok/pihenőpoligonokat és a lépcsőék keresztmetszeti összeg
 ### Korlátok és státusz
 
 Az S3/S5/S7/S12–S15 eredménye **VERIFIED csak a fent leírt ortogonális pihenős alaprajz- és fokgeometriára**; nem igazol fa-/fém tartómodellt, lépcsőszabályt, fejmagasságot, gyárthatóságot vagy statikát. S17 **VERIFIED csak a tömör fokos ék geometriai térfogatára**; vasalást, mixet, normatív/teherbírási megfelelést nem ad. S4/S6/S8 húzott fokos modellek nem implementáltak és nem adnak eredményt.
+
+## F9.24.4 — Húzott fokok annularis szektoros geometriája
+
+### Modell és bemeneti tartomány
+
+Az S4/S6/S8 egyetlen közös tiszta függvénye: `src/domain/calculations/construction/winder-stairs.ts`. Bemenet: `H>0` teljes emelkedés, `W>0` lépcsőkar-szélesség, `Ri>0` explicit belső sugár (minden hossz mm-ben), egész alsó/középső/felső vízszintes fokszám, fordulónként `n=2…24` húzott fok, és bal/jobb irány. S4 egy 90°-os fordulót, S6 egy 180°-os fordulót, S8 pedig két azonos, egymást követő 90°-os fordulót használ. Minden kar egyenes, összes vízszintes fok legfeljebb 199; S8 középső karja kötelező, más változatban nem adható meg. Opcionális alaprajzi befoglaló `openingLength/Width` méretek csak akkor fogadhatók el, ha a számított terv befoglaló méreténél nem kisebbek. A geometria nincs téglalapnyílásba való teljes ütközésre ellenőrizve.
+
+Kimeneti pontok és hosszok mm-ben, szögek fokban, a trigonometria radiánban. Nem történik néma egészre kerekítés. `N = Nalsó + Nközép + Nfelső + fordulók száma × n` vízszintes fok; a felső padló az utolsó fellépés, ezért `fellépésszám=N+1`, `R=H/(N+1)`. Ezzel az utolsó fok szintje `H−R`, a végső felső fellépés pedig pontosan `H`-nál zár.
+
+### A fordulófok képletei és poligonhatárok
+
+`Ri` a belső körív sugara, `Ro=Ri+W` a külső sugár, a választott járóvonal `Rm=(Ri+Ro)/2`. Egy `T` teljes fordulásnál az egyenlő középponti szög `δ=(T/n)` radiánban, a szög fokban `T°/n`. A járóvonal menti fokmélység `G=Rm×δ`, közvetlenül a körívhossz-képletből `s=rθ` [G2]. A két párhuzamos húrhossz az egyenlő szárú háromszög félbevágásából: `ci=2Ri×sin(δ/2)` és `co=2Ro×sin(δ/2)`. A `Ri` és `Ro` köríveket határoló, szomszédos sugarak közötti fokpoligon pontjai `[külső kezdőpont, külső végpont, belső végpont, belső kezdőpont]`; így a tényleges SVG ugyanazon egyenes húrokkal határolt négyszögeket rajzolja ki. A járóvonal-belépő ívhossz szerinti kiosztás, a fokpoligon viszont húros határú: a kettőt a kimenet külön néven adja, nem állítja, hogy egyenlők.
+
+Karoknál a középvonal minden fokszélességű szakaszt előre lép; a kanyar középpontja `C=P+q×Rm×nᵣ`, ahol `q=+1` jobbra, `−1` balra és `nᵣ` az irányvektor jobb oldali normálisa. A `Ri`/`Ro` sugarak azonos szögelfordulással generálják a forduló poligonokat, majd az új irányvektorból folytatódik a következő kar. Az egész modellt közös x/y eltolás normalizálja, ami a távolságokat és szögeket nem változtatja.
+
+### Átfedés- és invariáns-ellenőrzés
+
+Minden négyszög területe shoelace összeggel pozitív kell legyen; a keresztszorzat előjelei konvexitást vizsgálnak. A konvex poligonok minden élének normálisára a SAT (separating-axis theorem) projekciós intervallumokat teszteli: ha bármelyik tengelyen az intervallumok legfeljebb érintik egymást, a két fok belső területe nem fed át. A közös fokhatárok így megengedettek; pozitív belső átfedés hibát ad. A megengedett szögosztás legfeljebb 90°/2=45° az egyes negyedfordulóknál és 180°/2=90° az S6 fordulónál, tehát az egyes húros szektorok konvexek. S8 két fordulóját és minden egyenes fokot ugyanaz a teljes páronkénti vizsgálat ellenőrzi. A hiányzó/degenerált méretet a Zod-séma, a lehetetlen tervbefoglalót vagy poligonátfedést a motor elutasítja; nincs eredmény `NaN`/Infinity esetén.
+
+### Független determinisztikus fixture-k
+
+- S4: `H=2800`, `W=800`, `Ri=300`, alsó/felső fok `4/6`, `n=3`: `N=13`, fellépés `14`, `R=200 mm`, `Rm=700 mm`, szög/fok `30°`, `G=700π/6=366,519… mm`, belső húr `600 sin(15°)=155,291… mm`, külső húr `2200 sin(15°)=569,401… mm`, kiterített járóvonal `13G=4 764,749… mm` (a teszt a pontos `13×700π/6` értéket használja).
+- S6: azonos sugarak/szélesség, alsó/felső `4/6`, `n=4`: `N=14`, fellépés 15, `δ=45°`, `G=700π/4=549,779… mm`, belső húr `600 sin(22,5°)=229,610… mm`.
+- S8: `H=2800`, `W=800`, `Ri=300`, karok `4/5/6`, `n=3`: `N=21`, fellépés 22; 3 fok az első és 3 fok a második fordulóban, minden fok azonos `R`-rel emelkedik.
+- Tükrözés: azonos input jobb/bal iránnyal azonos befoglaló tervet és fokdarabszámot ad; a poligonok normalizált koordinátái Y tengely mentén tükrözöttek.
+- Skálázás: `H`, `W`, `Ri` kétszerezése a hosszakat és kiterjedéseket kétszerezi, a fokszöget/darabszámot változatlanul hagyja.
+- Minden terv összes fokpoligonja pozitív területű, konvex, és minden párra nincs belső területátfedés. Tesztelve a normál S4/S6/S8 példákkal.
+- Hibás/határérték: hiányzó S8 középső kar, 1 fordulófok, nulla belső sugár, negatív szélesség, nem egész fokszám, kevés nyílás-befoglaló és túl sok fok elutasítandó.
+
+Ezeket a `src/domain/calculations/construction/winder-stairs.test.ts` determinisztikus Vitest-fixture-k tesztelik; a három SVG-route-ot a `catalog.test.tsx` szerveroldali render teszteli. A Zhitov-oldalak funkciót és bemeneti mezőket azonosítanak, nem ellenőrző számítási oracle-k: [S4](https://www.zhitov.com/en/lestnica3/), [S6](https://www.zhitov.com/en/lestnica5/), [S8](https://www.zhitov.com/en/lestnica7/). Független matematikai alap: [G1] síkgeometria és háromszög, [G2] körív `s=rθ`; a húrképletet fent az egyenlő szárú háromszög felezéséből vezetjük le.
+
+### Korlát
+
+`VERIFIED` kizárólag a fenti koncentrikus, egyenlő szögosztású, középvonalas geometriára értendő. A képlet nem választ ergonómiai minimumot, nem igazol vonatkozó magyar szabályzatot, nem számol fejmagasságot, ajtó/nyílás alakú ütközést, pofafát, fokvastagságot, orrkiülést, szerkezeti tartót, anyagkihozatalt vagy teherbírást. A profil egy **kiterített járóvonal**, nem oldalnézeti gyártási rajz. A beállítás ettől nem minősül kivitelezési vagy statikai jóváhagyásnak.
+
+## F9.24.5 — Betonrajzok geometriai ellenőrzése
+
+Ez a rajzfrissítés nem módosítja a domain-képleteket. A méretek a validált bemenetekből jönnek; a háló darabszámát és tényleges osztását a meglévő `calculateReinforcementMesh` motor szolgáltatja. Az ismétlődő SVG-elemek rajzi korlátozása (cölöp/rúd legfeljebb 12 szimbólum; háló legfeljebb 28×20 vonal) nem módosít számított mennyiséget, és ezt a rajzi felirat jelzi.
+
+| Rajzi fixture | Függetlenül várt geometria / mennyiség | Ellenőrzött rajzi egyezőség |
+|---|---|---|
+| Sávalap: 10 000×400×800 mm | `V=3,2 m³`; kétoldali zsaluzat `16 m²` | 10 000 mm összes tengelyhossz; külön 400×800 mm-es metszet; kitalált sarkok nélkül. |
+| Cölöp: 4×Ø300×5 000 mm | Egy elem `π·0,15²·5=0,353429 m³`; összesen `1,413717 m³` | Henger oldalnézet és darabszámot jelző felülnézeti szimbólumok; helykoordináta nincs. |
+| Alaplemez: 10 000×8 000×200 mm | `A=80 m²`, `V=16 m³`, élzsaluzat `7,2 m²` | Felülnézeti X/Y arány; a metszet 10 000 mm hosszt és 200 mm vastagságot mutat. |
+| Gyűrű: Ø1 200, fal 100, H=1 000 mm | Belső Ø `1 000 mm`; beton `0,345575 m³`; belső tér `0,785398 m³`; külső palást `3,769911 m²` | Koncentrikus felülnézet; metszet a bemeneti falvastagságot és magasságot mutatja. |
+| Burkolat: 10 000×2 000; lap 200×100 mm | `20 m²`; `0,02 m²/lap`; területi becslés `1 000 db` | Külön terület- és lapméret-nézet, nem jelzett lapkiosztással. |
+| Épület körüli sáv: 10 000×8 000, 1 000 mm; réteg 100/150 mm | `(12·10−10·8)=40 m²`; beton `4 m³`; kavics `6 m³` | Külső 12 000×10 000 és belső 10 000×8 000 mm; csak explicit réteg látszik. |
+| Mix: 4 m³, 300 kg/m³, 1:2:3 | Cement `1 200 kg`; homok `2 400 kg`; adalék `3 600 kg` | A sávok 1:2:3 tömegarányt mutatnak, nem receptet vagy szilárdságot. |
+| Betonacél: 10×Ø12×6 000 mm | Összhossz `60 m`; geometriai tömeg `53,268 kg` | Jelképes, egyenes rúdn&eacute;zet és nagyított Ø12 keresztmetszet. |
+| Háló: 5 000×3 000, fedés 50, max. osztás 200, Ø10 | Tiszta méret 4 900×2 900 mm; 25×15 osztásköz; 26 és 16 rúd; tényleges 196×193,333 mm; összhossz `153,8 m` | Teljes kontúr és fedési sáv; a mintakiosztás 25×15 intervallumként teljesen látszik. |
+| Átló: 3 000×4 000 mm | `d=√(3 000²+4 000²)=5 000 mm`; szög `53,130102°` | Méretezett téglalap, átló és 90°-os jel ugyanazon 3–4–5 háromszögre épül. |
+
+Független alapelvek: derékszögű háromszög [G1], kör-/hasábterület és térfogat [G3], acélsűrűség becslési adatként [G4]. A Zhitov eredmény nem numerikus oracle. A SVG-teszt a 10 kalkulátor méretkulcsait, alternatív nézeteit és véges koordinátáit ellenőrzi; a domain mennyiségi fixture a rajz renderelésétől külön teszteli a motorokat (`concrete-drawings.test.tsx`, `construction.test.ts`).

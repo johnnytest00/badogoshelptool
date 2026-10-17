@@ -11,11 +11,12 @@ import { constructionCalculatorCatalog, type ConstructionCalculatorCategory, typ
 import { calculateConcreteMix, calculateConcreteRing, calculateCylindricalPiles, calculateFoundationSlab, calculatePavingMaterials, calculateRectangularBlindArea, calculateReinforcementBars, calculateReinforcementMesh, calculateRightAngleDiagonal, calculateStripFoundation } from "@/domain/calculations/construction/concrete";
 import { calculateExistingRoofGeometry, calculateMansardGeometry, calculateRafterGeometry, calculateTriangularTrussGeometry } from "@/domain/calculations/construction/roofs";
 import { calculateBeveledRiserGeometry, calculateConcreteStairGeometry, calculateLandingStairGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry } from "@/domain/calculations/construction/stairs";
+import { calculateWinderStairGeometry } from "@/domain/calculations/construction/winder-stairs";
 import { mm2ToM2, mmToM } from "@/domain/calculations/construction/numeric";
 import { calculateGableRoof } from "@/domain/calculations/gable-roof";
 import { calculateGableMetalTileCovering } from "@/domain/calculations/gable-metal-tile-covering";
 import type { RoofGeometry, RoofGeometryType } from "@/domain/calculations/roof-geometry";
-import { ConstructionCalculatorThumbnail, ConstructionStairDrawing } from "./construction-visuals";
+import { ConstructionCalculatorThumbnail, ConstructionMaterialDrawing, ConstructionStairDrawing } from "./construction-visuals";
 
 type Field = { key: string; label: string; unit: string; initial?: string; integer?: boolean; advanced?: boolean; kind?: "text" | "checkbox" | "select"; options?: readonly { value: string; label: string }[] };
 type ResultLine = { label: string; value: number | string; unit: string };
@@ -28,6 +29,7 @@ const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-
 
 const mm = (value: Record<string, unknown>, key: string) => Number(value[key]);
 const nullableMm = (value: Record<string, unknown>, key: string) => value[key] === undefined || value[key] === null || value[key] === "" ? null : Number(value[key]);
+const formatHuNumber = (value: number) => new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 1 }).format(value);
 
 const definitions: Record<string, CalculatorDefinition> = {
   "roof.rafter": {
@@ -215,9 +217,52 @@ function landingStairDefinition(id: string, layout: "quarter_turn" | "half_turn"
   };
 }
 
+function winderStairDefinition(id: string, layout: "quarter_turn" | "half_turn" | "three_flight"): CalculatorDefinition {
+  const reference = constructionCalculatorCatalog.find((item) => item.id === id)!;
+  const fields: readonly Field[] = [
+    { key: "totalRiseMm", label: "Padlószintek közötti teljes emelkedés", unit: "mm" },
+    { key: "stairWidthMm", label: "Lépcsőkar szélessége", unit: "mm" },
+    { key: "innerRadiusMm", label: "Húzott fokok belső sugara", unit: "mm" },
+    { key: "lowerTreadCount", label: "Alsó kar fokainak száma", unit: "db", integer: true },
+    ...(layout === "three_flight" ? [{ key: "middleTreadCount", label: "Középső kar fokainak száma", unit: "db", integer: true } as const] : []),
+    { key: "upperTreadCount", label: "Felső kar fokainak száma", unit: "db", integer: true },
+    { key: "windersPerTurn", label: "Húzott fokok száma fordulónként", unit: "db", integer: true },
+    { key: "turnDirection", label: "Fordulás iránya", unit: "", kind: "select", initial: "right", options: [{ value: "right", label: "Jobbra" }, { value: "left", label: "Balra" }] },
+    { key: "openingLengthMm", label: "Ellenőrző alaprajzi hossz", unit: "mm", advanced: true },
+    { key: "openingWidthMm", label: "Ellenőrző alaprajzi szélesség", unit: "mm", advanced: true },
+  ];
+  return {
+    reference,
+    draw: "stairs",
+    note: "Geometriai modell: egyenlő szögosztású, koncentrikus húzott fokok; a járóvonal a kar középvonalán azonos ívhosszal halad. A rajz sem gyártási, sem statikai igazolás.",
+    fields,
+    calculate: (input) => {
+      const result = calculateWinderStairGeometry({
+        layout,
+        totalRiseMm: mm(input, "totalRiseMm"), stairWidthMm: mm(input, "stairWidthMm"), innerRadiusMm: mm(input, "innerRadiusMm"),
+        lowerTreadCount: mm(input, "lowerTreadCount"), upperTreadCount: mm(input, "upperTreadCount"), windersPerTurn: mm(input, "windersPerTurn"),
+        turnDirection: input.turnDirection === "left" ? "left" : "right",
+        ...(layout === "three_flight" ? { middleTreadCount: mm(input, "middleTreadCount") } : {}),
+        ...(nullableMm(input, "openingLengthMm") === null ? {} : { openingLengthMm: nullableMm(input, "openingLengthMm")! }),
+        ...(nullableMm(input, "openingWidthMm") === null ? {} : { openingWidthMm: nullableMm(input, "openingWidthMm")! }),
+      });
+      return [
+        { label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" }, { label: "Összes fellépés", value: result.riserCount, unit: "db" },
+        { label: "Összes vízszintes fok", value: result.treadCount, unit: "db" }, { label: "Járóvonal-belépő a fordulóban", value: result.walkingGoingMm, unit: "mm" },
+        { label: "Húzott fok belső / külső húrja", value: `${formatHuNumber(result.innerChordMm)} / ${formatHuNumber(result.outerChordMm)}`, unit: "mm" },
+        { label: "Fok szögosztása", value: result.stepAngleDegrees, unit: "°" }, { label: "Kiterített járóvonal-futás", value: result.developedWalkingRunMm, unit: "mm" },
+        { label: "Alaprajzi kiterjedés · hossz", value: result.planWidthMm, unit: "mm" }, { label: "Alaprajzi kiterjedés · szélesség", value: result.planDepthMm, unit: "mm" },
+      ];
+    },
+  };
+}
+
 for (const id of ["stair.wood.90_landing", "stair.metal.90_landing", "stair.metal.90_zigzag"]) definitions[id] = landingStairDefinition(id, "quarter_turn");
 for (const id of ["stair.wood.180_landing", "stair.metal.180_landing", "stair.metal.180_zigzag"]) definitions[id] = landingStairDefinition(id, "half_turn");
 definitions["stair.wood.three_landing"] = landingStairDefinition("stair.wood.three_landing", "three_flight");
+definitions["stair.wood.90_winder"] = winderStairDefinition("stair.wood.90_winder", "quarter_turn");
+definitions["stair.wood.180_winder"] = winderStairDefinition("stair.wood.180_winder", "half_turn");
+definitions["stair.wood.three_winder"] = winderStairDefinition("stair.wood.three_winder", "three_flight");
 definitions["stair.concrete_straight"] = {
   reference: constructionCalculatorCatalog.find((item) => item.id === "stair.concrete_straight")!,
   draw: "stairs",
@@ -372,6 +417,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const drawingContent = calculation.rows.length > 0
     ? definition.reference.category === "stair"
       ? <ConstructionStairDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
+      : definition.reference.category === "concrete" || definition.reference.category === "auxiliary"
+        ? <ConstructionMaterialDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
       : <ConstructionDrawing definition={definition} values={values} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
     : undefined;
   const independentContent = <p className="construction-suite-independent">Az eredmény helyi előnézet. Nem mentődik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>;

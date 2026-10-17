@@ -40,6 +40,25 @@ Javasolt Conventional Commit: `feat(F9.26): add category-first quotation product
 
 Státusz: **PARTIAL**, mert automatizált kódellenőrzések sikeresek, a módosítás utáni vizuális színazonosság nincs böngészőben bizonyítva.
 
+## F9.25 — Kalkulátor-konszolidáció és napi workflow UX-audit
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Dashboard navigáció | PASS, LOCAL AUTHENTICATED BROWSER | A „Felmérések” kártya `/felmeresek?organization=…` útvonalra vezet; a „Kalkulátorok” kártya a `/kalkulatorok?organization=…` főoldalt nyitja. A szervezeti kontextus megmarad. |
+| Survey-lista és újranyitás | PASS, LOCAL READ-ONLY | A lista látható `Új felmérés` CTA-t és meglévő rekordokat mutatott. A V3 mentett survey újranyílt, V1/V2 revízióválasztó látszott. Az új CTA a munkatípusválasztóra vitt; mentés nem történt. A mentett felmérés `Munkanapló létrehozása` CTA-ja megnyitotta a névbekérő panelt; a létrehozás nem lett elküldve. |
+| Kalkulátor kategória és választó | PASS, LOCAL BROWSER 1280×720 | Dashboardról belépve a három kategória és kereshető lista megjelent; `Lépcsők` tab után a 90°-os pihenős fa változat munkaterülete betöltött. Az aktív oldalon nem látszott külön nyeregtető/cserepeslemez indítókártya vagy archív blokk. |
+| Üres mentett-lista és legacy rekordnavigáció | CODE + BROWSER PARTIAL | Az üres állapotból eltűntek az új legacy kalkulátor-indítólinkek (kódban ellenőrzött). A típus-szűrő és meglévő rekord `Megnyitás` útvonal működött a Cserepeslemez V2 rekorddal. Az üres mentettlista böngészős állapot a helyi adatok miatt nem volt elérhető. |
+| Régi suite URL | PASS, LOCAL BROWSER | `/kalkulatorok/epitesi?calculator=stair.wood.90_landing&organization=…` a `/kalkulatorok` címre irányított; a kalkulátor és szervezet választása megmaradt. |
+| Korábbi mentett számítás újranyitása | PASS, LOCAL READ-ONLY | A `Mentett számításaim` oldalról egy meglévő Cserepeslemez-fedés V2 rekord megnyílt a történeti `/kalkulatorok/cserepeslemez` route-on, adatai betöltődtek. Mentés nem történt. |
+| Anyaglista / üzleti átadás | PARTIAL, LOCAL READ-ONLY | Az `/anyaglistak` üres állapotot mutatott, ezért nem volt mentett lista az ajánlatimport route böngészős próbájához. Nem hoztam létre tesztlistát. Az anyaglista→ajánlat kódbeli forrásrevízió-átadást és az elfogadott ajánlat→munkanapló feltételt külön jelöli a UX-audit; ezt a böngésző nem igazolta. Felmérés→Anyaglista direkt útvonal nincs implementálva; a felmérés oldali következő lépések nem mutatnak ilyen CTA-t. |
+| Desktop/mobile viewport-sor | NEM FUTOTT TELJESEN | Normál helyi böngésző viewport 1280×720 volt. A CUA session nem adott viewport override-ot; 1440/1024/768/390/320 emulációt nem állítok teszteltnek. Fizikai mobil, dark/light összehasonlítás, touch, screen reader és kontrasztmérés nem futott. |
+| Fókuszált Vitest | PASS | `npx vitest run src/features/dashboard/dashboard.test.ts src/features/dashboard/dashboard-controls.test.tsx src/features/calculators/calculator-navigation.test.ts`: 3 fájl / 10 teszt PASS. |
+| Typecheck / lint / build | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack); a buildben a fő `/kalkulatorok`, a redirect `/kalkulatorok/epitesi` és minden legacy mentett-rekord route megjelent. |
+| Adat / DB / jogosultság | NEM VÁLTOZOTT | Nem készült tesztrekord, mentés, adatmodell-módosítás vagy migráció. Helyi DEMO rekordok csak olvasva; hosted DB/Auth/RLS művelet nem történt. |
+| Git diff ellenőrzés | PASS | `git diff --check` exit code 0. |
+
+Státusz: **PARTIAL**. Az új navigáció, query-megőrzés, survey/számítás újranyitás helyi desktop böngészőben működik. A teljes üzleti rekordlánc és a megadott 5 szélességű mobil/desktop mátrix nincs igazolva.
+
 ## F9.24 — tetőkalkulátorok és repo-audit
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |
@@ -1924,3 +1943,34 @@ Státusz: **PARTIAL (F9.24.2-kori snapshot)** — az akkori hat eredményrajztí
 | Adatok / jogosultság / integráció | NEM VÁLTOZOTT | Nincs mentés, DB, migration, ügyfél/projekt/felmérés/anyaglista/munkanapló/ajánlat-kapcsolat. A smoke-ot közvetlen standalone route-on futtattam, authenticated navigation mátrix nem készült. |
 
 Státusz: **PARTIAL** — a 33 referencia tételes; három húzott fokos változat nincs implementálva, a többi csak explicit, szűkített scope-jában használható. Az összes 33 teljes eredeti kalkulátorfunkció, statikai/gyártási kimenet, teljes a11y- és auth-mátrix nincs igazolva.
+
+## F9.24.4 — Húzott fokú lépcsők
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Winder geometry fixtures | PASS, FOCUSED VITEST | S4 kézi 90° körív/húr fixture, S6 180°-os kiosztás, S8 két forduló, konvexitás/pozitív terület, minden poligonpár nem fed át, bal/jobb tükrözés, 2× skálázás, invalid input/befoglaló méret. `winder-stairs.test.ts`: 11/11. |
+| Registry, kereső és SVG | PASS, FOCUSED VITEST | S4/S6/S8 ellenőrzött állapot; kereső-regiszter 33/33; mindhárom változat terv- és kiterített profil SVG-je véges, hiányos inputnál nincs eredményrajz. `catalog.test.tsx`: 7/7. |
+| Típusellenőrzés | PASS | `npm run typecheck`. |
+| Fókuszált lint | PASS | `npm run lint`. |
+| Production build / typecheck / diff | PASS | `npm run build` (Next.js 16.4.0 webpack), `npm run typecheck`, `git diff --check`. |
+| Production browser smoke | PASS, DESKTOP 1280×720 | Önálló `/kalkulatorok/epitesi?calculator=stair.wood.90_winder` route; kereshető lépcsőlistában S4/S6/S8 választás, required mezők kitöltése, eredmény és SVG. S4: 200 mm/14 fellépés/13 fok; S6: 186,667 mm/15/14 és balra; S8: 127,273 mm/22/21 és két 90°-os forduló. S4 és S8 kiterített profilt megjelenítette; zoom és illesztés vezérlő működött. Helyi, csak böngészőmemóriás állapot, nem mentett. |
+| Responsive 320 px / touch | NEM ELLENŐRZÖTT | A CUA böngészőben nem volt viewport override elérhető. A 320 px-es valódi viewportot, scrollWidth, tap targets, tényleges drag/pinch és fizikai eszközt nem teszteltük. CSS breakpointok és reduced-motion szabály léteznek, de ez nem helyettesíti a böngészős ellenőrzést. |
+| Adatbázis és üzleti integráció | NEM VÁLTOZOTT | Nincs DB, migration, hosted művelet, perzisztencia vagy projekt/ügyfél/ajánlat/anyaglista/munkanapló összekötés. |
+
+Státusz: **PARTIAL** a hiányzó 320 px-es böngésző- és touch-validáció miatt. A számítási lefedettség 33/33 a saját, dokumentált, szűkített geometriai/mennyiségi scope-jában `VERIFIED`; ez nem jelent teljes Zhitov-funkcióparitást vagy szerkezeti/gyártási igazolást. A három húzott változat modellkorlátait lásd a [mátrixban](CALCULATOR_COVERAGE_MATRIX.md) és a [matematikai ellenőrzésben](CALCULATOR_MATH_VERIFICATION.md).
+
+## F9.24.5 — Betonrajzok és reszponzív böngészőellenőrzés
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Tíz rajztípus és alternatív nézet | PASS, FOCUSED VITEST | `concrete-drawings.test.tsx`: 17 szerveroldali SVG-render fixture a C1–C10 kezdőnézetére és felülnézet/metszet/lapméret/rúdnézet alternatíváira; véges SVG-koordináták, kapcsolódó méretkulcsok, zoom toolbar. |
+| Domain mennyiségi fixture | PASS, FOCUSED VITEST | `construction.test.ts` a sávalap, lemez, cölöp, gyűrű, burkolat, sáv, explicit betonkeverék, rúd, háló és 3–4–5 átló független fixture-jeit ellenőrzi; domain képletek nem változtak. |
+| Fókuszált tesztkör | PASS | `npx vitest run src/domain/calculations/construction/concrete-drawings.test.tsx src/domain/calculations/construction/construction.test.ts src/domain/calculations/construction/catalog.test.tsx`: 3 fájl / 34 teszt PASS. |
+| Teljes Vitest regresszió | FAIL, 4 NEM KAPCSOLÓDÓ UI ELVÁRÁS | `npm test`: 124 fájl pass, 4 fail, 8 skip; 535 teszt pass, 4 fail, 25 skip. Hibák: `src/features/material-takeoffs/takeoff-forms.test.ts` (`square_meter` label), `src/features/roof-models/standalone-gable-preview.test.ts` (tetőcím), `src/features/roof-models/measurement-guidance.test.tsx` (`details` helyett `aside`), `src/features/calculators/data-loading.test.ts` (adatbetöltési üzenet). Ezeket az előzményeket nem módosítottam. |
+| Típus, lint, build, diff | PASS | `npm run typecheck`; `npm run lint`; `npm run build` (Next.js 16.4.0 webpack); `git diff --check`. |
+| Production browser smoke | PASS, HELYI / READ-ONLY | Önálló `/kalkulatorok/epitesi?calculator=concrete.ring` route; 1200/100/1000 mm gyűrű: 1000 mm belső átmérő, 0,346 m³ beton, 0,785 m³ belső térfogat, 3,77 m² külső palást. 10 000/400/800 mm sávalap: 3,2 m³ / 16 m²; a háló fixture: 16/26 rúd, 153,8 m, 196/193,333 mm. Keresőválasztó, alaprajz/metszet, zoom/fit és rajzi méret→input fókusz működött. |
+| Viewport-méretsor | PASS, EMULÁLT | 1440/1024/768/390/320 CSS px-en a document és body scrollWidth pontosan 1440/1024/768/390/320 px; a gyűrű SVG rendre 749/607/652/314/247 px széles. 320 px-en a toolbar két sorban jelenik meg, vezérlő-átfedés és horizontális oldal-túlcsordulás nélkül. |
+| Érintés, más téma és a11y | NEM FUTOTT | Az emulátor viewport-átállítást támogatott, de fizikai touch/pinch, iOS, világos téma, screen reader, reduced-motion és forced-colors ellenőrzés nem történt. Az egér/touch eseménykezelő meglévő kódja nem bizonyítja a fizikai gesztust. |
+| Persistence / business / DB | NEM VÁLTOZOTT | Helyi számítási állapot; nincs DB, migration, hosted módosítás, customer/project workflow vagy mentés. |
+
+Státusz: **PARTIAL** a teljes regresszió négy meglévő, nem kapcsolódó UI-eltérése és a fizikai touch/téma/a11y ellenőrzés hiánya miatt. A F9.24.5 fókuszált számítási és SVG-ellenőrzései, build és a kért emulált viewport-sor PASS.

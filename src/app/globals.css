@@ -1296,6 +1296,7 @@ html[data-theme="dark"] .global-animated-background {
   opacity: .95;
 }
 html[data-theme="light"] .global-animated-background canvas.vanta-canvas { opacity: .66; }
+body:has(.construction-suite) .global-animated-background canvas.vanta-canvas { opacity: .025; }
 @media (prefers-reduced-motion: reduce) {
   .global-animated-background canvas.vanta-canvas { display: none !important; }
 }
@@ -3898,9 +3899,30 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 .construction-stair-toolbar { align-items: center; min-height: 2.8rem; padding: .25rem .4rem; }
 .construction-stair-toolbar .drawing-toolbar-hint { margin-left: auto; }
 .construction-stair-canvas { width: 100%; min-width: 0; overflow: hidden; overscroll-behavior: contain; border: 1px solid color-mix(in srgb, var(--glass-border) 68%, transparent); border-radius: .8rem; background: color-mix(in srgb, var(--background) 94%, var(--glass-tint) 6%); touch-action: none; }
-.construction-stair-svg { display: block; width: 100%; height: clamp(17rem, 34vw, 31rem); color: var(--foreground); cursor: grab; user-select: none; -webkit-user-select: none; }
+.construction-stair-svg { display: block; width: 100%; height: clamp(calc(17rem * var(--tp-drawing-scale)), calc(34vw * var(--tp-drawing-scale)), calc(31rem * var(--tp-drawing-scale))); color: var(--foreground); cursor: grab; user-select: none; -webkit-user-select: none; }
 .construction-stair-svg:active { cursor: grabbing; }
 .construction-stair-svg text { fill: var(--foreground); font-family: inherit; font-size: 15px; font-weight: 600; paint-order: stroke; stroke: color-mix(in srgb, var(--surface-strong) 90%, transparent); stroke-width: 4px; stroke-linejoin: round; }
+.construction-stair-svg .construction-technical-fill { fill: color-mix(in srgb, var(--brand) 24%, var(--surface-glass)); stroke: var(--brand-ink); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .construction-technical-cutout { fill: color-mix(in srgb, var(--background) 94%, var(--glass-tint) 6%); stroke: var(--brand-ink); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .construction-technical-layer { fill: color-mix(in srgb, var(--muted) 24%, var(--surface-glass)); stroke: var(--muted); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .construction-technical-band { fill: color-mix(in srgb, var(--brand) 14%, var(--surface-glass)); stroke: var(--brand-ink); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .construction-technical-outline { fill: none; stroke: var(--brand-ink); stroke-width: 2.5px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .construction-dimension { cursor: pointer; }
+.construction-stair-svg .construction-dimension line { stroke: var(--muted); stroke-width: 1.5px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .construction-dimension text { fill: var(--foreground); font-size: 13px; }
+.construction-stair-svg .construction-dimension.is-active line { stroke: var(--brand); stroke-width: 3px; }
+.construction-stair-svg .construction-dimension.is-active text { fill: var(--brand-ink); font-weight: 850; }
+.construction-stair-svg .construction-dimension:focus-visible { outline: none; }
+.construction-stair-svg .construction-dimension:focus-visible text { text-decoration: underline; }
+.construction-stair-svg .construction-rebar-line, .construction-stair-svg .construction-mesh-line { stroke: var(--brand-ink); stroke-width: 2.2px; vector-effect: non-scaling-stroke; }
+.construction-stair-svg .construction-diagonal-line { stroke: var(--brand); stroke-width: 3px; vector-effect: non-scaling-stroke; }
+.construction-material-drawing .construction-stair-canvas { background: color-mix(in srgb, var(--background) 94%, var(--glass-tint) 6%); }
+.construction-material-drawing .construction-stair-svg { touch-action: none; }
+.construction-material-drawing .construction-stair-svg text { font-size: calc(15px * var(--tp-text-scale)); }
+.construction-material-drawing .construction-stair-drawing-heading h3 { font-size: calc(1.05rem * var(--tp-text-scale)); }
+.construction-material-drawing .construction-stair-view-tabs button { min-height: max(2.75rem, calc(2.75rem * var(--tp-ui-scale))); font-size: calc(.8rem * var(--tp-text-scale)); }
+.construction-material-drawing .construction-stair-toolbar button { min-width: max(2.75rem, calc(2.75rem * var(--tp-ui-scale))); min-height: max(2.75rem, calc(2.75rem * var(--tp-ui-scale))); }
+.construction-material-drawing .construction-dimension-label.is-active { fill: var(--brand-ink); font-weight: 850; text-decoration: underline; }
 .construction-stair-svg .stair-profile { fill: none; stroke: var(--brand); stroke-linecap: round; stroke-linejoin: round; stroke-width: 6px; vector-effect: non-scaling-stroke; }
 .construction-stair-svg .stair-stringer-centerline { stroke: var(--muted); stroke-width: 2px; stroke-dasharray: 8 7; vector-effect: non-scaling-stroke; }
 .construction-stair-svg .stair-floor-line { stroke: var(--foreground); stroke-width: 2px; vector-effect: non-scaling-stroke; }
@@ -3920,6 +3942,7 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 .construction-stair-svg .stair-angle-label { fill: var(--brand-ink); }
 .construction-stair-svg .stair-count-label { fill: var(--brand-ink); font-weight: 750; }
 .construction-stair-svg .stair-view-note { fill: var(--muted); font-size: 13px; }
+.construction-stair-svg .stair-dimension-note { fill: var(--muted); font-size: 13px; }
 .construction-stair-svg .stair-plan-outline { fill: color-mix(in srgb, var(--surface-strong) 60%, transparent); stroke: var(--foreground); stroke-width: 2px; vector-effect: non-scaling-stroke; }
 .construction-stair-svg .stair-tread-separator { stroke: var(--muted); stroke-width: 1.3px; vector-effect: non-scaling-stroke; }
 .construction-stair-svg .stair-tread-highlight { fill: color-mix(in srgb, var(--brand) 15%, transparent); stroke: none; }

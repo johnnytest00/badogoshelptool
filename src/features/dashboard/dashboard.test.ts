@@ -14,14 +14,14 @@ describe("dashboard foundation", () => {
   it("contains only implemented Hungarian launchers", () => {
     expect(dashboardFunctions).toHaveLength(6);
     expect(dashboardFunctions.map((item) => item.label)).toEqual([
-      "Gyors felmérés", "Munkanaplók", "Anyaglisták", "Anyagkezelő", "Árajánlatok", "Kalkulátorok",
+      "Felmérések", "Munkanaplók", "Anyaglisták", "Anyagkezelő", "Árajánlatok", "Kalkulátorok",
     ]);
   });
 
   it("keeps the selected organization in every global module route", () => {
     const organizationId = "a1b2-c3d4";
     expect(dashboardFunctions.map((item) => dashboardFunctionHref(item.id, organizationId))).toEqual([
-      "/felmeresek/uj?organization=a1b2-c3d4",
+      "/felmeresek?organization=a1b2-c3d4",
       "/kivitelezes?organization=a1b2-c3d4",
       "/anyaglistak?organization=a1b2-c3d4",
       "/anyagkezelo?organization=a1b2-c3d4",

@@ -38,6 +38,20 @@ Státusz: **IMPLEMENTED / PARTIAL — célzott ellenőrzések PASS; böngészős
 
 Javasolt Conventional Commit: `fix(F9.25): unify liquid glass surface tint`.
 
+## F9.25 — Kalkulátor-konszolidáció és napi workflow UX-audit
+
+Státusz: **PARTIAL — navigáció elkészült és a kritikus helyi desktop útvonalak böngészőben működtek; teljes workflow/mobil viewport igazolás nincs.** Ez a F9.25 külön kalkulátor-UX feladata; a fenti korábbi Liquid Glass munkát nem módosítja.
+
+- A `/kalkulatorok` most közvetlenül a meglévő kereshető, háromkategóriás `ConstructionCalculatorSuite` felületet jeleníti meg a szervezeti hozzáférés-ellenőrzésen belül. A `/kalkulatorok/epitesi` 307-es redirecttel őrzi meg a `calculator` és `organization` paramétereket.
+- Az aktív kalkulátor-indexből kikerült két ismétlődő tető/cserepeslemez indító, a régi eresz/szegély/profil archívumcsoport, valamint az üres mentett-lista új legacy számítás-indítólinkjei. Az engine-ek, mentett revíziók, meglévő típus-szűrők, rekord-újranyitási route-ok és üzleti workflow-hivatkozások megmaradtak.
+- A dashboard kártya neve „Felmérések”, és a `/felmeresek` mentettlista oldalra vezet; annak fejlécében az `Új felmérés` elsődleges CTA közvetlenül elérhető. A létrehozási, szerkesztési, revízió- és piszkozatvédelmi logika változatlan.
+- A napi workflow audit és a mérhető navigációs műveletszámok a [DAILY_WORKFLOW_UX_AUDIT.md](DAILY_WORKFLOW_UX_AUDIT.md) fájlban találhatók. A Felmérés→Anyaglista direkt átadás nem implementált. Anyaglista→piszkozat és elfogadott ajánlat→munkanapló a kódban elérhető, de a böngészőben e körben nem tesztelhető mentett anyaglista/ajánlati rekord hiányában.
+- Nem változott adatmodell, adatbázis, RLS/jogosultság, kalkulációs motor vagy automatikus üzleti adatkapcsolat.
+
+**Ellenőrzések:** célzott Vitest 3 fájl / 10 teszt PASS; `npm run typecheck`, `npm run lint`, Next.js 16.4.0 webpack `npm run build`, `git diff --check` PASS. Helyi, hitelesített DEMO production böngészőben 1280×720 méreten a dashboard→felméréslista, új felmérés kezdőlap, mentett V3 felmérés újranyitása, meglévő felmérés munkanapló-létrehozó panelje (elküldés nélkül), dashboard→kalkulátorcsomag→lépcsők→90° pihenős fa variáns, régi `/epitesi` URL és query-megőrzés, valamint mentett Cserepeslemez-fedés V2 rekord újranyitása működött. Az `/anyaglistak` üres állapotot mutatott; nem hoztam létre tesztadatot. 1440/1024/768/390/320 CSS px emuláció nem volt elérhető, a mobil vizuális próbák nem futottak.
+
+Javasolt Conventional Commit: `feat(F9.25): consolidate calculators and audit daily workflows`.
+
 ## F9.24 — Tetőkalkulátorok előtérben és árva fájlok takarítása
 
 Státusz: **IMPLEMENTED / PARTIAL — kódellenőrzések PASS; böngészős megjelenítés ezen a körön nem futott**.
@@ -2872,3 +2886,35 @@ Státusz: **PARTIAL — 30/33 referencia szűkített, függetlenül ellenőrzöt
 **Korlátok / nem ellenőrzött:** az S4/S6/S8 továbbra sem elérhető; a többi referencia scope-ja a mátrix szerint részleges. A jelen változatban a világos téma, screen reader, forced-colors, reduced-motion, valódi touch/pinch, fizikai iOS, teljes auth-állapot és minden 33 kalkulátor billentyűzetes útja nincs újra lefuttatva. A böngésző a route-ot közvetlenül, projekt/ügyfél query nélkül nyitotta; teljes authenticated navigation matrix nem készült. Statika, helyi normatív megfelelés, gyártói anyagadat, talaj és szerkezeti terv kívül esik a scope-on.
 
 Javasolt Conventional Commit: `feat(F9.24.3): add verified landing stair geometries`.
+
+## F9.24.4 — Húzott fokú lépcsők ellenőrzött geometriája
+
+Státusz: **PARTIAL — S4/S6/S8 motor, felülnézet/kiterített profil, UI-regisztráció, matematikai fixtures és production böngészős workflow sikeres; a 320 px-es tényleges böngésző viewport és touch/pinch nincs ellenőrizve.**
+
+- A korábban tiltott S4 90°, S6 180° és S8 háromkarú húzott variánsok egyetlen tiszta TypeScript `calculateWinderStairGeometry` motorra kerültek. A motor csak explicit belső sugárral, kar-szélességgel, fordulónkénti fokszámmal és karonkénti vízszintes fokszámmal támogat koncentrikus, egyenlő szögű fordulókat.
+- A forduló fokpoligonjai az annularis szektorok egyenes húrokkal határolt négyszögei; a középvonalas járóvonal-belépő `s=rθ` szerint készül. Minden fok területét/konvexitását és minden fokpár belső átfedését számításkor ellenőrzi. Nyílás-befoglaló dimenziót opcionálisan ellenőriz.
+- Az eredmény SVG alaprajza és kiterített járóvonal-profilja ugyanazt az eredményobjektumot rendereli, mint a motor. A kiterített profil kifejezetten nem ortogonális oldalnézet és nem gyártási rajz.
+- A kalkulátorok a Kalkulátorok kategórián belüli kereshető vizuális választóból érhetők el; nincs projekt-, ügyfél-, felmérés-, árajánlat-, anyaglista- vagy munkanapló-kapcsolat, perzisztencia vagy adatbázis-változás.
+- Frissített lefedettségi és matematikai dokumentáció: [CALCULATOR_COVERAGE_MATRIX.md](CALCULATOR_COVERAGE_MATRIX.md), [CALCULATOR_MATH_VERIFICATION.md](CALCULATOR_MATH_VERIFICATION.md).
+
+**Ellenőrzés:** `npx vitest run src/domain/calculations/construction src/domain/drawings/construction-stairs.test.ts src/domain/calculations/roof-geometry.test.ts src/domain/calculations/gable-metal-tile-covering.test.ts` — 7 fájl / 56 teszt PASS; `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) és `git diff --check` PASS. Egy helyi production browser workflow-ban a kereshető listából S4/S6/S8 kiválasztása, mezőkitöltése, eredményei és a rajznézet működött. S4 (2800/800/300 mm; 4/6 karfok; 3 fordulófok; jobbra): 200 mm fellépő, 14 fellépés, 13 fok, 366,519 mm járóvonal-belépő, 30°, 2566,077×3299,115 mm alaprajz. S6 (4/6 karfok; 4 fordulófok; balra): 186,667 mm, 15/14, 549,779 mm, 45°, 4398,672×2200 mm. S8 (4/5/6 karfok; 3 fordulófok; jobbra): 127,273 mm, 22/21, 366,519 mm, két külön 90°-os forduló, 3299,115×4032,596 mm. Az SVG plan/profile tab, zoom és illesztés gombok böngészőben működtek; a kalkulátor felületén az animált háttér 2,5%-os opacitásra van visszafogva, az üvegfelület stílusát és transparency tokeneket megtartva. A production screenshot 1280×720 nézetet mutatott.
+
+**Korlátok / nem ellenőrzött:** ebben a böngészőkörnyezetben nem volt hozzáférhető 320 px-es viewport-override; 1440/1024/768/390/320 méretsor, 320 px-es scrollWidth, valódi touch/pinch/pan pointer cleanup, világos téma, screen reader, reduced-motion és forced-colors nem futott. Sémás/media-query kódot implementáltunk, de a 320 px megfelelőséget nem állítjuk bizonyítottnak. Nincs adatbázis-, hosted-, project/customer- vagy üzleti folyamatváltozás.
+
+Javasolt Conventional Commit: `feat(F9.24.4): add verified winder stair geometry`.
+
+## F9.24.5 — Beton- és alapozási műszaki rajzrendszer
+
+Státusz: **PARTIAL — mind a 10 meglévő beton/alapozás/segéd kalkulátorhoz készült eredményhez kötött műszaki rajz; a teljes Vitest suite-ban 4, ettől független korábbi UI-elvárás hibás.**
+
+- A C1–C10 mindegyike saját, bemenetvezérelt SVG-nézetet kapott. A rajzok csak a meglévő ellenőrzött eredmény után jelennek meg, az aktuális mennyiségi határokon belül maradnak, és a kapcsolódó méretre kattintva a bemeneti mezőt fókuszálják. Sávalap, alaplemez, gyűrű, cölöp, burkolat, épület körüli sáv, megadott összetételű keverék, egyenes betonacél, háló és átló rajzscope-ja a [lefedettségi mátrixban](CALCULATOR_COVERAGE_MATRIX.md) szerepel.
+- Nincs új domain-képlet vagy adatmodell. A háló darabszáma/tényleges osztása a meglévő motorból származik; rúd- és cölöpszimbolika, illetve nagy hálórajz ritkítása kizárólag a megjelenítést korlátozza. Nem számítunk alapozási megfelelőséget, vasalástervet, mixreceptet, lapkiosztást, zsaluzási geometriát hiányzó bemenetből vagy szerkezeti jóváhagyást.
+- Meglévő `GlassToolbar`, műszaki SVG-vászon, rajzi dimenziófókusz, nézetváltás és zoom/pan/pinch pointerkezelés újrahasznosítva. A rajzillesztés gyűrűmetszetnél külön rajzi tartományt használ, hogy a magas, keskeny szelvény ne vesszen el a vászonban. A Liquid Glass, meglévő téma- és skálázási tokenek maradtak.
+- Mind a tíz Zhitov referenciaoldalt külön áttekintettük mezők és nézetfunkciók azonosítására. Eredményük nem volt matematikai oracle; rajz/kód/materiál nem másoltunk. Az önálló route nem ír adatot és nem kapcsolódik üzleti workflow-hoz.
+- Független 10 mennyiségi fixture-hez a meglévő domain-tesztek és 17 SVG-renderelési/nézet/vezérlőteszt futott. A számszerű mintákat és korlátaikat a [matematikai verifikáció](CALCULATOR_MATH_VERIFICATION.md#f9245--betonrajzok-geometriai-ellenorzese) tartalmazza.
+
+**Ellenőrzés:** fókuszált Vitest: 3 fájl / 34 teszt PASS (`concrete-drawings.test.tsx`, `construction.test.ts`, `catalog.test.tsx`); `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check` PASS. Teljes `npm test`: 124 fájl PASS, 4 fájl FAIL, 8 fájl SKIP; 535 teszt PASS, 4 FAIL, 25 SKIP. A 4 hiba korábbi, nem betonrajz-kódot érintő UI-elvárás: `takeoff-forms.test.ts` (`square_meter` régi címke), `standalone-gable-preview.test.ts` (régi tetőcím), `measurement-guidance.test.tsx` (régi `details` markup), `data-loading.test.ts` (régi hibaüzenet). Nem változtattam ezeken.
+
+A friss production build helyi browser smoke-jában önálló route-on egy 10 000×400×800 mm sávalap 3,2 m³ / 16 m² értéket, 1200×100×1000 mm gyűrű 0,346 m³ beton/0,785 m³ belső térfogatot mutatott; a kereső C10-en belül navigált. A háló 5000×3000 mm, 50 mm fedés, 200 mm max. osztás, Ø10 esetén 16/26 rudat, 153,8 m-t, 196/193,333 mm tényleges kiosztást adott. Alaprajz/metszet váltás, zoom és fit, rajzi méret→input fókusz ellenőrzött. Ugyanezen gyűrű-workspace esetén a 1440/1024/768/390/320 CSS px viewporton a document/body scrollWidth egyezett a viewporttal: 1440/1440, 1024/1024, 768/768, 390/390, 320/320. A 320 px toolbar két sorba tört átfedés nélkül. Ez böngésző-viewport emuláció, nem fizikai telefon- vagy touch/pinch teszt; világos téma, forced colors, screen reader és reduced-motion emuláció nem futott.
+
+Javasolt Conventional Commit: `feat(F9.24.5): add concrete technical drawings`.

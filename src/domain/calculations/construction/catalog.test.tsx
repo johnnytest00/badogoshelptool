@@ -5,10 +5,10 @@ import { ConstructionStairDrawing, ConstructionCalculatorThumbnail } from "@/fea
 import { constructionCalculatorCatalog } from "./catalog";
 
 describe("construction calculator coverage and selection", () => {
-  it("accounts for all 33 requested references with verified and not implemented statuses", () => {
+  it("accounts for all 33 requested references with explicit verification statuses", () => {
     expect(constructionCalculatorCatalog).toHaveLength(33);
-    expect(constructionCalculatorCatalog.filter((item) => item.status === "verified")).toHaveLength(30);
-    expect(constructionCalculatorCatalog.filter((item) => item.status === "not_implemented")).toHaveLength(3);
+    expect(constructionCalculatorCatalog.filter((item) => item.status === "verified")).toHaveLength(33);
+    expect(constructionCalculatorCatalog.filter((item) => item.status === "not_implemented")).toHaveLength(0);
     expect(constructionCalculatorCatalog.every((item) => item.id && item.title && item.scope && item.limitation)).toBe(true);
   });
 
@@ -33,9 +33,27 @@ describe("construction calculator coverage and selection", () => {
     expect(new Set(concreteThumbnails).size).toBe(10);
   });
 
-  it("does not generate a technical result drawing for an unsupported staircase", () => {
+  it("does not generate a result drawing for a winder staircase with missing required geometry", () => {
     const html = renderToStaticMarkup(<ConstructionStairDrawing referenceId="stair.wood.90_winder" values={{ totalRiseMm: "2500", availableRunMm: "3000", riserCount: "15" }} />);
     expect(html).toBe("");
+  });
+
+  it("renders plan and unfolded geometry drawings for all three verified winder variants", () => {
+    const twoFlight = { totalRiseMm: "2800", stairWidthMm: "800", innerRadiusMm: "300", lowerTreadCount: "4", upperTreadCount: "6", windersPerTurn: "3", turnDirection: "right" };
+    const cases = [
+      ["stair.wood.90_winder", twoFlight],
+      ["stair.wood.180_winder", { ...twoFlight, windersPerTurn: "4", turnDirection: "left" }],
+      ["stair.wood.three_winder", { ...twoFlight, middleTreadCount: "5" }],
+    ] as const;
+    for (const [referenceId, values] of cases) {
+      const html = renderToStaticMarkup(<ConstructionStairDrawing referenceId={referenceId} values={values} />);
+      expect(html).toContain("<svg");
+      expect(html).toContain("Alaprajz");
+      expect(html).toContain("Kiterített profil");
+      expect(html).toContain("stair-landing-fill");
+      expect(html).not.toContain("NaN");
+      expect(html).not.toContain("Infinity");
+    }
   });
 
   it("renders finite 90-degree, 180-degree, three-flight landing, and solid-concrete stair drawings", () => {
