@@ -18,6 +18,14 @@ export default async function MaterialListsPage({ searchParams }: Readonly<{ sea
   return <main className="dashboard-shell"><div className="dashboard-container workflow-material-lists-index">
     <Link className="back-link" href={`/?organization=${organizationId}`}>← Műhely áttekintése</Link>
     <GlassPageHeader title="Anyaglisták" context="Önállóan vagy munkanaplóhoz kapcsolva" actions={<><Link className="secondary-button" href={`/anyagok?organization=${organizationId}`}>Anyagkezelő</Link><Link className="primary-button" href={`/anyaglistak/uj?organization=${organizationId}`}><Plus aria-hidden="true" className="size-4" /> Új anyaglista</Link></>} />
-    {lists.length ? <div className="workflow-material-list-cards">{lists.map((list) => <Link className="workflow-material-list-card glass-bubble" key={list.id} href={`/anyaglistak/${list.id}?organization=${organizationId}`}><span className="future-module-icon"><PackageOpen aria-hidden="true" /></span><span><strong>{list.name}</strong><small>{list.executionPlanId ? `Munkanapló · ${planNames.get(list.executionPlanId) ?? "Munkanapló"}` : "Önálló anyaglista"} · V{list.version} · {list.currentRevision?.items.length ?? 0} tétel</small></span><span className="workflow-material-list-arrow" aria-hidden="true">↗</span></Link>)}</div> : <section className="empty-state"><PackageOpen aria-hidden="true" /><div><h2>Még nincs anyaglistád</h2><p>Hozz létre önálló listát vagy kapcsold egy munkanaplóhoz.</p><Link className="primary-button" href={`/anyaglistak/uj?organization=${organizationId}`}><Plus className="size-4" /> Új anyaglista</Link></div></section>}
+    {lists.length ? <div className="workflow-material-list-cards">{lists.map((list) => {
+      const surveySource = list.currentRevision?.surveySource ?? null;
+      return <Link className="workflow-material-list-card glass-bubble" key={list.id} href={`/anyaglistak/${list.id}?organization=${organizationId}`}>
+        <span className="future-module-icon"><PackageOpen aria-hidden="true" /></span>
+        <span className="workflow-material-list-copy"><strong>{list.name}</strong><small>{list.executionPlanId ? `Munkanapló · ${planNames.get(list.executionPlanId) ?? "Munkanapló"}` : "Önálló anyaglista"} · V{list.version}</small>{surveySource && <small className="workflow-material-list-source">Felmérés: {surveySource.surveyName} · V{surveySource.surveyVersion}{surveySource.stale ? " · korábbi forrás" : ""}</small>}</span>
+        <span className="workflow-material-list-count"><strong>{list.currentRevision?.items.length ?? 0}</strong> tétel</span>
+        <span className="workflow-material-list-arrow" aria-hidden="true">↗</span>
+      </Link>;
+    })}</div> : <section className="empty-state workflow-material-list-empty"><PackageOpen aria-hidden="true" /><div><h2>Még nincs anyaglistád</h2><p>Hozz létre önálló listát vagy kapcsold egy munkanaplóhoz.</p><Link className="primary-button" href={`/anyaglistak/uj?organization=${organizationId}`}><Plus className="size-4" /> Új anyaglista</Link></div></section>}
   </div></main>;
 }

@@ -53,7 +53,7 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
     const dialog = dialogRef.current;
     const trigger = triggerRef.current;
     if (!dialog || !trigger) return;
-    if (!dialog.open) dialog.show();
+    if (!dialog.open) dialog.showModal();
 
     const positionDialog = () => {
       const visualViewport = window.visualViewport;
@@ -135,8 +135,10 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
       ref={dialogRef}
       className="workflow-material-product-dialog"
       aria-label="Kategória termékeinek kiválasztása"
+      autoFocus
       style={{ left: position.left, top: position.top, width: position.width, maxHeight: position.maxHeight }}
       onCancel={(event) => { event.preventDefault(); close(); }}
+      onClick={(event) => { if (event.target === event.currentTarget) close(false); }}
       onKeyDown={(event) => {
         if (event.key === "ArrowDown") { event.preventDefault(); moveActive(1); }
         else if (event.key === "ArrowUp") { event.preventDefault(); moveActive(-1); }

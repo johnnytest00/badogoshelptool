@@ -44,6 +44,7 @@ export default async function NewMaterialListPage({ searchParams }: Readonly<{ s
     surveySource = {
       surveyId: sourceSurvey.id,
       surveyRevisionId: sourceRevision.id,
+      surveyName: sections.map((section) => section.name).join(" · "),
       surveyVersion: sourceRevision.version,
       currentSurveyVersion: sourceSurvey.version,
       stale: sourceSurvey.version > sourceRevision.version,

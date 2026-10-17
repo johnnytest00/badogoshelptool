@@ -37,7 +37,7 @@ export const workflowMaterialListInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   expectedVersion: z.number().int().nonnegative(),
   requestKey: z.string().uuid(),
-  items: z.array(itemSchema).min(1).max(200),
+  items: z.array(itemSchema).max(200),
   surveySource: z.object({
     surveyId: uuid,
     surveyRevisionId: uuid,
@@ -48,6 +48,7 @@ export const workflowMaterialListInputSchema = z.object({
   if (input.listId === null && input.expectedVersion !== 0) context.addIssue({ code: "custom", path: ["expectedVersion"], message: "Új lista verziója csak nulla lehet." });
   if (new Set(input.items.map((item) => item.id)).size !== input.items.length) context.addIssue({ code: "custom", path: ["items"], message: "Ismétlődő listaelem." });
   if (input.items.some((item) => item.sourceRef) && !input.surveySource) context.addIssue({ code: "custom", path: ["surveySource"], message: "A felmérés eredetű tételekhez pontos forrásrevízió szükséges." });
+  if (input.surveySource && input.items.length === 0) context.addIssue({ code: "custom", path: ["items"], message: "Felmérésből legalább egy ellenőrzött mennyiséget vagy kézi tételt vegyél át." });
   if (input.surveySource && (input.listId !== null || input.executionPlanId !== null || input.expectedVersion !== 0)) context.addIssue({ code: "custom", path: ["surveySource"], message: "Felmérésből új, önálló anyaglista hozható létre." });
 });
 

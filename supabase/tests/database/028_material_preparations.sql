@@ -68,7 +68,10 @@ select is((select preparation_state from public.material_preparation_revisions w
 select is((select status::text from public.material_takeoffs where id='00000000-0000-4000-8000-000000001113'),'draft','preparation does not auto-approve a source');
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000003',true);
 select throws_ok($$select * from public.save_material_preparation_revision('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000001100',null,'DEMO jogosulatlan',array[]::uuid[],'[{"id":"00000000-0000-4000-8000-000000001160","sourceItemIds":[],"category":"workshop","status":"prepare","description":"DEMO kézi","quantity":"1","unit":"piece"}]'::jsonb,0,'00000000-0000-4000-8000-000000001161')$$,'42501',null,'nonmember cannot create lists');
-select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='material_preparation_lists' and policyname='material_preparation_lists_select_member' and roles @> array['authenticated']::name[]),'RLS policy limits list reads to authenticated organization members');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='material_preparation_lists'
+ and policyname='material_preparation_lists_select_scoped' and roles @> array['authenticated']::name[]
+ and coalesce(qual,'') like '%is_org_member%' and coalesce(qual,'') like '%created_by%'),
+ 'scoped list-read policy requires organization membership and standalone creator ownership');
 select throws_ok($$select * from public.save_material_preparation_revision('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000001101',null,'DEMO másik projekt',array[]::uuid[],'[{"id":"00000000-0000-4000-8000-000000001170","sourceItemIds":[],"category":"workshop","status":"prepare","description":"DEMO kézi","quantity":"1","unit":"piece"}]'::jsonb,0,'00000000-0000-4000-8000-000000001171')$$,'42501',null,'project boundary is enforced');
 reset role;
 select throws_ok($$update public.material_preparation_revisions set items_snapshot='[]'::jsonb where list_id=current_setting('test.preparation_list_id')::uuid$$,'P0001',null,'immutable source history cannot be rewritten');

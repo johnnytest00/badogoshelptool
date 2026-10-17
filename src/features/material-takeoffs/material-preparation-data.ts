@@ -2,6 +2,7 @@ import { createClient } from "@/infrastructure/supabase/server";
 import type { Json } from "@/infrastructure/supabase/database.types";
 import type { MaterialPreparationItem, PreparationSourceSnapshot } from "@/domain/material-preparations/contracts";
 import type { SurveyMaterialProvenanceItem } from "@/domain/material-takeoffs/survey-material-suggestions";
+import { fieldSurveyWorkTypeLabels, type FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
 
 type PreparationRevisionRow = {
   id: string;
@@ -29,6 +30,7 @@ export type MaterialPreparationSurveySource = Readonly<{
   surveyId: string;
   surveyRevisionId: string;
   surveyVersion: number;
+  surveyName: string;
   currentSurveyVersion: number | null;
   stale: boolean;
   items: readonly SurveyMaterialProvenanceItem[];
@@ -47,6 +49,15 @@ export type MaterialPreparationList = Readonly<{
 }>;
 
 const jsonArray = <T,>(value: Json): T[] => Array.isArray(value) ? value as T[] : [];
+
+export function surveyNameFromRevision(workType: string, sections: Json | null): string {
+  const names = Array.isArray(sections)
+    ? sections.flatMap((section) => section && typeof section === "object" && !Array.isArray(section)
+      && typeof section.name === "string" && section.name.trim() ? [section.name.trim()] : [])
+    : [];
+  if (names.length) return [...new Set(names)].join(" · ");
+  return fieldSurveyWorkTypeLabels[workType as FieldSurveyWorkType] ?? "Felmérés";
+}
 
 export async function getMaterialPreparationLists(organizationId: string, projectId: string, currentSourceRevisions: ReadonlyMap<string, string | null>): Promise<MaterialPreparationList[]> {
   const supabase = await createClient();
@@ -115,16 +126,30 @@ export async function getWorkflowMaterialLists(organizationId: string): Promise<
     .eq("organization_id", organizationId).in("material_list_id", listIds) : { data: [], error: null };
   if (sourceError) throw new Error("Az anyaglista felmérésforrásai nem tölthetők be.");
   const surveyIds = [...new Set((sourceRows ?? []).map((source) => source.survey_id))];
-  const { data: surveys, error: surveyError } = surveyIds.length ? await supabase.from("field_surveys")
-    .select("id,version").eq("organization_id", organizationId).in("id", surveyIds) : { data: [], error: null };
+  const surveyRevisionIds = [...new Set((sourceRows ?? []).map((source) => source.survey_revision_id))];
+  const [surveyResult, sourceRevisionResult] = await Promise.all([
+    surveyIds.length ? supabase.from("field_surveys")
+      .select("id,version").eq("organization_id", organizationId).in("id", surveyIds) : Promise.resolve({ data: [], error: null }),
+    surveyRevisionIds.length ? supabase.from("field_survey_revisions")
+      .select("id,survey_id,work_type,sections").eq("organization_id", organizationId).in("id", surveyRevisionIds) : Promise.resolve({ data: [], error: null }),
+  ]);
+  const { data: surveys, error: surveyError } = surveyResult;
   if (surveyError) throw new Error("A felmérésforrások frissessége nem ellenőrizhető.");
+  const { data: sourceRevisions, error: sourceRevisionError } = sourceRevisionResult;
+  if (sourceRevisionError) throw new Error("A pontos forrásfelmérés neve nem tölthető be.");
   const currentSurveyVersions = new Map((surveys ?? []).map((survey) => [survey.id, survey.version]));
+  const sourceSurveyNames = new Map((sourceRevisions ?? []).map((revision) => [revision.id, {
+    surveyId: revision.survey_id,
+    name: surveyNameFromRevision(revision.work_type, revision.sections),
+  }] as const));
   const sourceByRevision = new Map((sourceRows ?? []).map((row) => {
     const currentSurveyVersion = currentSurveyVersions.get(row.survey_id) ?? null;
+    const exactRevision = sourceSurveyNames.get(row.survey_revision_id);
     return [row.material_revision_id, {
       surveyId: row.survey_id,
       surveyRevisionId: row.survey_revision_id,
       surveyVersion: row.survey_version,
+      surveyName: exactRevision?.surveyId === row.survey_id ? exactRevision.name : "Felmérés",
       currentSurveyVersion,
       stale: currentSurveyVersion !== null && currentSurveyVersion > row.survey_version,
       items: jsonArray<SurveyMaterialProvenanceItem>(row.source_items_snapshot),

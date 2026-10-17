@@ -1,5 +1,5 @@
 begin;
-select plan(37);
+select plan(38);
 select has_function('public','create_profile_takeoff_draft','profile takeoff RPC exists');
 set local role postgres;
 insert into public.organizations(id,name) values('00000000-0000-4000-8000-000000000046','DEMO idegen profilátadás műhely');
@@ -14,9 +14,13 @@ insert into public.material_variants(id,organization_id,product_id,name,purchasi
  ('00000000-0000-4000-8000-000000000944','00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000942','DEMO egyező','square_meter',1,'{"profileMaterialSpec":"DEMO-A"}','DEMO paraméter','demo'),
  ('00000000-0000-4000-8000-000000000945','00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000942','DEMO darab','piece',1,'{"profileMaterialSpec":"DEMO-A"}','DEMO paraméter','demo'),
  ('00000000-0000-4000-8000-000000000946','00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000942','DEMO vastag','square_meter',2,'{"profileMaterialSpec":"DEMO-A"}','DEMO paraméter','demo'),
+ ('00000000-0000-4000-8000-000000000960','00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000942','DEMO külön darab egység','piece',1,'{"profileMaterialSpec":"DEMO-A"}','DEMO paraméter','demo'),
  ('00000000-0000-4000-8000-000000000947','00000000-0000-4000-8000-000000000046','00000000-0000-4000-8000-000000000943','DEMO idegen','square_meter',1,'{"profileMaterialSpec":"DEMO-A"}','DEMO paraméter','demo');
-insert into public.material_prices(organization_id,variant_id,amount,purchasing_unit,price_kind,price_source,effective_date,data_provenance,source_name)
- values('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000944',99,'piece','net','DEMO','2026-10-13','demo','DEMO eltérő egység');
+select throws_ok($$insert into public.material_prices(organization_id,variant_id,amount,purchasing_unit,price_kind,price_source,effective_date,data_provenance,source_name)
+ values('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000944',99,'piece','net','DEMO','2026-10-13','demo','DEMO eltérő egység')$$,
+ '23514', null, 'catalog prices cannot use a unit different from their material variant');
+insert into public.material_prices(organization_id,variant_id,amount,purchasing_unit,price_kind,price_source,effective_date,data_provenance,source_name) values
+ ('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000960',99,'piece','net','DEMO','2026-10-13','demo','DEMO külön darabár');
 create temp table profile_transfer_fixture(input jsonb);
 insert into profile_transfer_fixture values ('{"schemaVersion":"1.0.0","profileId":"00000000-0000-4000-8000-000000000948","profileType":"l","label":"DEMO profilátadás","coordinateConvention":"x-right-y-up","dimensionConvention":"finished_tangent","thicknessMm":1,"straights":[{"id":"s1","tangentLengthMm":60},{"id":"s2","tangentLengthMm":40}],"bends":[{"id":"b1","signedTurnDeg":90,"insideRadiusMm":2,"allowance":{"mode":"explicit_ba","baMm":3,"source":{"kind":"user_provided","label":"DEMO BA"}}}],"formedRunLengthMm":2000,"pieceCount":3,"material":{"catalogVariantId":"00000000-0000-4000-8000-000000000944","materialSpec":"DEMO-A","provenance":{"kind":"catalog_snapshot","label":"DEMO"}}}');
 grant select on profile_transfer_fixture to authenticated;
@@ -80,14 +84,13 @@ select throws_ok(format('select * from public.create_profile_takeoff_draft(%L,%L
  '00000000-0000-4000-8000-000000000944','stale','00000000-0000-4000-8000-000000000953'),'P0002',null,'stale V1 rejected');
 select is((select final_quantity from public.material_takeoff_items where takeoff_id=(select id from public.material_takeoffs where transfer_request_key='00000000-0000-4000-8000-000000000949')),0.618::numeric,'older draft remains unchanged');
 set local role postgres;
-update public.material_variants set purchasing_unit='piece' where id='00000000-0000-4000-8000-000000000944';
 set local role authenticated;
 select throws_ok(format('select * from public.create_profile_takeoff_draft(%L,%L,%L,%L,%L,%L,%L)',
  '00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000940','00000000-0000-4000-8000-000000000948',
  (select id from public.calculation_revisions where calculation_id='00000000-0000-4000-8000-000000000948' and revision_number=2),
- '00000000-0000-4000-8000-000000000944','unit mismatch','00000000-0000-4000-8000-000000000954'),'22023',null,'current catalog unit mismatch rejected');
+ '00000000-0000-4000-8000-000000000945','unit mismatch','00000000-0000-4000-8000-000000000954'),'22023',null,'current catalog unit mismatch rejected');
 set local role postgres;
-update public.material_variants set purchasing_unit='square_meter',thickness_mm=2 where id='00000000-0000-4000-8000-000000000944';
+update public.material_variants set thickness_mm=2 where id='00000000-0000-4000-8000-000000000944';
 set local role authenticated;
 select throws_ok(format('select * from public.create_profile_takeoff_draft(%L,%L,%L,%L,%L,%L,%L)',
  '00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000940','00000000-0000-4000-8000-000000000948',

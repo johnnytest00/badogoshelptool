@@ -3791,8 +3791,9 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 .workflow-material-product-trigger:disabled { color: var(--muted); cursor: not-allowed; opacity: .72; }
 .workflow-material-product-trigger:focus-visible, .workflow-material-product-dialog input:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .workflow-material-product-chevron { color: var(--muted); }
-.workflow-material-product-dialog { position: fixed; isolation: isolate; inset: auto; z-index: 1000; display: none; overflow: hidden; flex-direction: column; margin: 0; border: 1px solid var(--glass-border); border-radius: 1.1rem; background: var(--surface-glass); color: var(--foreground); padding: .55rem; box-shadow: var(--glass-elevation); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.workflow-material-product-dialog { position: fixed; isolation: isolate; inset: auto; z-index: 1000; display: none; overflow: hidden; flex-direction: column; margin: 0; border: 1px solid var(--glass-border); border-radius: 1.1rem; background: color-mix(in srgb, var(--background) 94%, transparent); color: var(--foreground); padding: .55rem; box-shadow: var(--glass-elevation); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
 .workflow-material-product-dialog[open] { display: flex; }
+.workflow-material-product-dialog::backdrop { background: transparent; }
 .workflow-material-product-dialog > :not(.tp-liquid-glass-effect) { position: relative; z-index: 1; }
 .workflow-material-product-search-row { display: grid; flex: 0 0 auto; gap: .35rem; border-bottom: 1px solid var(--glass-border); padding: .25rem .2rem .6rem; }
 .workflow-material-product-search-row label { color: var(--muted); font-size: .76rem; font-weight: 700; }
@@ -4044,4 +4045,180 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
   .material-manager-dialog-actions { flex-direction: column-reverse; }
   .material-manager-dialog-actions button { width: 100%; }
   .material-manager-price-fields { grid-template-columns: 1fr; }
+}
+
+/* F9.27.2 — professional, compact material list workspace. */
+.workflow-material-lists,
+.workflow-material-editor { min-width: 0; }
+.workflow-material-lists { display: grid; gap: .55rem; }
+.workflow-material-page-header { margin-block: .1rem .2rem; }
+.workflow-material-editor { display: grid; gap: .7rem; padding-bottom: .45rem; }
+.workflow-material-manager-link { display: inline-flex; align-items: center; gap: .35rem; }
+.workflow-material-meta { grid-template-columns: minmax(0, 1.4fr) minmax(13rem, .9fr); gap: .6rem .9rem; border-radius: 1rem; padding: .75rem; }
+.workflow-material-meta label { display: grid; gap: .3rem; min-width: 0; color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); font-weight: 700; }
+.workflow-material-meta label > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem; }
+.workflow-material-meta label small { font-size: .92em; font-weight: 500; }
+.workflow-material-meta input,
+.workflow-material-meta select,
+.workflow-material-row input,
+.workflow-material-row select,
+.workflow-material-add-fields input,
+.workflow-material-add-fields select { width: 100%; min-width: 0; min-height: 2.85rem; border: 1px solid var(--glass-border); border-radius: .75rem; background: color-mix(in srgb, var(--surface-strong) 88%, transparent); color: var(--foreground); padding: .55rem .7rem; font: inherit; font-size: max(1rem, calc(.94rem * var(--tp-text-scale))); }
+.workflow-material-meta-association select:disabled { color: var(--muted); opacity: .9; }
+.workflow-material-meta .workflow-material-hint { align-self: end; padding-bottom: .65rem; }
+.workflow-material-lines { display: grid; gap: .75rem; margin: 0; border-radius: 1.15rem; padding: clamp(.75rem, 2vw, 1rem); }
+.workflow-list-section-heading { margin: 0; }
+.workflow-list-section-heading .section-eyebrow { margin: 0 0 .12rem; font-size: calc(.64rem * var(--tp-text-scale)); letter-spacing: .13em; }
+.workflow-list-section-heading h2 { font-size: calc(1.2rem * var(--tp-text-scale)); letter-spacing: -.025em; }
+.workflow-material-item-count { display: inline-flex; min-height: 2rem; align-items: center; border: 1px solid var(--glass-border); border-radius: 999px; background: color-mix(in srgb, var(--surface-glass) 86%, transparent); padding: .3rem .65rem; font-weight: 700; }
+.workflow-material-row-list { gap: .55rem; }
+.workflow-material-row { display: grid; min-width: 0; gap: .55rem; border: 1px solid color-mix(in srgb, var(--glass-border) 82%, var(--border)); border-radius: 1rem; background: color-mix(in srgb, var(--surface-glass) 90%, var(--background)); padding: .7rem .8rem; box-shadow: inset 0 1px 0 var(--glass-highlight); transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease; }
+.workflow-material-row:focus-within { border-color: color-mix(in srgb, var(--brand) 48%, var(--glass-border)); }
+.workflow-material-row-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: .6rem; }
+.workflow-material-row-tags { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.workflow-material-category,
+.workflow-material-origin { display: inline-flex; max-width: 100%; align-items: center; border-radius: 999px; background: color-mix(in srgb, var(--surface-strong) 82%, transparent); color: var(--muted); padding: .23rem .55rem; font-size: calc(.7rem * var(--tp-text-scale)); font-weight: 750; line-height: 1.25; overflow-wrap: anywhere; }
+.workflow-material-category { color: var(--brand-ink); }
+.workflow-material-origin.is-survey { background: color-mix(in srgb, var(--info) 10%, var(--surface-glass)); color: var(--info); }
+.workflow-material-remove { display: inline-flex; min-width: 2.75rem; min-height: 2.75rem; flex: 0 0 auto; align-items: center; justify-content: center; gap: .35rem; border: 1px solid transparent; border-radius: .75rem; background: transparent; color: var(--muted); padding: .35rem .55rem; font: inherit; font-size: calc(.75rem * var(--tp-text-scale)); cursor: pointer; }
+.workflow-material-remove:hover { border-color: color-mix(in srgb, var(--danger) 32%, var(--glass-border)); background: color-mix(in srgb, var(--danger) 8%, var(--surface-glass)); color: var(--danger); }
+.workflow-material-source-label { margin: -.1rem 0 0; color: var(--muted); font-size: calc(.75rem * var(--tp-text-scale)); line-height: 1.4; overflow-wrap: anywhere; }
+.workflow-material-source-label strong { color: var(--foreground); }
+.workflow-material-edited-note { color: var(--warning); font-weight: 700; }
+.workflow-material-row-fields { display: grid; grid-template-columns: minmax(11rem, 1.7fr) minmax(6rem, .65fr) minmax(5.5rem, .55fr) minmax(10rem, 1.1fr) minmax(7rem, .75fr); align-items: end; gap: .55rem; min-width: 0; }
+.workflow-material-field { display: grid; min-width: 0; gap: .25rem; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); font-weight: 700; }
+.workflow-material-field > span { display: flex; min-height: 1.15rem; flex-wrap: wrap; align-items: baseline; gap: .3rem; }
+.workflow-material-field > span small { font-size: .92em; font-weight: 500; }
+.workflow-material-value-field,
+.workflow-material-line-total { display: grid; min-width: 0; min-height: 2.85rem; align-content: center; gap: .15rem; }
+.workflow-material-value-field > span,
+.workflow-material-line-total > span { color: var(--muted); font-size: calc(.7rem * var(--tp-text-scale)); font-weight: 700; }
+.workflow-material-value-field > strong,
+.workflow-material-line-total > strong { color: var(--foreground); font-size: calc(.9rem * var(--tp-text-scale)); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.workflow-material-line-total > small { color: var(--muted); font-size: calc(.67rem * var(--tp-text-scale)); }
+.workflow-material-price-editor { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: .4rem; }
+.workflow-material-catalog-price { display: grid; min-width: 0; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); align-items: end; gap: .4rem; }
+.workflow-material-row-source-product { display: flex; min-width: 0; flex-wrap: wrap; align-items: end; gap: .5rem .8rem; border-top: 1px solid color-mix(in srgb, var(--glass-border) 72%, transparent); padding-top: .55rem; }
+.workflow-material-row-source-product > label { display: grid; min-width: min(100%, 24rem); flex: 1 1 18rem; gap: .25rem; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); font-weight: 700; }
+.workflow-material-row-source-product > small { flex-basis: 100%; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); line-height: 1.4; }
+.workflow-material-empty { display: flex; min-height: 5rem; align-items: center; gap: .65rem; border: 1px dashed color-mix(in srgb, var(--glass-border) 80%, var(--border)); border-radius: .9rem; background: color-mix(in srgb, var(--surface-glass) 58%, transparent); color: var(--muted); padding: .8rem; }
+.workflow-material-empty > svg { flex: 0 0 auto; color: var(--brand-ink); }
+.workflow-material-empty strong { color: var(--foreground); }
+.workflow-material-empty p { margin: .1rem 0 0; font-size: calc(.78rem * var(--tp-text-scale)); }
+.workflow-material-add-panel { display: grid; min-width: 0; gap: .55rem; border: 1px solid color-mix(in srgb, var(--glass-border) 84%, var(--border)); border-radius: 1rem; background: color-mix(in srgb, var(--surface-glass) 82%, var(--background)); padding: .75rem; }
+.workflow-material-add-heading { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .55rem; }
+.workflow-material-add-heading .section-eyebrow { margin: 0 0 .1rem; font-size: calc(.64rem * var(--tp-text-scale)); letter-spacing: .13em; }
+.workflow-material-add-heading h3 { margin: 0; font-size: calc(1rem * var(--tp-text-scale)); }
+.workflow-material-entry-mode { display: inline-flex; max-width: 100%; gap: .15rem; margin: 0; border: 1px solid var(--glass-border); border-radius: .85rem; background: color-mix(in srgb, var(--surface-glass) 72%, transparent); padding: .18rem; }
+.workflow-material-entry-mode button { min-height: 2.75rem; border: 0; border-radius: .65rem; background: transparent; color: var(--muted); padding: .4rem .7rem; font: inherit; font-size: calc(.78rem * var(--tp-text-scale)); font-weight: 700; cursor: pointer; transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease; }
+.workflow-material-entry-mode button.is-selected { background: var(--surface-strong); color: var(--brand-ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 22%, transparent); }
+.workflow-material-add-fields { display: grid; min-width: 0; align-items: end; gap: .55rem; }
+.workflow-material-catalog-entry { grid-template-columns: minmax(9rem, .85fr) minmax(13rem, 1.4fr) minmax(6rem, .55fr) minmax(9rem, 1fr) auto; margin: 0; border: 0; padding: 0; }
+.workflow-material-manual-entry { grid-template-columns: minmax(12rem, 1.7fr) minmax(6rem, .6fr) minmax(7rem, .7fr) minmax(9rem, 1fr) minmax(8rem, .85fr) auto; margin: 0; border: 0; padding: 0; }
+.workflow-material-product-field { position: relative; z-index: 1; }
+.workflow-material-entry-facts { display: flex; min-height: 2.85rem; min-width: 0; flex-wrap: wrap; align-content: center; gap: .2rem .65rem; color: var(--muted); font-size: calc(.74rem * var(--tp-text-scale)); }
+.workflow-material-add-button { display: inline-flex; min-width: 8rem; min-height: 2.85rem; align-items: center; justify-content: center; gap: .35rem; white-space: nowrap; }
+.workflow-material-add-fields .workflow-material-hint { grid-column: 1 / -1; margin: 0; }
+.workflow-material-add-error { margin: 0; }
+.workflow-material-summary { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: .45rem 1rem; border-top: 1px solid color-mix(in srgb, var(--glass-border) 72%, transparent); padding-top: .65rem; color: var(--muted); font-size: calc(.75rem * var(--tp-text-scale)); }
+.workflow-material-summary > span { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: .3rem; }
+.workflow-material-summary strong { color: var(--foreground); font-variant-numeric: tabular-nums; }
+.workflow-material-summary .is-missing { color: var(--warning); font-weight: 750; }
+.workflow-material-save { position: sticky; bottom: max(.45rem, env(safe-area-inset-bottom)); z-index: 6; display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .05rem; border: 1px solid var(--glass-border); border-radius: .95rem; background: color-mix(in srgb, var(--surface-glass) 94%, var(--background)); padding: .55rem .7rem; box-shadow: var(--glass-elevation); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.workflow-material-save p { margin: 0; font-size: calc(.78rem * var(--tp-text-scale)); }
+.workflow-material-save .primary-button { min-height: 2.9rem; flex: 0 0 auto; }
+.workflow-material-product-trigger { min-height: 2.85rem; font-size: max(1rem, calc(.94rem * var(--tp-text-scale))); }
+.workflow-material-product-search-row input { min-height: 3rem; font-size: max(1rem, calc(.94rem * var(--tp-text-scale))); }
+.workflow-material-product-option { min-height: 3.25rem; }
+.workflow-material-product-option > span { font-size: max(1rem, calc(.88rem * var(--tp-text-scale))); }
+.workflow-source-heading { display: flex; min-width: 0; align-items: center; gap: .55rem; }
+.workflow-source-mark { display: grid; width: 2.35rem; height: 2.35rem; flex: 0 0 auto; place-items: center; border-radius: .75rem; background: color-mix(in srgb, var(--info) 11%, var(--surface-glass)); color: var(--info); }
+.workflow-source-heading > div { min-width: 0; }
+.workflow-source-heading strong { display: block; color: var(--foreground); overflow-wrap: anywhere; }
+.workflow-source-heading p { margin: .12rem 0 0; color: var(--muted); font-size: calc(.74rem * var(--tp-text-scale)); }
+.survey-material-source-card { gap: .45rem; border-radius: .95rem; padding: .7rem .8rem; }
+.survey-material-source-card.is-stale { border-color: color-mix(in srgb, var(--warning) 45%, var(--glass-border)); }
+.workflow-source-disclosure,
+.workflow-source-unavailable { border-top: 1px solid color-mix(in srgb, var(--glass-border) 72%, transparent); padding-top: .4rem; }
+.workflow-source-disclosure summary,
+.workflow-source-unavailable summary { min-height: 2.75rem; color: var(--brand-ink); font-size: calc(.75rem * var(--tp-text-scale)); font-weight: 700; cursor: pointer; }
+.workflow-source-disclosure p,
+.workflow-source-unavailable ul { margin: .3rem 0 0; color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); line-height: 1.45; overflow-wrap: anywhere; }
+.workflow-source-warning { color: var(--warning); font-size: calc(.78rem * var(--tp-text-scale)); }
+.workflow-material-list-cards { display: grid; gap: .6rem; margin-top: .4rem; }
+.workflow-material-list-card { display: grid; grid-template-columns: 2.8rem minmax(0, 1fr) auto auto; align-items: center; gap: .7rem; min-width: 0; min-height: 5rem; border: 1px solid var(--glass-border); border-radius: 1rem; background: color-mix(in srgb, var(--surface-glass) 90%, var(--background)); padding: .7rem .8rem; box-shadow: inset 0 1px 0 var(--glass-highlight); transition: border-color var(--motion-fast) ease, transform var(--motion-fast) ease; }
+.workflow-material-list-card:hover { border-color: color-mix(in srgb, var(--brand) 48%, var(--glass-border)); transform: translateY(-1px); }
+.workflow-material-list-card > span:nth-child(2) { display: grid; min-width: 0; gap: .15rem; }
+.workflow-material-list-card strong { color: var(--foreground); overflow-wrap: anywhere; }
+.workflow-material-list-card small { color: var(--muted); font-size: calc(.75rem * var(--tp-text-scale)); line-height: 1.35; overflow-wrap: anywhere; }
+.workflow-material-list-count { display: grid; min-width: 4rem; gap: .05rem; justify-items: end; color: var(--muted); font-size: calc(.68rem * var(--tp-text-scale)); text-align: right; }
+.workflow-material-list-count strong { color: var(--foreground); font-size: calc(.94rem * var(--tp-text-scale)); }
+.workflow-material-list-arrow { color: var(--brand-ink); }
+.workflow-material-lists-index > .glass-page-header { margin-bottom: .2rem; }
+.workflow-material-list-empty { margin-top: .4rem; }
+.workflow-material-lists :is(a, button, input, select, summary):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+
+@media (max-width: 980px) {
+  .workflow-material-catalog-entry { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(6rem, .55fr); }
+  .workflow-material-catalog-entry .workflow-material-entry-facts { grid-column: 1 / 3; }
+  .workflow-material-catalog-entry .workflow-material-add-button { grid-column: 3; grid-row: 2; }
+  .workflow-material-manual-entry { grid-template-columns: minmax(0, 1.5fr) minmax(6rem, .6fr) minmax(7rem, .7fr); }
+  .workflow-material-manual-entry .workflow-material-add-button { grid-column: 3; }
+  .workflow-material-row-fields { grid-template-columns: minmax(0, 1.4fr) minmax(6rem, .7fr) minmax(6rem, .6fr); }
+  .workflow-material-description { grid-column: 1 / 3; }
+  .workflow-material-price-editor, .workflow-material-catalog-price { grid-column: 1 / 3; }
+  .workflow-material-line-total { grid-column: 3; grid-row: 2; }
+}
+@media (max-width: 620px) {
+  .workflow-material-page-header .glass-page-header-actions { width: 100%; }
+  .workflow-material-page-header .glass-page-header-actions > * { flex: 1 1 auto; justify-content: center; }
+  .workflow-material-meta { grid-template-columns: minmax(0, 1fr); }
+  .workflow-material-meta .workflow-material-hint { padding-bottom: 0; }
+  .workflow-material-add-heading { align-items: flex-start; }
+  .workflow-material-entry-mode { width: 100%; }
+  .workflow-material-entry-mode button { flex: 1 1 0; min-width: 0; }
+  .workflow-material-row { gap: .45rem; padding: .65rem; }
+  .workflow-material-row { grid-template-columns: minmax(0, 1fr); }
+  .workflow-material-row-fields { grid-template-columns: minmax(0, 1fr) minmax(5.5rem, .75fr); gap: .45rem; }
+  .workflow-material-description,
+  .workflow-material-price-editor,
+  .workflow-material-catalog-price { grid-column: 1 / -1; }
+  .workflow-material-line-total { grid-column: 1 / -1; grid-row: auto; display: flex; min-height: 2.35rem; align-items: center; justify-content: space-between; border-top: 1px solid color-mix(in srgb, var(--glass-border) 72%, transparent); padding-top: .4rem; }
+  .workflow-material-line-total > small { margin-left: auto; }
+  .workflow-material-catalog-entry,
+  .workflow-material-manual-entry { grid-template-columns: minmax(0, 1fr) minmax(0, .8fr); }
+  .workflow-material-catalog-entry .workflow-material-product-field,
+  .workflow-material-manual-entry .workflow-material-manual-name,
+  .workflow-material-add-fields .workflow-material-hint { grid-column: 1 / -1; }
+  .workflow-material-catalog-entry .workflow-material-entry-facts { grid-column: 1 / -1; min-height: 2.4rem; }
+  .workflow-material-catalog-entry .workflow-material-add-button,
+  .workflow-material-manual-entry .workflow-material-add-button { grid-column: 1 / -1; grid-row: auto; width: 100%; }
+  .workflow-material-add-button { min-height: 3rem; }
+  .workflow-material-list-card { grid-template-columns: 2.5rem minmax(0, 1fr) auto; gap: .55rem; padding: .65rem; }
+  .workflow-material-list-count { grid-column: 2; display: flex; justify-items: initial; align-items: baseline; gap: .25rem; text-align: left; }
+  .workflow-material-list-arrow { grid-column: 3; grid-row: 1 / 3; }
+  .workflow-material-remove { width: 2.75rem; padding: .35rem; }
+  .workflow-material-remove span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .workflow-material-save { position: static; bottom: auto; z-index: auto; align-items: stretch; flex-direction: column; margin-bottom: env(safe-area-inset-bottom); padding: .6rem; }
+  .workflow-material-entry-mode button,
+  .workflow-material-editor .primary-button { font-size: max(1rem, calc(.82rem * var(--tp-text-scale))); }
+  .workflow-material-save .primary-button { width: 100%; min-height: 3rem; justify-content: center; white-space: normal; }
+  .workflow-material-summary { gap: .4rem .75rem; }
+  .workflow-material-product-dialog { border-radius: .95rem; }
+}
+@media (max-width: 390px) {
+  .workflow-material-lists { gap: .4rem; }
+  .workflow-material-row-heading { align-items: flex-start; }
+  .workflow-material-row-fields { grid-template-columns: minmax(0, 1fr) minmax(5rem, .7fr); }
+  .workflow-material-price-editor { grid-template-columns: minmax(0, 1fr); }
+  .workflow-material-catalog-price { grid-template-columns: minmax(0, 1fr); }
+  .workflow-material-value-field,
+  .workflow-material-line-total { min-height: 2.4rem; }
+  .workflow-material-add-heading { display: grid; }
+  .workflow-material-list-card .future-module-icon { width: 2.4rem; height: 2.4rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workflow-material-row,
+  .workflow-material-list-card,
+  .workflow-material-entry-mode button { transition: none; }
 }

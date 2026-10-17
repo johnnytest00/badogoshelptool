@@ -23,6 +23,19 @@ const input = (item: Record<string, unknown>) => workflowMaterialListInputSchema
 });
 
 describe("workflow material list contract", () => {
+  it("allows an empty standalone draft but requires a line when importing a survey", () => {
+    expect(workflowMaterialListInputSchema.safeParse({
+      organizationId: ids.organizationId, listId: null, executionPlanId: null, name: "DEMO üres lista",
+      expectedVersion: 0, requestKey: ids.requestKey, items: [],
+    }).success).toBe(true);
+    expect(workflowMaterialListInputSchema.safeParse({
+      organizationId: ids.organizationId, listId: null, executionPlanId: null, name: "DEMO üres felmérési lista",
+      expectedVersion: 0, requestKey: ids.requestKey,
+      surveySource: { surveyId: ids.surveyId, surveyRevisionId: ids.surveyRevisionId, surveyVersion: 1, allowStaleSource: false },
+      items: [],
+    }).success).toBe(false);
+  });
+
   it("accepts manual items without a catalog reference and normalizes Hungarian decimals", () => {
     const parsed = input({});
     expect(parsed.success).toBe(true);
