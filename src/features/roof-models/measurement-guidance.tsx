@@ -13,6 +13,10 @@ export type MeasurementGuide = Readonly<{
   secondaryView?: string;
 }>;
 
+export function isMeasurementGuidanceFocusTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(".measurement-guidance, .anchored-popover-panel"));
+}
+
 const guide = (key: string, title: string, unit: string, meaning: string, convention: string, secondaryView?: string): MeasurementGuide => ({ key, title, unit, meaning, convention, secondaryView });
 
 const gableGuides: Record<string, MeasurementGuide> = {

@@ -27,14 +27,17 @@ describe("professional measurement guidance", () => {
     expect(html).toContain("mm");
   });
 
-  it("renders compact live guidance without an empty placeholder", () => {
+  it("renders compact live guidance with an accessible details trigger and no empty placeholder", () => {
     const guide = measurementGuideFor("gable", "buildingWidthMm");
     const html = renderToStaticMarkup(createElement(MeasurementGuidance, { guide, compact: true }));
     expect(html).toContain("measurement-guidance is-compact");
     expect(html).toContain("Épület szélessége · mm");
     expect(html).toContain("két szemközti falsík");
-    expect(html).toContain('<details class="measurement-guidance-detail">');
-    expect(html).toContain("Vízszintes vetületi méret");
+    expect(html).toContain('class="anchored-popover-wrap measurement-guidance-detail"');
+    expect(html).toContain('aria-label="Részletes mérési útmutató: Épület szélessége"');
+    expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(guide?.convention).toBe("Vízszintes vetületi méret; az eresztúlnyúlás külön mező.");
     expect(renderToStaticMarkup(createElement(MeasurementGuidance, { guide: null, compact: true }))).toBe("");
   });
 

@@ -12,6 +12,25 @@ Státusz: **IMPLEMENTED / PARTIAL — célzott kódellenőrzések PASS; mobil in
 
 Javasolt Conventional Commit: `fix(F9.27): prevent picker viewport jumps and show new quote lines first`.
 
+## F9.26 — Regression repair és workflow-stabilizálás
+
+Megjegyzés: a naplóban szereplő F9.26 kategóriás ajánlati termékválasztó külön, korábbi mérföldkő; ez a stabilizálási kör annak folytatása, azonos feladatkóddal.
+
+Státusz: **COMPLETE — a kért frontend-regressziók és navigációs elfogadási feltételek igazolva; 25 opt-in helyi integrációs teszt kihagyva**.
+
+- A teljes Vitest futás négy sikertelen tesztjének gyökérokát különválasztottam. Az anyagegység tesztje a régi kiírást várta a közös `m²` / `m` / `db` címkézés helyett; a nyeregtető teszt korábbi címszöveget várt, miközben a `standalone-gable-title` ARIA-hivatkozás ténylegesen feloldatlan volt; a mérési útmutató tesztje a régi inline `<details>` markupot várta, és a böngészős próba egy fókuszvesztés miatti popover-eltűnést is feltárt; a betöltési teszt a korábbi, általános tetőadat-hibaüzenetet várta az új tetőmodell-lekérdezés pontos üzenete helyett.
+- A hiányzó cím-azonosító bekerült a megosztott `GlassPageHeader` opcionális `titleId` propján keresztül. A nyeregtető oldala ugyanazt az ID-t adja át a fejlécnek, mint amit a környező régió hivatkozik. A mérési mezők blur-kezelése megőrzi a súgót, ha a fókusz az útmutató gombjára vagy paneljére kerül; a bezárható, pozicionált popover használható maradt.
+- A három elavult tesztelvárást a jelenlegi, konkrét szerződéshez igazítottam: közös anyagegység-szimbólumok; aktuális címszöveg és régiócímke; hozzáférhető dialog-trigger; pontos, belső adatbázisrészletet nem tartalmazó betöltési hibaüzenet. A business assertionök megmaradtak.
+- `/kalkulatorok`-on mindhárom kategóriát, keresést, nyeregtető-választást és a betöltött műszaki rajzot kipróbáltam. A régi `/kalkulatorok/epitesi` útvonal a kiválasztott `calculator` és `organization` paraméterrel irányított át. A Mentett számításaim oldalról meglévő Cserepeslemez-fedés V2 rekord újranyílt, revízió- és adatnézetével.
+- A dashboard → Felmérések → Új felmérés útvonal megnyitotta a munkatípus-választót. Egy mentett V3 felmérés újranyílt, V1/V2 történeti változatai elérhetők és a V2 összesítő megnyílt. A nem mentett mérésmódosítás kilépéskor figyelmeztetést adott; a bemenetet az eredeti értékre visszaállítottam, és az oldal visszajelzése „Mentve · V3” lett. Felmérés vagy számítás nem került mentésre.
+- Nincs adatbázis-, séma-, migráció-, Auth/RLS-, motor- vagy tartós workflow-szerződés-változás. Nem történt DB-reset, hosted művelet, commit, push vagy deploy. A helyi produkciós böngészőben olvasási és visszaállított, átmeneti piszkozat-próba történt.
+
+**Ellenőrzések:** `npm test` — 129 fájl PASS / 8 fájl SKIPPED; 541 teszt PASS / 25 SKIPPED / 566 összesen. `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) és `git diff --check` PASS. A kihagyott esetek nyolc, környezetváltozóval explicit módon engedélyezendő helyi integrációs suite-hoz tartoznak; integrációs/DB suite-ot nem indítottam.
+
+**Korlátok:** a böngésző smoke helyi, hitelesített DEMO adatokkal, normál desktop viewporton futott. A fizikai mobil/touch, reszponzív viewport-sorozat, képernyőolvasó és opt-in lokális Supabase/Auth/RLS integrációs tesztek nem futottak.
+
+Javasolt Conventional Commit: `fix(F9.26): stabilize calculator and survey workflows`.
+
 ## F9.26 — Kategóriás ajánlati termékválasztó
 
 Státusz: **IMPLEMENTED / PARTIAL — célzott kódellenőrzések PASS; interaktív böngészős mobilpróba nem futott**.

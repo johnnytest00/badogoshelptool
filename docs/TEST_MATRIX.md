@@ -13,6 +13,30 @@ Státusz: **PARTIAL**, amíg a fizikai mobil billentyűzetes és interaktív bö
 
 Javasolt Conventional Commit: `fix(F9.27): prevent picker viewport jumps and show new quote lines first`.
 
+## F9.26 — regressziójavítás és workflow-stabilizálás
+
+Megjegyzés: a lentebbi F9.26 kategóriás ajánlati termékválasztó korábbi, külön mérföldkő.
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Anyagegység címke | PASS, FULL VITEST | A forrás `materialPurchasingUnitLabels` szerződése `m²`, `m`, `db`; a teszt a korábbi „négyzetméter” / „folyóméter” opciófeliratokat várta. A kézi mennyiség és árverzió állításai változatlanul ellenőrzöttek. |
+| Nyeregtető cím | PASS, TEST + BROWSER | A teszt egy régi „Nyeregtető geometria” szöveget várt. A runtime-ban a régió `aria-labelledby` hivatkozása nem talált célcímet; az opcionális `GlassPageHeader.titleId` megoldotta. Böngészőben a `Nyeregtető` h1 most a régió célcíme. |
+| Mérési útmutató markup és interakció | PASS, TEST + BROWSER | A `<details>` elvárás elavult: a jelenlegi UI hozzáférhető anchored dialog-popover. Valódi hiba volt, hogy a mező blur eseménye a gomb kattintása előtt levette az útmutatót. A fókusz a gombra/panelre lépve megtartja a komponenst; a böngészőben a részletes útmutató és a vetületi mérési alapelv megnyílt. |
+| Adatbetöltési hiba | PASS, FULL VITEST | A tetőforrás első lekérdezése most a „A tetőmodellek betöltése nem sikerült.” publikus üzenettel tér vissza. A teszt korábbi, alsóbb rétegű „tetőadatok” szöveget várt. Az egyezés teljes üzenetet ellenőriz, így a privát adatbázisrészlet nem jelenik meg. |
+| Kalkulátor suite és kategóriaváltás | PASS, LOCAL PRODUCTION BROWSER | Tetők/faszerkezetek, lépcsők, betonozás/alapozás; kategóriaváltás, keresés és nyeregtető-választás működött. A 10 000 × 6 000 mm, 3 000 mm emelkedés bemenet 60 m² vetületet adott; a lusta betöltésű műszaki rajz méretvonalakkal és vezérlőkkel megjelent. |
+| Legacy redirect és query-megőrzés | PASS, LOCAL PRODUCTION BROWSER | `/kalkulatorok/epitesi?calculator=stair.wood.90_landing&organization=…` → `/kalkulatorok?calculator=stair.wood.90_landing&organization=…`; mindkét paraméter megmaradt, a megfelelő tab és kalkulátor aktív lett. |
+| Meglévő számítás újranyitása | PASS, LOCAL READ-ONLY | A Mentett számításaim oldalról a meglévő Cserepeslemez-fedés V2 rekord a történeti útvonalon újranyílt, a mentett geometriával, termékadatokkal és V1/V2 választóval. Mentés nem történt. |
+| Dashboard → felméréslista → új | PASS, LOCAL PRODUCTION BROWSER | A dashboard „Felmérések” kártyája a szervezeti query megőrzésével a listára vitt; az „Új felmérés” gomb a munkatípus-választót nyitotta meg. |
+| Meglévő felmérés / revízió / piszkozatvédelem | PASS, LOCAL READ-ONLY + REVERTED DRAFT | Meglévő V3 újranyitva; V1/V2 történeti listázás és V2 összesítő megnyílt. A mérési érték átmeneti módosítása kilépési figyelmeztetést adott; eredeti értékre visszaállítva a státusz „Mentve · V3”. Mentés vagy rekordmódosítás nem történt. |
+| Teljes Vitest suite | PASS WITH SKIPS | `npm test`: 129 fájl PASS / 8 SKIPPED; 541 teszt PASS / 25 SKIPPED / 566 összesen. A 25 kihagyott teszt nyolc explicit, `RUN_LOCAL_*_TESTS=1` opt-in helyi integrációs suite-hoz tartozik; adatbázis-tesztet külön nem indítottam. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| DB/Auth/RLS | NEM VÁLTOZOTT / INTEGRÁCIÓS TESZT NEM FUTOTT | Nincs séma-, migráció- vagy policy-változás. Nincs DB-reset vagy hosted módosítás. Jogosultsági, immutable revision és konkurencia backend-újrateszt nem történt; a meglévő rekordok csak olvasva lettek. |
+| Mobil / kisegítő technológiák | NEM FUTOTT | A smoke normál desktop böngészőben futott; fizikai mobil, viewport-emuláció, touch és képernyőolvasó QA nem történt. |
+
+Státusz: **COMPLETE a kért helyi frontend-regresszió és navigációs körben**; a nyolc opt-in helyi integrációs suite és a mobil/AT mátrix nyitott ellenőrzési korlát.
+
+Javasolt Conventional Commit: `fix(F9.26): stabilize calculator and survey workflows`.
+
 ## F9.26 — kategóriás ajánlati termékválasztó
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

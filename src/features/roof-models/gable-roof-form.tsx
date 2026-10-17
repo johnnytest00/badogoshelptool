@@ -19,7 +19,7 @@ import type { SavedSheetLayout, SavedSheetLayoutRevision, SheetLayoutMaterialOpt
 import type { SavedMetalTileCovering } from "./gable-metal-tile-covering-data";
 import { createSheetLayoutTakeoffAction, saveSheetLayoutAction } from "./sheet-layout-actions";
 import { gableSegments, selectedGableLength } from "@/domain/calculations/gable-segments";
-import { MeasurementGuidance, measurementGuideFor } from "./measurement-guidance";
+import { isMeasurementGuidanceFocusTarget, MeasurementGuidance, measurementGuideFor } from "./measurement-guidance";
 import { RoofWorkspace } from "./roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
@@ -53,7 +53,7 @@ function toInput(values: FormValues): GableRoofInput | null {
   return parsed.success ? parsed.data : null;
 }
 
-function NumericField({ name, label, value, unit, error, onChange, help, onFocus, onBlur }: Readonly<{ name: string; label: string; value: string; unit: string; error?: string; onChange: (value: string) => void; help?: string; onFocus?: () => void; onBlur?: () => void }>) {
+function NumericField({ name, label, value, unit, error, onChange, help, onFocus, onBlur }: Readonly<{ name: string; label: string; value: string; unit: string; error?: string; onChange: (value: string) => void; help?: string; onFocus?: () => void; onBlur?: (event: React.FocusEvent<HTMLInputElement>) => void }>) {
   return <label className="roof-field"><span>{label} <small>{unit}</small></span><input id={name} name={name} inputMode="decimal" value={value} onFocus={onFocus} onBlur={onBlur} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={`measurement-help-${name}`} />{help && <em id={`measurement-help-${name}`}>{help}</em>}{error && <b className="roof-field-error">{error}</b>}</label>;
 }
 
@@ -79,6 +79,9 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
   const [message, setMessage] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const handleMeasurementBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    if (!isMeasurementGuidanceFocusTarget(event.relatedTarget)) setFocusedField(null);
+  };
   const [isPending, startTransition] = useTransition();
   const [operationId, setOperationId] = useState(() => generateSecureUuid());
   const [newRoofModelId] = useState(() => generateSecureUuid());
@@ -173,13 +176,13 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
           measurements={
             <section className="roof-surface roof-measurement-inputs">
               <div className="roof-form-grid roof-form-grid-compact">
-                <NumericField name="buildingLengthMm" label="Épület hossza" unit="mm" value={values.buildingLengthMm} onChange={(value) => setValue("buildingLengthMm", value)} error={inputError("buildingLengthMm")} onFocus={() => setFocusedField("buildingLengthMm")} onBlur={() => setFocusedField(null)} />
-                <NumericField name="buildingWidthMm" label="Épület szélessége" unit="mm" value={values.buildingWidthMm} onChange={(value) => setValue("buildingWidthMm", value)} error={inputError("buildingWidthMm")} onFocus={() => setFocusedField("buildingWidthMm")} onBlur={() => setFocusedField(null)} />
+                <NumericField name="buildingLengthMm" label="Épület hossza" unit="mm" value={values.buildingLengthMm} onChange={(value) => setValue("buildingLengthMm", value)} error={inputError("buildingLengthMm")} onFocus={() => setFocusedField("buildingLengthMm")} onBlur={handleMeasurementBlur} />
+                <NumericField name="buildingWidthMm" label="Épület szélessége" unit="mm" value={values.buildingWidthMm} onChange={(value) => setValue("buildingWidthMm", value)} error={inputError("buildingWidthMm")} onFocus={() => setFocusedField("buildingWidthMm")} onBlur={handleMeasurementBlur} />
                 <div className="roof-mode-field"><span>Meghatározó tetőadat</span><div className="roof-mode-toggle" role="group" aria-label="Tetőadat módja"><button type="button" className={values.inputMode === "height" ? "is-active" : ""} onClick={() => switchMode("height")}>Tetőemelkedés</button><button type="button" className={values.inputMode === "angle" ? "is-active" : ""} onClick={() => switchMode("angle")}>Hajlásszög</button></div></div>
-                {values.inputMode === "height" ? <NumericField name="roofRiseMm" label="Tetőemelkedés" unit="mm" value={values.roofRiseMm} onChange={(value) => setValue("roofRiseMm", value)} error={inputError("roofRiseMm")} onFocus={() => setFocusedField("roofRiseMm")} onBlur={() => setFocusedField(null)} help="A fal megtámasztási síkjától a gerincig." /> : <NumericField name="roofPitchDegrees" label="Tetőhajlásszög" unit="°" value={values.roofPitchDegrees} onChange={(value) => setValue("roofPitchDegrees", value)} error={inputError("roofPitchDegrees")} onFocus={() => setFocusedField("roofPitchDegrees")} onBlur={() => setFocusedField(null)} help="0 és 90° között." />}
-                <NumericField name="eaveOverhangMm" label="Eresz túlnyúlás" unit="mm" value={values.eaveOverhangMm} onChange={(value) => setValue("eaveOverhangMm", value)} error={inputError("eaveOverhangMm")} onFocus={() => setFocusedField("eaveOverhangMm")} onBlur={() => setFocusedField(null)} help="Vízszintesen a falsíktól." />
-                <NumericField name="frontGableOverhangMm" label="Első oromfal túlnyúlás" unit="mm" value={values.frontGableOverhangMm} onChange={(value) => setValue("frontGableOverhangMm", value)} error={inputError("frontGableOverhangMm")} onFocus={() => setFocusedField("frontGableOverhangMm")} onBlur={() => setFocusedField(null)} />
-                <NumericField name="rearGableOverhangMm" label="Hátsó oromfal túlnyúlás" unit="mm" value={values.rearGableOverhangMm} onChange={(value) => setValue("rearGableOverhangMm", value)} error={inputError("rearGableOverhangMm")} onFocus={() => setFocusedField("rearGableOverhangMm")} onBlur={() => setFocusedField(null)} />
+                {values.inputMode === "height" ? <NumericField name="roofRiseMm" label="Tetőemelkedés" unit="mm" value={values.roofRiseMm} onChange={(value) => setValue("roofRiseMm", value)} error={inputError("roofRiseMm")} onFocus={() => setFocusedField("roofRiseMm")} onBlur={handleMeasurementBlur} help="A fal megtámasztási síkjától a gerincig." /> : <NumericField name="roofPitchDegrees" label="Tetőhajlásszög" unit="°" value={values.roofPitchDegrees} onChange={(value) => setValue("roofPitchDegrees", value)} error={inputError("roofPitchDegrees")} onFocus={() => setFocusedField("roofPitchDegrees")} onBlur={handleMeasurementBlur} help="0 és 90° között." />}
+                <NumericField name="eaveOverhangMm" label="Eresz túlnyúlás" unit="mm" value={values.eaveOverhangMm} onChange={(value) => setValue("eaveOverhangMm", value)} error={inputError("eaveOverhangMm")} onFocus={() => setFocusedField("eaveOverhangMm")} onBlur={handleMeasurementBlur} help="Vízszintesen a falsíktól." />
+                <NumericField name="frontGableOverhangMm" label="Első oromfal túlnyúlás" unit="mm" value={values.frontGableOverhangMm} onChange={(value) => setValue("frontGableOverhangMm", value)} error={inputError("frontGableOverhangMm")} onFocus={() => setFocusedField("frontGableOverhangMm")} onBlur={handleMeasurementBlur} />
+                <NumericField name="rearGableOverhangMm" label="Hátsó oromfal túlnyúlás" unit="mm" value={values.rearGableOverhangMm} onChange={(value) => setValue("rearGableOverhangMm", value)} error={inputError("rearGableOverhangMm")} onFocus={() => setFocusedField("rearGableOverhangMm")} onBlur={handleMeasurementBlur} />
               </div>
             </section>
           }

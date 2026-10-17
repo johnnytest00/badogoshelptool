@@ -29,8 +29,8 @@ describe("calculator data loading states", () => {
 
   it("surfaces failures from the first query instead of reporting empty data", async () => {
     configureQuery({ data: null, error: { message: "private database detail" } });
-    await expect(getGutterGeometrySuggestions("org", "project")).rejects.toThrow("A tetőadatok betöltése nem sikerült.");
-    await expect(getFlashingGeometrySuggestions("org", "project")).rejects.toThrow("A tetőadatok betöltése nem sikerült.");
-    await expect(getSheetMetalProfiles("org", "project")).rejects.toThrow("A mentett profilok betöltése nem sikerült.");
+    await expect(getGutterGeometrySuggestions("org", "project")).rejects.toMatchObject({ message: "A tetőmodellek betöltése nem sikerült." });
+    await expect(getFlashingGeometrySuggestions("org", "project")).rejects.toMatchObject({ message: "A tetőmodellek betöltése nem sikerült." });
+    await expect(getSheetMetalProfiles("org", "project")).rejects.toMatchObject({ message: "A mentett profilok betöltése nem sikerült." });
   });
 });

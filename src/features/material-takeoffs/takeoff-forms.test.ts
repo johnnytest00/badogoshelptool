@@ -23,8 +23,8 @@ describe("anyagkimutatás-tétel felülete", () => {
       organizationId: "org", projectId: "project", takeoffId: "takeoff",
       variants: [variant("square_meter"), variant("linear_meter"), variant("piece")],
     }));
-    expect(html).toContain("DEMO square_meter (négyzetméter)");
-    expect(html).toContain("DEMO linear_meter (folyóméter)");
+    expect(html).toContain("DEMO square_meter (m²)");
+    expect(html).toContain("DEMO linear_meter (m)");
     expect(html).toContain("DEMO piece (db)");
     expect(html).toContain("Kézi mennyiség");
     expect(html).toContain("Felhasznált árverzió");

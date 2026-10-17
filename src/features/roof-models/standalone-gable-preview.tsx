@@ -6,7 +6,7 @@ import type { SavedSurveyCalculation } from "@/domain/field-surveys/workspace";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput } from "@/domain/calculations/gable-roof";
 import { TechnicalDrawing } from "./technical-drawing";
-import { MeasurementGuidance, measurementGuideFor } from "./measurement-guidance";
+import { isMeasurementGuidanceFocusTarget, MeasurementGuidance, measurementGuideFor } from "./measurement-guidance";
 import { RoofWorkspace } from "./roof-workspace";
 import { GableTrapezoidalCoveringPanel } from "./gable-trapezoidal-covering-panel";
 import type { SavedGableCovering } from "./gable-trapezoidal-covering-data";
@@ -55,6 +55,9 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
   const lastValid = useRef<{ input: GableRoofInput; result: NonNullable<typeof result> } | null>(null);
   if (input && result) lastValid.current = { input, result };
   const set = (key: keyof Draft, value: string) => setDraft((current) => ({ ...current, [key]: value }));
+  const handleMeasurementBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    if (!isMeasurementGuidanceFocusTarget(event.relatedTarget)) setFocusedField(null);
+  };
   const fields: { key: keyof Draft; label: string; unit: string }[] = [
     { key: "buildingLengthMm", label: "Épület hossza", unit: "mm" },
     { key: "buildingWidthMm", label: "Épület szélessége", unit: "mm" },
@@ -67,7 +70,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
     <>
       {showBackNavigation && <Link className="back-navigation glass-navigation" href={`/kalkulatorok?organization=${organizationId}`}><span aria-hidden="true">←</span><span>Vissza a kalkulátorokhoz</span></Link>}
       <section className="standalone-roof-page" aria-labelledby="standalone-gable-title">
-        <GlassPageHeader title="Nyeregtető" context="Önálló tetőgeometria" actions={onChangeRoofType && <button className="secondary-button" type="button" onClick={onChangeRoofType}>← Tetőtípus kiválasztása</button>} />
+        <GlassPageHeader titleId="standalone-gable-title" title="Nyeregtető" context="Önálló tetőgeometria" actions={onChangeRoofType && <button className="secondary-button" type="button" onClick={onChangeRoofType}>← Tetőtípus kiválasztása</button>} />
         <p className="roof-disclaimer">A meglévő roof.gable motor számítja az eredményeket. A fedési eredmény külön menthető; anyagkimutatás és statikai méretezés nem készül.</p>
         {handoffSource && <div className={`survey-handoff-banner ${handoffModified ? "is-modified" : ""}`} role="status"><strong>{handoffModified ? "A kalkuláció módosított adatokat tartalmaz" : "Adatok átvéve a felmérésből"}</strong><small>Felmérés: {handoffSource.surveyId} · V{handoffSource.version} · revízió: {handoffSource.revisionId}. A forrás változatlan marad.</small>{missingHandoffFields.length > 0 && <span>Ehhez a számításhoz még add meg: {missingHandoffFields.join(", ")}.</span>}</div>}
         <RoofWorkspace
@@ -77,7 +80,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
             <>
               <form className="roof-form roof-measurement-inputs roof-form-grid-compact" onSubmit={(event) => event.preventDefault()}>
                 <label className="roof-field"><span>Bemenet módja</span><select value={draft.inputMode} disabled={historical || savePending} onChange={(event) => { const inputMode = event.target.value as Draft["inputMode"]; setDraft((current) => ({ ...current, inputMode, roofRiseMm: "", roofPitchDegrees: "" })); }}><option value="height">Tetőemelkedés</option><option value="angle">Tetőhajlás</option></select></label>
-                {fields.map((field) => <label className="roof-field" key={field.key}><span>{field.label} <small>{field.unit}</small></span><input id={String(field.key)} inputMode="decimal" value={draft[field.key]} disabled={historical || savePending} onFocus={() => setFocusedField(field.key)} onBlur={() => setFocusedField(null)} onChange={(event) => set(field.key, event.target.value)} aria-label={`${field.label} (${field.unit})`} /></label>)}
+                {fields.map((field) => <label className="roof-field" key={field.key}><span>{field.label} <small>{field.unit}</small></span><input id={String(field.key)} inputMode="decimal" value={draft[field.key]} disabled={historical || savePending} onFocus={() => setFocusedField(field.key)} onBlur={handleMeasurementBlur} onChange={(event) => set(field.key, event.target.value)} aria-label={`${field.label} (${field.unit})`} /></label>)}
               </form>
             </>
           }

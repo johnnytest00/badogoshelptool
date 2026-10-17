@@ -9,9 +9,12 @@ import { StandaloneGablePreview } from "./standalone-gable-preview";
 describe("standalone gable geometry preview", () => {
   it("exposes only project-free geometry input until dimensions are supplied", () => {
     const html = renderToStaticMarkup(createElement(StandaloneGablePreview, { organizationId: "org" }));
-    expect(html).toContain("Nyeregtető geometria");
+    expect(html).toContain('aria-labelledby="standalone-gable-title"');
+    expect(html).toContain('<h1 id="standalone-gable-title">Nyeregtető</h1>');
+    expect(html).toContain("Önálló tetőgeometria");
     expect(html).toContain("Tetőemelkedés");
-    expect(html).toContain("projekt nélküli számítás");
+    expect(html).toContain('aria-label="Tetőmérési munkaterület"');
+    expect(html).toContain("Add meg az összes méretet");
     expect(html).not.toContain("<button");
   });
 
