@@ -16,6 +16,7 @@ import { mm2ToM2, mmToM } from "@/domain/calculations/construction/numeric";
 import { calculateGableRoof } from "@/domain/calculations/gable-roof";
 import { calculateGableMetalTileCovering } from "@/domain/calculations/gable-metal-tile-covering";
 import type { RoofGeometry, RoofGeometryType } from "@/domain/calculations/roof-geometry";
+import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-results";
 import { ConstructionCalculatorThumbnail, ConstructionMaterialDrawing, ConstructionStairDrawing } from "./construction-visuals";
 
 type Field = { key: string; label: string; unit: string; initial?: string; integer?: boolean; advanced?: boolean; kind?: "text" | "checkbox" | "select"; options?: readonly { value: string; label: string }[] };
@@ -45,8 +46,8 @@ const definitions: Record<string, CalculatorDefinition> = {
     ],
     calculate: (input) => {
       const geometryInput = { inputMode: "height" as const, buildingLengthMm: mm(input, "buildingLengthMm"), buildingWidthMm: mm(input, "buildingWidthMm"), roofRiseMm: mm(input, "roofRiseMm"), eaveOverhangMm: mm(input, "eaveOverhangMm"), frontGableOverhangMm: 0, rearGableOverhangMm: 0 };
-      const result = calculateExistingRoofGeometry({ type: "gable", geometry: geometryInput });
-      const rows: ResultLine[] = [{ label: "Vetületi terület", value: mm2ToM2(result.projectedAreaMm2), unit: "m²" }, { label: "Tetősíkok geometriai felülete", value: mm2ToM2(result.totalAreaMm2), unit: "m²" }, { label: "Élek", value: result.edges.length, unit: "db" }];
+      calculateExistingRoofGeometry({ type: "gable", geometry: geometryInput });
+      const rows: ResultLine[] = [];
       const productValues = ["nominalSheetWidthMm", "effectiveCoveringWidthMm", "physicalSheetLengthMm", "effectiveCoveringLengthMm"];
       const requestingCovering = productValues.some((key) => nullableMm(input, key) !== null) || input.lengthDataSource !== undefined && input.lengthDataSource !== "" || input.lengthCompatibilityConfirmed === true;
       if (requestingCovering) {
@@ -68,7 +69,7 @@ const definitions: Record<string, CalculatorDefinition> = {
   "roof.shed": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "roof.shed")!, draw: "roof", note: "A meglévő TetőPro tetőgeometria-motor számítja a felületet. Anyagkiosztást nem készít.",
     fields: [{ key: "lengthMm", label: "Tető hossza", unit: "mm" }, { key: "widthMm", label: "Vízszintes fesztáv", unit: "mm" }, { key: "pitchDegrees", label: "Tetőhajlás", unit: "°" }],
-    calculate: (input) => { const result = calculateExistingRoofGeometry({ type: "shed", lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), pitchDegrees: mm(input, "pitchDegrees") }); return [{ label: "Vetületi terület", value: mm2ToM2(result.projectedAreaMm2), unit: "m²" }, { label: "Tetősík geometriai felülete", value: mm2ToM2(result.totalAreaMm2), unit: "m²" }, { label: "Élek", value: result.edges.length, unit: "db" }]; },
+    calculate: (input) => { calculateExistingRoofGeometry({ type: "shed", lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), pitchDegrees: mm(input, "pitchDegrees") }); return []; },
   },
   "roof.mansard": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "roof.mansard")!, draw: "roof", note: "Szimmetrikus, két szakaszból álló keresztmetszet. A két vízszintes félfutást és emelkedést külön kell megadni.",
@@ -78,7 +79,7 @@ const definitions: Record<string, CalculatorDefinition> = {
   "roof.hip": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "roof.hip")!, draw: "roof", note: "A meglévő TetőPro szimmetrikus kontytető-motorját használja; a hossz legyen nagyobb a szélességnél.",
     fields: [{ key: "lengthMm", label: "Tető hossza", unit: "mm" }, { key: "widthMm", label: "Tető szélessége", unit: "mm" }, { key: "pitchDegrees", label: "Tetőhajlás", unit: "°" }],
-    calculate: (input) => { const result = calculateExistingRoofGeometry({ type: "hip", lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), pitchDegrees: mm(input, "pitchDegrees") }); return [{ label: "Vetületi terület", value: mm2ToM2(result.projectedAreaMm2), unit: "m²" }, { label: "Tetősíkok geometriai felülete", value: mm2ToM2(result.totalAreaMm2), unit: "m²" }, { label: "Kontyélek", value: result.edges.filter((edge) => edge.kind === "hip").length, unit: "db" }]; },
+    calculate: (input) => { calculateExistingRoofGeometry({ type: "hip", lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), pitchDegrees: mm(input, "pitchDegrees") }); return []; },
   },
   "roof.truss": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "roof.truss")!, draw: "truss", note: "Csak az egyszerű háromszög burkológeometriáját mutatja. A belső rácsozatot és teherbírást nem tervezi.",
@@ -333,10 +334,9 @@ function reusableRoofGeometry(definition: CalculatorDefinition, values: Record<s
   return null;
 }
 
-function ConstructionDrawing({ definition, values, focusedDimension, activeDimensionDescription, onDimensionSelect }: { definition: CalculatorDefinition; values: Record<string, string>; focusedDimension?: string | null; activeDimensionDescription?: string; onDimensionSelect?: (key: string) => void }) {
+function ConstructionDrawing({ definition, values, roofGeometry, focusedDimension, activeDimensionDescription, onDimensionSelect }: { definition: CalculatorDefinition; values: Record<string, string>; roofGeometry: RoofGeometry | null; focusedDimension?: string | null; activeDimensionDescription?: string; onDimensionSelect?: (key: string) => void }) {
   const dims = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value.replace(",", ".")) || 0]));
   const title = `${definition.reference.title} sematikus rajza`;
-  const roofGeometry = reusableRoofGeometry(definition, values);
   if (roofGeometry) return <TechnicalDrawing geometry={roofGeometry} isSaved={false} compact heading={title} headingId="construction-roof-drawing-heading" activeDimension={focusedDimension ? roofDrawingDimensionKey(definition, focusedDimension) : null} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect ? (key) => onDimensionSelect(roofFieldKeyForDrawingDimension(definition, key)) : undefined} />;
   const lines = (points: string, key = "main") => <polyline key={key} points={points} fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />;
   let geometry;
@@ -382,13 +382,16 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const requiredFields = definition.fields.filter((field) => !field.advanced && field.initial === undefined && field.kind !== "checkbox");
   const inputsReady = requiredFields.every((field) => (values[field.key] ?? "").trim() !== "");
   const calculation = useMemo(() => {
-    if (!inputsReady) return { rows: [] as ResultLine[], error: null as string | null };
-    try { return { rows: definition.calculate(raw), error: null }; }
+    if (!inputsReady) return { rows: [] as ResultLine[], error: null as string | null, geometry: null as RoofGeometry | null };
+    try {
+      const geometry = roofGeometryType ? reusableRoofGeometry(definition, values) : null;
+      return { rows: definition.calculate(raw), error: null, geometry };
+    }
     catch (error) {
       const message = error instanceof z.ZodError ? error.issues.map((issue) => issue.message).join(" ") : "A megadott méretekkel a számítás nem végezhető el.";
-      return { rows: [] as ResultLine[], error: message };
+      return { rows: [] as ResultLine[], error: message, geometry: null as RoofGeometry | null };
     }
-  }, [definition, inputsReady, raw]);
+  }, [definition, inputsReady, raw, roofGeometryType, values]);
   const selectCalculator = (item: ConstructionReference) => {
     const next = definitions[item.id];
     if (!next || item.status !== "verified") return;
@@ -412,14 +415,15 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   </>;
   const resultsContent = <>
     {inputsReady && calculation.error && <p className="form-message is-error" role="alert">{calculation.error}</p>}
-    {calculation.rows.length > 0 && <section className="construction-suite-results" aria-live="polite"><h3>Eredmény</h3><dl>{calculation.rows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl><p className="construction-suite-limit">{definition.reference.limitation}</p></section>}
+    {calculation.geometry && <RoofGeometryResults geometry={calculation.geometry} heading="Geometriai eredmények" provenanceLabel="Kézi bemenetek · számított geometriai eredmények." />}
+    {calculation.rows.length > 0 && <section className="construction-suite-results" aria-live="polite"><h3>További eredmények</h3><dl>{calculation.rows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl><p className="construction-suite-limit">{definition.reference.limitation}</p></section>}
   </>;
-  const drawingContent = calculation.rows.length > 0
+  const drawingContent = calculation.geometry !== null || calculation.rows.length > 0
     ? definition.reference.category === "stair"
       ? <ConstructionStairDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
       : definition.reference.category === "concrete" || definition.reference.category === "auxiliary"
         ? <ConstructionMaterialDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
-      : <ConstructionDrawing definition={definition} values={values} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
+      : <ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
     : undefined;
   const independentContent = <p className="construction-suite-independent">Az eredmény helyi előnézet. Nem mentődik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>;
   const workspace = roofGeometryType

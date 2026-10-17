@@ -38,6 +38,9 @@ describe("shared roof type selector", () => {
     const geometry = calculateRoofGeometry({ type: "tShape", lengthMm: 10000, widthMm: 6000, pitchDegrees: 45, wingWidthMm: 4000, wingProjectionMm: 5000 });
     const drawing = createRoofDrawingModel(geometry);
     expect(drawing.polygons.map((polygon) => polygon.id)).toEqual(geometry.planes.map((plane) => plane.id));
+    expect(drawing.polygons.every((polygon) => polygon.outline === false)).toBe(true);
+    expect(new Set(drawing.polygons.map((polygon) => polygon.label.replace(/ · geometriai részlet \d+$/, ""))).size).toBeLessThan(geometry.planes.length);
+    expect(drawing.polygons.some((polygon) => polygon.label.includes("geometriai részlet"))).toBe(true);
     expect(drawing.segments.map((segment) => segment.id)).toEqual(geometry.edges.map((edge) => edge.id));
     expect(drawing.segments.filter((segment) => segment.label?.startsWith("Vápavonal"))).toHaveLength(2);
   });

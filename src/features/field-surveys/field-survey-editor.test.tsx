@@ -237,7 +237,12 @@ describe("field survey editor", () => {
   it.each(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"] as const)("automatically draws %s geometry from survey measurements", (type) => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofSurvey(type)} />);
     expect(html).toContain('class="technical-drawing is-compact"');
-    expect(html).toContain("Teljes tetőfelület");
+    expect(html).toContain("Teljes tetősík geometriai felülete");
+    expect(html).toContain("Tetőhajlás");
+    expect(html).toContain("Hajlás százalékban");
+    expect(html).toContain("Vízszintes vetületi terület");
+    expect(html).toContain("Élszakaszok bontása");
+    expect(html).toContain("A bemenetek felmért értékek");
     expect(html).toContain("Tetősíkok");
     expect(html).not.toContain("Tetőgeometria vagy fedés számítása");
     expect(html).not.toContain("Ereszcsatorna-szükséglet számítása");

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildGableSurveyPreview } from "./gable-survey-preview";
+import { calculateRoofGeometry } from "@/domain/calculations/roof-geometry";
 import type { SurveyMeasurementDraft } from "./survey-draft-recovery";
 
 const measurement = (id: string, semanticType: SurveyMeasurementDraft["semanticType"], value: string, unit: SurveyMeasurementDraft["unit"], label: string = semanticType) => ({
@@ -25,6 +26,11 @@ describe("gable survey preview", () => {
     expect(result.issue).toBeNull();
     expect(result.output?.angles.pitchDegrees).toBeCloseTo(26.565051177, 8);
     expect(result.output?.areas.combinedRoofM2).toBeCloseTo(4472.135955, 5);
+    expect(result.geometry?.totalAreaMm2).toBeCloseTo(result.output!.areas.combinedRoofMm2, 3);
+    expect(result.geometry).toEqual(calculateRoofGeometry({ type: "gable", geometry: {
+      inputMode: "height", buildingLengthMm: 100_000, buildingWidthMm: 40_000, roofRiseMm: 10_000,
+      eaveOverhangMm: 0, frontGableOverhangMm: 0, rearGableOverhangMm: 0,
+    } }));
   });
 
   it("renders a valid pitch-only input using the same engine", () => {

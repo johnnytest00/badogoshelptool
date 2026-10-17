@@ -157,3 +157,13 @@ Az S17 kizárólag tömör lépcsőéknek felel meg, állandó szélességgel é
 | Tömör betonék (S17) | 2800×4200×1000 mm, 16 fellépés → 175 mm fellépő, 280 mm belépő, 5,88 m³ | Független téglalap-összeg: `Σ(i·R·G), i=1..15`, szorozva 1000 mm szélességgel = 5,88 m³; az eredmény egyezik a `run×rise/2` keresztmetszeti területtel erre az egyenletes, felső fok nélküli kiosztásra. |
 
 Az érvénytelen karszámot, pihenő-szélességet, befoglaló méretnél nagyobb alaprajzot, nem pozitív méretet és hibás fellépésszámot a séma/elvárás elutasítja. Három húzott fokos forduló S4/S6/S8 továbbra sincs eredményként kitéve. A képletalap az [G1] téglalap-összeg/geometria és [G3] hasáb-térfogat; a kód nem vesz át Zhitov-formulát.
+
+## F9.33 — Közös tetőgeometriai eredmények
+
+| Scope | Felület és motor | Státusz | Bizonyított határ |
+|---|---|---|---|
+| Felmérés | Hét forma a meglévő `calculateRoofGeometry` és `geometryFromSurveyMeasurements` útvonalon; közös `RoofGeometryResults` az SVG alatt | `VERIFIED` a létező bemeneti scope-ra; az új derived run/slope/perimeter output külön fixture-elt | Nyereg, félnyereg, konty, sátor, félkonty, L, T; Survey egyedi mért értékei provenance-címkét kapnak. Mérés mentése/revíziója változatlan |
+| Önálló `/kalkulatorok` | Nyeregtető, félnyeregtető, kontytető: megosztott geometriai kimenet és eredményösszegző; továbbra is 33 katalógus-ref | `VERIFIED` a mérnöki fixture-ekkel; helyi browser smoke: gable/shed/hip PASS | A szarufa, manzárd és háromszög tartó a saját szűkített számításán marad |
+| Közös SVG | Számított plane/edge ID-k, élkategória, grouped patch felirat, belső patch kontúr nélküli rajzolás | `VERIFIED` domain drawing ID-egyezéssel és kiválasztó teszttel | Felülnézeti geometria, nem gyártási/3D konstrukció; a pan/zoom nem alakít méretet |
+
+Az összes output, adatforrás, bemenet, képlet, független fixture, státusz és felületmátrix: [F9.33 tetőszámítási specifikáció](ROOF_CALCULATION_SPECIFICATION.md). A következő hiányok nem fedett funkciók: nem szimmetrikus/eltérő hajlású síkok; generalizált L/T csatlakozás/eltolás; nem-gable túlnyúlás; helyezett szarufa/léc; alátét vagy lemezhasználati darabszám; rögzítő- és statikai számítás. Területalapú darabszámot nem mutatunk. A hétforma engine fixture-ek korábbi [F9.10 többtetős audit](CALCULATION_VERIFICATION_MATRIX.md) eredményére épülnek; a Zhitov oldalak nem képlet-oracle-ok és nincs teljes paritás.

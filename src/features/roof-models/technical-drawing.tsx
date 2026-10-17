@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Maximize2, Minus, Move, Plus, RotateCcw } from "lucide-react";
 import type { GableRoofOutput } from "@/domain/calculations/gable-roof";
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
+import { roofPlaneGroupId, summarizeRoofGeometry } from "@/domain/calculations/roof-geometry-results";
 import { gableSegments } from "@/domain/calculations/gable-segments";
 import type { MetalSheetLayoutOutput } from "@/domain/calculations/metal-sheet-layout";
 import { createGableDrawingModel, drawingLayers, drawingViews, filterDrawingModel, type DrawingLayerId, type DrawingPoint, type DrawingView, type GableDrawingModel } from "@/domain/drawings/gable-drawing";
@@ -105,12 +106,12 @@ function TechnicalSvg({ model, layers, title, zoom, pan, svgRef, onPointerDown, 
   return <svg ref={svgRef} className="technical-drawing-svg" viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} role={onSegmentToggle || onDimensionSelect ? "group" : "img"} aria-labelledby={`${titleId} ${descriptionId}`} preserveAspectRatio="xMidYMid meet" shapeRendering="geometricPrecision" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerCancel} onLostPointerCapture={onLostPointerCapture}>
     <title id={titleId}>{title}</title><desc id={descriptionId}>Méretezett, {title.toLowerCase()} az ellenőrzött tetőgeometriából.</desc>
     <g transform={`translate(${SVG_WIDTH / 2 + pan.x} ${SVG_HEIGHT / 2 + pan.y}) scale(${zoom}) translate(${-SVG_WIDTH / 2} ${-SVG_HEIGHT / 2})`}>
-    {filtered.polygons.map((polygon) => <polygon key={polygon.label} className={`technical-plane technical-plane-${polygon.side ?? "single"}`} points={pointsString(polygon.points, model)} aria-label={polygon.label} />)}
+    {filtered.polygons.map((polygon, index) => <polygon key={polygon.id ?? `${polygon.label}-${index}`} className={`technical-plane technical-plane-${polygon.side ?? "single"}${polygon.outline === false ? " is-unoutlined" : ""}`} points={pointsString(polygon.points, model)} aria-label={polygon.label} />)}
     {filtered.sheetStrips.map((strip) => <g key={strip.id} className={`technical-sheet-strip ${strip.indexFromStart % 2 === 0 ? "is-even" : "is-odd"} ${strip.isPartial ? "is-partial" : ""}`}><polygon points={pointsString(strip.points, model)} aria-label={`${strip.id}${strip.isPartial ? ", részleges szélső sáv" : ""}`} />{showStripLabels && (() => { const mapped = strip.points.map((point) => mapPoint(point, model)); const center = { x: mapped.reduce((sum, point) => sum + point.x, 0) / mapped.length, y: mapped.reduce((sum, point) => sum + point.y, 0) / mapped.length }; return <text x={center.x} y={center.y} textAnchor="middle" dominantBaseline="middle">{strip.indexFromStart}</text>; })()}</g>)}
     {filtered.guides.map((segment, index) => <line key={`guide-${index}`} className="technical-guide" x1={mapPoint(segment.start, model).x} y1={mapPoint(segment.start, model).y} x2={mapPoint(segment.end, model).x} y2={mapPoint(segment.end, model).y} />)}
     {filtered.segments.map((segment, index) => <line key={`${segment.label}-${index}`} className={`technical-segment ${segment.hidden ? "is-hidden-edge" : ""}`} x1={mapPoint(segment.start, model).x} y1={mapPoint(segment.start, model).y} x2={mapPoint(segment.end, model).x} y2={mapPoint(segment.end, model).y} />)}
     {onSegmentToggle && model.view === "top" && <g className="technical-selection">
-      {filtered.polygons.filter((polygon) => polygon.id).map((polygon) => <polygon key={polygon.id} points={pointsString(polygon.points, model)} className={selectedSegmentIds?.includes(polygon.id!) ? "is-selected" : ""} role="button" tabIndex={0} aria-label={`${polygon.label} kiválasztása`} aria-pressed={selectedSegmentIds?.includes(polygon.id!)} onPointerDown={(event) => event.stopPropagation()} onClick={() => onSegmentToggle(polygon.id!)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSegmentToggle(polygon.id!); } }} />)}
+      {filtered.polygons.filter((polygon) => polygon.id).map((polygon, index) => <polygon key={`${polygon.id}-select-${index}`} points={pointsString(polygon.points, model)} className={selectedSegmentIds?.includes(polygon.id!) ? "is-selected" : ""} role="button" tabIndex={0} aria-label={`${polygon.label} kiválasztása`} aria-pressed={selectedSegmentIds?.includes(polygon.id!)} onPointerDown={(event) => event.stopPropagation()} onClick={() => onSegmentToggle(polygon.id!)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSegmentToggle(polygon.id!); } }} />)}
       {filtered.segments.filter((segment) => segment.id).map((segment) => <line key={segment.id} x1={mapPoint(segment.start, model).x} y1={mapPoint(segment.start, model).y} x2={mapPoint(segment.end, model).x} y2={mapPoint(segment.end, model).y} className={selectedSegmentIds?.includes(segment.id!) ? "is-selected" : ""} role="button" tabIndex={0} aria-label={`${segment.label} kiválasztása`} aria-pressed={selectedSegmentIds?.includes(segment.id!)} onPointerDown={(event) => event.stopPropagation()} onClick={() => onSegmentToggle(segment.id!)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSegmentToggle(segment.id!); } }} />)}
     </g>}
     {filtered.dimensions.map((item, index) => <DimensionLine key={`${item.label}-${index}`} model={model} item={item} labelPosition={labelPositions.get(`dimension:${index}`)} activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />)}
@@ -133,8 +134,17 @@ export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheet
   const viewport = useRef<{ zoom: number; pan: { x: number; y: number } }>({ zoom: drawingInitialViewport.zoom, pan: drawingInitialViewport.pan });
   const model = useMemo(() => geometry ? createRoofDrawingModel(geometry) : createGableDrawingModel(output!, view, sheetLayout), [geometry, output, sheetLayout, view]);
   const previousModel = useRef(model);
+  const geometryPlaneGroups = geometry ? summarizeRoofGeometry(geometry).planes : [];
+  const geometryPlaneGroupNumber = new Map(geometryPlaneGroups.map((plane, index) => [plane.id, index + 1] as const));
+  const geometryPlaneDetailNumber = new Map(geometryPlaneGroups.flatMap((plane) => plane.sourcePlaneIds.map((id, index) => [id, index + 1] as const)));
   const selectable = geometry ? [
-    ...geometry.planes.map((plane, index) => ({ id: plane.id, label: `Tetősík ${index + 1}`, lengthMm: null as number | null, areaMm2: plane.areaMm2, kind: "plane" })),
+    ...geometry.planes.map((plane) => {
+      const groupId = roofPlaneGroupId(plane.id);
+      const groupNumber = geometryPlaneGroupNumber.get(groupId) ?? 0;
+      const detailCount = geometryPlaneGroups.find((group) => group.id === groupId)?.sourcePlaneIds.length ?? 1;
+      const detailLabel = detailCount > 1 ? ` · geometriai részlet ${geometryPlaneDetailNumber.get(plane.id) ?? 1}` : "";
+      return { id: plane.id, label: `Tetősík ${groupNumber}${detailLabel}`, lengthMm: null as number | null, areaMm2: plane.areaMm2, kind: "plane" };
+    }),
     ...geometry.edges.map((edge, index) => ({ id: edge.id, label: `${{ eave: "Eresz", upper: "Felső él", ridge: "Gerinc", rake: "Oromél", hip: "Kontyél", valley: "Vápavonal" }[edge.kind]} ${index + 1}`, lengthMm: edge.lengthMm, areaMm2: null as number | null, kind: edge.kind })),
   ] : gableSegments(output!);
   const selectedLength = (kind: string) => selectable.reduce((sum, segment) => sum + (segment.kind === kind && selectedSegmentIds?.includes(segment.id) ? segment.lengthMm ?? 0 : 0), 0);

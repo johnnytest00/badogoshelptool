@@ -22,6 +22,7 @@ import { geometryFromSurveyMeasurements, surveyRoofFields } from "@/domain/field
 import type { RoofGeometryType } from "@/domain/calculations/roof-geometry";
 import { calculateRoofGeometry } from "@/domain/calculations/roof-geometry";
 import { TechnicalDrawing } from "@/features/roof-models/technical-drawing";
+import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-results";
 import { MeasurementGuidance, measurementGuideForSurvey } from "@/features/roof-models/measurement-guidance";
 import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
@@ -387,21 +388,20 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
 function SurveyRoofPreview({ roofType, gablePreview, measurements, activeDimension, activeDimensionDescription, activeGuide, measurementInputs, actions, onDimensionSelect }: Readonly<{ roofType: RoofGeometryType; gablePreview: GableSurveyPreview | null; measurements: readonly FieldSurveyMeasurement[]; activeDimension?: string | null; activeDimensionDescription?: string; activeGuide: ReturnType<typeof measurementGuideForSurvey>; measurementInputs: ReactNode; actions: ReactNode; onDimensionSelect: (key: string) => void }>) {
   const gableOutput = gablePreview?.output ?? null;
   const previewIssue = gablePreview?.issue ?? null;
-  let multiGeometry: ReturnType<typeof calculateRoofGeometry> | null = null;
+  let geometry: ReturnType<typeof calculateRoofGeometry> | null = roofType === "gable" ? gablePreview?.geometry ?? null : null;
   if (roofType !== "gable") {
     const input = geometryFromSurveyMeasurements(roofType, measurements);
-    if (input) multiGeometry = calculateRoofGeometry(input);
+    if (input) geometry = calculateRoofGeometry(input);
   }
-  const areaM2 = gableOutput?.areas.combinedRoofM2 ?? (multiGeometry ? multiGeometry.totalAreaMm2 / 1_000_000 : null);
   return <RoofWorkspace
     className="roof-workspace-survey"
     label="Felmérés tetőmérési munkaterülete"
     context={<div className="roof-workspace-context"><div className="roof-guidance-slot"><MeasurementGuidance compact guide={activeGuide} /></div></div>}
     measurements={measurementInputs}
-    drawing={areaM2 !== null && (gableOutput || multiGeometry) ? <TechnicalDrawing output={gableOutput ?? undefined} geometry={multiGeometry ?? undefined} compact activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} isSaved={false} /> : null}
-    results={areaM2 === null
+    drawing={geometry ? <TechnicalDrawing output={gableOutput ?? undefined} geometry={gableOutput ? undefined : geometry} compact activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} isSaved={false} /> : null}
+    results={!geometry
       ? <p className="missing-data" role={previewIssue?.kind === "invalid" ? "alert" : "status"}>{previewIssue?.message ?? (measurements.length ? "A rajz a tetőforma minden szükséges, érvényes méretének megadása után jelenik meg." : "A rajz a szükséges méretek megadása után jelenik meg.")}</p>
-      : <section className="roof-results" aria-live="polite"><div className="roof-section-heading"><div><p className="section-eyebrow">Geometriai előnézet</p><h2>Ellenőrzött eredmények</h2></div></div><div className="roof-result-highlight"><span>Teljes tetőfelület</span><strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(areaM2)} m²</strong></div><div className="roof-result-grid"><div className="roof-result-metric"><small>Tetősíkok</small><strong>{gableOutput ? gableOutput.planes.length : multiGeometry?.planes.length}</strong></div></div></section>}
+      : <RoofGeometryResults geometry={geometry} provenanceLabel="A bemenetek felmért értékek; az alábbiakat a közös tetőgeometriai motor számítja." />}
     actions={actions}
   />;
 }

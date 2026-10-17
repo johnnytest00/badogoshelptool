@@ -1,4 +1,5 @@
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
+import { roofPlaneGroupId, summarizeRoofGeometry } from "@/domain/calculations/roof-geometry-results";
 import { formatDrawingMeasurement, type DrawingDimension, type GableDrawingModel, type DrawingPoint } from "./gable-drawing";
 
 const xy = (point: { xMm: number; yMm: number }): DrawingPoint => ({ x: point.xMm, y: -point.yMm });
@@ -12,6 +13,10 @@ export function createRoofDrawingModel(geometry: RoofGeometry): GableDrawingMode
   const maxY = Math.max(...vertices.map((point) => point.yMm));
   const xMargin = Math.max(500, (maxX - minX) * .08);
   const yMargin = Math.max(500, (maxY - minY) * .08);
+  const planeGroups = summarizeRoofGeometry(geometry).planes;
+  const planeNumber = new Map(planeGroups.map((plane, index) => [plane.id, index + 1] as const));
+  const planeDetailNumber = new Map<string, number>();
+  planeGroups.forEach((group) => group.sourcePlaneIds.forEach((id, index) => planeDetailNumber.set(id, index + 1)));
   const lengthKey = geometry.type === "pyramid" ? "sideMm" : "lengthMm";
   const widthKey = geometry.type === "pyramid" ? "sideMm" : "widthMm";
   const dimensions: DrawingDimension[] = [
@@ -30,7 +35,13 @@ export function createRoofDrawingModel(geometry: RoofGeometry): GableDrawingMode
   return {
     view: "top", title: "Felülnézeti műszaki rajz",
     bounds: { minX, maxX, minY: -maxY, maxY: -minY },
-    polygons: geometry.planes.map((plane, index) => ({ id: plane.id, points: plane.vertices.map(xy), label: `Tetősík ${index + 1}` })),
+    polygons: geometry.planes.map((plane) => {
+      const groupId = roofPlaneGroupId(plane.id);
+      const groupNumber = planeNumber.get(groupId) ?? 0;
+      const detailCount = planeGroups.find((group) => group.id === groupId)?.sourcePlaneIds.length ?? 1;
+      const detailLabel = detailCount > 1 ? ` · geometriai részlet ${planeDetailNumber.get(plane.id) ?? 1}` : "";
+      return { id: plane.id, points: plane.vertices.map(xy), label: `Tetősík ${groupNumber}${detailLabel}`, outline: false };
+    }),
     segments: geometry.edges.map((edge, index) => ({ id: edge.id, start: xy(edge.start), end: xy(edge.end), label: `${edgeNames[edge.kind]} ${index + 1}` })),
     dimensions,
     angles: [], guides: [], sheetStrips: [],

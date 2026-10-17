@@ -4,7 +4,7 @@
 
 **Dátum:** 2026-10-17
 **Leltár hatóköre:** projekt által karbantartott `.ts` / `.tsx` fájlok a repóban; build-, dependency- és generált Next.js fájlok kizárva.
-**Dokumentált forrásfájlok:** 444 (F9.31-ben három új, projekt által kezelt forrás-/tesztfájllal; ellenőrzés: a fájlrendszerből képzett lista; `next-env.d.ts` és `src/infrastructure/supabase/database.types.ts` generáltak, ezért kizárva).
+**Dokumentált forrásfájlok:** 447 egyedi útvonal (F9.33 után, ellenőrzés: rekurzív `src/` TypeScript-fájllista összevetve a leltárral; 450 leltársorban három meglévő duplikált sor, hiányzó/többlet nincs. A generált `next-env.d.ts` és `src/infrastructure/supabase/database.types.ts`, valamint build/dependency fájlok kizárva).
 
 ## Rendszeráttekintés
 
@@ -19,6 +19,8 @@
 - **Domain:** `src/domain/` alatt keretrendszerfüggetlen szerződések, egységkezelés, geometria, determinisztikus nyeregtető és többtetős geometria, csatorna/szegély/fedés, lemezkiosztás, anyagszükséglet/átadás, rajzgeometria, projekt, anyaglista, munkanapló és ajánlat-szabályok. A domain nem Supabase- és UI-adapter.
 - **Feature / alkalmazási réteg:** `src/features/` alatt az űrlapok, olvasó/adatbetöltő modulok, műveletek, mentési orchestration, hitelesített hozzáférés és feature-specifikus állapot. Ez a réteg kapcsolja össze a domain eredményeit a tárolással és a UI-val.
 - **Infrastruktúra:** `src/infrastructure/supabase/` kliens-/szerveradapterekkel és számított eredményt mentő writer adapterekkel; `src/infrastructure/images/` fotó-normalizálással. A server-only credentiales lefedő kalkulációs írás a szerveradapteren keresztül történik.
+
+**F9.33 — tetőgeometriai eredmények:** a `src/domain/calculations/roof-geometry-results.ts` a meglévő hétformás geometry outputból vezet le felület-/vetület-, hajlás-, sík- és élösszegeket; az `src/features/roof-models/roof-geometry-results.tsx` közös, provenance-feliratos, részleteket összecsukó panelként jeleníti meg Surveyben és az önálló nyeregtető/félnyereg/konty kalkulátorban. A Survey mind a hét meglévő geometriáját ugyanazzal az eredménymodellel rajzolja és számolja; az önálló `/kalkulatorok` nem kapcsolódik Survey rekordhoz. A felületeredmény geometriai adat, nem anyagdarab- vagy statikai igazolás. Módszer és státuszmátrix: [F9.33 specifikáció](docs/ROOF_CALCULATION_SPECIFICATION.md).
 
 ### Adatbázis, hitelesítés és revíziók
 
@@ -810,3 +812,11 @@ A Phase 1 után újraolvasott architekturális összefoglaló: ez UI/alkalmazás
 - `src/domain/quotations/contracts.ts`, `standalone.ts`, standalone actions/editor és migration `20261017130000_allow_unpriced_standalone_drafts.sql`: a standalone quotation draft empty unit price-t megőrizhet. A draft subtotal csak árazott sorok részösszege; `complete=false`, kész dokumentum-readiness nincs. A projekt quotation közös required-price sémája változatlan.
 - A felmérés → anyaglista → ajánlat út pontos revision snapshotot őriz; felmérési tetőterület önmagában továbbra sem ajánlati/beszerzési anyagmennyiség. A független list/quote/worklog route-ok nem kapnak kötelező egymás közti függést.
 - A `.workflow-material-row` anyaglista-gird tabletre 1100 px alatt vált: 1024 px-es túlcsordulás javítva, a többi layout token, adatlogika és üzleti viselkedés változatlan.
+
+## F9.33 tetőgeometriai összegző fájlok
+
+- `src/domain/calculations/roof-geometry-results.ts` — tiszta, framekörnyezet nélküli összegző; meglévő geometria vertex- és élkimenetét használja, hiányzó élhez `unavailable` állapotot ad. Nem számol anyag- vagy faszerkezet-mennyiséget.
+- `src/domain/calculations/roof-geometry-results.test.ts` — hét mérnöki fixture, gable overhang és Survey/standalone eredmény-egyezőség.
+- `src/features/roof-models/roof-geometry-results.tsx` — közös elsődleges és `<details>` result UI; a mért bemenetet és a számított értéket külön megnevezi.
+- `src/features/roof-models/roof-geometry-results.test.tsx` — a hét formán ellenőrzi az eredmények és anyagkorlát-szöveg SSR renderét.
+- A `field-survey-editor.tsx`, `construction-suite.tsx`, `technical-drawing.tsx` és `roof-drawing.ts` meglévő felületeit/rajzát kapcsolja a közös összegzőhöz. Nincs új séma, mentett számítási rekord vagy authorization útvonal.

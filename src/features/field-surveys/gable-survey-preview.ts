@@ -1,4 +1,5 @@
 import { calculateGableRoof, gableRoofInputSchema } from "@/domain/calculations/gable-roof";
+import { calculateRoofGeometry, type RoofGeometry } from "@/domain/calculations/roof-geometry";
 import { mapFieldSurveyToCalculator } from "@/domain/field-surveys/calculator-handoff";
 import { fieldSurveyMeasurementSchema, type FieldSurveyMeasurement, type FieldSurveySemanticType } from "@/domain/field-surveys/contracts";
 import type { SurveyMeasurementDraft } from "./survey-draft-recovery";
@@ -11,6 +12,7 @@ export type GableSurveyPreviewIssue = Readonly<{
 
 export type GableSurveyPreview = Readonly<{
   output: ReturnType<typeof calculateGableRoof> | null;
+  geometry: RoofGeometry | null;
   issue: GableSurveyPreviewIssue | null;
 }>;
 
@@ -52,6 +54,7 @@ const geometrySemantics: readonly FieldSurveySemanticType[] = [
 function issue(kind: GableSurveyPreviewIssue["kind"], message: string, fields: readonly Readonly<{ id: string; message: string }>[]): GableSurveyPreview {
   return {
     output: null,
+    geometry: null,
     issue: { kind, message, fieldMessages: Object.fromEntries(fields.map((field) => [field.id, field.message])) },
   };
 }
@@ -137,7 +140,11 @@ export function buildGableSurveyPreview(drafts: readonly SurveyMeasurementDraft[
   }
 
   try {
-    return { output: calculateGableRoof(input.data), issue: null };
+    return {
+      output: calculateGableRoof(input.data),
+      geometry: calculateRoofGeometry({ type: "gable", geometry: input.data }),
+      issue: null,
+    };
   } catch {
     const fields = measurements.filter((measurement) => geometrySemantics.includes(measurement.semanticType)).map((measurement) => ({ id: measurement.id, message: "Ellenőrizd ezt a méretet; a számított eredmény nem ábrázolható biztonságosan." }));
     return issue("invalid", "A megadott tetőméretekből nem számítható biztonságos rajz. Ellenőrizd a méreteket.", fields);

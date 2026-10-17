@@ -2114,3 +2114,21 @@ Státusz: **PARTIAL** a teljes regresszió négy meglévő, nem kapcsolódó UI-
 | Adatbázis / biztonság / teljes regresszió | LOKÁLIS DEMO ÍRÁS; EGYÉB NEM VÁLTOZOTT | `NEXT_PUBLIC_SUPABASE_URL` hostja titkok nélkül ellenőrizve: `127.0.0.1`; a mentett tesztlista a helyi Supabase rekord. Hosted DB-be nem írtam, migráció vagy reset nem volt. Nincs schema/Auth/RLS/RPC/domain/persistence kódváltozás. Teljes Vitest suite nem futott, DB teszt nem indokolt. |
 
 Státusz: **PARTIAL**. A teljes forrásleltár, reprodukált picker-javítás, toolbar és a felmérés→kalkulátor adatátadás bizonyított; témaváltás és picker-billentyűzetes kiválasztás ellenőrzött. A teljes viewport/touch/screen reader a11y ellenőrzés és a számítás mentési útvonala ebben a mérföldkőben nincs bizonyítva.
+
+## F9.33 — Tetőszámítási eredmények
+
+| Vizsgálat | Állapot | Bizonyíték / korlát |
+|---|---|---|
+| Megosztott geometria summary | PASS, CÉLZOTT | 7 roof form DEMO engineering fixture: felület, vetület, fok, percent, edge totals; gable túlnyúlás; hiányzó él típusos `unavailable`; Survey/standalone summary azonosság 6 nem-gable típuson |
+| Survey és drawing regresszió | PASS, CÉLZOTT | `npx vitest run src/domain/calculations/roof-geometry-results.test.ts src/domain/calculations/roof-geometry.test.ts src/domain/calculations/roof-geometry.engineering-audit.test.ts src/domain/drawings/gable-drawing.test.ts src/features/field-surveys/gable-survey-preview.test.ts src/features/field-surveys/field-survey-editor.test.tsx src/features/roof-models/roof-geometry-results.test.tsx src/features/roof-models/roof-type-selector.test.tsx src/features/roof-models/technical-drawing.test.tsx src/features/roof-models/drawing-viewport.test.ts src/features/roof-models/multi-roof-form.test.tsx src/features/roof-models/measurement-guidance.test.tsx src/features/roof-models/project-roof-drawings.test.ts` — 13 fájl / 133 teszt PASS. Nem teljes regresszió |
+| Típusellenőrzés | PASS | `npm run typecheck` — `tsc --noEmit` |
+| Lint | PASS | `npm run lint` — `eslint .` |
+| Production build | PASS | `npm run build` — Next.js 16.4.0 webpack; 30 statikus oldal generálva, `/kalkulatorok` route megvan |
+| Helyi autentikált böngésző | PASS, READ-ONLY | Meglévő Survey V5: 10×6 m / 3 m emelkedés → 84,853 m², 45°/100%, 60 m² vetület, 20 m eresz, 10 m gerinc. Új tab `/kalkulatorok`: gable 10 000×6 000/3 000 mm, shed 10 000×6 000/45°, hip 10 000×6 000/45°; geometriai kimenet és SVG élek/síkok láthatók. Nem mentettem rekordot |
+| Képernyő-elrendezés | RÉSZLEGES | Desktop Brave screenshot/AX állapot ellenőrizve az önálló kontytetőn. Mobilnézet/390 CSS px emulációhoz nem volt viewport-emulációs vezérlő; fizikai mobil eszköz nem volt |
+| Billentyűzet, reduced motion, screen reader | NEM FUTOTT | A `details/summary` és natív vezérlők a kódban vannak; ez önmagában nem a11y smoke. Reduced-motion, forced-colors és screen reader nem futott |
+| DB/Auth/RLS/concurrency | NEM ALKALMAZHATÓ A DIFFRE | Csak összegző/view/drawing kód változott; séma, writer, saved record és permission boundary változatlan. Böngészőtesztben nem mentettem |
+| Hosted DB, migráció, reset, commit, deploy | NEM FUTOTT | A feladatnak nincs ilyen szükséglete; hosted adat nem változott |
+| Whitespace | PASS | `git diff --check` — kód/docs patch után; új fájlokra külön trailing whitespace vizsgálat |
+
+Státusz: **PARTIAL**. A közös, ellenőrzött geometriai scope PASS. Az aszimmetrikus/eltérő hajlású geometria, generalizált L/T eltolás, nem-gable túlnyúlás, anyagkiosztás, statika, teljes regresszió és mobil/a11y elfogadás nem bizonyított. Részletek: [F9.33 coverage](CALCULATOR_COVERAGE_MATRIX.md) és [geometriai specifikáció](ROOF_CALCULATION_SPECIFICATION.md).
