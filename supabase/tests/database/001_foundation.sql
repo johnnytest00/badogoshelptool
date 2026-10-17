@@ -1,6 +1,6 @@
 begin;
 
-select plan(172);
+select plan(178);
 
 select has_table('public', 'profiles', 'profiles exists');
 select has_table('public', 'organizations', 'organizations exists');
@@ -55,6 +55,13 @@ select throws_ok(
 );
 
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
+select throws_ok(
+  $$insert into public.roof_models (organization_id, project_id, name, roof_type)
+    values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', 'authenticated direct roof write', 'gable')$$,
+  '42501', null, 'authenticated clients cannot directly create roof models'
+);
+reset role;
+set local role postgres;
 select throws_ok(
   $$insert into public.roof_models (organization_id, project_id, name, roof_type)
     values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000099', 'invalid project model', 'gable')$$,
@@ -177,52 +184,74 @@ select throws_ok(
   '42501', null, 'project permanent deletion is not granted'
 );
 
+select ok(not has_function_privilege('authenticated', 'public.save_gable_roof_calculation_secure(uuid,uuid,uuid,uuid,integer,text,jsonb,jsonb,jsonb,uuid)', 'EXECUTE'), 'authenticated clients cannot call the restricted gable writer');
+select ok(not has_function_privilege('authenticated', 'public.save_gable_roof_calculation(uuid,uuid,uuid,text,jsonb,jsonb,jsonb,jsonb,integer)', 'EXECUTE'), 'authenticated clients cannot call the legacy gable writer');
+reset role;
+grant tetopro_covering_writer to postgres;
+grant usage on schema extensions to tetopro_covering_writer;
+set local role tetopro_covering_writer;
 select lives_ok(
-  $$select * from public.save_gable_roof_calculation(
-    '00000000-0000-4000-8000-000000000010',
-    '00000000-0000-4000-8000-000000000030',
-    null,
+  $$select * from public.save_gable_roof_calculation_secure(
+    '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030',
+    '00000000-0000-4000-8000-000000000150', '00000000-0000-4000-8000-000000000151', 0,
     'F5 DEMO nyeregtető',
     '{"inputMode":"height","buildingLengthMm":12000,"buildingWidthMm":8000,"roofRiseMm":3000,"eaveOverhangMm":500,"frontGableOverhangMm":250,"rearGableOverhangMm":250}'::jsonb,
-    '{"areas":{"combinedRoofM2":140.625}}'::jsonb,
+    '{"areas":{"combinedRoofM2":140.625},"planes":[],"lengths":{"eachEaveEdgeMm":13000}}'::jsonb,
     '{"input":"user_provided","output":"verified"}'::jsonb,
-    '[]'::jsonb,
-    0
+    '00000000-0000-4000-8000-000000000001'
   )$$,
-  'authenticated member can atomically save a gable calculation'
+  'restricted server writer atomically saves a gable calculation'
 );
+reset role;
+set local role authenticated;
 select is((select count(*)::int from public.roof_models where organization_id = '00000000-0000-4000-8000-000000000010' and roof_type = 'gable' and name = 'F5 DEMO nyeregtető'), 1, 'gable roof model is created once');
 select is((select count(*)::int from public.roof_model_revisions where roof_model_id = (select id from public.roof_models where name = 'F5 DEMO nyeregtető')), 1, 'verified roof revision is created');
 select is((select count(*)::int from public.calculation_revisions where calculation_id = (select id from public.calculations where display_name = 'F5 DEMO nyeregtető')), 1, 'verified calculation revision is created');
 select is((select count(*)::int from public.calculation_dependencies where downstream_calculation_revision_id = (select current_revision_id from public.calculations where display_name = 'F5 DEMO nyeregtető')), 1, 'roof revision dependency is created');
+reset role;
+set local role tetopro_covering_writer;
 select throws_ok(
-  $$select * from public.save_gable_roof_calculation(
-    '00000000-0000-4000-8000-000000000010',
-    '00000000-0000-4000-8000-000000000030',
-    (select id from public.roof_models where name = 'F5 DEMO nyeregtető'),
-    'F5 DEMO nyeregtető', '{}'::jsonb, '{}'::jsonb, '{}'::jsonb, '[]'::jsonb, 0
+  $$select * from public.save_gable_roof_calculation_secure(
+    '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030',
+    '00000000-0000-4000-8000-000000000150', '00000000-0000-4000-8000-000000000152', 0,
+    'F5 DEMO nyeregtető',
+    '{"inputMode":"height","buildingLengthMm":12000,"buildingWidthMm":8000,"roofRiseMm":3000,"eaveOverhangMm":500,"frontGableOverhangMm":250,"rearGableOverhangMm":250}'::jsonb,
+    '{"areas":{"combinedRoofM2":140.625},"planes":[],"lengths":{"eachEaveEdgeMm":13000}}'::jsonb,
+    '{"input":"user_provided","output":"verified"}'::jsonb, '00000000-0000-4000-8000-000000000001'
   )$$,
   '40001', null, 'stale gable revision is rejected'
 );
 select lives_ok(
-  $$select * from public.save_gable_roof_calculation(
-    '00000000-0000-4000-8000-000000000010',
-    '00000000-0000-4000-8000-000000000030',
-    (select id from public.roof_models where name = 'F5 DEMO nyeregtető'),
-    'F5 DEMO nyeregtető', '{}'::jsonb, '{}'::jsonb, '{}'::jsonb, '[]'::jsonb, 1
+  $$select * from public.save_gable_roof_calculation_secure(
+    '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030',
+    '00000000-0000-4000-8000-000000000150', '00000000-0000-4000-8000-000000000153', 1,
+    'F5 DEMO nyeregtető',
+    '{"inputMode":"height","buildingLengthMm":12000,"buildingWidthMm":8000,"roofRiseMm":3000,"eaveOverhangMm":500,"frontGableOverhangMm":250,"rearGableOverhangMm":250}'::jsonb,
+    '{"areas":{"combinedRoofM2":140.625},"planes":[],"lengths":{"eachEaveEdgeMm":13000}}'::jsonb,
+    '{"input":"user_provided","output":"verified"}'::jsonb, '00000000-0000-4000-8000-000000000001'
   )$$,
   'current gable revision can be extended immutably'
 );
+reset role;
+set local role postgres;
 select is((select max(revision_number) from public.roof_model_revisions where roof_model_id = (select id from public.roof_models where name = 'F5 DEMO nyeregtető')), 2, 'gable revision history increments');
+set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
+reset role;
+set local role tetopro_covering_writer;
 select throws_ok(
-  $$select * from public.save_gable_roof_calculation(
-    '00000000-0000-4000-8000-000000000010',
-    '00000000-0000-4000-8000-000000000030',
-    null, 'unauthorized gable', '{}'::jsonb, '{}'::jsonb, '{}'::jsonb, '[]'::jsonb, 0
+  $$select * from public.save_gable_roof_calculation_secure(
+    '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030',
+    '00000000-0000-4000-8000-000000000154', '00000000-0000-4000-8000-000000000155', 0,
+    'unauthorized gable',
+    '{"inputMode":"height","buildingLengthMm":12000,"buildingWidthMm":8000,"roofRiseMm":3000,"eaveOverhangMm":500,"frontGableOverhangMm":250,"rearGableOverhangMm":250}'::jsonb,
+    '{"areas":{"combinedRoofM2":140.625},"planes":[],"lengths":{"eachEaveEdgeMm":13000}}'::jsonb,
+    '{"input":"user_provided","output":"verified"}'::jsonb, '00000000-0000-4000-8000-000000000002'
   )$$,
   '42501', null, 'non-member cannot save a gable calculation'
 );
+reset role;
+set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
 
 select throws_ok(
@@ -400,58 +429,98 @@ values ('00000000-0000-4000-8000-000000000132', '00000000-0000-4000-8000-0000000
 insert into public.calculation_revisions (id, organization_id, calculation_id, revision_number, input_schema_version, calculator_implementation_version, input_snapshot, output_snapshot, validation_status, created_by)
 values ('00000000-0000-4000-8000-000000000133', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000132', 1, '1.0.0', '1.0.0', '{}', '{"areas":{"combinedRoofM2":100}}', 'verified', '00000000-0000-4000-8000-000000000001');
 update public.calculations set current_revision_id = '00000000-0000-4000-8000-000000000133' where id = '00000000-0000-4000-8000-000000000132';
+insert into public.calculation_dependencies (organization_id, downstream_calculation_revision_id, upstream_roof_model_revision_id, dependency_type)
+values ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000133', '00000000-0000-4000-8000-000000000131', 'roof_model_input');
 insert into public.material_products (id, organization_id, category, name, data_provenance)
 values ('00000000-0000-4000-8000-000000000134', '00000000-0000-4000-8000-000000000011', 'sheet_metal', 'F7.3.2 másik szervezet DEMO', 'demo');
 insert into public.material_variants (id, organization_id, product_id, name, purchasing_unit, data_provenance)
 values ('00000000-0000-4000-8000-000000000135', '00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-000000000134', 'F7.3.2 cross-org DEMO', 'square_meter', 'demo');
+reset role;
+create function pg_temp.save_layout(p_operation_id uuid, p_expected integer, p_variant_id uuid, p_input jsonb, p_output jsonb)
+returns table(calculation_id uuid, calculation_revision_id uuid, revision_number integer, revision_created boolean)
+language sql as $$
+  select * from public.save_metal_sheet_layout_secure(
+    '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130',
+    '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133',
+    null::uuid,
+    p_variant_id, 'F7.3.2 DEMO kiosztás', p_input, p_output, '{"calculation":"server_verified"}', '[]', p_expected,
+    p_operation_id, '00000000-0000-4000-8000-000000000001'
+  );
+$$;
 set local role authenticated;
-
-select lives_ok($$select * from public.save_metal_sheet_layout(
+select ok(not has_function_privilege('authenticated', 'public.save_metal_sheet_layout_secure(uuid,uuid,uuid,uuid,uuid,uuid,uuid,text,jsonb,jsonb,jsonb,jsonb,integer,uuid,uuid)', 'EXECUTE'), 'authenticated clients cannot call the restricted layout writer');
+select ok(has_function_privilege('tetopro_covering_writer', 'public.save_metal_sheet_layout_secure(uuid,uuid,uuid,uuid,uuid,uuid,uuid,text,jsonb,jsonb,jsonb,jsonb,integer,uuid,uuid)', 'EXECUTE'), 'restricted server writer can call the layout RPC');
+select throws_ok($$select * from public.save_metal_sheet_layout(
   '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130',
-  '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', null, '00000000-0000-4000-8000-000000000082', 'F7.3.2 DEMO kiosztás',
+  '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', null, '00000000-0000-4000-8000-000000000082', 'F7.3.2 közvetlen írás',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082"}}}', '{}', '{}', '[]', 0)$$,
+  '42501', null, 'authenticated direct layout writer is denied');
+reset role;
+set local role tetopro_covering_writer;
+select lives_ok($$select * from pg_temp.save_layout('00000000-0000-4000-8000-000000001301', 0, '00000000-0000-4000-8000-000000000082',
   '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082","provenance":"demo"}},"calculatorInput":{"effectiveCoveringWidthMm":1000}}',
-  '{"totalStripCount":26}', '{"calculation":"server_verified"}', '[]', 0)$$, 'member can atomically save layout revision V1');
+  '{"totalStripCount":26}')$$, 'restricted writer atomically saves layout revision V1');
+reset role;
+set local role postgres;
 select is((select count(*)::int from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout'), 1, 'layout V1 is stored once');
 select is((select cr.material_variant_id from public.calculation_revisions cr join public.calculations c on c.current_revision_id = cr.id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000082'::uuid, 'layout revision preserves material variant reference');
 select is((select count(*)::int from public.calculation_dependencies cd join public.calculations c on c.current_revision_id = cd.downstream_calculation_revision_id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout'), 2, 'layout stores roof and geometry dependencies');
-select lives_ok($$select * from public.save_metal_sheet_layout(
-  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130',
-  '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000082', 'F7.3.2 DEMO kiosztás',
+set local role tetopro_covering_writer;
+select lives_ok($$select * from pg_temp.save_layout('00000000-0000-4000-8000-000000001301', 0, '00000000-0000-4000-8000-000000000082',
   '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082","provenance":"demo"}},"calculatorInput":{"effectiveCoveringWidthMm":1000}}',
-  '{"totalStripCount":26}', '{}', '[]', 1)$$, 'identical layout save is accepted idempotently');
+  '{"totalStripCount":26}')$$, 'identical request key reuses the same layout revision');
+reset role;
+set local role postgres;
 select is((select count(*)::int from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout'), 1, 'identical input does not create a duplicate revision');
-select lives_ok($$select * from public.save_metal_sheet_layout(
-  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130',
-  '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000082', 'F7.3.2 DEMO kiosztás',
+set local role tetopro_covering_writer;
+select lives_ok($$select * from pg_temp.save_layout('00000000-0000-4000-8000-000000001302', 1, '00000000-0000-4000-8000-000000000082',
   '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082","provenance":"demo"}},"calculatorInput":{"effectiveCoveringWidthMm":1250}}',
-  '{"totalStripCount":20}', '{}', '[]', 1)$$, 'changed layout creates immutable revision V2');
+  '{"totalStripCount":20}')$$, 'changed layout creates immutable revision V2');
+reset role;
+set local role postgres;
 select is((select count(*)::int from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout'), 2, 'layout revision history contains V1 and V2');
 select is((select output_snapshot ->> 'totalStripCount' from public.calculation_revisions cr join public.calculations c on c.id = cr.calculation_id where c.roof_model_id = '00000000-0000-4000-8000-000000000130' and c.calculator_type = 'covering.metal-sheets.layout' and cr.revision_number = 1), '26', 'historical layout output remains unchanged');
-select throws_ok($$select * from public.save_metal_sheet_layout(
-  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130',
-  '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000082', 'stale',
-  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082"}},"calculatorInput":{"effectiveCoveringWidthMm":900}}', '{}', '{}', '[]', 1)$$, '40001', null, 'stale concurrent layout write is rejected');
+set local role tetopro_covering_writer;
+select throws_ok($$select * from pg_temp.save_layout('00000000-0000-4000-8000-000000001303', 1, '00000000-0000-4000-8000-000000000082',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082"}},"calculatorInput":{"effectiveCoveringWidthMm":900}}', '{}')$$,
+  '40001', null, 'stale concurrent layout write is rejected');
+reset role;
 set local role postgres;
 select throws_ok($$update public.calculation_revisions set output_snapshot = '{}' where calculation_id = (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout')$$, 'P0001', null, 'saved layout revisions are immutable');
+set local role tetopro_covering_writer;
+select throws_ok($$select * from public.save_metal_sheet_layout_secure(
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000060', '00000000-0000-4000-8000-000000000130',
+  '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', null::uuid, '00000000-0000-4000-8000-000000000082', 'cross-project',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082"}}}'::jsonb, '{}'::jsonb, '{}'::jsonb, '[]'::jsonb, 0,
+  '00000000-0000-4000-8000-000000001304'::uuid, '00000000-0000-4000-8000-000000000001'::uuid)$$, '40001', null, 'cross-project layout source is rejected');
+select throws_ok($$select * from pg_temp.save_layout('00000000-0000-4000-8000-000000001305', 2, '00000000-0000-4000-8000-000000000135',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000135"}}}', '{}')$$,
+  '23503', null, 'cross-organization material variant is rejected');
+reset role;
 set local role authenticated;
-select throws_ok($$select * from public.save_metal_sheet_layout(
-  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000060', '00000000-0000-4000-8000-000000000130', '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', null, '00000000-0000-4000-8000-000000000082', 'cross-project',
-  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082"}}}', '{}', '{}', '[]', 0)$$, '40001', null, 'cross-project layout source is rejected');
-select throws_ok($$select * from public.save_metal_sheet_layout(
-  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130', '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000135', 'cross-org',
-  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000135"}}}', '{}', '{}', '[]', 2)$$, '23503', null, 'cross-organization material variant is rejected');
 select lives_ok($$select public.create_sheet_layout_takeoff_draft('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), (select current_revision_id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), 'F7.3.2 DEMO tervezet', 10)$$, 'square-meter layout creates an editable takeoff draft');
 select is((select status::text from public.material_takeoffs where name = 'F7.3.2 DEMO tervezet'), 'draft', 'layout handoff never auto-approves');
 select is((select final_quantity from public.material_takeoff_items where takeoff_id = (select id from public.material_takeoffs where name = 'F7.3.2 DEMO tervezet')), 110::numeric, 'layout handoff reuses verified area with explicit allowance');
-select lives_ok($$select * from public.save_metal_sheet_layout(
-  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130', '00000000-0000-4000-8000-000000000131', '00000000-0000-4000-8000-000000000133', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), '00000000-0000-4000-8000-000000000085', 'F7.3.2 DEMO kiosztás',
-  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000085","provenance":"missing"}},"calculatorInput":{"effectiveCoveringWidthMm":1000}}', '{"totalStripCount":26}', '{}', '[]', 2)$$, 'piece-based layout can be saved without inventing a purchasing conversion');
+reset role;
+set local role tetopro_covering_writer;
+select lives_ok($$select * from pg_temp.save_layout('00000000-0000-4000-8000-000000001306', 2, '00000000-0000-4000-8000-000000000085',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000131","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000085","provenance":"missing"}},"calculatorInput":{"effectiveCoveringWidthMm":1000}}',
+  '{"totalStripCount":26}')$$, 'piece-based layout can be saved without inventing a purchasing conversion');
+reset role;
+set local role postgres;
 select throws_ok($$select public.create_sheet_layout_takeoff_draft('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', (select id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), (select current_revision_id from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), 'invalid conversion', 0)$$, '22023', null, 'unsupported piece conversion is rejected');
 select lives_ok($$insert into public.roof_model_revisions (id, organization_id, roof_model_id, revision_number, schema_version, input_data, validation_status) values ('00000000-0000-4000-8000-000000000136', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000130', 2, '1.0.0', '{}', 'verified'); update public.roof_models set current_revision_id = '00000000-0000-4000-8000-000000000136' where id = '00000000-0000-4000-8000-000000000130'$$, 'roof geometry can advance to a new immutable revision');
 select is((select status from public.calculations where roof_model_id = '00000000-0000-4000-8000-000000000130' and calculator_type = 'covering.metal-sheets.layout'), 'stale', 'roof revision change marks current layout stale');
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
-select throws_ok($$select * from public.save_metal_sheet_layout('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130', '00000000-0000-4000-8000-000000000136', '00000000-0000-4000-8000-000000000133', null, '00000000-0000-4000-8000-000000000082', 'unauthorized', '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000136","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082"}}}', '{}', '{}', '[]', 0)$$, '42501', null, 'non-member cannot save a sheet layout');
+reset role;
+set local role tetopro_covering_writer;
+select throws_ok($$select * from public.save_metal_sheet_layout_secure('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000130',
+  '00000000-0000-4000-8000-000000000136', '00000000-0000-4000-8000-000000000133', null, '00000000-0000-4000-8000-000000000082', 'unauthorized',
+  '{"source":{"roofRevisionId":"00000000-0000-4000-8000-000000000136","geometryCalculationRevisionId":"00000000-0000-4000-8000-000000000133"},"material":{"catalogSnapshot":{"variantId":"00000000-0000-4000-8000-000000000082"}}}'::jsonb, '{}'::jsonb, '{}'::jsonb, '[]'::jsonb, 0,
+  '00000000-0000-4000-8000-000000001307'::uuid, '00000000-0000-4000-8000-000000000002'::uuid)$$, '42501', null, 'non-member cannot save a sheet layout');
+reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
+set local role authenticated;
 
 select has_table('public', 'material_takeoffs', 'material_takeoffs exists');
 select has_table('public', 'material_takeoff_items', 'material_takeoff_items exists');

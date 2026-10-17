@@ -87,7 +87,7 @@ export async function saveFlashingCalculationAction(data: FormData): Promise<Fla
     })) return { ok: false, error: "A forráskalkuláció elavult vagy a javasolt élhossz nem egyezik a mentett geometriával." };
   }
 
-  if (multiReferences.length) {
+  if (references.length) {
     const operationId = read(data, "operationId");
     if (!isUuid(operationId)) return { ok: false, error: "Érvénytelen mentési műveletazonosító." };
     try {

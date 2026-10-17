@@ -1,12 +1,62 @@
 # F2.1 adatbázis-alap
 
-## F9.29 — jelenlegi regression audit (2026-10-17)
+## F9.31 — legacy kalkulátor függőségek és írójavítás (2026-10-17)
 
-A helyi migration ledger a forrásban lévő migrációkkal egyezett `20261017110000`-ig.
-A négy korábban hibás pgTAP fájl (`001`, `009`, `011`, `029`) célzott helyi
-újrafuttatása megerősítette, hogy vegyesen van köztük elavult tesztfixture és
-valódi írási hiba. Az alábbi állapot a mostani migrationsorozatra vonatkozik;
-a korábbi mérföldkövek PASS bejegyzései az akkori sémaváltozat bizonyítékai.
+A részletes runtime caller/adatfüggőségi tábla és kockázati döntés a
+[`F9_31_LEGACY_CALCULATOR_DEPENDENCY_AUDIT.md`](F9_31_LEGACY_CALCULATOR_DEPENDENCY_AUDIT.md)
+fájlban van.
+
+- A projekt lemezkiosztás aktív workflow. A `20261017120000_secure_sheet_layout_writer.sql`
+  additív `sheet_layout_save_operations` idempotencia-ledgert és
+  `save_metal_sheet_layout_secure` RPC-t vezet be. A SECURITY DEFINER wrapper
+  rögzített üres search path-tal fut, ellenőrzi a `p_actor_id` szervezeti
+  tagságát és a projekt szervezeti hovatartozását, művelet- és tetőkulcson
+  advisory lockot vesz fel, azonos kérésnél visszaadja az eredeti revíziót,
+  eltérő payload esetén hibázik. Az új RPC EXECUTE joga kizárólag
+  `tetopro_covering_writer`; a régi `save_metal_sheet_layout` authenticated
+  EXECUTE joga visszavonva.
+- A secure wrapper a már létező `save_metal_sheet_layout` validálóját hívja a
+  korlátozott definer kontextusból, explicit `request.jwt.claim.sub` actorral.
+  Ezzel megmarad a current roof revision, gable calculation revision,
+  anyagvariáns, expected revision, immutable calculation revision és két
+  dependency ellenőrzése; az authenticated source `FOR UPDATE` RLS hibája
+  megszűnik a projekt mentési útvonalán. A wrapper nem ír át korábbi
+  számításokat/revíziókat és nem változtatja a sheet-layout/takeoff szerződést.
+- A forrásolt gable és többtetős flashing mentés egyaránt a már meglévő,
+  `tetopro_covering_writer`-re korlátozott
+  `save_multi_roof_flashing_calculation` RPC-t használja. A korábbi hibás
+  gable ág csak az `outputField = 'edges'` esetet különítette el; most minden
+  tetőél-hivatkozás a restricted writerhez kerül. Hivatkozás nélküli kézi
+  projekt-szegély mentés továbbra is a támogatott
+  `save_flashing_material_calculation` utat használja. E function grantját nem
+  vonjuk vissza, mert kézi mentés és standalone-association kompatibilitás
+  használja.
+- A standalone flashing UI útvonal paraméter nélkül a Kalkulátorok oldalra
+  irányít. Meglévő `ownership_scope='standalone'` rekordot a meglévő olvasó és
+  revíziólista adja vissza read-only nézetben. RPC-k, saved records, legacy
+  URL-ek és project/survey history nem kerülnek törlésre. Hosted rekordok
+  darabszáma nincs ellenőrizve.
+- A felmérési shared roof geometry, a projektbeli roof model, valamint a
+  layout és flashing calculation revisions `calculation_dependencies`
+  upstream snapshotjai megmaradnak. A `create_sheet_layout_takeoff_draft` a
+  felhasználó által ellenőrizhető anyagkimutatási piszkozatot készíti; nem
+  hagyja jóvá automatikusan és nem teszi tényleges anyagfelhasználássá.
+- **Helyi bizonyíték:** a migráció reset nélkül alkalmazva; a `001`, `009`,
+  `011`, `029` pgTAP fájlok 228 assertionnel PASS. A downstream
+  survey/material-list/quotation/work-log kör (`005`, `006`, `012`, `023`,
+  `026`, `030`, `031`, `033`, `036`, `037`) 199 assertionnel PASS. A lokális
+  Auth/RLS és kétkapcsolatos Vitest integráció 2 fájl / 6 teszt PASS. Teljes
+  suite, hosted DB/Auth/RLS, hosted rekordmennyiség és fizikai mobil nincs
+  ellenőrizve; hosted adat vagy DB nem módosult.
+
+## F9.29 — korábbi regresszióállapot (2026-10-17; F9.31-ben javítva)
+
+Az alábbi bejegyzés az F9.29/F9.30 vizsgálat idején fennálló állapotot őrzi,
+nem a jelenlegi státuszt. A lokális migration ledger az F9.31 additív
+`20261017120000` migrációjáig lett alkalmazva, reset nélkül. Az `001`, `009`,
+`011`, `029` pgTAP fájlok és az aktív restricted writer útvonal gyökérok szerinti
+frissítése után a négy fájl helyben 228 assertionnel PASS. A részletes új
+viselkedést és korlátozásokat lásd az F9.31 auditban.
 
 - `save_gable_roof_calculation` régi authenticated EXECUTE jogát a
   `20261015160900_secure_gable_roof_writer.sql` visszavonja. A gable írás

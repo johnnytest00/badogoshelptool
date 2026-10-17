@@ -1,5 +1,16 @@
 # Tesztmátrix
 
+## F9.31 — legacy kalkulátorfüggőségek
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Régi sheet-layout, flashing és downstream Survey → Material List → Quotation → Work Log regressziók | PASS, LOCAL PGTAP | `001`, `009`, `011`, `029`: 4 fájl / 228 assertion. Downstream `005`, `006`, `012`, `023`, `026`, `030`, `031`, `033`, `036`, `037`: 10 fájl / 199 assertion. A lokális, korábbi hibákat a [F9.31 audit](F9_31_LEGACY_CALCULATOR_DEPENDENCY_AUDIT.md) gyökérok szerint rögzíti. |
+| Sheet-layout és source-linked flashing writer jogosultság, retry, revision és konkurencia | PASS, LOCAL AUTH/RLS + TWO CONNECTIONS | `sheet-layout-actions.local.integration.test.ts` és `multi-roof.local.integration.test.ts`: 2 fájl / 6 teszt. Authenticated direct restricted-writer tiltás, azonos payload idempotens retry, immutable revízió és eltérő payload konkurenciaütközés ellenőrizve. Csak lokális DEMO fixture. |
+| Standalone flashing route és aktív UI regresszió | PASS, FOCUSED VITEST | 3 fájl PASS, 2 DB-opt-in fájl skip; 11 pass / 6 skip: standalone route redirect, flashing UX, gable form/layout. |
+| Production build böngészős smoke | PASS, LOCAL READ-ONLY | Standalone route redirect, mentett survey geometria, material-list route és meglévő worklog betöltése. A helyi szervezetben nincs material-list rekord, ezért annak böngészős roundtripje nem ellenőrzött. Hosted vagy fizikai mobil ellenőrzés nem futott. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), `git diff --check`. |
+| Teljes Vitest és DB suite | NEM FUTOTT | A célzott tesztek nem teljes regressziók; a teljes suite és hosted DB/Auth/RLS viselkedés nincs e mérföldkőben igazolva. |
+
 ## F9.30 — Survey geometry különálló kalkulátoroktól
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

@@ -5,6 +5,7 @@ select has_function('public', 'save_gutter_material_calculation', 'gutter calcul
 select has_index('public', 'calculations', 'calculations_one_gutter_estimate_per_project', 'one project has one gutter calculation record');
 
 set local role postgres;
+grant tetopro_covering_writer to postgres;
 insert into public.projects (id, organization_id, name, project_type, status, created_by)
 values ('00000000-0000-4000-8000-000000000990', '00000000-0000-4000-8000-000000000010', 'DEMO másik projekt gutter teszthez', 'gutter_work', 'draft', '00000000-0000-4000-8000-000000000001');
 insert into public.roof_models (id, organization_id, project_id, name, roof_type)
@@ -20,14 +21,18 @@ select is((select count(*)::int from public.organization_members where organizat
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
 -- F9.9: use an exact verified roof source. The seed's historical DEMO roof is not verified geometry.
+reset role;
+set local role tetopro_covering_writer;
 select set_config('test.gutter_roof_model',r.roof_model_id::text,true),
        set_config('test.gutter_roof_revision',r.roof_model_revision_id::text,true),
        set_config('test.gutter_roof_calculation',r.calculation_id::text,true),
        set_config('test.gutter_calculation_revision',r.calculation_revision_id::text,true)
-from public.save_gable_roof_calculation('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000030',null,
- 'DEMO ellenőrzött nyeregtető',
+from public.save_gable_roof_calculation_secure('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000030',
+ '00000000-0000-4000-8000-000000000993','00000000-0000-4000-8000-000000000994',0,'DEMO ellenőrzött nyeregtető',
  '{"inputMode":"height","buildingLengthMm":10000,"buildingWidthMm":6000,"roofRiseMm":4000,"eaveOverhangMm":0,"frontGableOverhangMm":0,"rearGableOverhangMm":0}',
- '{"lengths":{"eachEaveEdgeMm":10000}}','{"input":"DEMO","output":"verified"}','[]',0) r;
+ '{"areas":{},"planes":[],"lengths":{"eachEaveEdgeMm":10000}}','{"input":"DEMO","output":"verified"}', '00000000-0000-4000-8000-000000000001') r;
+reset role;
+set local role authenticated;
 create function pg_temp.gutter_test_input(p_front integer,p_rear integer default null)
 returns jsonb language sql stable as $$
  select jsonb_build_object('gutterStockLengthMm',4000,'runs',case when p_rear is null then jsonb_build_array(front) else jsonb_build_array(front,rear) end,

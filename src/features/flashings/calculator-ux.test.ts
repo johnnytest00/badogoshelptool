@@ -85,6 +85,20 @@ describe("szegély- és profilkalkulátor szakmai feliratai", () => {
     expect(html).toContain("Válassz kompatibilis katalógusváltozatot");
   });
 
+  it("a régi önálló útvonalon csak a mentett eredmény és revíziók olvashatók", () => {
+    const source = { kind: "user_provided" as const, label: "DEMO forrás", sourceUrl: null, sourceDate: null, catalogVariantId: null, manuallyOverridden: false };
+    const input: FlashingMaterialInput = { sectionSpec: { nominalLengthMm: 2000, nominalLengthSource: source, connection: { mode: "no_overlap_confirmed", source } }, runs: [{ id: "run-1", category: "verge", name: "DEMO szegély", lengthMm: 2500, lengthSource: "demo", roofEdgeReference: null, startExtensionMm: 0, endExtensionMm: 0, reserveMm: 0, installationNotes: [] }], manualComponents: [] };
+    const revision = { revisionId: "revision-1", revisionNumber: 1, displayName: "DEMO szegély", input, output: calculateFlashingMaterial(input), createdAt: "2026-10-13T00:00:00Z", stale: false };
+    const html = renderToStaticMarkup(createElement(FlashingCalculator, { organizationId: "org", suggestions: [], catalogVariants: [], readOnly: true, saved: { ...revision, calculationId: "calculation-1", revisions: [revision] } }));
+    expect(html).toContain("Mentett szegélyszámítás");
+    expect(html).toContain("Csak olvasható · V1");
+    expect(html).toContain("Becsült szál:");
+    expect(html).toContain("Mentett revíziók");
+    expect(html).not.toContain("Anyagparaméterek");
+    expect(html).not.toContain("Kézi szakasz");
+    expect(html).not.toContain("Számítás mentése");
+  });
+
   it("a profilrajz tényleges zoomot és egyetlen közös illesztés/alaphelyzet vezérlőt kínál", () => {
     const calculation = calculateDraft(createTemplate("l"));
     expect(calculation.ok).toBe(true);

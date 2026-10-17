@@ -2,18 +2,24 @@ begin;
 select plan(9);
 select ok(has_function_privilege('authenticated','public.link_field_survey_calculation(uuid,uuid,uuid,uuid,uuid)','EXECUTE'),'survey links use the restricted writer');
 select ok(not has_table_privilege('authenticated','public.field_survey_calculation_links','INSERT'),'survey link table cannot be written directly');
+set local role postgres;
+grant tetopro_covering_writer to postgres;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
 
+reset role;
+set local role tetopro_covering_writer;
 select set_config('test.f99_roof_model',r.roof_model_id::text,true),
        set_config('test.f99_roof_revision',r.roof_model_revision_id::text,true),
        set_config('test.f99_roof_calculation',r.calculation_id::text,true),
        set_config('test.f99_calculation_revision',r.calculation_revision_id::text,true)
-from public.save_gable_roof_calculation(
- '00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000030',null,
- 'DEMO F9.9 nyeregtető',
+from public.save_gable_roof_calculation_secure(
+ '00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000030',
+ '00000000-0000-4000-8000-000000030002','00000000-0000-4000-8000-000000030003',0,'DEMO F9.9 nyeregtető',
  '{"inputMode":"height","buildingLengthMm":10000,"buildingWidthMm":6000,"roofRiseMm":4000,"eaveOverhangMm":0,"frontGableOverhangMm":0,"rearGableOverhangMm":0}',
- '{"lengths":{"eachEaveEdgeMm":10000}}','{"input":"DEMO","output":"verified"}','[]',0) r;
+ '{"areas":{},"planes":[],"lengths":{"eachEaveEdgeMm":10000}}','{"input":"DEMO","output":"verified"}', '00000000-0000-4000-8000-000000000001') r;
+reset role;
+set local role authenticated;
 
 create function pg_temp.f99_gutter_input(p_length integer,p_duplicate boolean default false)
 returns jsonb language sql stable as $$

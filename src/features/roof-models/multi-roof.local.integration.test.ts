@@ -104,6 +104,43 @@ localDescribe("F9.10 local roof geometry persistence", () => {
       expect(flashingSaved.rows[0].output_snapshot.runs[0].category).toBe("hip");
       await expect(persistMultiRoofFlashing({ ...flashingRequest, operationId: randomUUID(), expectedRevisionNumber: 1,
         input: { ...flashingInput, runs: [{ ...flashingInput.runs[0], category: "valley" }] } })).rejects.toMatchObject({ code: "22023" });
+
+      const gableRoofModelId = randomUUID();
+      const gableInput: GableRoofInput = { inputMode: "height", buildingLengthMm: 10000, buildingWidthMm: 6000,
+        roofRiseMm: 4000, eaveOverhangMm: 0, frontGableOverhangMm: 0, rearGableOverhangMm: 0 };
+      const gableRequest = { organizationId, projectId, roofModelId: gableRoofModelId, operationId: randomUUID(),
+        expectedRevisionNumber: 0, name: "DEMO nyeregtető szegélyhez", input: gableInput,
+        output: calculateGableRoof(gableInput), provenance: { input: "user_provided", output: "server_recomputed" }, actorId };
+      const gableRoof = await persistGableRoof(gableRequest);
+      const gableEdgeLength = gableRequest.output.lengths.eachSlopingGableEdgeMm;
+      const gableFlashingInput: FlashingMaterialInput = {
+        sectionSpec: flashingInput.sectionSpec,
+        runs: [{ id: randomUUID(), category: "verge", name: "DEMO nyeregtető oromszegély", lengthMm: Math.ceil(gableEdgeLength), lengthSource: "geometry",
+          roofEdgeReference: { roofModelId: gableRoofModelId, roofModelRevisionId: gableRoof.roof_model_revision_id,
+            calculationId: gableRoof.calculation_id, calculationRevisionId: gableRoof.calculation_revision_id,
+            edgeId: "left-front-gable", outputField: "lengths.eachSlopingGableEdgeMm", suggestedLengthMm: gableEdgeLength, lengthOverridden: false },
+          startExtensionMm: 0, endExtensionMm: 0, reserveMm: 0, installationNotes: [] }], manualComponents: [],
+      };
+      const gableFlashingRequest = { organizationId, projectId, name: "DEMO nyeregtető oromszegély", input: gableFlashingInput,
+        output: calculateFlashingMaterial(gableFlashingInput), expectedRevisionNumber: 1, operationId: randomUUID(), actorId };
+      const gableFlashing = await persistMultiRoofFlashing(gableFlashingRequest);
+      expect(gableFlashing.revision_number).toBe(2);
+      expect((await persistMultiRoofFlashing(gableFlashingRequest)).reused).toBe(true);
+      const gableFlashingSaved = await admin.query("select r.input_snapshot,d.upstream_roof_model_revision_id from public.calculation_revisions r join public.calculation_dependencies d on d.downstream_calculation_revision_id=r.id where r.id=$1", [gableFlashing.calculation_revision_id]);
+      expect(gableFlashingSaved.rows[0].input_snapshot.runs[0].roofEdgeReference.outputField).toBe("lengths.eachSlopingGableEdgeMm");
+      expect(gableFlashingSaved.rows[0].upstream_roof_model_revision_id).toBe(gableRoof.roof_model_revision_id);
+
+      const concurrentFlashing = (pitch: number) => {
+        const changedInput = { ...gableFlashingInput, runs: [{ ...gableFlashingInput.runs[0], reserveMm: pitch }] };
+        return persistMultiRoofFlashing({ ...gableFlashingRequest, operationId: randomUUID(), expectedRevisionNumber: 2,
+          input: changedInput, output: calculateFlashingMaterial(changedInput) });
+      };
+      const flashingChanges = await Promise.allSettled([concurrentFlashing(25), concurrentFlashing(50)]);
+      expect(flashingChanges.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      expect(flashingChanges.filter((result) => result.status === "rejected").map((result) => (result as PromiseRejectedResult).reason.code)).toEqual(["40001"]);
+      const flashingHistory = await admin.query("select revision_number,input_snapshot from public.calculation_revisions where calculation_id=$1 order by revision_number", [gableFlashing.calculation_id]);
+      expect(flashingHistory.rows).toHaveLength(3);
+      expect(flashingHistory.rows[1].input_snapshot.runs[0].roofEdgeReference.roofModelRevisionId).toBe(gableRoof.roof_model_revision_id);
       const flashingPrivilege = await admin.query("select has_function_privilege('authenticated','public.save_multi_roof_flashing_calculation(uuid,uuid,text,jsonb,jsonb,jsonb,jsonb,integer,uuid,uuid)','EXECUTE') as can_execute");
       expect(flashingPrivilege.rows[0].can_execute).toBe(false);
 

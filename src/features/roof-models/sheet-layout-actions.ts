@@ -6,7 +6,7 @@ import { mapCatalogVariantToSheetLayout, resolveSheetLayoutMaterial } from "@/do
 import { gableRoofCalculator } from "@/domain/calculations/gable-roof";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
-import type { Json } from "@/infrastructure/supabase/database.types";
+import { persistSheetLayout } from "@/infrastructure/supabase/sheet-layout-writer";
 
 export type SheetLayoutActionResult = { ok: boolean; error?: string; revisionNumber?: number; revisionCreated?: boolean; takeoffId?: string };
 const value = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
@@ -20,8 +20,10 @@ async function authorize(organizationId: string) {
 
 export async function saveSheetLayoutAction(_state: SheetLayoutActionResult, data: FormData): Promise<SheetLayoutActionResult> {
   const organizationId = uuid(data, "organizationId"), projectId = uuid(data, "projectId"), roofModelId = uuid(data, "roofModelId"), variantId = uuid(data, "variantId");
-  if (!organizationId || !projectId || !roofModelId || !variantId) return { ok: false, error: "Érvénytelen projekt- vagy anyagazonosító." };
-  if (!await authorize(organizationId)) return { ok: false, error: "Ehhez a műhelyhez nincs hozzáférésed." };
+  const operationId = uuid(data, "operationId");
+  if (!organizationId || !projectId || !roofModelId || !variantId || !operationId) return { ok: false, error: "Érvénytelen projekt-, anyag- vagy műveletazonosító." };
+  const auth = await authorize(organizationId);
+  if (!auth) return { ok: false, error: "Ehhez a műhelyhez nincs hozzáférésed." };
   const supabase = await createClient();
   const [{ data: roof }, { data: geometry }, { data: variant }] = await Promise.all([
     supabase.from("roof_models").select("id, current_revision_id, name").eq("id", roofModelId).eq("organization_id", organizationId).eq("project_id", projectId).maybeSingle(),
@@ -64,17 +66,22 @@ export async function saveSheetLayoutAction(_state: SheetLayoutActionResult, dat
   try { output = calculateMetalSheetLayout(calculatorInput); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "A kiosztás nem számítható ki." }; }
   const inputSnapshot = { calculatorInput, source: { roofRevisionId: roof.current_revision_id, geometryCalculationRevisionId: geometry.current_revision_id }, material: { catalogSnapshot: resolved.catalogSnapshot, effectiveValues: { effectiveCoveringWidthMm: resolved.values.effectiveCoveringWidthMm, nominalSheetWidthMm: resolved.values.nominalSheetWidthMm, minimumSheetLengthMm: resolved.values.minimumSheetLengthMm, maximumSheetLengthMm: resolved.values.maximumSheetLengthMm, endAllowanceMm: resolved.values.endAllowanceMm }, parameterSources: resolved.parameterSources } };
   const expectedRevision = Number(value(data, "expectedRevisionNumber") || "0");
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) return { ok: false, error: "Érvénytelen revíziószám." };
   const layoutCalculationId = uuid(data, "layoutCalculationId");
-  const { data: saved, error } = await supabase.rpc("save_metal_sheet_layout", {
-    p_organization_id: organizationId, p_project_id: projectId, p_roof_model_id: roofModelId, p_source_roof_revision_id: roof.current_revision_id,
-    p_source_geometry_calculation_revision_id: geometry.current_revision_id, p_layout_calculation_id: layoutCalculationId as never,
-    p_material_variant_id: variantId, p_display_name: value(data, "displayName") || `${roof.name} lemezkiosztás`, p_input_data: inputSnapshot as unknown as Json,
-    p_output_data: output as unknown as Json, p_data_provenance: { material: resolved.parameterSources, calculation: "server_verified" }, p_warnings: output.manufacturingIssues as unknown as Json,
-    p_expected_revision_number: expectedRevision,
-  });
-  if (error || !saved?.[0]) return { ok: false, error: error?.code === "40001" ? "A forrás vagy a kiosztás időközben megváltozott; töltsd újra az oldalt." : "A kiosztás mentése nem sikerült." };
-  revalidatePath(`/projektek/${projectId}/tetomodellek/${roofModelId}`);
-  return { ok: true, revisionNumber: saved[0].revision_number, revisionCreated: saved[0].revision_created };
+  try {
+    const saved = await persistSheetLayout({
+      organizationId, projectId, roofModelId, sourceRoofRevisionId: roof.current_revision_id,
+      sourceGeometryCalculationRevisionId: geometry.current_revision_id, layoutCalculationId, materialVariantId: variantId,
+      displayName: value(data, "displayName") || `${roof.name} lemezkiosztás`, input: inputSnapshot, output,
+      provenance: { material: resolved.parameterSources, calculation: "server_verified" }, warnings: output.manufacturingIssues,
+      expectedRevisionNumber: expectedRevision, operationId, actorId: auth.userId,
+    });
+    revalidatePath(`/projektek/${projectId}/tetomodellek/${roofModelId}`);
+    return { ok: true, revisionNumber: saved.revision_number, revisionCreated: saved.revision_created };
+  } catch (cause) {
+    const code = cause && typeof cause === "object" && "code" in cause ? cause.code : null;
+    return { ok: false, error: code === "40001" ? "A forrás vagy a kiosztás időközben megváltozott; töltsd újra az oldalt." : code === "42501" ? "Ehhez a forráshoz vagy műhelyhez nincs hozzáférésed." : "A kiosztás mentése nem sikerült." };
+  }
 }
 
 export async function createSheetLayoutTakeoffAction(_state: SheetLayoutActionResult, data: FormData): Promise<SheetLayoutActionResult> {

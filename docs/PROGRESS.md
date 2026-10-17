@@ -1,5 +1,20 @@
 # F7.3.2 állapot
 
+## F9.31 — legacy kalkulátorfüggőségek és biztonságos mentésjavítás
+
+Státusz: **A kért aktív mentési útvonalak és biztonságos UI-kivezetés megvalósítva; a felsorolt helyi ellenőrzések PASS.**
+
+- A projektbeli lemezkiosztás mentés új, `tetopro_covering_writer` szerepkörre korlátozott `save_metal_sheet_layout_secure` RPC-t használ. Az additív migráció ledgerrel, actor/org/project ellenőrzéssel, idempotenciával és konkurenciavédelemmel megőrzi a meglévő immutable revízió- és takeoff-szerződést. A régi RPC és mentett adatok megmaradnak, közvetlen authenticated írása tiltott.
+- A source-linked gable és multi-roof flashing mentés a már meglévő restricted writerre irányul; a forrás nélküli kézi projektmentés kompatibilis útvonala változatlan.
+- A standalone flashing útvonal új kalkuláció indítása nélkül a Kalkulátorokhoz irányít; meglévő rekord read-only maradt. A független 33 építési kalkulátor és a survey shared geometry nem változott.
+- Függőségi és kockázati döntések: [F9.31 legacy kalkulátor audit](F9_31_LEGACY_CALCULATOR_DEPENDENCY_AUDIT.md). `funkciok.md` és [DATABASE.md](DATABASE.md) frissítve.
+- **Helyi pgTAP:** a korábbi `001`, `009`, `011`, `029` regressziók gyökéroka javítva/tesztfixture a jelenlegi szerződéshez igazítva; 4 fájl / 228 assertion PASS. A releváns Survey → Material List → Quotation → Work Log downstream regresszió: 10 fájl / 199 assertion PASS.
+- **Auth/RLS/többkapcsolatos integráció:** 2 fájl / 6 teszt PASS; közvetlen kliensírás tiltása, retry, immutable revízió és eltérő concurrent payload konfliktusa igazolva. Fókuszált Vitest: 3 fájl PASS, 2 opt-in fájl skip; 11 pass / 6 skip. `npm run typecheck`, `npm run lint`, `npm run build` és `git diff --check` PASS.
+- **Böngésző:** helyi production builden a standalone redirect, mentett survey geometria, anyaglista route és meglévő worklog read-only betöltése ellenőrizve. A helyi org anyaglista nélkül volt, így meglévő lista böngészős újranyitása nem volt lehetséges; hosted rekordállomány és production integráció nincs ellenőrizve.
+- A migráció csak a helyi Supabase-en lett alkalmazva, reset nélkül. Hosted környezetet, üzleti adatot nem módosítottam; commit/push/deploy nem történt.
+
+Javasolt Conventional Commit: `fix(F9.31): secure legacy calculator persistence`.
+
 ## F9.30 — Survey geometry különálló kalkulátoroktól
 
 Státusz: **IMPLEMENTÁLVA / A KÉRT SCOPE IGAZOLVA.**
