@@ -12,6 +12,7 @@ const snapshot: SurveyDraftRecovery = {
     name: "Tető",
     workType: "roof",
     roofType: "gable",
+    roofTimberParameters: { rafterMaxSpacingMm: 600, rafterStartInsetMm: 0, battenSectionWidthMm: 30 },
     notes: "Megjegyzés frissítés után is",
     photoIds: [],
     measurements: [{ id: "123e4567-e89b-42d3-a456-426614174001", label: "Külső hossz", value: "még nincs kész", unit: "mm", semanticType: "roof_outer_length" }],
@@ -40,6 +41,7 @@ describe("survey draft recovery", () => {
     expect(parsed).toEqual(snapshot);
     expect(parsed?.sections[0].notes).toBe("Megjegyzés frissítés után is");
     expect(parsed?.sections[0].roofType).toBe("gable");
+    expect(parsed?.sections[0].roofTimberParameters).toEqual(snapshot.sections[0].roofTimberParameters);
     expect(parsed?.sections[0].measurements[0].value).toBe("még nincs kész");
     expect(parsed?.sections).toHaveLength(2);
     expect(parsed?.activeSectionId).toBe(snapshot.sections[1].id);

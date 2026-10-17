@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Maximize2, Minus, Move, Plus, RotateCcw } from "lucide-react";
 import type { GableRoofOutput } from "@/domain/calculations/gable-roof";
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
+import type { RoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
 import { roofPlaneGroupId, summarizeRoofGeometry } from "@/domain/calculations/roof-geometry-results";
 import { gableSegments } from "@/domain/calculations/gable-segments";
 import type { MetalSheetLayoutOutput } from "@/domain/calculations/metal-sheet-layout";
@@ -96,7 +97,7 @@ function DimensionLine({ model, item, labelPosition, activeDimension, onDimensio
   return <g className={`technical-dimension ${active ? "is-active" : ""} ${selectable ? "is-selectable" : ""}`} data-dimension-key={item.sourceKey} aria-label={item.description ?? item.label} role={selectable ? "button" : undefined} tabIndex={selectable ? 0 : undefined} aria-pressed={selectable ? active : undefined} onPointerDown={selectable ? (event) => { event.preventDefault(); event.stopPropagation(); select(); } : undefined} onPointerUp={selectable ? (event) => event.stopPropagation() : undefined} onClick={selectable ? select : undefined} onKeyDown={selectable ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } } : undefined}><line x1={layout.start.x} y1={layout.start.y} x2={layout.end.x} y2={layout.end.y} /><path className="technical-dimension-arrow" d={dimensionArrowPath(layout.start, layout.end)} /><path className="technical-dimension-arrow" d={dimensionArrowPath(layout.end, layout.start)} /><line x1={layout.extensionStart.x} y1={layout.extensionStart.y} x2={layout.start.x} y2={layout.start.y} className="technical-extension" /><line x1={layout.extensionEnd.x} y1={layout.extensionEnd.y} x2={layout.end.x} y2={layout.end.y} className="technical-extension" /><text x={labelPosition?.x ?? layout.label.x} y={labelPosition?.y ?? layout.label.y} textAnchor={layout.labelAnchor} dominantBaseline="middle">{item.label}</text></g>;
 }
 
-function TechnicalSvg({ model, layers, title, zoom, pan, svgRef, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onLostPointerCapture, selectedSegmentIds, onSegmentToggle, activeDimension, onDimensionSelect }: Readonly<{ model: GableDrawingModel; layers: VisibleLayers; title: string; zoom: number; pan: { x: number; y: number }; svgRef: React.RefObject<SVGSVGElement | null>; onPointerDown: (event: React.PointerEvent<SVGSVGElement>) => void; onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGSVGElement>) => void; onPointerCancel: (event: React.PointerEvent<SVGSVGElement>) => void; onLostPointerCapture: (event: React.PointerEvent<SVGSVGElement>) => void; selectedSegmentIds?: readonly string[]; onSegmentToggle?: (id: string) => void; activeDimension?: string | null; onDimensionSelect?: (key: string) => void }>) {
+function TechnicalSvg({ model, layers, title, zoom, pan, svgRef, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onLostPointerCapture, selectedSegmentIds, onSegmentToggle, activeDimension, onDimensionSelect, timberLayout }: Readonly<{ model: GableDrawingModel; layers: VisibleLayers; title: string; zoom: number; pan: { x: number; y: number }; svgRef: React.RefObject<SVGSVGElement | null>; onPointerDown: (event: React.PointerEvent<SVGSVGElement>) => void; onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => void; onPointerUp: (event: React.PointerEvent<SVGSVGElement>) => void; onPointerCancel: (event: React.PointerEvent<SVGSVGElement>) => void; onLostPointerCapture: (event: React.PointerEvent<SVGSVGElement>) => void; selectedSegmentIds?: readonly string[]; onSegmentToggle?: (id: string) => void; activeDimension?: string | null; onDimensionSelect?: (key: string) => void; timberLayout?: RoofTimberLayout | null }>) {
   const drawingId = useId().replace(/:/g, "");
   const titleId = `technical-drawing-title-${drawingId}`;
   const descriptionId = `technical-drawing-description-${drawingId}`;
@@ -109,6 +110,19 @@ function TechnicalSvg({ model, layers, title, zoom, pan, svgRef, onPointerDown, 
     {filtered.polygons.map((polygon, index) => <polygon key={polygon.id ?? `${polygon.label}-${index}`} className={`technical-plane technical-plane-${polygon.side ?? "single"}${polygon.outline === false ? " is-unoutlined" : ""}`} points={pointsString(polygon.points, model)} aria-label={polygon.label} />)}
     {filtered.sheetStrips.map((strip) => <g key={strip.id} className={`technical-sheet-strip ${strip.indexFromStart % 2 === 0 ? "is-even" : "is-odd"} ${strip.isPartial ? "is-partial" : ""}`}><polygon points={pointsString(strip.points, model)} aria-label={`${strip.id}${strip.isPartial ? ", részleges szélső sáv" : ""}`} />{showStripLabels && (() => { const mapped = strip.points.map((point) => mapPoint(point, model)); const center = { x: mapped.reduce((sum, point) => sum + point.x, 0) / mapped.length, y: mapped.reduce((sum, point) => sum + point.y, 0) / mapped.length }; return <text x={center.x} y={center.y} textAnchor="middle" dominantBaseline="middle">{strip.indexFromStart}</text>; })()}</g>)}
     {filtered.guides.map((segment, index) => <line key={`guide-${index}`} className="technical-guide" x1={mapPoint(segment.start, model).x} y1={mapPoint(segment.start, model).y} x2={mapPoint(segment.end, model).x} y2={mapPoint(segment.end, model).y} />)}
+    {filtered.timberSegments.map((segment, index) => <line key={`timber-${segment.family}-${index}`} className={`technical-timber-segment is-${segment.family}`} x1={mapPoint(segment.start, model).x} y1={mapPoint(segment.start, model).y} x2={mapPoint(segment.end, model).x} y2={mapPoint(segment.end, model).y} />)}
+    {filtered.timberSegments.length > 0 && timberLayout?.status === "available" && <g className="technical-timber-annotation" aria-label="Kiosztási távolságok">
+      {(["rafter", "batten"] as const).flatMap((family, index) => {
+        const result = family === "rafter" ? timberLayout.rafters : timberLayout.battens;
+        if (!result) return [];
+        return result.planeLayouts.map((planeLayout, layoutIndex) => {
+          const segment = model.timberSegments.find((item) => item.family === family && item.id?.startsWith(`${planeLayout.planeId}:`));
+          if (!segment) return null;
+          const start = mapPoint(segment.start, model), end = mapPoint(segment.end, model);
+          return <text key={`${family}-${planeLayout.planeId}`} x={(start.x + end.x) / 2} y={(start.y + end.y) / 2 + (index + layoutIndex) * 18} textAnchor="middle">{family === "rafter" ? "Szarufa" : "Léc"} · {planeLayout.actualSpacingMm.toFixed(0)} mm</text>;
+        });
+      })}
+    </g>}
     {filtered.segments.map((segment, index) => <line key={`${segment.label}-${index}`} className={`technical-segment ${segment.hidden ? "is-hidden-edge" : ""}`} x1={mapPoint(segment.start, model).x} y1={mapPoint(segment.start, model).y} x2={mapPoint(segment.end, model).x} y2={mapPoint(segment.end, model).y} />)}
     {onSegmentToggle && model.view === "top" && <g className="technical-selection">
       {filtered.polygons.filter((polygon) => polygon.id).map((polygon, index) => <polygon key={`${polygon.id}-select-${index}`} points={pointsString(polygon.points, model)} className={selectedSegmentIds?.includes(polygon.id!) ? "is-selected" : ""} role="button" tabIndex={0} aria-label={`${polygon.label} kiválasztása`} aria-pressed={selectedSegmentIds?.includes(polygon.id!)} onPointerDown={(event) => event.stopPropagation()} onClick={() => onSegmentToggle(polygon.id!)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSegmentToggle(polygon.id!); } }} />)}
@@ -120,7 +134,7 @@ function TechnicalSvg({ model, layers, title, zoom, pan, svgRef, onPointerDown, 
   </svg>;
 }
 
-export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheetLayoutIsSaved = false, headingId = "technical-drawing-heading", heading = "Interaktív műszaki rajz", selectedSegmentIds, onSegmentToggle, activeDimension, activeDimensionDescription, onDimensionSelect, compact = false }: Readonly<{ output?: GableRoofOutput; geometry?: RoofGeometry; isSaved: boolean; sheetLayout?: MetalSheetLayoutOutput | null; sheetLayoutIsSaved?: boolean; headingId?: string; heading?: string; selectedSegmentIds?: readonly string[]; onSegmentToggle?: (id: string) => void; activeDimension?: string | null; activeDimensionDescription?: string; onDimensionSelect?: (key: string) => void; compact?: boolean }>) {
+export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheetLayoutIsSaved = false, timberLayout, headingId = "technical-drawing-heading", heading = "Interaktív műszaki rajz", selectedSegmentIds, onSegmentToggle, activeDimension, activeDimensionDescription, onDimensionSelect, compact = false }: Readonly<{ output?: GableRoofOutput; geometry?: RoofGeometry; isSaved: boolean; sheetLayout?: MetalSheetLayoutOutput | null; sheetLayoutIsSaved?: boolean; timberLayout?: RoofTimberLayout | null; headingId?: string; heading?: string; selectedSegmentIds?: readonly string[]; onSegmentToggle?: (id: string) => void; activeDimension?: string | null; activeDimensionDescription?: string; onDimensionSelect?: (key: string) => void; compact?: boolean }>) {
   const [view, setView] = useState<DrawingView>("top");
   const [layers, setLayers] = useState<VisibleLayers>(initialLayers);
   const [zoom, setZoom] = useState<number>(drawingInitialViewport.zoom);
@@ -132,8 +146,12 @@ export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheet
   const userAdjustedViewport = useRef(false);
   const gesture = useRef<{ kind: "pan" | "pinch"; startPoint?: ViewportPoint; startPan: { x: number; y: number }; startZoom: number; distance?: number; midpoint?: ViewportPoint } | null>(null);
   const viewport = useRef<{ zoom: number; pan: { x: number; y: number } }>({ zoom: drawingInitialViewport.zoom, pan: drawingInitialViewport.pan });
-  const model = useMemo(() => geometry ? createRoofDrawingModel(geometry) : createGableDrawingModel(output!, view, sheetLayout), [geometry, output, sheetLayout, view]);
-  const previousModel = useRef(model);
+  const baseModel = useMemo(() => geometry ? createRoofDrawingModel(geometry) : createGableDrawingModel(output!, view, sheetLayout), [geometry, output, sheetLayout, view]);
+  const model = useMemo(() => ({ ...baseModel, timberSegments: timberLayout?.status === "available" ? [
+    ...(timberLayout.rafters?.segments ?? []).map((segment) => ({ id: segment.id, start: { x: segment.start.xMm, y: -segment.start.yMm }, end: { x: segment.end.xMm, y: -segment.end.yMm }, family: "rafter" as const })),
+    ...(timberLayout.battens?.segments ?? []).map((segment) => ({ id: segment.id, start: { x: segment.start.xMm, y: -segment.start.yMm }, end: { x: segment.end.xMm, y: -segment.end.yMm }, family: "batten" as const })),
+  ] : [] }), [baseModel, timberLayout]);
+  const previousModel = useRef(baseModel);
   const geometryPlaneGroups = geometry ? summarizeRoofGeometry(geometry).planes : [];
   const geometryPlaneGroupNumber = new Map(geometryPlaneGroups.map((plane, index) => [plane.id, index + 1] as const));
   const geometryPlaneDetailNumber = new Map(geometryPlaneGroups.flatMap((plane) => plane.sourcePlaneIds.map((id, index) => [id, index + 1] as const)));
@@ -185,8 +203,8 @@ export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheet
     setViewport(fitDrawingViewport(drawingBounds, { width: rect.width, height: rect.height }));
   }, [drawingBounds, setViewport]);
   useEffect(() => {
-    if (previousModel.current !== model) {
-      previousModel.current = model;
+    if (previousModel.current !== baseModel) {
+      previousModel.current = baseModel;
       userAdjustedViewport.current = false;
       if (interactionFrame.current !== null) {
         window.cancelAnimationFrame(interactionFrame.current);
@@ -214,7 +232,7 @@ export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheet
     observer?.observe(element!);
     if (!observer) window.addEventListener("resize", fitToCurrentSize);
     return () => { window.cancelAnimationFrame(frame); observer?.disconnect(); if (!observer) window.removeEventListener("resize", fitToCurrentSize); };
-  }, [drawingBounds, model, setViewport, view]);
+  }, [baseModel, drawingBounds, setViewport, view]);
   const clientToViewBox = (clientX: number, clientY: number): ViewportPoint | null => {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return null;
@@ -288,10 +306,10 @@ export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheet
     <div className={`drawing-compact-summary${compact ? " sr-only" : ""}`}><span>{model.title}</span><span aria-live={compact ? "off" : "polite"}>{activeDimensionText}</span></div>
     <div className="drawing-stage">
       {drawingToolbar}
-      <div className="drawing-canvas" ref={canvasRef}><TechnicalSvg model={model} layers={layers} title={model.title} zoom={zoom} pan={pan} svgRef={svgRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={(event) => stopPointer(event, true)} onPointerCancel={(event) => stopPointer(event, false)} onLostPointerCapture={(event) => stopPointer(event, false)} selectedSegmentIds={selectedSegmentIds} onSegmentToggle={onSegmentToggle} activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} /></div>
+      <div className="drawing-canvas" ref={canvasRef}><TechnicalSvg model={model} layers={layers} title={model.title} zoom={zoom} pan={pan} svgRef={svgRef} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={(event) => stopPointer(event, true)} onPointerCancel={(event) => stopPointer(event, false)} onLostPointerCapture={(event) => stopPointer(event, false)} selectedSegmentIds={selectedSegmentIds} onSegmentToggle={onSegmentToggle} activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} timberLayout={timberLayout} /></div>
     </div>
     {onSegmentToggle && <div className="roof-segment-picker" aria-label="Tetőrészek kiválasztása"><p>Tetőgeometriából számított · a jelölés önmagában nem rendel munkát az élekhez.</p><div className="roof-segment-list">{selectable.map((segment) => <button key={segment.id} type="button" className={selectedSegmentIds?.includes(segment.id) ? "is-selected" : ""} aria-pressed={selectedSegmentIds?.includes(segment.id)} onClick={() => onSegmentToggle(segment.id)}><span>{segment.label}</span><strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(segment.lengthMm !== null ? segment.lengthMm / 1000 : (segment.areaMm2 ?? 0) / 1_000_000)} {segment.lengthMm !== null ? "m" : "m²"}</strong></button>)}</div><p>Kijelölt eresz: {new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(selectedLength("eave") / 1000)} m · oromél: {new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(selectedLength("rake") / 1000)} m · gerinc: {new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(selectedLength("ridge") / 1000)} m{geometry && <> · kontyél: {new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(selectedLength("hip") / 1000)} m · vápa: {new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(selectedLength("valley") / 1000)} m</>}</p></div>}
     <GlassDisclosure className="drawing-advanced-controls" contentClassName="drawing-advanced-controls-content" summary="Nézetek és rétegek"><div className="drawing-view-tabs" role="tablist" aria-label="Rajznézet választása">{(geometry ? drawingViews.filter((item) => item.id === "top") : drawingViews).map((item) => <button key={item.id} type="button" role="tab" aria-selected={view === item.id} className={view === item.id ? "is-active" : ""} onClick={() => setView(item.id)}>{item.label}</button>)}</div>{activeDimension && <p className="technical-drawing-active-guide" role="status">{model.dimensions.some((item) => item.sourceKey === activeDimension) || model.angles.some((item) => item.sourceKey === activeDimension) ? "A rajzon kiemelve: " : "Kiegészítő metszeti útmutató: "}{activeDimensionText}</p>}<fieldset className="drawing-layers"><legend>Rétegek</legend>{drawingLayers.map((layer) => <label key={layer.id}><input type="checkbox" checked={layers[layer.id]} onChange={() => updateLayer(layer.id)} /> <span>{layer.label}</span></label>)}</fieldset></GlassDisclosure>
-    <p className="drawing-accessible-summary">A rajz forrása: {model.title}. Fő méretek: {model.dimensions.slice(0, 3).map((item) => `${item.label}`).join(", ") || "a nézethez tartozó geometria"}. A numerikus eredmények az Eredmények szakaszban szövegesen is elérhetők.</p>
+    <p className="drawing-accessible-summary">A rajz forrása: {model.title}. Fő méretek: {model.dimensions.slice(0, 3).map((item) => `${item.label}`).join(", ") || "a nézethez tartozó geometria"}. A numerikus eredmények az Eredmények szakaszban szövegesen is elérhetők.{timberLayout?.status === "available" && " A szarufa- és lécekiosztás sematikus geometriai mennyiség, nem kivitelezési terv."}</p>
   </section>;
 }

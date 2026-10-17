@@ -21,6 +21,15 @@ describe("unified survey contracts", () => {
   it("allows a partial roof section to persist before roof type selection", () => {
     expect(surveySectionsSchema.safeParse([{ id, name: "DEMO tető", workType: "roof", notes: "", photoIds: [], measurements: [] }]).success).toBe(true);
   });
+  it("preserves optional partial roof-timber parameters and validates their ranges", () => {
+    const parameters = { rafterMaxSpacingMm: 600, rafterStartInsetMm: 0, battenSectionWidthMm: 30 };
+    const saved = surveySectionsSchema.parse([{ id, name: "DEMO tető", workType: "roof", notes: "", photoIds: [], measurements: [], roofTimberParameters: parameters }]);
+    expect(saved[0].roofTimberParameters).toEqual(parameters);
+    expect(surveySectionsSchema.safeParse([{ ...saved[0], workType: "gutter" }]).success).toBe(false);
+    expect(surveySectionsSchema.safeParse([{ ...saved[0], roofTimberParameters: { rafterMaxSpacingMm: 100001 } }]).success).toBe(false);
+    expect(surveySectionsSchema.safeParse([{ ...saved[0], roofTimberParameters: { rafterMaxSpacingMm: 0 } }]).success).toBe(false);
+    expect(surveySectionsSchema.safeParse([{ ...saved[0], roofTimberParameters: { unknown: 1 } }]).success).toBe(false);
+  });
   it("maps legacy data without rewriting its identity, measurements or history", () => {
     const record = { id, workType: "gutter" as const, measurements: [measurement], notes: "DEMO" };
     expect(surveySections(record)[0]).toMatchObject({ id, measurements: [measurement], notes: "DEMO" });

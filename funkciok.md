@@ -20,7 +20,7 @@
 - **Feature / alkalmazási réteg:** `src/features/` alatt az űrlapok, olvasó/adatbetöltő modulok, műveletek, mentési orchestration, hitelesített hozzáférés és feature-specifikus állapot. Ez a réteg kapcsolja össze a domain eredményeit a tárolással és a UI-val.
 - **Infrastruktúra:** `src/infrastructure/supabase/` kliens-/szerveradapterekkel és számított eredményt mentő writer adapterekkel; `src/infrastructure/images/` fotó-normalizálással. A server-only credentiales lefedő kalkulációs írás a szerveradapteren keresztül történik.
 
-**F9.33 — tetőgeometriai eredmények:** a `src/domain/calculations/roof-geometry-results.ts` a meglévő hétformás geometry outputból vezet le felület-/vetület-, hajlás-, sík- és élösszegeket; az `src/features/roof-models/roof-geometry-results.tsx` közös, provenance-feliratos, részleteket összecsukó panelként jeleníti meg Surveyben és az önálló nyeregtető/félnyereg/konty kalkulátorban. A Survey mind a hét meglévő geometriáját ugyanazzal az eredménymodellel rajzolja és számolja; az önálló `/kalkulatorok` nem kapcsolódik Survey rekordhoz. A felületeredmény geometriai adat, nem anyagdarab- vagy statikai igazolás. Módszer és státuszmátrix: [F9.33 specifikáció](docs/ROOF_CALCULATION_SPECIFICATION.md).
+**F9.33–F9.35 — tetőgeometria, lefedettség és faanyag-mennyiségek:** a shared roof summary a meglévő hétformás geometry outputból vezet le felület-/vetület-, hajlás-, sík- és élösszegeket. Az F9.35 közös, tiszta sík-polygon alapú szarufa/léc kiosztómotort és opcionális keresztmetszeti térfogatot ad a Surveyhez és a standalone nyereg/félnyereg/konty kalkulátorokhoz. Surveyben az új beállítások a meglévő immutable section revision snapshotban maradnak. A motor mind a hét meglévő roof formára dolgozik; analitikus szarufa-fixture öt formára van (nyereg, félnyereg, konty, sátor, félkonty), L/T teljes mennyiségi orákuluma még részleges. Az eredmény geometriai mennyiség, nem beszerzési darabszám, gyártmány vagy statikai igazolás. A manzárd, szarufa-hossz és rácsos tartó special-purpose motorja változatlan; új katalógusbejegyzés nincs. Módszer és korlát: [tetőszámítási specifikáció](docs/ROOF_CALCULATION_SPECIFICATION.md).
 
 ### Adatbázis, hitelesítés és revíziók
 
@@ -820,3 +820,16 @@ A Phase 1 után újraolvasott architekturális összefoglaló: ez UI/alkalmazás
 - `src/features/roof-models/roof-geometry-results.tsx` — közös elsődleges és `<details>` result UI; a mért bemenetet és a számított értéket külön megnevezi.
 - `src/features/roof-models/roof-geometry-results.test.tsx` — a hét formán ellenőrzi az eredmények és anyagkorlát-szöveg SSR renderét.
 - A `field-survey-editor.tsx`, `construction-suite.tsx`, `technical-drawing.tsx` és `roof-drawing.ts` meglévő felületeit/rajzát kapcsolja a közös összegzőhöz. Nincs új séma, mentett számítási rekord vagy authorization útvonal.
+
+
+**F9.34 — él-egyediség:** a hétformás geometriai audit ellenőrzi, hogy az egyes 3D végpontpárok egy edge rekordot kapnak, és belső coplanar patch-seam nem jelenik meg összesített élként.
+
+## F9.35 — Tetősík-alapú szarufa és lécezés
+
+- `src/domain/calculations/roof-timber-layout.ts` — tiszta, schema-validált kiosztás, polygon metszet, 3D szakaszhossz, opcionális keresztmetszeti terület/térfogat; nem ad vásárlási darabszámot vagy statikai eredményt.
+- `src/domain/calculations/roof-timber-layout.test.ts` — analitikus DEMO-fixture-ek szarufára nyereg/félnyereg/konty/sátor/félkonty alakokon, léc és térfogat téglalap-alapesetre, Survey/standalone azonosságra; L/T poligonvágás és duplikált szakaszteszt.
+- `src/features/roof-models/roof-timber-quantity-panel.tsx` — opcionális, fokozatosan megjelenő mobilbarát bemenet és mennyiségi kimenet, meglévő GlassDisclosure rendszerrel.
+- `src/features/roof-models/technical-drawing.tsx`, `src/domain/drawings/gable-drawing.ts`, `src/domain/drawings/roof-drawing.ts` — ugyanazon domain szakaszokat ábrázoló opcionális SVG-réteg, spacing annotáció, viewport-állapot megtartása.
+- `src/features/field-surveys/field-survey-editor.tsx`, `src/features/calculators/construction-suite.tsx` — Survey és meglévő általános standalone tetőkalkulátorok ugyanazt a motort használják; nincs külön rekord, új kalkulátor bejegyzés vagy special-purpose rafter/mansard/truss módosítás.
+- `src/domain/field-surveys/workspace.ts`, `src/domain/field-surveys/workspace.test.ts`, `src/features/field-surveys/survey-draft-recovery.test.ts` — opcionális szigorúan validált `roofTimberParameters` szerződés és draft-recovery round-trip.
+- `supabase/migrations/20261017140000_survey_roof_timber_parameters.sql`, `supabase/tests/database/038_survey_roof_timber_parameters.sql` — snapshot-validátor bővítés és pgTAP teszt; tényleges helyi DB futást a TEST_MATRIX külön jelöli.

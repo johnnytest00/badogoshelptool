@@ -21,8 +21,10 @@ import { RoofTypeSelector, roofTypeOptions } from "@/features/roof-models/roof-t
 import { geometryFromSurveyMeasurements, surveyRoofFields } from "@/domain/field-surveys/roof-geometry";
 import type { RoofGeometryType } from "@/domain/calculations/roof-geometry";
 import { calculateRoofGeometry } from "@/domain/calculations/roof-geometry";
+import { calculateRoofTimberLayout, roofTimberInputFromParameters, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
 import { TechnicalDrawing } from "@/features/roof-models/technical-drawing";
 import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-results";
+import { RoofTimberQuantityPanel } from "@/features/roof-models/roof-timber-quantity-panel";
 import { MeasurementGuidance, measurementGuideForSurvey } from "@/features/roof-models/measurement-guidance";
 import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
@@ -231,7 +233,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   }
   function changeType(workType: FieldSurveyWorkType) {
     const empty = active.measurements.length === 1 && active.measurements[0].value === "" && active.measurements[0].label === fieldSurveyTemplates[active.workType][0].label;
-    patchSection({ workType, ...(workType === "roof" ? {} : { roofType: undefined }), ...(active.name === fieldSurveyWorkTypeLabels[active.workType] ? { name: fieldSurveyWorkTypeLabels[workType] } : {}), ...(empty ? { measurements: [emptyMeasurement(workType, active.measurements[0].id)] } : {}) });
+    patchSection({ workType, ...(workType === "roof" ? {} : { roofType: undefined, roofTimberParameters: undefined }), ...(active.name === fieldSurveyWorkTypeLabels[active.workType] ? { name: fieldSurveyWorkTypeLabels[workType] } : {}), ...(empty ? { measurements: [emptyMeasurement(workType, active.measurements[0].id)] } : {}) });
   }
   function addMeasurement(
     template = (active.workType === "roof" && active.roofType && active.roofType !== "gable" ? surveyRoofFields(active.roofType) : fieldSurveyTemplates[active.workType]).find((candidate) => !active.measurements.some((measurement) => measurement.semanticType === candidate.semanticType)) ?? { label: "Egyedi mérés", unit: "mm" as const, semanticType: "custom" as const },
@@ -326,6 +328,8 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
         {active.workType !== "roof" || active.roofType ? <section className="field-survey-measurements">{active.workType !== "roof" && <><h2>Mérések</h2><p>Az üres érték hiányzó mérésként menthető. Add meg a helyszínen ellenőrzött értéket és egységet.</p></>}
           {active.workType === "roof" && active.roofType ? <SurveyRoofPreview
             roofType={active.roofType}
+            roofTimberParameters={active.roofTimberParameters}
+            onRoofTimberParametersChange={(roofTimberParameters) => patchSection({ roofTimberParameters })}
             gablePreview={activeGablePreview}
             activeDimension={activeSurveyGuide?.key ?? null}
             activeDimensionDescription={activeSurveyGuide?.meaning}
@@ -385,7 +389,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   </section>;
 }
 
-function SurveyRoofPreview({ roofType, gablePreview, measurements, activeDimension, activeDimensionDescription, activeGuide, measurementInputs, actions, onDimensionSelect }: Readonly<{ roofType: RoofGeometryType; gablePreview: GableSurveyPreview | null; measurements: readonly FieldSurveyMeasurement[]; activeDimension?: string | null; activeDimensionDescription?: string; activeGuide: ReturnType<typeof measurementGuideForSurvey>; measurementInputs: ReactNode; actions: ReactNode; onDimensionSelect: (key: string) => void }>) {
+function SurveyRoofPreview({ roofType, roofTimberParameters, onRoofTimberParametersChange, gablePreview, measurements, activeDimension, activeDimensionDescription, activeGuide, measurementInputs, actions, onDimensionSelect }: Readonly<{ roofType: RoofGeometryType; roofTimberParameters?: RoofTimberParameters; onRoofTimberParametersChange: (parameters: RoofTimberParameters) => void; gablePreview: GableSurveyPreview | null; measurements: readonly FieldSurveyMeasurement[]; activeDimension?: string | null; activeDimensionDescription?: string; activeGuide: ReturnType<typeof measurementGuideForSurvey>; measurementInputs: ReactNode; actions: ReactNode; onDimensionSelect: (key: string) => void }>) {
   const gableOutput = gablePreview?.output ?? null;
   const previewIssue = gablePreview?.issue ?? null;
   let geometry: ReturnType<typeof calculateRoofGeometry> | null = roofType === "gable" ? gablePreview?.geometry ?? null : null;
@@ -393,15 +397,17 @@ function SurveyRoofPreview({ roofType, gablePreview, measurements, activeDimensi
     const input = geometryFromSurveyMeasurements(roofType, measurements);
     if (input) geometry = calculateRoofGeometry(input);
   }
+  const timberInput = roofTimberParameters ? roofTimberInputFromParameters(roofTimberParameters) : null;
+  const timberLayout = geometry && timberInput ? calculateRoofTimberLayout(geometry, timberInput) : null;
   return <RoofWorkspace
     className="roof-workspace-survey"
     label="Felmérés tetőmérési munkaterülete"
     context={<div className="roof-workspace-context"><div className="roof-guidance-slot"><MeasurementGuidance compact guide={activeGuide} /></div></div>}
     measurements={measurementInputs}
-    drawing={geometry ? <TechnicalDrawing output={gableOutput ?? undefined} geometry={gableOutput ? undefined : geometry} compact activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} isSaved={false} /> : null}
+    drawing={geometry ? <TechnicalDrawing output={gableOutput ?? undefined} geometry={gableOutput ? undefined : geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} compact activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} isSaved={false} /> : null}
     results={!geometry
       ? <p className="missing-data" role={previewIssue?.kind === "invalid" ? "alert" : "status"}>{previewIssue?.message ?? (measurements.length ? "A rajz a tetőforma minden szükséges, érvényes méretének megadása után jelenik meg." : "A rajz a szükséges méretek megadása után jelenik meg.")}</p>
-      : <RoofGeometryResults geometry={geometry} provenanceLabel="A bemenetek felmért értékek; az alábbiakat a közös tetőgeometriai motor számítja." />}
+      : <><RoofGeometryResults geometry={geometry} provenanceLabel="A bemenetek felmért értékek; az alábbiakat a közös tetőgeometriai motor számítja." /><RoofTimberQuantityPanel geometry={geometry} value={roofTimberParameters} onChange={onRoofTimberParametersChange} /></>}
     actions={actions}
   />;
 }

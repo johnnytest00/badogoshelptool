@@ -107,8 +107,18 @@ describe("independent engineering audit of all supported roof geometries", () =>
 
   it.each(ROOF_ENGINEERING_REFERENCES)("keeps edge endpoints on every declared adjacent plane: $name", (reference) => {
     const roof = calculateRoofGeometry(reference.input);
+    const geometricEdgeKeys = roof.edges.map((edge) => {
+      const pointKey = (point: RoofPoint) => `${point.xMm.toFixed(6)},${point.yMm.toFixed(6)},${point.zMm.toFixed(6)}`;
+      const endpoints = [pointKey(edge.start), pointKey(edge.end)].sort();
+      return endpoints.join(":");
+    });
+    expect(new Set(geometricEdgeKeys).size, "one geometric boundary must have one edge record").toBe(roof.edges.length);
     for (const edge of roof.edges) {
       expect(edge.adjacentPlaneIds).toHaveLength(edge.kind === "ridge" || edge.kind === "hip" || edge.kind === "valley" ? 2 : 1);
+      if (edge.adjacentPlaneIds.length === 2) {
+        const sourceSurfaces = edge.adjacentPlaneIds.map((id) => id.replace(/-\d+$/, ""));
+        expect(sourceSurfaces[0], "same-surface patch seams are internal and must not be counted as roof edges").not.toBe(sourceSurfaces[1]);
+      }
       for (const planeId of edge.adjacentPlaneIds) {
         const plane = roof.planes.find((candidate) => candidate.id === planeId);
         expect(plane, `${edge.id} references missing plane ${planeId}`).toBeDefined();

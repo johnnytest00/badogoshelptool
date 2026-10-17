@@ -2,7 +2,7 @@ import type { GableRoofOutput, RoofVertex } from "@/domain/calculations/gable-ro
 import type { MetalSheetLayoutOutput } from "@/domain/calculations/metal-sheet-layout";
 
 export type DrawingView = "top" | "gable" | "cross-section" | "longitudinal";
-export type DrawingLayerId = "planes" | "outlines" | "ridge-eaves" | "dimensions" | "angles" | "guides" | "sheet-layout";
+export type DrawingLayerId = "planes" | "outlines" | "ridge-eaves" | "dimensions" | "angles" | "guides" | "sheet-layout" | "timber-layout";
 export type DrawingPoint = Readonly<{ x: number; y: number }>;
 export type DrawingSegment = Readonly<{ id?: string; start: DrawingPoint; end: DrawingPoint; label?: string; hidden?: boolean }>;
 export type DrawingPolygon = Readonly<{ id?: string; points: readonly DrawingPoint[]; label: string; side?: "left" | "right"; outline?: boolean }>;
@@ -20,6 +20,7 @@ export type GableDrawingModel = Readonly<{
   angles: readonly DrawingAngle[];
   guides: readonly DrawingSegment[];
   sheetStrips: readonly DrawingSheetStrip[];
+  timberSegments: readonly (DrawingSegment & { family: "rafter" | "batten" })[];
 }>;
 
 export const drawingViews: readonly { id: DrawingView; label: string }[] = [
@@ -37,6 +38,7 @@ export const drawingLayers: readonly { id: DrawingLayerId; label: string; defaul
   { id: "angles", label: "Hajlásszögek", defaultVisible: true },
   { id: "guides", label: "Segédvonalak", defaultVisible: true },
   { id: "sheet-layout", label: "Lemezkiosztás", defaultVisible: false },
+  { id: "timber-layout", label: "Szarufa- és lécekiosztás", defaultVisible: true },
 ];
 
 const titles: Record<DrawingView, string> = {
@@ -150,11 +152,11 @@ export function createGableDrawingModel(output: GableRoofOutput, view: DrawingVi
     allPoints = [...points, ...guides.flatMap((item) => [item.start, item.end])];
   }
   const flatPoints = allPoints.filter((item) => Number.isFinite(item.x) && Number.isFinite(item.y));
-  return { view, title: titles[view], bounds: bounds(flatPoints), polygons, segments, dimensions, angles, guides, sheetStrips };
+  return { view, title: titles[view], bounds: bounds(flatPoints), polygons, segments, dimensions, angles, guides, sheetStrips, timberSegments: [] };
 }
 
 export function filterDrawingModel(model: GableDrawingModel, visible: Readonly<Record<DrawingLayerId, boolean>>): GableDrawingModel {
   const isRidgeOrEave = (label: string | undefined) => Boolean(label && (label.includes("Gerinc") || label.includes("eresz")));
-  return { ...model, polygons: visible.planes ? model.polygons : [], segments: model.segments.filter((segment) => isRidgeOrEave(segment.label) ? visible["ridge-eaves"] : visible.outlines), dimensions: visible.dimensions ? model.dimensions : [], angles: visible.angles ? model.angles : [], guides: visible.guides ? model.guides : [], sheetStrips: visible["sheet-layout"] ? model.sheetStrips : [] };
+  return { ...model, polygons: visible.planes ? model.polygons : [], segments: model.segments.filter((segment) => isRidgeOrEave(segment.label) ? visible["ridge-eaves"] : visible.outlines), dimensions: visible.dimensions ? model.dimensions : [], angles: visible.angles ? model.angles : [], guides: visible.guides ? model.guides : [], sheetStrips: visible["sheet-layout"] ? model.sheetStrips : [], timberSegments: visible["timber-layout"] ? model.timberSegments : [] };
 }
 

@@ -3111,3 +3111,34 @@ Javasolt Conventional Commit: `fix(F9.32): stabilize daily workflow and draft pr
 **Ismert korlát / nem ellenőrzött követelmény:** nyeregtetőn a meglévő szimmetrikus keresztmetszet támogatott (külön első/hátsó hosszirányú túlnyúlással); aszimmetrikus két sík, eltérő hajlás, generalizált L/T eltolás és nem-gable túlnyúlás nincs. Standalone eredmény-panel csak 3/7 geometry típust használ; félkonty/sátor/L/T jelenleg Surveyen érhető el. A slope length geometriai méret, nem kiosztott/vágott szarufa. Szarufa/léc mennyiséghez kiosztási adatok hiányoznak; alátét, gyártói átfedés, lemezhasznos méret, elhelyezés/vágás/veszteség és rögzítőszám nincs igazolva; statikai megfelelőség és gyártási részlet nincs.
 
 Javasolt Conventional Commit: `feat(F9.33): unify verified roof geometry results`.
+
+## F9.34 — Complete Roof Geometry Coverage & UX
+
+Státusz: **PARTIAL**. Az állapotfelmérés megerősítette, hogy a F9.33 közös summary már minden meglévő, általános tetőgeometria-suite kalkulátoron fut (nyeregtető, félnyereg, konty), a Survey pedig mind a hét támogatott tetőformát automatikusan számolja/rajzolja. A standalone suite 33 bejegyzéséből 6 tető/faszerkezet; a másik három (szarufa, manzárd, rácsos tartó) külön inputú, külön célú validált motor. Nincs standalone általános tetőforma-választó, ezért nincs indokolt hiányzó belépő vagy duplikált kalkulátor hozzáadására.
+
+- Auditmátrix dokumentálja a hat tető/faszerkezet-bejegyzés célját, bemeneteit, motorját, geometriai határát, eredményeit, rajzát és még nem számított kimeneteit. A gable cserepeslemez-kimenet külön termékspecifikus, meglévő motor maradt.
+- A közös summary és a TechnicalDrawing ugyanazt a RoofGeometry outputot használja; Survey automatikus előnézet és disclosure eredmények, külön indítás/bemenet nélkül, a korábbi F9.33 kódútvonalon bizonyított.
+- Hétformás audit-teszt bővült: az azonos 3D végpontpár egyedi edge rekordot kap, a kétoldali topológiai élek különböző síkokhoz tartoznak, a coplanar belső patch-határ nincs kiszámlálva. A terület/vetület/síkösszeg/élkategória képletek a meglévő független DEMO fixture-eken futnak.
+- A F9.35 követelmény-specifikáció rögzíti a hét forma sík-polygonján alapuló, explicit kiosztást; bemeneteket, képleteket, egységeket, validációt, független fixture-eket és statikai határt. Nincs jövőbeli számítás előre implementálva.
+- Adatkonzisztencia/jogosultság: nincs írás vagy DB-séma/RLS/workflow változás; a survey revision és business integration változatlan. Auth/DB concurrency teszt nem alkalmazható a diffre.
+- Mobile-first elrendezés és akadálymentesség: a meglévő Liquid Glass disclosure, reszponzív RoofWorkspace/TechnicalDrawing és natív vezérlők maradtak. A fizikai mobil, touch/pinch, screen reader és viewport-emuláció nem bizonyított.
+
+A pontos F9.34 teszt/typecheck/lint/build és browser-smoke eredményt a TEST_MATRIX rögzíti. Teljes regreszió, hosted DB, adatbázis-reset, migráció, commit, push és deploy nem történt.
+
+Javasolt Conventional Commit: feat(F9.34): audit shared roof geometry coverage.
+## F9.35 — Szarufa, lécezés és faanyag-mennyiségek
+
+Státusz: **PARTIAL**. A közös `calculateRoofTimberLayout` domain motor a validált roof-plane polygonokat és azok 3D szakaszait használja. Explicit max spacing + kezdő/záró peremsáv szükséges; keresztmetszeti térfogat csak felhasználói szélesség/magasság párból jön. Az azonos térbeli gerinc/határ szakasz egyszer számít, L/T patch-vonalak egyesülnek, a síkcsoportok tényleges távolsága külön marad.
+
+- Surveyen a meglévő tetőmunkaszakasz eredménye alatt opcionális „Szarufák és lécezés” disclosure jelent meg. A bemeneteket a strict section contract, session draft recovery, save serializer és új additív `20261017140000_survey_roof_timber_parameters.sql` snapshot allowlist megőrzi. A számítás a paraméterekből újraszámolódik; mérés és revision flow változatlan.
+- A standalone általános tető panel ugyanazt a domain függvényt hívja a meglévő `roof.gable`, `roof.shed`, `roof.hip` bejegyzésben. `roof.rafter`, `roof.mansard`, `roof.truss` nem módosult; új entry nincs.
+- A technical drawing `timber-layout` rétege a motor szakaszait rajzolja, síkcsoportonkénti osztást mutat, és a geometriai vázlatot sematikusnak nevezi. Az input-frissítés nem cseréli le a geometriai base modelt, így a rajz nézete/zoomja nem resetelődik.
+- Analitikus DEMO szarufa-fixture: nyereg, félnyereg, konty, sátor, félkonty; L/T esetben pozitív, egyedi vágott szakaszok, de nincs teljes független összhossz-orákulum. A teljes hétformás anyagmennyiségi validáltságot nem állítjuk.
+- Célzott Domain/Survey/rajz regresszió: `npx vitest run` 19 fájl / 178 teszt PASS. Ide tartozik az analitikus nyereg/félnyereg/konty/sátor/félkonty szarufa-fixture, a léc-térfogat kontroll, L/T szakasz-egyediség, Survey/standalone azonosság, draft-schema és rajzréteg. Nem teljes regresszió.
+- `npm run typecheck`, `npm run lint`, `npm run build` és `git diff --check` PASS. A build Next.js 16.4.0 webpackkel mind a 30 statikus lapot elkészítette.
+- `supabase migration up --local` reset nélkül alkalmazta a két pending additív migrációt: korábban függő 20261017130000 és új 20261017140000. `supabase test db --local ...026... ...038...` PASS, 2 fájl / 50 pgTAP; a Survey writer, jogosultság, immutable revision, verzióütközés és F9.35 paraméter-snapshot megőrzése futott.
+- Helyi production browser-smoke: standalone nyeregtető 10×6 m/3 m és Survey új, nem mentett nyeregtető 10×6 m/3 m; mindkettő 10 szarufát / 42,426 m összhosszt és rajzi kiosztást adott. A standalone példa 2500 mm max osztást, 50×150 mm keresztmetszetet mutatott (0,3182 m³); léc 70 m / 0,21 m³. A Survey UI smoke nem mentett rekordot; a mentés/revízió egyezőséget a pgTAP bizonyítja.
+- Teljes Vitest, fizikai mobil/touch/a11y és hosted adatbázis nem futott. Nincs reset, hosted módosítás, commit, push vagy deploy.
+- Nincs hosted DB-változtatás, reset, commit, push vagy deploy.
+
+Javasolt Conventional Commit: `feat(F9.35): add roof timber layout quantities`

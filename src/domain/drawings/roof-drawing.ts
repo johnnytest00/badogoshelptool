@@ -44,6 +44,6 @@ export function createRoofDrawingModel(geometry: RoofGeometry): GableDrawingMode
     }),
     segments: geometry.edges.map((edge, index) => ({ id: edge.id, start: xy(edge.start), end: xy(edge.end), label: `${edgeNames[edge.kind]} ${index + 1}` })),
     dimensions,
-    angles: [], guides: [], sheetStrips: [],
+    angles: [], guides: [], sheetStrips: [], timberSegments: [],
   };
 }

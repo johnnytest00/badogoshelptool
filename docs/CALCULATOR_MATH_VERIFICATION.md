@@ -194,4 +194,27 @@ Az új `summarizeRoofGeometry` nem hoz létre második tetőmotort: a `RoofGeome
 
 Analitikus alapesetek (mm, majd explicit `/1 000 000` vagy `/1 000`): félnyereg 10×6 m / 45° `60√2 m²`, eave 10 m, upper 10 m, két rake `6√2 m`; nyereg 10×6 m / 45° `60√2 m²`, két eave összesen 20 m, ridge 10 m; konty 10×6 m / 45° `60√2 m²`, eave 32 m, ridge `10−6=4 m`, négy hip hossza összesen `12√3 m`; sátor 6×6 m / 45° `36√2 m²`, eave 24 m, ridge nincs. Félkonty/L/T levezetések a `engineering-reference-fixtures.ts` `derivation` mezőiben vannak. Minden fixture DEMO alapeset, nem gyártói adat.
 
-`npx vitest run src/domain/calculations/roof-geometry-results.test.ts src/domain/calculations/roof-geometry.test.ts src/domain/calculations/roof-geometry.engineering-audit.test.ts src/domain/drawings/gable-drawing.test.ts src/features/field-surveys/gable-survey-preview.test.ts src/features/field-surveys/field-survey-editor.test.tsx src/features/roof-models/roof-geometry-results.test.tsx src/features/roof-models/roof-type-selector.test.tsx src/features/roof-models/technical-drawing.test.tsx src/features/roof-models/drawing-viewport.test.ts src/features/roof-models/multi-roof-form.test.tsx src/features/roof-models/measurement-guidance.test.tsx src/features/roof-models/project-roof-drawings.test.ts` aktuálisan 13 fájl / 133 teszt PASS. A statikai alkalmasságot, termékadatot, fedési veszteséget, rögzítőt vagy rendelési darabszámot ez nem igazolja. A teljes regresszió nem futott.
+`npx vitest run src/domain/calculations/roof-geometry-results.test.ts src/domain/calculations/roof-geometry.test.ts src/domain/calculations/roof-geometry.engineering-audit.test.ts src/domain/drawings/gable-drawing.test.ts src/features/field-surveys/gable-survey-preview.test.ts src/features/field-surveys/field-survey-editor.test.tsx src/features/roof-models/roof-geometry-results.test.tsx src/features/roof-models/roof-type-selector.test.tsx src/features/roof-models/technical-drawing.test.tsx src/features/roof-models/drawing-viewport.test.ts src/features/roof-models/multi-roof-form.test.tsx src/features/roof-models/measurement-guidance.test.tsx src/features/roof-models/project-roof-drawings.test.ts` az F9.33 implementáció futásában 13 fájl / 133 teszt PASS. A statikai alkalmasságot, termékadatot, fedési veszteséget, rögzítőt vagy rendelési darabszámot ez nem igazolja. A teljes regresszió nem futott.
+
+## F9.34 — Él- és geometriai összegzési ellenőrzés
+
+Az F9.34 engineering-audit assertion a hét független DEMO geometrián minden RoofGeometry.edges szakaszra kanonizálja a két 3D végpontot, és bizonyítja, hogy ugyanaz a geometriai szakasz csak egy rekordban szerepel. Kétoldali él esetén a rekord két külön forrás-síkot nevez meg; a koplanáris, azonos sík patch-ek közti belső határ nem jelenhet meg éltételként. A meglévő összegző teszt külön összeveti mind a hat élkategória összegét a kézi analitikus fixture-rel, mind a hét forma felületét és vetületét, majd a síkterületek összegével visszaegyezteti a teljes felületet.
+
+Az alábbi F9.34 zárás idején az F9.35 még csak követelmény-specifikáció volt; a végrehajtott F9.35 matematikai fixture-ek a következő szakaszban szerepelnek.
+
+## F9.35 — szarufa, léc és faanyag mennyiség
+
+Az új domain modul teljes fixture futtatása: `npx vitest run src/domain/calculations/roof-timber-layout.test.ts` — 11 teszt PASS. A kézzel felírt DEMO ellenőrzések:
+
+| Geometria | Bemenet | Függetlenül várt szarufa | Ellenőrzés |
+|---|---|---|---|
+| Nyeregtető | 10 000×6 000 mm, emelkedés 4 000; max 2 500 mm | Síkonként 5 tengely, mindegyik `√(3 000²+4 000²)=5 000 mm`; 10 db, 50 000 mm. Keresztmetszet 50×150 mm → 0,375 m³ | Pozíciók, hosszak, darabszám és térfogat a kód képleteitől független fixture |
+| Félnyeregtető | 10 000×6 000 mm, 45°; max 2 500 mm, ferde lejtőn max léctáv 2 000 mm | 5 szarufa × `6 000√2 mm`; 6 léccsor, ferde tényleges osztás `6 000√2 / 5 mm`; a léccsor hossza 10 000 mm | Vetített és ferde tengelytáv külön ellenőrizve |
+| Kontytető | 10 000×6 000 mm, 45° | Hat fő-sík szarufa: `4·2 500√2+2·3 000√2`; négy kontyfelületi szarufa `4·2 000√2`; összes 10 tengely, a hiphatárig vágva | Analitikus összhossz `33 941,125… mm` |
+| Sátortető | 6 000×6 000 mm, 45° | 4 oldalon 2 belső szarufa/oldal; `8·2 000√2 mm`, 8 tengely. A csúcspontban degenerált tengelyek nem számlálódnak | Analitikus darabszám és összhossz |
+| Félkonty | 10 000×6 000 mm, 45°, félkonty-élemelkedés 1 000; max 2 500 mm | 10 fő sík tengely: `4·1 000√2+6·3 000√2`; 2 félkonty sík tengely `2·2 000√2`; összesen 12 db | Analitikus határvágott összhossz `36 769,553… mm` |
+| L/T | 10 000×6 000 mm, 45°, szárny 4 000×5 000 mm | Teljes kézi összhossz-orákulum nincs | Külön patch metszet, pozitív szakasz és azonos térbeli szakasz kettőzésének hiánya ellenőrzött; mennyiségi validálás részleges |
+
+A 10 000×6 000 mm, 4 000 mm emelkedésű nyeregtető léckontrollja szintén kézi: a slope run `3 000 mm`, a ferde felületi hossz `√(3 000²+4 000²)=5 000 mm`; max. 1 000 mm osztással 6 sor fut lejtőnként. A gerinc közös sora egyszer számolva 11 egyedi tengely, összhossz `2×6×10 000−10 000=110 000 mm`. A 30×100 mm keresztmetszet névleges térfogata `0,33 m³`. A sorpozíciók a lejtős felület tényleges hossztengelyén futnak.
+
+Tolerancia: tiszta szimmetrikus fixture-eknél `toBeCloseTo(..., 7–8)` a 3D euklideszi hosszakra; az inputpozíciók egész mm rácson vannak, a max osztás egyenletes újraosztása floating-point művelet, ezért a tényleges távolság toleranciával ellenőrzött. A keresztmetszeti térfogat képlete `Σ(lengthMm×widthMm×heightMm)/10⁹`. A számítás nem osztja a szálhosszt beszerzési darabokra.

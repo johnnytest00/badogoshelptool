@@ -1,6 +1,6 @@
-# F9.33 — Tetőszámítási specifikáció és bizonyítéki mátrix
+# F9.33–F9.34 — Tetőszámítási specifikáció és bizonyítéki mátrix
 
-**Állapot:** `PARTIAL` — a közös geometriai eredményréteg elkészült és fókuszáltan ellenőrzött; az aszimmetrikus/összetett modellek bővítése, a standalone mind a hét típusára kiterjedő felület, valamint a teljes mobil- és hitelesített böngészős elfogadás nincs igazolva.
+**Állapot:** `PARTIAL` — az F9.33 közös geometriai eredményréteg elkészült és fókuszáltan ellenőrzött. Az F9.34 audit és hétformás edge-egyediség teszt PASS; a standalone mind a hét típusára kiterjedő felület nincs, mert a suite-ben nincs általános tetőforma-választó, az aszimmetrikus/összetett modellek és a teljes mobil-elfogadás pedig nincs igazolva.
 **Dátum:** 2026-10-17
 **Hatókör:** a meglévő `calculateRoofGeometry` eredményeinek újrahasznosítása a felmérésben és az önálló kalkulátorokban. Ez nem új geometriamotort, anyagkimutatást, statikai számítást vagy mentési folyamatot jelent.
 
@@ -114,3 +114,65 @@ Példa eredményoldalak a félnyereg, nyeregtető, manzárd és konty számológ
 - Run/slope/perimeter új összegzőknek független analitikus ellenőrzése csak base roof fixture-ekre és gable túlnyúlásra van; minden lehetséges összetett/túlnyúló forma, arbitrary polygon, nyílás, nem ortogonális/intersecting roof és szakaszonként eltérő pitch nincs igazolva.
 - Új summary nem kerül adatbázisba; történeti Survey snapshot, mentett calculation, szervezeti határ és jogosultság nem változik. DB/RLS/concurrency teszt ehhez a tisztán megjelenítő/domain-levezető változáshoz nem releváns.
 - Kézi, billentyűzetes, screen-readeres, csökkentett mozgású és fizikai mobil-touch/böngésző-layout tesztet nem szabad unit tesztből levezetni. A tényleges helyi autentikált smoke csak futtatott browser workflow alapján igazolható.
+
+## F9.34 — Lefedettség és felületi alkalmazhatóság
+
+A /kalkulatorok konstrukciós katalógusában 33 bejegyzés van; ebből hat tető/faszerkezet. A nyeregtető, félnyeregtető és kontytető általános geometriája használja a közös eredménypanelt. A sátor, félkonty, L és T a Survey meglévő tetőforma-választójában érhető el. A standalone suite nem tartalmaz általános tetőforma-választót, ezért a hét forma megjelenítéséhez nem keletkezett új vagy duplikált kalkulátor-bejegyzés. A szarufa, manzárd és háromszögű faszerkezet külön célú, inputú és motorú kalkulátor. A gable cserepeslemez-kimenet külön, termékparaméteres számítás; nem területből becsült anyagkihozatal.
+
+A közös eredmény és standalone műszaki rajz ugyanazt a validált RoofGeometry objektumot használja. A motor a patch-éleket végpont szerint szétvágja és kulcsonként egyesíti; a koplanáris, azonos forrássíkhoz tartozó belső patch-határt elhagyja. A tényleges gerinc/hip/vápa szakaszt egyszer adja vissza, két szomszédos síkkal. Az F9.34 audit hét alapeseten ellenőrzi a geometriai végpontpárok egyediségét és a deklarált szomszédos síkok polygonhatárát. Ez élgeometria, nem anyagkiosztás.
+
+## F9.35 — Követelmények: szarufák, lécek és faanyag-mennyiségek
+
+**Állapot:** IMPLEMENTÁLVA, CÉLZOTTAN ELLENŐRIZVE. A közös tiszta kiosztómotor, Survey panel, standalone gable/shed/hip felületek, rajzi réteg és Survey-snapshot mező elkészült. A teljes regresszió, helyi DB migrációteszt és böngészős smoke eredményét a F9.35 szakasz és `docs/TEST_MATRIX.md` rögzíti.
+
+### Hatókör és kötelező inputok
+
+- A cél geometriai elhelyezés és összesítés mind a hét meglévő RoofGeometry formán: nyereg, félnyereg, konty, sátor, félkonty, L és T. A számítás síkonként és síkpoligononként működjön; L/T különálló patch-ei maradjanak elkülönítve.
+- A manzárd, önálló szarufahossz-kalkulátor és rácsostartó maradjon külön scope-ban; adapterhez új geometriai szerződés és fixture kell.
+- Aszimmetria, eltérő hajlás, általános L/T eltolás, tetszőleges polygon és nyílás nincs a jelenlegi input-sémában; ezekre a motor ne inferáljon geometriát.
+
+| Bemenet | Követelmény |
+|---|---|
+| Elemcsalád | Szarufa vagy léc; külön kiosztás és eredmény |
+| Tengelytávolság | Felhasználó által megadott pozitív egész mm; alapérték nem feltételezhető |
+| Kiosztási tengely és irány | Tetősíkhoz kötött. Szarufa eresz–gerinc irányú, pozíciója a tetőhosszon; léc eresz irányú, sorpozíciója a lejtős futáson |
+| Kezdő/záró peremsáv | Mindkét kiosztási tengelyen explicit; az osztás pontos vagy legnagyobb érték szemantikája kötelező |
+| Végpontszabály | Polygonhatárig tartó geometriai vég vagy felhasználói visszahúzás mm-ben; gyártási levonás nélkül |
+| Keresztmetszet | Térfogatkéréshez explicit szélesség × magasság mm-ben; katalógusméret nem következtethető |
+| Darabolási adatok | Vásárlási darabszámhoz stock length, toldás/illesztés, vágásrés és maradékszabály; ezek nélkül csak lineáris igény és névleges térfogat adható |
+| Nyílás/kihagyás | Csak explicit síkhoz kötött mm-koordinátás polygonból. Más esetben input elutasítás vagy unsupported állapot. |
+
+Nincs automatikus veszteség, faanyagminőség, termék, rögzítés vagy terhelés. Szarufavég, madárszáj, gerincülék, eresztúlnyúlás és felfekvés külön csomóponti specifikáció nélkül nem számítható.
+
+### Geometriai módszer és eredmény
+
+1. A sík koordinátarendszer az adott polygonból, lejtésből és eresz-/gerinc-élirányból eredjen; azonos globális X/Y irány nem feltételezhető minden formán.
+2. Explicit kezdő és záró hely között az egyenletes pozíció xᵢ = x₀ + i·s. Legnagyobb osztásnál n = ceil((x₁−x₀)/s_max), a tényleges osztás s = (x₁−x₀)/n. Pontos osztásnál az utolsó peremsávot validálni kell.
+3. Szarufánál a tengelyvonal és tetősík-polygon metszete adja a szakaszokat. Teljes téglalap-síkon a geometriai hossza √(run² + rise²); általános polygonon a levágott 3D szakaszok hosszösszege mérvadó.
+4. Léceknél a sorvonal a síkpoligonnal metszendő. A sor hossza a kapott 3D szakaszok összege; a hip/vápa/síkhatár csak valós polygonkontúrból következhet.
+5. Lineáris igény: a szakaszhosszak összege mm-ben és méterben. Névleges faanyag-térfogat: Σ(lengthMm × widthMm × heightMm) / 10⁹ m³, explicit keresztmetszettel. Toldás, vágási veszteség és rendelési ráhagyás nem része.
+6. Minden tengely egyetlen kiosztási pozícióból és topológiai azonosítóból jöjjön. Az azonos határszegmens nem számolható kétszer; darabszám nem becsülhető területből vagy kerületből.
+
+Kimenetek: kiosztási hely és tengelyszám (mm, db); geometriai szegmensek/összhossz (mm, m); explicit keresztmetszet (mm²); névleges geometriai térfogat (m³); validáció, provenance és kiosztási konvenció. A db kizárólag tényleges kiosztott tengelyek száma, nem vásárolható csomag.
+
+### Validáció és független fixture-ek
+
+- Pozitív egész mm méretek, meglévő pitch/footprint-séma, explicit peremsáv, egyértelmű tengely és pontos/maximális osztásmód. Kétértelmű inputnál nincs mennyiségi eredmény.
+- Mind a hét formához külön DEMO jelölt fixture: pontosan osztható és maradékos kiosztás, kézzel rögzített pozíciók, metszetszakaszok, darabszám és összhossz.
+- Téglalap alapeset: pitch = emelkedés/futás; szarufa √(run²+rise²); lécsor teljes szélességű. Konty/sátor/félkonty tesztelje a hiphatárig vágást; L/T ellenőrizze a külön main/wing polygonokat és a vápa menti kettős számolás hiányát.
+- Negatív esetek: hiányzó peremsáv, nulla/negatív osztás, túl széles perem, nullhosszú vagy duplikált szegmens, térfogatkérés keresztmetszet nélkül, nem támogatott nyílás.
+- Az F9.34 roof geometry, rajzazonosság és Survey regressziót az új kiosztási tesztek után újra futtatni kell.
+
+### Szerkezeti korlát
+
+Az eredmények geometriai elhelyezést, vonalhosszt és névleges keresztmetszeti térfogatot írhatnak le. Nem igazolják a teherbírást, kihajlást, lehajlást, kapcsolatot/rögzítést, faanyag-osztályt, üzemi tényezőt, szél-/hó-/hasznos terhet, szabványi megfelelést vagy gyárthatóságot. Ehhez külön, felelős tervező által meghatározott és validált statikai folyamat kell; szakmai/gyártói alapérték nem tölthető be a felhasználó helyett.
+
+### F9.35 — megvalósítási és bizonyítéki állapot
+
+- `src/domain/calculations/roof-timber-layout.ts` a már validált `RoofGeometry` sík-polygonjait használja. A lejtésgradiensből helyi eave–ridge és eave-párhuzamos tengelyt rekonstruál, a maximum osztást egyenletesen felosztja, majd a helyeket az egyes sík-polygonokkal metszi. A léc osztása és peremsávja a tetősíkon mért ferde távolságban értendő; a szarufa a vízszintes eresz-tengelyen helyezkedik el. A koplanáris patch-vonalak egyesülnek, az azonos térbeli gerinc-/határszakasz egyszer számítódik.
+- Csak teljesen megadott pozitív egész mm tengelytáv és nemnegatív egész mm kezdő/záró visszahúzás ad mennyiségi kimenetet. A megadott tengelytáv maximum; a tényleges távolság egyenletesen oszlik. A 2 000 kiosztási tengely feletti bemenet `unavailable` eredményt kap a túlméretes rajzi/kimeneti lista miatt.
+- A keresztmetszet teljesen opcionális; térfogat kizárólag a szélesség és magasság együttes megadásakor jelenik meg. Darabolási/rendelési darabszám nincs.
+- A motor mind a hét meglévő formára a síkpoligonokat használja. Analitikus szarufa-hossz ellenőrzés: nyeregtető, félnyeregtető, konty, sátor és félkonty. Az L/T fixture-ek ellenőrzik a véges, pozitív és egyedi szakaszokat, de ezek teljes kézi mennyiségi levezetése további független validációt igényel; ezért nem állítunk teljes hétformás anyagmennyiségi validáltságot.
+- A Survey `roofTimberParameters` optional adatot az immutable section snapshot részeként validálja. Az additív migration a meglévő `private.valid_field_survey_sections` allowlistet bővíti; mentett rekordot, táblastruktúrát, revision writer/RLS jogosultságot nem ír át. A számítási eredmény snapshotban nem duplikálódik, a beolvasott paraméterekből újraszámolódik.
+- A rajz a számítás szakaszait adja át az új „Szarufa- és lécekiosztás” rétegnek; a réteg neve és hozzáférhető kísérőszövege jelzi, hogy sematikus geometriai mennyiséget mutat, nem kivitelezési rajz. A meglévő viewport/pan/zoom állapota a kiosztási input frissítésekor megmarad.
+- A Survey és standalone gable/shed/hip panelek a közös domain függvényt használják. A rafter, mansard és truss special-purpose kalkulátorok nem változtak, új katalógusbejegyzés nincs.

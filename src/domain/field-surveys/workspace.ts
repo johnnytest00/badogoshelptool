@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { fieldSurveyMeasurementSchema, fieldSurveyWorkTypeSchema, fieldSurveyWorkTypeLabels, fieldSurveySemanticTypeSchema, fieldSurveyUnitSchema, type FieldSurveyMeasurement, type FieldSurveyWorkType } from "./contracts";
 import { roofGeometryTypeSchema } from "@/domain/calculations/roof-geometry";
+import { roofTimberParametersSchema } from "@/domain/calculations/roof-timber-layout";
 
 export const surveySectionMeasurementSchema = z.object({
   id: z.string().uuid(), label: z.string().trim().min(1).max(120), value: z.number().finite().nullable(),
@@ -17,8 +18,11 @@ export const surveySectionSchema = z.object({
   id: z.string().uuid(), name: z.string().trim().min(1, "A munkaszakasz neve kötelező.").max(120),
   workType: fieldSurveyWorkTypeSchema, measurements: z.array(surveySectionMeasurementSchema).max(100),
   roofType: roofGeometryTypeSchema.optional(),
+  roofTimberParameters: roofTimberParametersSchema.optional(),
   notes: z.string().max(2000), photoIds: z.array(z.string().uuid()).max(100),
-}).strict();
+}).strict().superRefine((section, context) => {
+  if (section.roofTimberParameters && section.workType !== "roof") context.addIssue({ code: "custom", path: ["roofTimberParameters"], message: "Tetőfaanyag-kiosztás csak tető munkaszakaszhoz menthető." });
+});
 export const surveySectionsSchema = z.array(surveySectionSchema).min(1).max(30).superRefine((sections, context) => {
   const sectionIds = sections.map((section) => section.id);
   const measurementIds = sections.flatMap((section) => section.measurements.map((measurement) => measurement.id));

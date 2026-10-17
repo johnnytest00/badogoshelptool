@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { calculateGableRoof } from "@/domain/calculations/gable-roof";
+import { calculateRoofGeometry } from "@/domain/calculations/roof-geometry";
+import { calculateRoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
@@ -34,5 +36,22 @@ describe("compact technical drawing controls", () => {
     expect(titleIds).toHaveLength(2);
     expect(new Set(titleIds).size).toBe(2);
     expect((html.match(/class="technical-dimension-arrow"/g) ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("draws the same calculated rafter and batten segments with spacing labels", () => {
+    const geometry = calculateRoofGeometry({ type: "shed", lengthMm: 10000, widthMm: 6000, pitchDegrees: 45 });
+    const layout = calculateRoofTimberLayout(geometry, {
+      rafter: { maxSpacingMm: 2500, startInsetMm: 0, endInsetMm: 0 },
+      batten: { maxSpacingMm: 2000, startInsetMm: 0, endInsetMm: 0 },
+    });
+    expect(layout.status).toBe("available");
+    if (layout.status !== "available") return;
+    const html = renderToStaticMarkup(<TechnicalDrawing geometry={geometry} timberLayout={layout} isSaved={false} compact />);
+    expect(html).toContain('class="technical-timber-segment is-rafter"');
+    expect(html).toContain('class="technical-timber-segment is-batten"');
+    expect(html).toContain("Szarufa · 2500 mm");
+    expect(html).toContain("Léc · 1697 mm");
+    expect(html).toContain("sematikus geometriai mennyiség");
+    expect(html).toContain("Szarufa- és lécekiosztás");
   });
 });
