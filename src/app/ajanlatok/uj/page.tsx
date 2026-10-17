@@ -2,7 +2,7 @@ import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
-import { getMaterialProductsForOrganization } from "@/features/materials/material-data";
+import { getMaterialCategories, getMaterialProductsForOrganization } from "@/features/materials/material-data";
 import { getWorkflowMaterialLists } from "@/features/material-takeoffs/material-preparation-data";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { StandaloneQuotationEditor, type QuotationMaterialSource } from "@/features/quotations/standalone-quotation-editor";
@@ -16,7 +16,7 @@ export default async function NewStandaloneQuotationPage({ searchParams }: Reado
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
   if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt az ajánlathoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const organizationId = selected.organization.id;
-  const [products, documentSources, lists] = await Promise.all([getMaterialProductsForOrganization(organizationId), getStandaloneDocumentSourcesAction(organizationId), getWorkflowMaterialLists(organizationId)]);
+  const [products, categories, documentSources, lists] = await Promise.all([getMaterialProductsForOrganization(organizationId), getMaterialCategories(organizationId, false), getStandaloneDocumentSourcesAction(organizationId), getWorkflowMaterialLists(organizationId)]);
   if (!documentSources.ok) return <main className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">{documentSources.error}</p></div></main>;
   const list = query.materialList ? lists.find((candidate) => candidate.id === query.materialList) : undefined;
   const selectedRevision = list?.history.find((revision) => revision.id === query.materialRevision);
@@ -37,5 +37,5 @@ export default async function NewStandaloneQuotationPage({ searchParams }: Reado
     initialLines = quotationLinesFromMaterialList(selectedRevision, products);
     initialName = `${list.name} – ajánlata`.slice(0, 200);
   }
-  return <main className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor userId={selected.auth.userId} organizationId={organizationId} quotationId={null} name={initialName} version={0} currentRevisionId={null} revisions={[]} products={products} documentSources={documentSources.data} materialSource={materialSource} initialLines={initialLines} /></div></main>;
+  return <main className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor userId={selected.auth.userId} organizationId={organizationId} quotationId={null} name={initialName} version={0} currentRevisionId={null} revisions={[]} products={products} categories={categories} documentSources={documentSources.data} materialSource={materialSource} initialLines={initialLines} /></div></main>;
 }

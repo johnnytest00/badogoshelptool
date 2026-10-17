@@ -12,6 +12,8 @@ import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneM
 import { quotationRecoveryKey, readQuotationRecovery, writeQuotationRecovery, isQuotationRecoveryCurrent, clearOtherQuotationRecoveryOwners, type QuotationRecovery, type QuotationDraftValues } from "./quotation-draft-recovery";
 import { resolveStandaloneQuotationCatalogItemAction, saveStandaloneQuotationDraftAction, updateStandaloneIssuerProfileAction, validateStandaloneQuotationDocumentAction, type StandaloneDocumentSources, type StandaloneQuotationResult } from "./standalone-quotation-actions";
 import type { MaterialProductRecord } from "@/features/materials/material-data";
+import type { MaterialCategoryRecord } from "@/features/materials/material-data";
+import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "@/features/material-takeoffs/workflow-material-product-picker";
 import { emptyQuotationDocumentDraft, validateQuotationDocumentReadiness, type DocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
 
 type Line = QuotationDraftValues["lines"][number];
@@ -43,9 +45,9 @@ function revisionDocument(revision?: CurrentRevision): { draft: QuotationDocumen
 
 export type QuotationMaterialSource = Readonly<{ materialListId: string; materialRevisionId: string; listName: string; revisionNumber: number; currentRevisionId: string | null; currentVersion: number; executionPlanId: string | null; sourceLineMap: ReadonlyArray<{ materialItemId: string; quotationLineIndex: number }> }>;
 
-export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products, documentSources, materialSource = null, initialLines = [] }: Readonly<{
+export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products, categories, documentSources, materialSource = null, initialLines = [] }: Readonly<{
   userId: string; organizationId: string; quotationId: string | null; name?: string; version: number; currentRevisionId: string | null;
-  currentRevision?: CurrentRevision; revisions: Revision[]; selectedRevisionId?: string; products: MaterialProductRecord[]; documentSources: StandaloneDocumentSources;
+  currentRevision?: CurrentRevision; revisions: Revision[]; selectedRevisionId?: string; products: MaterialProductRecord[]; categories: MaterialCategoryRecord[]; documentSources: StandaloneDocumentSources;
   materialSource?: QuotationMaterialSource | null; initialLines?: Line[];
 }>) {
   const router = useRouter();
@@ -76,6 +78,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
       return { ...empty(value.type === "MATERIAL" || value.type === "LABOR" || value.type === "OTHER" ? value.type : "OTHER"), ...value, sourceMaterialItemId: linkedSourceIndexes.get(index) ?? value.sourceMaterialItemId ?? "", priceClass: "net", localId: makeLocalId() } as EditorLine;
     });
   });
+  const [lineCategoryIds, setLineCategoryIds] = useState<Record<string, string>>(() => Object.fromEntries(lines.map((line) => [line.localId, products.find((product) => product.variants.some((variant) => variant.id === line.variantId))?.categoryId ?? ""])));
   const [dirty, setDirty] = useState(false);
   const [pdfPromptOpen, setPdfPromptOpen] = useState(false);
   const dirtyRef = useRef(false);
@@ -305,10 +308,22 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
       </details>
       <div className="quotation-lines"><div className="section-heading"><div><p className="section-eyebrow">Tételek</p><h3>Ártételek</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Kézi sor</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
         {lines.length === 0 && <p className="empty-state">Még nincs tétel. Üres piszkozatot is elmenthetsz.</p>}
-        {lines.map((line, index) => <article className="quotation-line" key={line.localId}><div className="quotation-line-grid">
+        {lines.map((line, index) => {
+          const categoryId = lineCategoryIds[line.localId] ?? products.find((product) => product.variants.some((variant) => variant.id === line.variantId))?.categoryId ?? "";
+          const categoryProducts = products.filter((product) => product.categoryId === categoryId && product.categoryActive && product.status === "active");
+          const productOptions: WorkflowMaterialProductOption[] = categoryProducts.flatMap((product) => product.variants.map((variant) => ({
+            id: variant.id,
+            name: `${product.name} · ${variant.name}`,
+            detail: [variant.sku, variant.purchasingUnit, product.manufacturerName].filter(Boolean).join(" · "),
+            searchText: [product.productCode, product.description, product.manufacturerName, variant.sku, variant.name].filter(Boolean).join(" "),
+          })));
+          return <article className="quotation-line" key={line.localId}><div className="quotation-line-grid">
           {line.sourceMaterialItemId && <small className="quotation-source-line">Anyaglista-forrás tétel · {line.sourceMaterialItemId.slice(0, 8)}</small>}
-          <label htmlFor={`line-${index}-type`}>Típus<select id={`line-${index}-type`} value={line.type} onChange={(event) => { const type = event.target.value as Line["type"]; update(index, type === "MATERIAL" ? { type } : { type, variantId: "", priceId: "" }); }}><option value="MATERIAL">Anyag</option><option value="LABOR">Munkadíj</option><option value="OTHER">Egyéb</option></select></label>
-          {line.type === "MATERIAL" && <label htmlFor={`line-${index}-catalog`}>Katalógustermék<select id={`line-${index}-catalog`} value={line.variantId} onChange={(event) => { void resolvePrice(index, event.target.value, ""); }}><option value="">Kézi anyag / válassz katalógust</option>{products.flatMap((product) => product.variants.map((variant) => <option key={variant.id} value={variant.id}>{product.name} · {variant.name}{variant.sku ? ` · ${variant.sku}` : ""}</option>))}</select></label>}
+          <label htmlFor={`line-${index}-type`}>Típus<select id={`line-${index}-type`} value={line.type} onChange={(event) => { const type = event.target.value as Line["type"]; if (type === "MATERIAL") { const selectedProduct = products.find((product) => product.variants.some((variant) => variant.id === line.variantId)); if (selectedProduct) setLineCategoryIds((current) => ({ ...current, [line.localId]: selectedProduct.categoryId })); update(index, { type }); } else { setLineCategoryIds((current) => { const next = { ...current }; delete next[line.localId]; return next; }); update(index, { type, variantId: "", priceId: "" }); } }}><option value="MATERIAL">Anyag</option><option value="LABOR">Munkadíj</option><option value="OTHER">Egyéb</option></select></label>
+          {line.type === "MATERIAL" && <div className="standalone-catalog-selection">
+            <label htmlFor={`line-${index}-category`}>Kategória<select id={`line-${index}-category`} aria-required="true" value={categoryId} onChange={(event) => { const nextCategoryId = event.target.value; setLineCategoryIds((current) => ({ ...current, [line.localId]: nextCategoryId })); if (line.variantId) update(index, { variantId: "", priceId: "", description: "", unit: "", unitPrice: "", priceClass: "net" }); }}><option value="">Válassz kategóriát…</option>{categories.filter((category) => category.isActive).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+            <label className="standalone-catalog-product-field">Termék<WorkflowMaterialProductPicker idPrefix={`quotation-${line.localId}-catalog`} options={productOptions} value={line.variantId} disabled={!categoryId} onSelect={(variantId) => { if (variantId) void resolvePrice(index, variantId, ""); }} /></label>
+          </div>}
           <label htmlFor={`line-${index}-description`}>Megnevezés<input id={`line-${index}-description`} value={line.description} onChange={(event) => update(index, { description: event.target.value })} /></label>
           <label htmlFor={`line-${index}-quantity`}>Mennyiség<input id={`line-${index}-quantity`} inputMode="decimal" value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} aria-describedby={`line-${index}-error`} /></label>
           <label htmlFor={`line-${index}-unit`}>Egység<input id={`line-${index}-unit`} value={line.unit} onChange={(event) => update(index, { unit: event.target.value, priceId: "" })} /></label>
@@ -317,7 +332,8 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
           {line.variantId && <label htmlFor={`line-${index}-price-source`}>Katalógusárforrás<select id={`line-${index}-price-source`} value={line.priceId} onChange={(event) => { void resolvePrice(index, line.variantId, event.target.value); }}><option value="">Kézi nettó ár</option>{catalogVariant(line.variantId)?.variant.prices.filter((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === catalogVariant(line.variantId)?.variant.purchasingUnit).map((price) => <option key={price.id} value={price.id}>{price.amount.toLocaleString("hu-HU")} Ft · {price.effectiveDate}</option>)}</select><small>{line.priceId ? "Mentéskor a szerver ismét ellenőrzi a katalógusárat." : "Kézi árként kerül rögzítésre."}</small></label>}
           <output className="quotation-line-total">{standaloneNetLabels.lineTotal}: {(() => { try { return scaledToDecimal(lineTotal(line.quantity || "0", line.unitPrice || "0").minor, 2); } catch { return "—"; } })()} <small>nem mentett becslés</small></output>
           <div className="standalone-line-actions"><button className="text-button" type="button" disabled={index === 0} aria-label={`Tétel ${index + 1} mozgatása fel`} onClick={() => moveLine(index, -1)}>↑ Fel</button><button className="text-button" type="button" disabled={index === lines.length - 1} aria-label={`Tétel ${index + 1} mozgatása le`} onClick={() => moveLine(index, 1)}>↓ Le</button><button className="text-button" type="button" aria-label={`Tétel ${index + 1} törlése`} onClick={() => { const next = lines.filter((_, itemIndex) => itemIndex !== index); setLines(next); syncDirty(name, next); }}>Tétel törlése</button></div>
-        </div><p id={`line-${index}-error`} className="missing-data">Leírás, pozitív mennyiség, egység és nemnegatív nettó egységár szükséges a kitöltött sor mentéséhez.</p></article>)}
+        </div><p id={`line-${index}-error`} className="missing-data">Leírás, pozitív mennyiség, egység és nemnegatív nettó egységár szükséges a kitöltött sor mentéséhez.</p></article>;
+        })}
       </div>
       {catalogMessage && <p className="form-message" role="status">{catalogMessage}</p>}
       <div className="quotation-summary"><div><span>{historical ? `${savedAmountLabel} (Ft)` : standaloneNetLabels.subtotal}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "A változtathatatlan szerver-pillanatkép összege." : "Nem mentett becslés; a szerver számítja és adja vissza az irányadó összeget."}</small></div>{!historical && <div><span>Legutóbbi mentett árbesorolási összeg</span><strong>{money(savedSubtotal === null ? null : String(savedSubtotal))}</strong></div>}</div>

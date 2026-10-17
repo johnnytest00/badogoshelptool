@@ -1,5 +1,32 @@
 # Tesztmátrix
 
+## F9.26 — kategóriás ajánlati termékválasztó
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Kategória → termék sorrend és szűrés | PASS, CODE | Anyag típusú ajánlati sorban először aktív kategória választható; a termékpanel letiltott marad kategória nélkül és csak a kiválasztott kategória aktív katalógustermékeit mutatja. A kiválasztott termék kategóriája újratöltéskor/szerkesztéskor visszaáll. |
+| Keresőpanel / ismételt sorok | PASS, FOCUSED TEST | A meglévő akcentusfüggetlen kereső és keresőmező-első listbox használatban marad. Ajánlati soronként egyedi ARIA/DOM azonosító van; a picker tesztje ezt ellenőrzi. |
+| Mobil elhelyezés | CODE VERIFIED / BROWSER NOT RUN | Az egymás alá törő mezők és `VisualViewport` alapú, képernyőmagassághoz korlátozott panel implementálva. Fizikai mobilon vagy interaktív böngészőben a szoftverbillentyűzetes viselkedés nem lett kipróbálva. |
+| Vitest | PASS, FOCUSED | `npx vitest run src/features/material-takeoffs/workflow-material-product-picker.test.tsx src/features/quotations/standalone-quotation-ui-state.test.ts src/features/quotations/quotation-overview.test.tsx`: 3 fájl / 7 teszt. Teljes Vitest-suite nem futott. |
+| Typecheck / lint / build / diff | PASS | Érintett TS/TSX fájlok ESLint, build után `npm run typecheck`, `npm run build` Next.js 16.4.0 webpack és `git diff --check`. Az első párhuzamos typecheck a build `.next/types` generálásával versenyzett; az elkülönített újrafuttatás sikeres volt. |
+| Adat / DB / jogosultság | NEM VÁLTOZOTT | Meglévő szervezeti kategória- és terméklekérdezések; új tárolt mező, migráció, DB- vagy RLS-változás nincs. |
+
+Státusz: **PARTIAL**, mert a responsive panel implementációja és build igazolt, de a mobil szoftverbillentyűzettel végzett böngészős próba hiányzik.
+
+Javasolt Conventional Commit: `feat(F9.26): add category-first quotation product picker`.
+
+## F9.25 — Liquid Glass felületkitöltés
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Kettős tint/árnyék megszüntetése | PASS, CODE REVIEW | A `liquid-glass-react` belső `.glass` réteg kitöltése/árnyéka áttetsző, a hoston marad az egyetlen közös felületkitöltés. A warp/backdrop-filter és peremréteg érintetlen. |
+| Liquid Glass és dashboard tesztek | PASS, FOCUSED | 4 fájl / 11 teszt: preferences, runtime policy, toolbar és dashboard controls. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` Next.js 16.4.0 webpack, `git diff --check`. |
+| Böngészős szín-összevetés | NEM FUTOTT | A helyi dashboard accessibility fája elérhető, de frissített vizuális képkocka/pixelmérés és több route téma-összehasonlítása nem történt. |
+| Adat / DB / jogosultság | NEM VÁLTOZOTT | CSS-only módosítás, DB és migráció nem érintett. |
+
+Státusz: **PARTIAL**, mert automatizált kódellenőrzések sikeresek, a módosítás utáni vizuális színazonosság nincs böngészőben bizonyítva.
+
 ## F9.24 — tetőkalkulátorok és repo-audit
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

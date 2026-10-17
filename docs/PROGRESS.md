@@ -1,5 +1,31 @@
 # F7.3.2 állapot
 
+## F9.26 — Kategóriás ajánlati termékválasztó
+
+Státusz: **IMPLEMENTED / PARTIAL — célzott kódellenőrzések PASS; interaktív böngészős mobilpróba nem futott**.
+
+- Az új önálló ajánlat tételsorán az Anyag típushoz előbb aktív anyagkategóriát kell választani, majd a mellette megjelenő kereshető termékválasztó csak ennek a kategóriának az aktív termékeit és változatait kínálja. A már kiválasztott katalógustermék szerkesztéskor a saját kategóriáját is visszaállítja.
+- A termékválasztó az Anyaglista meglévő keresési UX-ét és akcentusfüggetlen keresését használja. A keresőmező a lista fölött marad; az egyedi sorazonosítók több ajánlati tételnél is egyediek. Mobilon a mezők egymás alá rendeződnek, a választó a `VisualViewport` méretéhez igazodik, így a szoftverbillentyűzet mellett is a képernyőn belül marad.
+- Az új és meglévő piszkozatoldal az eddigi szervezeti katalógusból tölti be a kategóriákat. Nincs új mező a mentési szerződésben, adatbázis-/migráció-/jogosultságváltozás vagy új üzleti adat.
+
+**Ellenőrzések:** `npx vitest run src/features/material-takeoffs/workflow-material-product-picker.test.tsx src/features/quotations/standalone-quotation-ui-state.test.ts src/features/quotations/quotation-overview.test.tsx` — 3 fájl / 7 teszt PASS; az érintett TypeScript/TSX fájlokra `npx eslint ...` PASS; `npm run build` Next.js 16.4.0 webpack PASS; a build után külön `npm run typecheck` PASS. A teszt/build futás előtti párhuzamos typecheck a Next build által újragenerált `.next/types` fájlok versenyébe futott; külön újrafuttatva sikeres volt. `git diff --check` PASS. Fizikai mobil és interaktív böngészős képernyőpróba nem futott.
+
+Nincs adatkonzisztencia- vagy jogosultsági szerződésváltozás: kategóriák és termékek csak az aktuális szervezet meglévő adatlekérdezéseiből jönnek. DB teszt és teljes Vitest suite nem futott.
+
+Javasolt Conventional Commit: `feat(F9.26): add category-first quotation product picker`.
+
+## F9.25 — Egységes Liquid Glass felületszín
+
+Státusz: **IMPLEMENTED / PARTIAL — célzott ellenőrzések PASS; böngészős pixel-összehasonlítás nem futott**.
+
+- A Liquid Glass React dekoratív réteg eddig a kártyák saját, közös felületkitöltésére még egyszer ráfestette a 10%-os tintet és az árnyékot. Ezért a „Funkciók” és a navigációs felületek sötétebbnek látszottak, mint az „Aktuális munkák” egyszeresen fedett kártyái.
+- A könyvtári réteg kitöltése és duplikált árnyéka áttetsző lett; a host komponens közös `--surface-glass`, perem, blur és árnyék stílusa marad az egyetlen színréteg. A fénytörés megmarad a támogatott desktop Chromium eszközökön, a CSS fallback és a meglévő sötét/világos tint tokenek változatlanok.
+- Nincs React komponens-, beállítás-, adat-, route-, DB-, migráció- vagy jogosultságváltozás.
+
+**Ellenőrzések:** `node_modules/.bin/vitest run src/features/preferences/liquid-glass.test.ts src/components/ui/liquid-glass-policy.test.ts src/components/ui/glass-toolbar.test.tsx src/features/dashboard/dashboard-controls.test.tsx` — 4 fájl / 11 teszt PASS; `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) és `git diff --check` PASS. A helyi dashboard DOM-ja elérhető volt, de a módosítás utáni képpontszín és további route-ok vizuális ellenőrzése nem történt meg.
+
+Javasolt Conventional Commit: `fix(F9.25): unify liquid glass surface tint`.
+
 ## F9.24 — Tetőkalkulátorok előtérben és árva fájlok takarítása
 
 Státusz: **IMPLEMENTED / PARTIAL — kódellenőrzések PASS; böngészős megjelenítés ezen a körön nem futott**.

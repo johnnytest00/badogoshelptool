@@ -22,11 +22,12 @@ export function filterMaterialProductOptions(options: readonly WorkflowMaterialP
   return options.filter((option) => normalizeMaterialProductSearch(`${option.name} ${option.searchText}`).includes(normalizedQuery));
 }
 
-export function WorkflowMaterialProductPicker({ options, value, disabled, onSelect }: Readonly<{
+export function WorkflowMaterialProductPicker({ options, value, disabled, onSelect, idPrefix = "workflow-material-product" }: Readonly<{
   options: readonly WorkflowMaterialProductOption[];
   value: string;
   disabled: boolean;
   onSelect: (id: string) => void;
+  idPrefix?: string;
 }>) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -37,7 +38,7 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
   const [position, setPosition] = useState<PickerPosition>({ left: 12, top: 12, width: 320, maxHeight: 420 });
   const filteredOptions = useMemo(() => filterMaterialProductOptions(options, query), [options, query]);
   const selectedOption = options.find((option) => option.id === value);
-  const listId = "workflow-material-product-options";
+  const listId = `${idPrefix}-options`;
 
   const close = useCallback((restoreFocus = true) => {
     setIsOpen(false);
@@ -62,7 +63,7 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
       const rect = trigger.getBoundingClientRect();
       const isNarrow = viewportWidth <= 640;
       const width = Math.max(240, Math.min(isNarrow ? viewportWidth - 24 : 440, viewportWidth - 24));
-      const maxHeight = Math.max(180, Math.min(isNarrow ? 440 : 480, viewportHeight - 24));
+      const maxHeight = Math.max(120, Math.min(isNarrow ? 440 : 480, viewportHeight - 24));
       const left = isNarrow
         ? viewportLeft + (viewportWidth - width) / 2
         : Math.min(Math.max(viewportLeft + 12, rect.left), viewportLeft + viewportWidth - width - 12);
@@ -103,7 +104,7 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
       : (currentIndex + direction + filteredOptions.length) % filteredOptions.length;
     const next = filteredOptions[nextIndex];
     setActiveId(next.id);
-    window.requestAnimationFrame(() => document.getElementById(optionId(next.id))?.scrollIntoView({ block: "nearest" }));
+    window.requestAnimationFrame(() => document.getElementById(optionId(idPrefix, next.id))?.scrollIntoView({ block: "nearest" }));
   }
 
   function select(id: string) {
@@ -141,16 +142,16 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
       }}
     >
       <div className="workflow-material-product-search-row">
-        <label htmlFor="workflow-material-product-search">Keresés a kiválasztott kategória termékei között</label>
+        <label htmlFor={`${idPrefix}-search`}>Keresés a kiválasztott kategória termékei között</label>
         <input
           ref={inputRef}
-          id="workflow-material-product-search"
+          id={`${idPrefix}-search`}
           type="search"
           role="combobox"
           aria-autocomplete="list"
           aria-expanded="true"
           aria-controls={listId}
-          aria-activedescendant={activeId ? optionId(activeId) : undefined}
+          aria-activedescendant={activeId ? optionId(idPrefix, activeId) : undefined}
           value={query}
           onChange={(event) => { setQuery(event.target.value); setActiveId(null); }}
           placeholder="Termék keresése…"
@@ -158,7 +159,7 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
       </div>
       <div id={listId} className="workflow-material-product-options" role="listbox" aria-label="Kategóriába tartozó termékek">
         {filteredOptions.length ? filteredOptions.map((option) => <div
-          id={optionId(option.id)}
+          id={optionId(idPrefix, option.id)}
           key={option.id}
           className={`workflow-material-product-option${activeId === option.id ? " is-active" : ""}`}
           role="option"
@@ -174,7 +175,7 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
   </>;
 }
 
-function optionId(id: string) { return `workflow-material-product-option-${id}`; }
+function optionId(idPrefix: string, id: string) { return `${idPrefix}-option-${id}`; }
 
 function visualViewportListeners(viewport: VisualViewport | null, listener: () => void, add: boolean) {
   if (!viewport) return;

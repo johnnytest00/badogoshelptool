@@ -21,13 +21,15 @@ describe("workflow material product picker", () => {
       options,
       value: "",
       disabled: false,
+      idPrefix: "quotation-line-1",
       onSelect: () => undefined,
     }));
 
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).toContain('role="combobox"');
     expect(html).toContain('role="listbox"');
-    expect(html.indexOf('id="workflow-material-product-search"')).toBeLessThan(html.indexOf('role="listbox"'));
+    expect(html.indexOf('id="quotation-line-1-search"')).toBeLessThan(html.indexOf('role="listbox"'));
+    expect(html).toContain('id="quotation-line-1-options"');
     expect(html).toContain("Ár nincs megadva");
     expect(html).not.toContain('aria-selected="true"');
   });
