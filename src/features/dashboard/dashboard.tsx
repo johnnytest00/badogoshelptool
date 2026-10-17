@@ -10,6 +10,9 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { LogoutButton } from "@/features/auth/auth-controls";
 import { AccountManagementDialog } from "@/features/auth/account-management-dialog";
+import { GlassDisclosure } from "@/components/ui/glass-disclosure";
+import { LiquidGlassControls } from "@/features/preferences/liquid-glass-controls";
+import { LiquidGlassLayer } from "@/components/ui/liquid-glass-layer";
 import { dashboardFunctionHref, dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
 import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 import type { DashboardTab } from "@/features/dashboard/dashboard.types";
@@ -70,6 +73,7 @@ export function DashboardHeader({ displayName, email, organizationName, settings
 
   return (
     <header className="dashboard-header glass-navigation">
+      <LiquidGlassLayer radius={999} />
       <div className="brand-label" aria-label="TetőPro">
         <Image className="brand-icon" src={brandIcon} alt="" priority />
         <span>TETŐPRO</span>
@@ -88,11 +92,15 @@ export function DashboardHeader({ displayName, email, organizationName, settings
 export function DashboardSettings({ onOpenAccount }: Readonly<{ onOpenAccount: () => void }>) {
   const { mode, setMode } = useTheme();
   return <aside className="dashboard-settings-panel" id="dashboard-settings" role="dialog" aria-modal="false" aria-labelledby="dashboard-settings-title">
+    <LiquidGlassLayer radius={22} />
     <div className="settings-panel-heading"><h2 id="dashboard-settings-title">MEGJELENÉS</h2><button className="settings-account-trigger" type="button" onClick={onOpenAccount}>Fiókbeállítások</button></div>
     <section className="settings-theme-section" aria-labelledby="settings-theme-title"><h3 id="settings-theme-title">Szín</h3><select id="settings-theme-mode" className="settings-theme-select" aria-label="Szín megjelenítési mód" value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}><option value="system">Rendszer szerint</option><option value="light">Világos</option><option value="dark">Sötét</option></select>{mode === "system" && <p className="settings-theme-help">Az eszköz megjelenését követi.</p>}</section>
-    <ScalingControls idPrefix="settings-scale" keys={["text", "ui", "spacing", "drawing"]} />
-    <Link className="settings-demo-link" href="/demo/meretezes">Méretezési demo megnyitása <span aria-hidden="true">→</span></Link>
-    <p className="settings-storage-note">A megjelenítési beállítások ebben a böngészőben tárolódnak.</p>
+    <GlassDisclosure className="settings-disclosure" summary="Méretezések" libraryEffect>
+      <ScalingControls idPrefix="settings-scale" keys={["text", "ui", "spacing", "drawing"]} />
+    </GlassDisclosure>
+    <GlassDisclosure className="settings-disclosure" summary="Liquid Glass" libraryEffect>
+      <LiquidGlassControls />
+    </GlassDisclosure>
     <LogoutButton className="settings-logout-form" />
   </aside>;
 }
@@ -105,6 +113,7 @@ function DashboardTabs({ activeTab, onChange }: Readonly<{ activeTab: DashboardT
 
   return (
     <div className="dashboard-tabs" role="tablist" aria-label="Műhely áttekintő nézetei">
+      <LiquidGlassLayer radius={18} />
       {tabs.map((tab) => (
         <button
           className={`dashboard-tab ${activeTab === tab.id ? "is-active" : ""}`}
@@ -142,6 +151,7 @@ function FunctionLauncher({ item, organizationId }: Readonly<{ item: DashboardFu
   if (!organizationId) return null;
   return (
     <Link className={`function-launcher tone-${item.tone}`} href={dashboardFunctionHref(item.id, organizationId)}>
+      <LiquidGlassLayer radius={18} />
       <span className="function-icon"><Icon aria-hidden="true" className="size-6" /></span>
       <span className="function-copy"><strong>{item.label}</strong><span>{item.description}</span></span>
       <span className="function-arrow"><ArrowRight aria-hidden="true" className="size-5" /></span>

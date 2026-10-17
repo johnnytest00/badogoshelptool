@@ -11,6 +11,7 @@ vi.mock("@/components/navigation/guarded-link", () => ({ GuardedLink: ({ href, c
 vi.mock("@/features/auth/actions", () => ({ logoutAction: vi.fn() }));
 
 import { Dashboard, DashboardHeader, DashboardSettings } from "./dashboard";
+import { LiquidGlassProvider } from "@/features/preferences/liquid-glass-provider";
 
 describe("dashboard shared mobile header and full settings", () => {
   it("keeps one semantic title, the two tabs and six function cards without decorative introductions", () => {
@@ -38,8 +39,14 @@ describe("dashboard shared mobile header and full settings", () => {
   });
 
   it("keeps account management in full settings and places one secure logout form there", () => {
-    const html = renderToStaticMarkup(createElement(DashboardSettings, { onOpenAccount: () => undefined }));
+    const html = renderToStaticMarkup(createElement(LiquidGlassProvider, null, createElement(DashboardSettings, { onOpenAccount: () => undefined })));
     expect(html).toContain("Fiókbeállítások");
+    expect(html).toContain("Méretezések");
+    expect(html).toContain("Liquid Glass");
+    expect(html).toContain('id="liquid-glass-opacity"');
+    expect(html).toContain('value="0"');
+    expect(html).toContain('name="liquid-glass-tint"');
+    expect(html.match(/<details/g)).toHaveLength(2);
     expect(html).toContain('class="settings-logout-form"');
     expect(html).toContain("Kilépés");
     expect(html.match(/Kilépés/g)).toHaveLength(1);

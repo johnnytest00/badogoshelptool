@@ -1727,3 +1727,19 @@ Javasolt commit: `fix(F9.20.2): polish standalone liquid glass workflows`.
 Státusz: **PARTIAL — LOCAL UI**. A statikus és animált böngészős állapot, témaváltás, globális egyszeri vászon, route-ok és rajzzoom bizonyított; valós mobil/WebGL teljesítmény és hozzáférhetőségi médiaemuláció nem.
 
 Javasolt commit: `feat(F9.20.2): add global Vanta NET background`.
+
+## F9.21 — Global Liquid Glass React integration
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Könyvtár és SSR | PASS, CODE VERIFIED | `liquid-glass-react@1.1.1` exact pin; kliensoldali, mount utáni dinamikus betöltés a közös Glass felületekhez. A React 19-es app verziókompatibilitását az upstream csomag-referencia alapján ellenőriztem. |
+| Alkalmazásszintű felületek | PASS, COMPONENT TEST + DEMO | Glass fejléc/szekció/toolbar/disclosure, dashboard kártyák/fülek/panel, skálázó- és kalkulátorbuborék, valamint fiókdialog bekötve. Egy autentikált, helyi DEMO dashboardon vizuálisan ellenőrizve. Más route-on e mérföldkőhöz külön vizuális smoke nem futott. |
+| Üvegbeállítások | PASS, COMPONENT TEST + DEMO | v2 verziózott `localStorage`; opacity clamp 0–100%, validált hex tint, automatikus/egyéni mód és 0%-os induló fedettség. A v1-es régi 10%-os alapérték 0%-ra migrál, a testre szabott értékek megmaradnak. |
+| Eszközfallback / érintés | CODE + POLICY TEST / PARTIAL | A high-fidelity réteg desktop Chromiumra korlátozódik; Safari/Firefox/iOS, coarse pointer, reduced-motion/transparency, illetve alacsony CPU/RAM esetén a CSS fallback marad. A réteg nem fog pointer/touch eseményt. Fizikai mobil és WebGL/low-end teljesítménymérés nem történt. |
+| Téma és Vanta | PASS, LOCAL DEMO / PARTIAL | Sötét dashboard narancs NET hálóval vizuálisan megtekintve; világos/sötét mód váltva. Világos módban a háttér világos marad, a felső radiális fényköd eltűnik, a háló látható. 0%-os és 100%-os fedettségnél az üvegfelületek pereme, árnyéka és dekoratív React-üvegrétege eltűnik; a mezők/fókuszjelzések megmaradnak. Minden route-on teljes theme/regresszió nem futott. |
+| Fókuszált Vitest | PASS | `npx vitest run src/features/preferences/liquid-glass.test.ts src/components/ui/liquid-glass-policy.test.ts src/components/background/global-animated-background-policy.test.ts src/components/ui/glass-toolbar.test.tsx src/features/dashboard/dashboard-controls.test.tsx src/components/ui/glass-disclosure.test.tsx src/components/ui/glass-page-header.test.tsx src/components/ui/glass-section-header.test.tsx`: 8 fájl / 18 teszt PASS. |
+| Typecheck / lint / build / diff | PASS | `npm run lint`, `npm run build` (Next.js 16.4 webpack), build után `npm run typecheck` és dokumentáció-frissítés után `git diff --check`. Teljes Vitest suite nem futott. |
+| Adat / üzleti logika / hozzáférés | NEM VÁLTOZOTT | Csak UI, kliensoldali preferencia, CSS és függőség. DB/migráció, Auth/RLS, kalkulációs képlet és mentés nem módosult; hosted DB/Auth teszt nem futott. |
+| Responsive / hozzáférhetőség | PARTIAL | CSS fallback, pointer-events, reduced-motion/transparency és contrast védelem kódban jelen van. 1440/1024/768/390/320 teljes útvonal-mátrix, reduced-motion böngészőemuláció, screen reader, forced-colors és fizikai iOS nincs ellenőrizve. Exportált vizuális screenshot artifactum nem készült. |
+
+Státusz: **PARTIAL — LOCAL UI**. A függőség, app-szintű provider, konfigurációs vezérlők, szelektív Liquid Glass rétegek és statikus fallback implementálva; a komponens/static ellenőrzések és dashboard smoke sikeresek. A teljes útvonal és eszközmátrix nem bizonyított.

@@ -19,5 +19,5 @@ export function getBackgroundColor(isDark: boolean): number {
 }
 
 export function getNetworkColor(isDark: boolean): number {
-  return isDark ? 0xed6100 : 0xc94f00;
+  return isDark ? 0xed6100 : 0xb45309;
 }

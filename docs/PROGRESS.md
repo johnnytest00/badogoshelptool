@@ -2671,3 +2671,18 @@ Javasolt commit: `fix(F9.20.2): polish standalone liquid glass workflows`.
 **Korlátok:** 1440 px-en az emulátor coarse pointert jelentett, ezért a háttér statikus fallbacken maradt; aktív Vanta-rajzot 1900 px-es valódi desktop böngészőnézetben ellenőriztem. A csökkentett mozgás működését a policy-teszt és a CSS szabály bizonyítja, böngésző médiaemuláció nem futott. 320/390 px-en csak böngészős emuláció történt; fizikai mobil, iOS Safari, valós touch/pinch/scroll egyidejű mérés, alacsony teljesítményű eszközön FPS/WebGL-terhelés és forced-colors nem bizonyított. Böngészős oldalméretekhez nem készült exportált screenshot.
 
 Javasolt commit: `feat(F9.20.2): add global Vanta NET background`.
+
+## F9.21 — Globális Liquid Glass React-integráció
+
+Állapot: **IMPLEMENTED / PARTIAL — HELYI UI**.
+
+- A `liquid-glass-react@1.1.1` pontos verziója rögzített. A közös Glass fejléc-, szekciófejléc-, lenyíló- és toolbar-primitívek, a műhely fő kártyái, dashboard fülei, beállítási panelje, fiókdialogja, valamint a skálázó- és kalkulátorbuborékok most a könyvtárat használják. A Vanta-háttér és a rajz-SVG-k külön rétegen maradtak.
+- Az effekt csak kliensoldali mount után, dinamikusan töltődik be. A könyvtár Safari/Firefox, iOS, érintőkijelzős, reduced-motion/transparency és alacsony erőforrású környezetben CSS-es üvegmegjelenésre vált; az üvegréteg nem fogja az eseményeket. A CSS fallback a beállított fedettséget, témát és tintet követi.
+- A Beállításokban külön Liquid Glass csoport állítja a 0–100%-os fedettséget, automatikus tématintet vagy egyéni színt. Verziózott, validált `localStorage` értékek őrzik meg ezeket; az új alapérték 0%, automatikus szín. A régi v1-es 10%-os első használati érték 0%-ra migrálódik, az eltérő személyre szabott értékek és színek megmaradnak.
+- Világos módban a háttéralap világos marad, a globális háttérréteg radiális fényei is kikapcsolnak. 0%-os alapfedettségnél, illetve 100%-os fedettségnél a fő üvegfelületek kerete, árnyéka és külön dekoratív React-üvegrétege eltűnik; a fókuszgyűrűk és űrlapmezők határa megmarad. A NET-háló melegebb, jól látható narancsot használ. A felmérés mérési mezői, interaktív műszaki rajzok, üzleti logika, adatbázis, Auth/RLS és mentési szerződések nem változtak.
+
+**Böngészős bizonyíték / korlát:** autentikált helyi DEMO dashboardon a sötét Vanta háttér, az üvegfejléc, a fülek és öt fő munkafolyamat-kártya látható volt. Beállításokban a Liquid Glass fedettség- és színtint vezérlői megjelentek; a világos/sötét téma váltását ellenőriztem, majd a sötét témát visszaállítottam. A folytatás ellenőrzése a helyi, világos témájú, 100%-os fedettségű dashboardon történt: a felső fényköd és a négy sarok dekoratív pereme nem látszott; a felhasználói fedettség-beállítást megőriztem. A böngészős lefedés egy dashboard smoke; a 12 útvonal és 1440/1024/768/390/320 viewport teljes vizuális mátrixa, fizikai iOS/Safari, valódi touch, reduced-transparency emuláció, képernyőolvasó és forced-colors nincs bizonyítva. Exportálható kép-artifactumot nem mentettem. Az animáció fallback döntése kód- és egységteszttel igazolt, alacsony kategóriás fizikai eszközön FPS-mérés nem történt.
+
+**Ellenőrzések:** fókuszált Vitest: 8 fájl / 18 teszt PASS. `npm run lint`, `npm run build` (Next.js 16.4 webpack), a build után `npm run typecheck` és dokumentáció után `git diff --check` PASS. Teljes Vitest suite, hosted DB/Auth/RLS teszt és a teljes böngészős útvonal/viewport mátrix nem futott.
+
+Javasolt commit: `feat(F9.21): integrate configurable liquid glass surfaces`.

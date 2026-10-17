@@ -4,16 +4,19 @@
   --background: #f5f7fb;
   --foreground: #0f172a;
   --muted: #475569;
-  --surface: #ffffff;
+  --glass-opacity: 0%;
+  --glass-custom-tint: #ffffff;
+  --glass-tint: #ffffff;
+  --surface: rgba(255, 255, 255, 0.1);
   --surface-strong: #ffffff;
-  --surface-subtle: #f5f7fa;
-  --surface-glass: rgba(247, 250, 255, 0.72);
+  --surface-subtle: rgba(255, 255, 255, 0.14);
+  --surface-glass: rgba(255, 255, 255, 0.1);
   --glass-border: rgba(255, 255, 255, 0.76);
-  --glass-highlight: rgba(255, 255, 255, 0.88);
+  --glass-highlight: rgba(255, 255, 255, 0.24);
   --glass-blur: 22px;
   --glass-saturation: 155%;
   --glass-radius: 999px;
-  --glass-elevation: 0 1rem 2.4rem rgba(15, 23, 42, 0.13);
+  --glass-elevation: 0 0.55rem 1.45rem rgba(15, 23, 42, 0.055);
   --border: #d9e0e8;
   --brand: #e85d04;
   --brand-ink: #c2410c;
@@ -42,10 +45,11 @@ html[data-theme="dark"] {
   --background: #0b1220;
   --foreground: #e5edf8;
   --muted: #b6c2d4;
-  --surface: #141f2d;
-  --surface-strong: #192637;
-  --surface-subtle: #101923;
-  --surface-glass: rgba(22, 32, 46, 0.72);
+  --glass-tint: #172536;
+  --surface: rgba(23, 37, 54, 0.1);
+  --surface-strong: rgba(23, 37, 54, 0.42);
+  --surface-subtle: rgba(23, 37, 54, 0.16);
+  --surface-glass: rgba(23, 37, 54, 0.1);
   --glass-border: rgba(220, 234, 250, 0.28);
   --glass-highlight: rgba(246, 250, 255, 0.22);
   --border: #2a3a4d;
@@ -60,6 +64,23 @@ html[data-theme="dark"] {
   --glass-elevation: 0 1rem 2.6rem rgba(0, 0, 0, 0.34);
 }
 
+html[data-glass-tint-mode="custom"] { --glass-tint: var(--glass-custom-tint); }
+
+@supports (background: color-mix(in srgb, white 10%, transparent)) {
+  :root {
+    --surface: color-mix(in srgb, var(--glass-tint) var(--glass-opacity), transparent);
+    --surface-strong: color-mix(in srgb, var(--glass-tint) max(var(--glass-opacity), 42%), transparent);
+    --surface-subtle: color-mix(in srgb, var(--glass-tint) max(var(--glass-opacity), 16%), transparent);
+    --surface-glass: color-mix(in srgb, var(--glass-tint) var(--glass-opacity), transparent);
+  }
+  html[data-theme="dark"] {
+    --surface: color-mix(in srgb, var(--glass-tint) var(--glass-opacity), transparent);
+    --surface-strong: color-mix(in srgb, var(--glass-tint) max(var(--glass-opacity), 42%), transparent);
+    --surface-subtle: color-mix(in srgb, var(--glass-tint) max(var(--glass-opacity), 16%), transparent);
+    --surface-glass: color-mix(in srgb, var(--glass-tint) var(--glass-opacity), transparent);
+  }
+}
+
 * { box-sizing: border-box; }
 
 html { background: var(--background); }
@@ -72,6 +93,8 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+html[data-theme="light"] body { background: var(--background); }
 
 .page-shell { min-height: 100vh; padding: var(--space-page); }
 .brand-label { display: flex; align-items: center; gap: .75rem; color: var(--foreground); font-size: .875rem; font-weight: 700; letter-spacing: .08em; }
@@ -976,10 +999,13 @@ body {
 .dashboard-container { width: min(100%, 72rem); }
 
 .glass-navigation, .glass-toolbar {
+  position: relative;
+  isolation: isolate;
   border: 1px solid var(--glass-border);
   background: var(--surface-glass);
   box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevation);
 }
+.glass-toolbar > :not(.tp-liquid-glass-effect) { position: relative; z-index: 1; }
 .dashboard-header.glass-navigation { min-height: 3.5rem; padding: .5rem .65rem; border-radius: 1rem; }
 .back-navigation.glass-navigation { display: inline-flex; min-height: 2.75rem; align-items: center; gap: .5rem; border-radius: 999px; color: var(--foreground); padding: .45rem .85rem; text-decoration: none; }
 .back-navigation.glass-navigation:hover { border-color: color-mix(in srgb, var(--brand) 48%, var(--glass-border)); color: var(--brand-ink); }
@@ -1197,6 +1223,9 @@ body { position: relative; isolation: isolate; }
     radial-gradient(ellipse at 90% 80%, rgba(114, 86, 163, .04), transparent 42rem),
     var(--background);
 }
+html[data-theme="light"] .global-animated-background {
+  background: var(--background);
+}
 html[data-theme="dark"] .global-animated-background {
   background:
     radial-gradient(ellipse at 78% 6%, rgba(237, 97, 0, .055), transparent 35rem),
@@ -1209,7 +1238,7 @@ html[data-theme="dark"] .global-animated-background {
   pointer-events: none !important;
   opacity: .95;
 }
-html[data-theme="light"] .global-animated-background canvas.vanta-canvas { opacity: .09; }
+html[data-theme="light"] .global-animated-background canvas.vanta-canvas { opacity: .66; }
 @media (prefers-reduced-motion: reduce) {
   .global-animated-background canvas.vanta-canvas { display: none !important; }
 }
@@ -3385,4 +3414,165 @@ textarea {
   .standalone-quotation-editor > .standalone-quotation-header, .standalone-quotation-editor .quotation-line,
   .standalone-quotation-editor .quotation-document-disclosure, .standalone-quotation-editor .issuer-profile,
   .standalone-quotation-editor .quotation-summary > div { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* F9.21: the shared appearance token drives every existing surface; the library is an opt-in rim layer. */
+.tp-liquid-glass-effect {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  touch-action: none;
+  contain: paint;
+}
+.tp-liquid-glass-react-root {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+  pointer-events: none !important;
+}
+.tp-liquid-glass-react-root .glass {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: inherit !important;
+  background: color-mix(in srgb, var(--glass-tint) var(--glass-opacity), transparent) !important;
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevation) !important;
+}
+.tp-liquid-glass-react-root .glass > div {
+  width: 100%;
+  height: 100%;
+  color: transparent !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  text-shadow: none !important;
+  pointer-events: none !important;
+}
+.tp-liquid-glass-fill { display: block; width: 100%; height: 100%; }
+
+.glass-page-header,
+.glass-section-header,
+.dashboard-header.glass-navigation,
+.dashboard-tabs,
+.dashboard-settings-panel,
+.settings-disclosure,
+.account-management-dialog,
+.scaling-quick-cluster,
+.scaling-launcher {
+  position: relative;
+  isolation: isolate;
+}
+.glass-page-header > :not(.tp-liquid-glass-effect),
+.glass-section-header > :not(.tp-liquid-glass-effect),
+.dashboard-header.glass-navigation > :not(.tp-liquid-glass-effect),
+.dashboard-tabs > :not(.tp-liquid-glass-effect),
+.dashboard-settings-panel > :not(.tp-liquid-glass-effect),
+.settings-disclosure > summary,
+.settings-disclosure > .glass-disclosure-content,
+.account-management-dialog > :not(.tp-liquid-glass-effect),
+.scaling-quick-cluster > :not(.tp-liquid-glass-effect),
+.scaling-launcher > :not(.tp-liquid-glass-effect) {
+  position: relative;
+  z-index: 1;
+}
+.glass-section-header { border-radius: var(--radius-card); }
+.glass-section-header > :not(.tp-liquid-glass-effect) { min-width: 0; }
+.function-launcher { position: relative; isolation: isolate; }
+.function-launcher > :not(.tp-liquid-glass-effect) { position: relative; z-index: 1; }
+.dashboard-settings-panel { background: var(--surface-glass); }
+.settings-disclosure { margin-top: .7rem; }
+.settings-disclosure > summary { min-height: 3rem; }
+.settings-disclosure .glass-disclosure-content { padding: .2rem .45rem .55rem; }
+.settings-disclosure .glass-disclosure-content > div { gap: .8rem; }
+.settings-theme-section { margin-bottom: .75rem; }
+.liquid-glass-settings { display: grid; gap: .65rem; min-width: 0; }
+.liquid-glass-setting-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.liquid-glass-setting-row label, .liquid-glass-tint-options legend, .liquid-glass-color-row label { color: var(--foreground); font-size: calc(.84rem * var(--tp-text-scale)); font-weight: 700; }
+.liquid-glass-setting-row output { min-width: 3.3rem; color: var(--brand-ink); font-size: calc(.9rem * var(--tp-text-scale)); font-variant-numeric: tabular-nums; font-weight: 800; text-align: right; }
+.liquid-glass-opacity { width: 100%; min-height: 2.6rem; accent-color: var(--brand); cursor: pointer; }
+.liquid-glass-opacity:focus-visible, .liquid-glass-tint-options input:focus-visible, .liquid-glass-color-row input:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.liquid-glass-help { margin: -.35rem 0 0; color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.45; }
+.liquid-glass-tint-options { display: grid; gap: .5rem; min-width: 0; margin: .15rem 0 0; border: 1px solid var(--glass-border); border-radius: .9rem; background: var(--surface-glass); padding: .6rem .75rem .7rem; }
+.liquid-glass-tint-options legend { padding-inline: .25rem; }
+.liquid-glass-tint-options label { display: flex; align-items: center; gap: .55rem; color: var(--foreground); font-size: calc(.8rem * var(--tp-text-scale)); line-height: 1.4; }
+.liquid-glass-tint-options input { width: 1.05rem; height: 1.05rem; accent-color: var(--brand); }
+.liquid-glass-color-row { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr) 3rem; align-items: center; gap: .65rem; min-height: 2.8rem; }
+.liquid-glass-color-preview { width: 2rem; height: 2rem; border: 1px solid var(--glass-border); border-radius: .65rem; background: var(--glass-tint); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-control); }
+.liquid-glass-color-row input[type="color"] { width: 3rem; height: 2.35rem; border: 1px solid var(--glass-border); border-radius: .65rem; background: var(--surface-strong); padding: .2rem; cursor: pointer; }
+.liquid-glass-color-row input[type="color"]:disabled { cursor: not-allowed; opacity: .55; }
+.liquid-glass-reset { justify-self: start; min-height: 2.6rem; }
+.scaling-launcher { overflow: hidden; }
+.scaling-launcher > svg { position: relative; z-index: 1; }
+
+html[data-glass-frame-free="true"] :is(
+  .glass-navigation,
+  .glass-toolbar,
+  .glass-page-header,
+  .glass-section-header,
+  .glass-bubble,
+  .glass-disclosure,
+  .dashboard-tabs,
+  .dashboard-settings-panel,
+  .settings-disclosure,
+  .account-management-dialog,
+  .scaling-quick-cluster,
+  .scaling-launcher,
+  .function-launcher,
+  .roof-workspace-surface,
+  .roof-type-card,
+  .project-filters,
+  .client-search,
+  .filter-search,
+  .empty-state,
+  .project-facts-section,
+  .project-edit-disclosure,
+  .gutter-run,
+  .flashing-run,
+  .execution-overview-list li,
+  .preparation-source-choice,
+  .execution-project-group,
+  .execution-project-group > header,
+  .project-workflow-link,
+  .survey-workflow-tile,
+  .survey-workflow-attach,
+  .execution-direct-plan-list li > a,
+  .execution-linked-survey,
+  .material-product-card,
+  .project-action-menu,
+  .project-action-menu-trigger,
+  .project-archive-confirm,
+  .workflow-material-settings-panel,
+  .glass-confirmation-dialog,
+  .glass-toast,
+  .route-skeleton-surface,
+  .saved-calculation-filters,
+  .saved-calculation-card,
+  .standalone-quotation-header,
+  .quotation-line
+) {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+html[data-glass-frame-free="true"] .tp-liquid-glass-react-root .glass { box-shadow: none !important; }
+html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
+
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass-opacity: 100% !important; }
+  .tp-liquid-glass-effect { display: none; }
+}
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+  .tp-liquid-glass-effect { display: none; }
+}
+@media (forced-colors: active) {
+  .settings-disclosure, .liquid-glass-tint-options, .liquid-glass-color-preview { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; }
+}
+@media (max-width: 560px) {
+  .dashboard-settings-panel { padding: 1rem; }
+  .liquid-glass-color-row { grid-template-columns: 2rem minmax(0, 1fr) 2.8rem; gap: .5rem; }
+  .liquid-glass-color-preview { width: 1.8rem; height: 1.8rem; }
 }

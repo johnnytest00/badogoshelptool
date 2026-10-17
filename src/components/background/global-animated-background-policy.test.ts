@@ -21,6 +21,6 @@ describe("global animated background policy", () => {
     expect(getBackgroundColor(true)).toBe(0x0b1220);
     expect(getBackgroundColor(false)).toBe(0xf5f7fb);
     expect(getNetworkColor(true)).toBe(0xed6100);
-    expect(getNetworkColor(false)).toBe(0xc94f00);
+    expect(getNetworkColor(false)).toBe(0xb45309);
   });
 });
