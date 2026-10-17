@@ -1,5 +1,23 @@
 # Tesztmátrix
 
+## F9.29 — Architecture Audit & Workflow Rationalization
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| TS/TSX inventory és besorolások | PASS | `rg --files -g '*.ts' -g '*.tsx'` összevetve a `funkciok.md` bejegyzéseivel: 441 / 441 egyedi útvonal, hiányzó/többlet/duplikátum nincs. Négy korábbi POSSIBLY UNUSED elem egyedileg ellenőrizve. |
+| Survey→calculator ismétlődő státusz | PASS, FOCUSED VITEST + LOCAL BROWSER | `workspace-calculator.test.tsx` ellenőrzi, hogy a forrásrevíziót jelző gyermek-banner egyszer jelenik meg; local production browserben survey→roof calculator panel megnyílt, desktop és 390×844 nézetben mentés nélkül. 390 px-en body/document szélesség 390 px, horizontal overflow nélkül. A helyi félkonty/konty fixture gable-specifikus hiányzó mezőket mutat; kompatibilitási finding, teljes számítás nem verifikált. |
+| Ajánlati státusztípus | PASS, TYPECHECK + DOMAIN TEST | `quotation-data.ts` a domain `QuotationStatus`-t exportálja tovább és type-only importálja; `status.test.ts` az átmeneti szabályokat ellenőrzi. DB RPC marad a státuszváltás jogosultsági forrása. |
+| Fókuszált Vitest | PASS | `npx vitest run src/features/field-surveys/workspace-calculator.test.tsx src/features/roof-models/standalone-gable-preview.test.ts src/domain/quotations/status.test.ts`: 3 fájl / 6 teszt. Teljes suite nem futott. |
+| Régi DB hibák célzott reprodukció | FAIL, LOCAL PGTAP | A négy tesztfájl tervszámainak összege 221 assertion: `001` 28/172 fail; `009` abort a régi `save_gable_roof_calculation` fixture-nél (3/21 futott); `011` 14/19 fail, első source-linked V1 mentés P0002; `029` abort ugyanezen visszavont RPC miatt (2/9 futott). `001`/`011` tényleges roof-source lock hibát is reprodukál; `009`/`029` főként elavult setup miatt nem mérvadó. A test elvárásokat nem gyengítettem, DB security/migráció nincs változtatva. |
+| Helyi migration állapot | PASS, READ ONLY | A lokális migration ledger egyezett a repository migrációkkal `20261017110000`-ig. A tesztfájlok rollback tranzakciói futottak; reset, hosted DB és üzleti adatírás nem történt. |
+| Typecheck / lint / build / diff | PASS | `npm run lint`, `npm run build` (Next.js 16.4.0 webpack), build befejezése után `npm run typecheck`, végső `git diff --check`. A builddel párhuzamos első typecheck átmenetileg hiányos `.next/types` listát látott; build után sorosan újrafuttatva PASS. |
+| Teljes workflow és reszponzív vizsgálat | NEM TELJES | Anyaglista→ajánlat→accepted quotation→munkanapló, valós mobil viewport, screen reader és hosted Auth/RLS nem futott. A helyi browse smoke csak read-only felmérés→roof-calculator nyitás; a jelenlegi seed tetőformája nem a workspace gable bemenetével egyezett. |
+| Biztonságos módosítások | PASS, CODE REVIEW | Csak a redundáns szülő UI-szöveg került ki és a quotation státusztípus duplikációja szűnt meg. Nincs adat-/séma-/jogosultság-, revision-, route- vagy integrációváltozás. |
+
+Státusz: **AUDIT KÉSZ / SAFE FIXES VERIFIED; BACKEND FIX DOKUMENTÁLVA KÜLÖN SECURITY MIGRÁCIÓHOZ.**
+
+Javasolt Conventional Commit: `refactor(F9.29): rationalize survey and quotation workflows`.
+
 ## F9.27.2 — Anyaglista szerkesztő UX-stabilizálása
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

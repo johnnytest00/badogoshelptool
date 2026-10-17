@@ -1,5 +1,19 @@
 # F7.3.2 állapot
 
+## F9.29 — Architecture Audit & Workflow Rationalization
+
+Státusz: **AUDIT KÉSZ / SAFE FIXES VERIFIED — a dokumentációt és workflow-függőségeket frissítettem; két alacsony kockázatú UI/típusduplikációt javítottam. A forráskapcsolt lemezkiosztás- és flashing mentési hibák reprodukálva, de külön security mérföldkőre kerültek.**
+
+- **Architecture inventory:** a `funkciok.md` jelenleg 441 projekt által kezelt TS/TSX fájlt sorol fel; 441 egyedi útvonal, nincs hiány/többlet. A 440-es F9.28 állapothoz az új `workspace-calculator.test.tsx` hozzáadódott. A négy POSSIBLY UNUSED fájlból az ajánlati státusztípus domain-forrása most a feature type-only importja, így INTERNAL; a registry, geometry primitives és project-list továbbra is csak tesztből fogyasztott/árva nézet, törlésük nem történt.
+- **Workflow-rationalization:** a `workspace-calculator.tsx` szülő fejlécéből eltávolítottam a gyermekben már megjelenő survey source státusz ismétlését. A `quotation-data.ts` a domain `QuotationStatus` típust használja és exportálja tovább. A napi UX audit korábbi F9.25 pillanatképe frissült, mert F9.27 óta van survey→anyaglista import és F9.27.2 óta üres standalone lista mentés.
+- **Backend root cause:** `001`/`011` valódi runtime mentési hibát is ad. A `save_metal_sheet_layout` `FOR UPDATE` és a `save_flashing_material_calculation` `FOR SHARE` nem tudja zárolni a roof source sort az authenticated restrictive UPDATE policy mellett. A `001`, `009`, `029` pedig a F9.10-ben visszavont `save_gable_roof_calculation` RPC-t használó fixture-eket tartalmaz. Részletes root-cause és elkülönített biztonságos javítási javaslat: [F9_29_SIMPLIFICATION_AUDIT.md](F9_29_SIMPLIFICATION_AUDIT.md), [DATABASE.md](DATABASE.md).
+- **Workflow limit:** a helyi böngészős smoke a mentett félkonty/konty felmérésből nyitott roof workspace-t; a gyermek source banner látszik, de a gable-specifikus hossz/szélesség/túlnyúlás mezők üresek. Roof-type-compatible handoff külön domain/product mérföldkő. Anyaglista→ajánlat→accepted quotation→munkanapló teljes E2E nem futott.
+- **Biztonsági és adatkonzisztencia bizonyíték:** nem változott migration, tábla, Auth, RLS, RPC, saved record vagy historic revision. A source-linked írónál membership, exact source, immutable revision és concurrency-javítás szükséges; emiatt nem próbáltam a security gate-et kikerülni. Hosted Supabase nem volt elérve.
+
+**Ellenőrzések:** fókuszált Vitest `workspace-calculator.test.tsx`, `standalone-gable-preview.test.ts`, `status.test.ts` — 3 fájl / 6 teszt PASS; `npm run lint`, build után `npm run typecheck`, `npm run build` (Next.js 16.4.0 webpack), 441/441 inventory egyeztetés és `git diff --check` PASS. Helyi DB: célzott `001`, `009`, `011`, `029` futás reprodukálta a dokumentált hibákat (001: 28/172 assertion fail; 009: deprecated gable fixture miatt abort, 3/21 futott; 011: 14/19 assertion fail, első source-linked V1 mentés `P0002`; 029: deprecated gable fixture miatt abort, 2/9 futott). Teljes Vitest és teljes DB suite ebben a mérföldkőben nem futott. Böngésző: helyi production, hitelesített DEMO, survey lista→V3 survey→roof calculator, read-only; a forrásbanner ismétlése megszűnt. 390×844-ben document/body 390 px, vízszintes overflow nélkül. A kiválasztott tetőforma geometry handoffja partial.
+
+Javasolt Conventional Commit: `refactor(F9.29): rationalize survey and quotation workflows`.
+
 ## F9.27.2 — Anyaglista szerkesztő UX-stabilizálása
 
 Státusz: **IMPLEMENTED / VERIFIED SCOPE — mobil/desktop szerkesztő, mentés és újranyitás, standalone üres piszkozat és helyi adatbázis regressziók célzottan ellenőrizve. Teljes Vitest suite és fizikai mobil teszt ebben a körben nem futott.**

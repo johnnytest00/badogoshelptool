@@ -1,5 +1,40 @@
 # F2.1 adatbázis-alap
 
+## F9.29 — jelenlegi regression audit (2026-10-17)
+
+A helyi migration ledger a forrásban lévő migrációkkal egyezett `20261017110000`-ig.
+A négy korábban hibás pgTAP fájl (`001`, `009`, `011`, `029`) célzott helyi
+újrafuttatása megerősítette, hogy vegyesen van köztük elavult tesztfixture és
+valódi írási hiba. Az alábbi állapot a mostani migrationsorozatra vonatkozik;
+a korábbi mérföldkövek PASS bejegyzései az akkori sémaváltozat bizonyítékai.
+
+- `save_gable_roof_calculation` régi authenticated EXECUTE jogát a
+  `20261015160900_secure_gable_roof_writer.sql` visszavonja. A gable írás
+  jelenlegi útja a `save_gable_roof_calculation_secure` SECURITY DEFINER RPC,
+  amit a szerveradapter a `tetopro_covering_writer` szereppel hív; az RPC
+  `p_actor_id` alapján tagságot ellenőriz, műveletazonosítót, várt verziót és
+  immutable source snapshotokat tart fenn. A `001`, `009` és `029` régi
+  fixture-ei továbbra is a visszavont publikus RPC-t hívják, ezért ezek a
+  kalkulációs mentést érdemben nem tesztelik.
+- A `20261015161000_roof_model_browser_write_guard.sql` authenticated szerepre
+  restrictive `UPDATE ... USING (false)` policyt vezet be a `roof_models`
+  táblán. A `save_metal_sheet_layout` authenticated SECURITY INVOKER RPC mégis
+  `FOR UPDATE` zárolja a source modellt. Az `001_foundation.sql` tagként
+  futtatott próbája `40001` stale source hibával reprodukálja ezt; az RPC-t a
+  `src/features/roof-models/sheet-layout-actions.ts` használja. A layout
+  mentés és ebből az anyaglista-tervezet nem érhető el ebben az útvonalban.
+- A `save_flashing_material_calculation` authenticated EXECUTE joggal maradt
+  SECURITY INVOKER. A forrásolt gable-szegély esetén a `roof_models ... FOR
+  SHARE` source-zárás a restrictive update policyval ütközik; az `011` próbája
+  `P0002` hibát ad, a kliensoldali action ugyanazt az RPC-t hívja. A későbbi V2,
+  dependency és revision-immutability állítások azért is buknak, mert a V1
+  létrehozása előtte megszakad.
+- Javítás külön backend mérföldkő: célzott, szerveroldali writer vagy ugyanilyen
+  szűkített SECURITY DEFINER út, explicit actor/org-tagság és projekt/source
+  ellenőrzéssel, expected-version/idempotencia és változatlan revízió-
+  immutabilitás mellett. Ezt biztonsági és konkurenciatesztekkel kell igazolni;
+  F9.29-ben sem migráció, sem tábla/policy-jogosultság változás nem történt.
+
 ## F9.7.6.6.1 — standalone quotation backend
 
 `20261014030000_standalone_quotations.sql` a meglévő quotation/revision táblákat
@@ -234,6 +269,10 @@ közben mentett adatot. A függvényhez anon és public EXECUTE nincs; service-r
 nem szükséges. A `roof.gable` input/output JSON-t az alkalmazás a tiszta domain
 kalkulátorral ellenőrzi és számolja ki a függvény meghívása előtt.
 
+Ez a F5 leírás az eredeti RPC-történetet rögzíti. A jelenlegi írási jogosultságot
+a F9.10 server-only átállás felülírja: authenticated kliens közvetlenül nem
+hívhatja a régi `save_gable_roof_calculation` RPC-t.
+
 ## F7.2 anyagkimutatás
 
 Az `20261012050000_material_takeoffs.sql` a mentett, ellenőrzött kalkulációs
@@ -396,7 +435,7 @@ A `20261013080500_flashing_calculation_persistence.sql` új, szervezet/projekt/k
 
 A mentés külön dependency sort rögzít a tetőmodell-revízióra és a geometriai kalkulációs revízióra. Az UI szerveroldalon újraszámol, nem küldött kliens-outputot használ; az RPC az exact upstream ownershipet és mező-hozzárendelést újra validálja. A célzott `011_flashing_calculation.sql` pgTAP lefedi a V1/V2 létrehozást, snapshot-megőrzést, mindkét dependencyt, expected-revision konfliktust, nem támogatott/keresztprojekt forrást, nem tag olvasását/írását és közvetlen revision módosítás/törlés tiltását.
 
-Helyi bizonyíték: a `20261013080500` migráció incremental módon alkalmazva; a célzott `011_flashing_calculation.sql` pgTAP része és az F9.6.2.2.1 végső lokális ellenőrzésben dokumentált 11 fájl / 329 állítás PASS. Hosted adatbázis nem célpont.
+Helyi történeti bizonyíték: a `20261013080500` migráció incremental módon alkalmazva; az akkori célzott `011_flashing_calculation.sql` pgTAP része és az F9.6.2.2.1 végső lokális ellenőrzésben dokumentált 11 fájl / 329 állítás PASS. A későbbi roof-model write guard után a jelenlegi reprodukció hibázik; lásd e dokumentum F9.29 regressziós auditját. Hosted adatbázis nem célpont.
 
 ## F9.6.2.3 — flashing takeoff draft RPC
 

@@ -1,7 +1,9 @@
 import { createClient } from "@/infrastructure/supabase/server";
 import { getMaterialProductsForOrganization, type MaterialVariantRecord } from "@/features/materials/material-data";
+import type { QuotationStatus } from "@/domain/quotations/status";
 
-export type QuotationStatus = "draft" | "finalized" | "sent" | "accepted" | "rejected";
+export type { QuotationStatus } from "@/domain/quotations/status";
+
 export type QuotationStatusEvent = { id: string; fromStatus: QuotationStatus; toStatus: QuotationStatus; eventAt: string; actedBy: string | null; note: string | null; finalizedRevisionId: string | null };
 export type QuotationRecord = { id: string; name: string; version: number; clientId: string | null; clientName: string | null; currentRevisionId: string | null; finalizedRevisionId: string | null; finalizedAt: string | null; status: QuotationStatus; createdAt: string; updatedAt: string; lines: Array<Record<string, unknown>>; subtotal: string | null; priceClass: "net" | "gross" | null; currency: string; statusEvents: QuotationStatusEvent[]; revisions: Array<{ id: string; number: number; createdAt: string; subtotal: string | null }> };
 type QuotationQuery = { select: (columns: string) => QuotationQuery; eq: (column: string, value: string) => QuotationQuery; order: (column: string, options: { ascending: boolean }) => Promise<{ data: Array<{ id: string; name: string; version: number; client_id: string | null; current_revision_id: string | null; finalized_revision_id: string | null; finalized_at: string | null; status: "draft" | "finalized"; currency: string; created_at: string; updated_at: string }> | null; error: { message: string } | null }> };

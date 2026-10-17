@@ -2,6 +2,8 @@
 
 **Állapot:** **PARTIAL** — az új navigáció és a mentett felmérés/számítás újranyitása helyi, hitelesített böngészőben ellenőrizve; az üzleti átadási lánc egy része nem futtatható meglévő DEMO-anyaglista/elfogadott ajánlat nélkül, a mobil viewport-sorozat pedig nem volt emulálható.
 
+**Aktuális kiegészítés (F9.29, 2026-10-17):** a lentebbi első állapotfelmérés F9.25-kori pillanatkép. Az F9.27 azóta megvalósította a mentett felmérésből indítható, forrásrevízióhoz kötött anyaglistát; az F9.27.2 pedig az önálló, üres anyaglista-piszkozat mentését. Ezért a későbbi táblákban szereplő „felmérésből nincs közvetlen import” és „legalább egy tétel kell” megállapítás történeti, már nem aktuális. A jelenlegi átadási lánc korlátai és a F9.29 által reprodukált adatbázis-hibák a [F9.29 egyszerűsítési auditban](F9_29_SIMPLIFICATION_AUDIT.md) vannak összefoglalva.
+
 ## Hatókör és módszer
 
 Áttekintett területek: `/`, `/kalkulatorok`, `/kalkulatorok/epitesi`, `/kalkulatorok/mentett`, `/felmeresek`, `/felmeresek/uj`, `/anyaglistak`, `/anyaglistak/uj`, `/ajanlatok`, `/ajanlatok/uj`, `/kivitelezes`, `/kivitelezes/uj`; továbbá a suite-választó, a felmérés-szerkesztő, az anyaglista-szerkesztő, az ajánlatszerkesztő, a kivitelezési tervező és a kapcsolódó workspace actionök.
@@ -12,9 +14,9 @@ A felmérési, anyaglista-, ajánlati és munkanapló-folyamat szervezeti jogosu
 
 | Terület | Belépés és szükséges adat | Meglévő folytatás / újrafelhasználás | Állapot |
 |---|---|---|---|
-| Felmérés | Dashboard → `/felmeresek` → `Új felmérés`; új felmérésnél munkatípus-választás. Projekt és tetőforma nélkül is menthető; a mérések és további mezők opcionálisak, amíg nincs számításhoz szükség rájuk. | Mentett listaelem újranyitja a felmérést; revízióválasztás és piszkozat-visszaállítás/eldobás elérhető. A mentett tetőfelmérésből a meglévő geometriai kalkulátorok és a munkanaplóhoz kötés indítható. | Megvalósított. |
-| Anyaglista | `/anyaglistak` → `Új anyaglista`; mentéshez lista és legalább egy tétel szükséges. Projekt, munkanapló, katalógus és ár nélkül is indítható kézi tételként. | A mentett lista újranyitható. Egy kiválasztott, mentett lista-revízióból közvetlenül ajánlati piszkozat nyitható; a forrásrevíziót és tételkapcsolatot átadja. | Kódban megvalósított; a böngészőben most nem tesztelhető, mert a helyi szervezetben nem volt mentett anyaglista. |
-| Árajánlat | `/ajanlatok` → `Új árajánlat`; önálló piszkozatként indítható, ügyfélkapcsolat és katalógus nélkül. | Az anyaglista mentett revíziójából a sorok átadhatók a piszkozatba; a felhasználó ezeket tovább szerkesztheti. A különálló piszkozat nem azonos a hivatalos, véglegesített/elküldött ajánlattal. | Piszkozat-indítás kódban megvalósított; anyaglista import böngészőből nem próbálható meglévő forrásrekord nélkül. |
+| Felmérés | Dashboard → `/felmeresek` → `Új felmérés`; új felmérésnél munkatípus-választás. Projekt és tetőforma nélkül is menthető; a mérések és további mezők opcionálisak, amíg nincs számításhoz szükség rájuk. | Mentett listaelem újranyitja a felmérést; revízióválasztás és piszkozat-visszaállítás/eldobás elérhető. Mentett forrásrevízióból számítás, támogatott anyaglista-import és munkanapló-kapcsolás indítható. | Megvalósított; forrásadat és mértékegység ellenőrzése korlátozza az importot. |
+| Anyaglista | `/anyaglistak` → `Új anyaglista`; önálló piszkozat üresen is menthető. Felmérésből csak támogatott, forrásolt sorok kerülnek át; projekt, munkanapló, katalógus és ár nélkül kézi tételként is folytatható. | Mentett lista újranyitható. A forrásművelet mentett lista-revíziót visz az ajánlati piszkozatba; az immutable forráshivatkozás megmarad. | Megvalósított; helyi DEMO szervezetben a F9.27 anyaglista-átadás korábban ellenőrizve, az F9.25-es körben forrásrekord hiányzott. |
+| Árajánlat | `/ajanlatok` → `Új árajánlat`; önálló piszkozatként indítható, ügyfélkapcsolat és katalógus nélkül. | Anyaglista-revízióból forráshoz kötött draft importálható; az ajánlat sorai szerkeszthetők, az ár snapshotja külön marad. A draft nem hivatalos, véglegesített/elküldött ajánlat. | Kódban megvalósított; korábbi böngészős körben forrásrekord hiányzott. |
 | Munkanapló | `/kivitelezes` → `Új munkanapló`; csak név szükséges. Projekt és ügyfél nélküli önálló munkatér; az ajánlati forrás opcionális, és csak elérhető elfogadott ajánlat választható. | Felmérésből a mentett felmérés-revízió közvetlenül munkanaplóhoz kapcsolható, vagy új munkanapló készíthető. A mentett tervben feladatok és napi bejegyzések kezelhetők. | A meglévő felmérés CTA-ja megnyitotta a munkanapló-nevet kérő létrehozó panelt; létrehozást nem küldtem. Elfogadott ajánlatból indítást nem teszteltem. |
 | Kalkulátor | Dashboard → `/kalkulatorok`; ugyanazon a felületen kategóriafül, kereshető vizuális lista, bemenet, rajz és eredmény. | A kategóriafül első ellenőrzött számításra vált; a felhasználó kereséssel vagy a vizuális listával másik variánst választhat. A suite új eredményei helyben maradnak; a meglévő mentett roof/materiál számítások a `Mentett számításaim` útvonalon továbbra is megnyithatók. | Megvalósított; az új suite-eredmények mentése nem része a funkciónak. |
 
@@ -27,13 +29,13 @@ Az alábbi számok csak navigációs műveleteket mérnek a dashboardtól a szer
 | Dashboard → új felmérés szerkesztő | 1 kártyaművelet közvetlenül az új űrlapra | 2 művelet: felméréslista, majd `Új felmérés` | Az új indítás egy művelettel hosszabb, cserébe ugyanaz a belépés ad közvetlen hozzáférést mentett felmérésekhez és azok újranyitásához. A létrehozáskor meglévő munkatípus-választás változatlan. |
 | Dashboard → mentett felmérés újranyitása | A dashboard kártyájáról nem volt felméréslista-belépés | 2 művelet: `Felmérések`, majd kiválasztott listaelem | Újra megnyitási út jött létre, a lista a jelenlegi/korábbi mentésekhez visz. |
 | Dashboard → kategória kezdő kalkulátora | 2 művelet: dashboard kártya, majd régi kategóriaindító | 2 művelet: dashboard kártya, majd kategóriafül; a fül automatikusan első ellenőrzött kalkulátort választ | A fő belépés egy oldalra került. Másik kalkulátorhoz a kereső/lista külön választása szükséges; mobilon a listanyitó is egy plusz érintés. |
-| Dashboard → új anyaglista / új munkanapló | 2 művelet: dashboard, majd listafejléc CTA | 2 művelet | A meglévő rövid indítás megmarad. |
+| Dashboard → új anyaglista / új munkanapló | 2 művelet: dashboard, majd listafejléc CTA | 2 művelet | A meglévő rövid indítás megmarad; az üres, önálló lista menthető. |
 | Dashboard → önálló ajánlati piszkozat | 2 művelet: dashboard, majd ajánlatlista CTA | 2 művelet | A rövid indítás és az önálló draft megmarad. |
 | Anyaglista → ajánlati piszkozat | Forráskód alapján mentett listarevízió megnyitása után a forrásművelet megnyitja az ajánlatot | Kódbeli átadás; az adott helyi szervezetben nem volt listarekord a böngészős próbához | Az immutable forrásrevízióhoz kötött import elkerülheti az azonos tételek újragépelését; end-to-end működést itt nem igazoltam. |
 
 ### Konkrét súrlódási pontok
 
-1. A felmérésből nincs közvetlen „Anyaglista készítése” átadás. A felmérés → munkanapló → munkanaplóhoz kötött anyaglista kerülőút létezik, de nem egyenértékű a közvetlen, pontos mérésforrás-átadással.
+1. A F9.27 óta van közvetlen, felhasználó által indított felmérés → anyaglista út. A támogatott mérések és verified tetőfelület kerülnek át; a mértékegység és a pontos source revision megmarad. Ez nem általános kalkulációs eredményből készülő beszerzési mennyiség.
 2. Az önálló ajánlati piszkozat közvetlenül nem alakítható munkanaplóvá. Munkanapló ajánlati forrása a jelenlegi szabály szerint elfogadott ajánlat; az önálló piszkozat hivatalos véglegesítése/kiállítása nincs jóváhagyva ebben a scope-ban.
 3. A kereshető kalkulátorcsomag eredménye nem menthető. A `Mentett számításaim` meglévő állományai és útvonalai megmaradnak, de a suite új, helyi eredményének újranyitása nem támogatott.
 4. Az új felmérés munkatípus-választása első lépés. Ez a bemeneti sablonhoz szükséges; a komponens kifejezetten engedi a projekt és tetőforma nélküli folytatást, így indokolatlan ügyfél/projekt adatbekérés nem történt.
@@ -46,8 +48,8 @@ Az alábbi számok csak navigációs műveleteket mérnek a dashboardtól a szer
 |---|---|
 | Felmérés → roof/gutter/flashing számítás | A mentett felmérésből a megfelelő, már meglévő számítás munkaterülete megnyitható; egyes tetőgeometriai utak projektkontextust is igényelnek. Nem állítok automatikus anyagkiosztást a suite-ban. |
 | Felmérés → munkanapló | A mentett V3 felmérésben a CTA megnyitotta a munkanapló-név bekérőpanelt, benne a konkrét felmérés-revíziós indítással. A létrehozó műveletet nem küldtem el; rekordkapcsolatot ezért nem állítok böngészőben igazoltnak. |
-| Felmérés → anyaglista | Közvetlen import nincs. |
-| Anyaglista → árajánlat | Forráskódban van mentett lista-revíziót átadó út; nem volt helyi mentett lista, így az importált sorokat böngészőben nem ellenőriztem. Ezt nem jelölöm end-to-end verifikáltnak. |
+| Felmérés → anyaglista | F9.27 óta a felmérés összesítője támogatott, mentett source revisionből indítja; csak ellenőrzött mezőket visz át, adatbázisban immutable source snapshot kapcsolja a lista-revízióhoz. A `docs/PROGRESS.md` és célzott pgTAP/Vitest-bizonyíték tartalmazza az ellenőrzést. |
+| Anyaglista → árajánlat | Forráskódban van mentett lista-revíziót átadó út; az F9.25 böngészős körben nem volt forráslista, ezért ott az importált sorok megjelenítését nem ellenőriztem. |
 | Árajánlat → munkanapló | Forráskód csak elfogadott ajánlatot enged forrásként; meglévő elfogadott rekord hiánya miatt a böngészős út nem volt tesztelhető. Az önálló piszkozat közvetlen átalakítását nem állítom. |
 | Kalkulátor-suite → üzleti rekord | Nincs; a helyi számítás nem kerül automatikusan felmérésbe, anyaglistába, munkanaplóba vagy ajánlatba. |
 
@@ -64,7 +66,7 @@ Az alábbi számok csak navigációs műveleteket mérnek a dashboardtól a szer
 | Prioritás | Javaslat | Indok és korlát |
 |---|---|---|
 | P0 | Nincs igazolt blokkoló hiányosság a kódauditban. | Pilot- vagy helyszíni megfigyelés nem történt; ezért ez nem használati garancia. |
-| P1 | Opcionális, explicit felmérés → anyaglista forrásátadás, ha a felmérésből biztonságosan azonosítható adat van. | Egyetlen mérésből nem szabad anyagmennyiséget vagy gyártói terméket kikövetkeztetni. Csak forrásolt értékek, egyértelmű egység, előnézet és felhasználói jóváhagyás mellett érdemes tervezni; adatmodell/RLS hatás külön mérföldkő. |
+| P1 | A mentett mérések és az anyaglista közti forrásolt átadás fedettségének bővítése. | A jelenlegi út kizárólag egyértelmű, támogatott típusokra korlátozott. Új egység, tetőforma vagy mennyiségi szabály csak provenance-szal, preview-val, szervervalidációval és külön DB/RLS mérföldkőben kerülhet be. |
 | P1 | Munkanapló és ajánlat életciklusának átláthatóbb összekötése. | Az accepted-only szabályt nem szabad megkerülni. Hivatalos kiállítás, elfogadás vagy státuszátmenet bővítéséhez külön termék- és jogi scope szükséges. |
 | P1 | A suite lokális új eredményeinek opcionális, önálló menthetősége. | Most nem támogatott; csak a jelenlegi mentett tető/kalkuláció adatszerződés, jogosultság és immutable revízió mintájának külön vizsgálatával tervezhető. |
 | P2 | Felméréslista-kereső vagy egyszerű szűrő, ha a rekordmennyiség piloton hosszú görgetést okoz. | A jelenlegi lista közvetlen megnyitást ad, de nincs kereső. A hasznosságot a tényleges helyszíni listaméretekhez kell igazítani. |
