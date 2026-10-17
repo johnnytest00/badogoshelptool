@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ScalingProvider } from "@/features/preferences/scaling-provider";
 import { AppInteractionProvider } from "@/components/feedback/app-interaction-provider";
 import { ScalingBubble } from "@/components/accessibility/scaling-bubble";
 import { MobileFocusSupport } from "@/components/accessibility/mobile-focus-support";
-import { GlobalAnimatedBackground } from "@/components/background/global-animated-background";
+import { PremiumGlassBackground } from "@/components/background/premium-glass-background";
 import { themeStorageKey } from "@/lib/theme";
 import { scalingStorageKey } from "@/features/preferences/scaling";
 import { LiquidGlassProvider } from "@/features/preferences/liquid-glass-provider";
@@ -55,9 +56,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="hu" data-glass-frame-free="true" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: appearanceBootstrap }} />
+        <Script
+          id="tetopro-appearance-bootstrap"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: appearanceBootstrap }}
+        />
       </head>
-      <body><GlobalAnimatedBackground /><ThemeProvider><LiquidGlassProvider><ScalingProvider><AppInteractionProvider>{children}<MobileFocusSupport /><ScalingBubble /></AppInteractionProvider></ScalingProvider></LiquidGlassProvider></ThemeProvider></body>
+      <body><PremiumGlassBackground /><ThemeProvider><LiquidGlassProvider><ScalingProvider><AppInteractionProvider>{children}<MobileFocusSupport /><ScalingBubble /></AppInteractionProvider></ScalingProvider></LiquidGlassProvider></ThemeProvider></body>
     </html>
   );
 }

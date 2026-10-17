@@ -71,7 +71,7 @@ export function BackgroundAnimationControl() {
   };
 
   return <label className="background-animation-setting">
-    <span><strong>Háttéranimáció</strong><small>A háló animációjának be- vagy kikapcsolása ezen az eszközön.</small></span>
+    <span><strong>Háttéranimáció</strong><small>A háttér fényfoltjának lassú mozgása ezen az eszközön. A pontminta statikus marad.</small></span>
     <input type="checkbox" checked={enabled} onChange={(event) => toggle(event.target.checked)} />
   </label>;
 }

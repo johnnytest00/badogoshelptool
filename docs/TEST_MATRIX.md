@@ -1,5 +1,44 @@
 # Tesztmátrix
 
+## F9.37.3 — Háttér finomítása és Safari React script-hiba
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Nyers inline script React-renderelésének megszüntetése | PASS, FORRÁS + CÉLZOTT VITEST | `src/app/layout.test.tsx` ellenőrzi a Next `Script`, `beforeInteractive`, stabil ID használatát, és a nyers lowercase `<script>` hiányát. Safari frissítés után a dashboard megjelenik, a korábbi Next issue badge eltűnt. |
+| Brave konzol és Safari oldalbetöltés | PASS, FÓKUSZÁLT BÖNGÉSZŐ | Brave DevTools konzol frissítés után nem mutatta az előző React hibát. Safari frissítés után az oldal működött, hiba-overlay nem látszott; a Safari konzolnapló API-ból nem volt kiolvasható. |
+| Téma/mozgás és háttér olvashatósága | PASS, VIZUÁLIS + FORRÁS | Safari/Brave desktop sötét+ON megtekintve; Safari világos+OFF megtekintve. A világos slate pontok alpha `.38`, a grid réteg opacity-je `.88`; ezt a célzott teszt is ellenőrzi. A rács állandó, OFF-ban az artwork megmarad. A Safari munkamenet sötét+ON állapotra visszaállítva. |
+| Mobile viewport / vízszintes túlcsordulás | RÉSZLEGES | Széles desktop képeken túlcsordulás nem látszott. Mobil viewport emuláció és fizikai mobil nem futott; a breakpoint mátrix nincs igazolva. |
+| Reduced motion / animációs profil | FORRÁS + VITEST; RUNTIME NEM FUTOTT | CSS csak `prefers-reduced-motion: no-preference` és ON mellett animál; egy ambient réteg, `transform`-only. OS reduced-motion futás és rejtett lap teljesítménymérés nincs. |
+| Fókuszált Vitest | PASS | `npx vitest run src/app/layout.test.tsx src/components/background/premium-glass-background.test.tsx src/features/preferences/background-animation.test.ts src/features/preferences/liquid-glass.test.ts src/features/dashboard/dashboard-controls.test.tsx src/components/theme/theme-toggle.test.tsx src/components/ui/liquid-glass-policy.test.ts src/components/ui/glass-toolbar.test.tsx --reporter=dot` — 8 fájl / 18 teszt PASS. Egy meglévő nem-boolean `priority` attribútum warning. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`; `npm run lint`; tiszta ideiglenes másolatban `npm run build` — Next.js 16.4.0 webpack, 30 route; `git diff --check`. |
+| DB/Auth/RLS/hosted | NEM VÁLTOZOTT / NEM FUTOTT | Nincs adatbázis- vagy hosted módosítás. |
+
+## F9.37.2 — Premium ambient dot-grid háttér
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Statikus pontminta, egyetlen mozgó glow, SSR alapállapot | PASS, CÉLZOTT VITEST | 7 fájl / 17 teszt PASS. `premium-glass-background.test.tsx` ellenőrzi a layer-szerződést, 32 px-es radial-gradient pontmintát, mozgás nélküli gridet, 78 s transform animációt, SSR OFF-ot és helyes preferenciafeliratot. |
+| Authenticated LOCAL DEMO négy téma/mozgás állapota | PASS, FÓKUSZÁLT | Desktop Brave: sötét+ON, sötét+OFF, világos+OFF, világos+ON megtekintve. OFF-ban az artwork látható maradt. Visszaállítva az eredeti sötét+ON. Felbontás emuláció nincs. |
+| 1440/1024/768/390/320 px, reduced-motion és hidden-tab | KÓD / BÖNGÉSZŐ NEM FUTOTT | A helyi natív browser binding nem kínál viewport override-ot és az OS reduced-motion beállítást nem manipuláltuk; az animáció GPU/energia viselkedése nem mért. |
+| Preferenciafelirat, mobil nélküli hozzáférés | PASS, FORRÁS + TESZT | A preferencia leírása rögzíti, hogy a dot-grid statikus; a teszt védi ezt. Billentyűzetes és képernyőolvasós manuális mérés nincs ebben a vizuális smoke-ban. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`; `npm run lint`; tiszta ideiglenes másolaton `npm run build` — Next.js 16.4.0 webpack, 30 route; `git diff --check`. |
+
+## F9.37 — Premium Liquid Glass globális háttér
+
+Az alábbi tesztbejegyzés a F9.37 első SVG-s változatának történeti eredményét rögzíti; az aktuális F9.37.2 tesztállapot a fenti szakaszban található.
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Háttér rétegek és kezdeti statikus markup | PASS, CÉLZOTT VITEST | `npx vitest run src/components/background/premium-glass-background.test.tsx src/features/preferences/background-animation.test.ts src/features/preferences/liquid-glass.test.ts src/features/dashboard/dashboard-controls.test.tsx src/components/theme/theme-toggle.test.tsx src/components/ui/liquid-glass-policy.test.ts src/components/ui/glass-toolbar.test.tsx --reporter=dot` — 7 fájl / 16 teszt PASS. A komponens SSR-markupja két saját SVG réteget ad; kezdetben `data-animation-enabled=false`; CSS szerződés 56/92 s transform és reduced-motion szabály. |
+| Authenticated LOCAL DEMO böngésző | PASS, FÓKUSZÁLT | Brave-ben `admin1@testadmin.com`, `DEMO TetőPro Kft.` dashboard. A háttér sötét/világos témában megjelent. Mozgás kikapcsolva, refresh, beállítás újranyitása: OFF visszaállt és artwork megmaradt. A smoke végén sötét téma + ON állapot visszaállítva. Dashboard → Kalkulátorok → Dashboard kliensnavigáció sikeres. |
+| Vanta runtime/dependency eltávolítás | PASS, FORRÁS + BUILD | A `package.json`/lock és aktív `src` kódban nincs Vanta/Three hivatkozás. Régi runtime, WebGL policy és `vanta-net.d.ts` eltávolítva. `npm run build` PASS. Történeti dokumentációs F9.20/F9.22 bejegyzések szándékosan megőrzik az akkori állapotot. |
+| Typecheck / lint / production build | PASS | `npm run typecheck`; `npm run lint`; `npm run build` — Next.js 16.4.0 webpack, 30 static pages. |
+| Whitespace | PASS | `git diff --check`. |
+| Reduced motion / rejtett tab / responsive | KÓD + CSS / BROWSER NEM FUTOTT | CSS leállítja a mozgást, de a browser környezetben OS reduced-motion és viewport override nem volt elérhető; fizikai mobil, hidden-tab GPU- és energiafelvétel teszt nincs. 1440/1024/768/390/320 px túlcsordulásmérés nem futott. |
+| Adatbázis, Auth/RLS, hosted, reset, commit, deploy | NEM VÁLTOZOTT / NEM FUTOTT | Nincs adat- vagy backenddiff. A böngésző read-only navigáció és lokális megjelenítési preferencia ON/OFF/eredeti értékre visszaállítás történt. Hosted művelet, reset, commit, push, deploy nincs. |
+
+Státusz: **IMPLEMENTED; globális komponens, témaváltás és mentett animációpreferencia az alkalmazásban igazolva. Responsive és reduced-motion browser mátrix nem teljes.**
+
 ## F9.32 — Daily workflow E2E (a korábbi F9.31/F9.30 mátrixokat felülíró futás)
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

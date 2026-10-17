@@ -2,6 +2,10 @@
 
 :root {
   --background: #f5f7fb;
+  --premium-background: #f5f3ed;
+  --premium-glow-warm: #d8ba86;
+  --premium-glow-cool: #8996a6;
+  --premium-dot: rgba(71, 85, 105, .38);
   --foreground: #0f172a;
   --muted: #475569;
   --glass-opacity: 10%;
@@ -11,7 +15,7 @@
   --surface-strong: #ffffff;
   --surface-subtle: rgba(255, 255, 255, 0.14);
   --surface-glass: rgba(255, 255, 255, 0.1);
-  --glass-border: rgba(255, 255, 255, 0.76);
+  --glass-border: rgba(255, 255, 255, 0.56);
   --glass-highlight: rgba(255, 255, 255, 0.24);
   --glass-blur: 22px;
   --glass-saturation: 155%;
@@ -43,6 +47,10 @@
 
 html[data-theme="dark"] {
   --background: #0b1220;
+  --premium-background: #111923;
+  --premium-glow-warm: #b8793d;
+  --premium-glow-cool: #627f9f;
+  --premium-dot: rgba(201, 211, 223, .34);
   --foreground: #e5edf8;
   --muted: #b6c2d4;
   --glass-tint: #172536;
@@ -50,7 +58,7 @@ html[data-theme="dark"] {
   --surface-strong: rgba(23, 37, 54, 0.42);
   --surface-subtle: rgba(23, 37, 54, 0.16);
   --surface-glass: rgba(23, 37, 54, 0.1);
-  --glass-border: rgba(220, 234, 250, 0.28);
+  --glass-border: rgba(220, 234, 250, 0.21);
   --glass-highlight: rgba(246, 250, 255, 0.22);
   --border: #2a3a4d;
   --brand-soft: #38291f;
@@ -1309,12 +1317,12 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
   .primary-button, .secondary-button, .drawing-toolbar-group button { forced-color-adjust: auto; }
 }
 
-/* F9.20.2 — one non-interactive animated layer for the persistent App Router shell. */
+/* F9.37.2 — static CSS dot grid with one slow ambient glow. */
 html,
 body { min-height: 100%; }
 html { background: var(--background); }
 body { position: relative; isolation: isolate; }
-.global-animated-background {
+.premium-glass-background {
   position: fixed;
   z-index: -1;
   inset: 0;
@@ -1324,39 +1332,49 @@ body { position: relative; isolation: isolate; }
   user-select: none;
   contain: strict;
   background:
-    radial-gradient(ellipse at 78% 6%, color-mix(in srgb, var(--brand) 7%, transparent), transparent 35rem),
-    radial-gradient(ellipse at 12% 38%, rgba(54, 116, 170, .055), transparent 38rem),
-    radial-gradient(ellipse at 90% 80%, rgba(114, 86, 163, .04), transparent 42rem),
-    var(--background);
+    radial-gradient(ellipse 44rem 36rem at 5% 6%, color-mix(in srgb, var(--premium-glow-warm) 17%, transparent), transparent 76%),
+    radial-gradient(ellipse 46rem 48rem at 98% 44%, color-mix(in srgb, var(--premium-glow-cool) 13%, transparent), transparent 75%),
+    var(--premium-background);
 }
-html[data-theme="light"] .global-animated-background {
-  background: var(--background);
+.premium-glass-background__ambient,
+.premium-glass-background__dot-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
-html[data-theme="dark"] .global-animated-background {
-  background:
-    radial-gradient(ellipse at 78% 6%, rgba(237, 97, 0, .055), transparent 35rem),
-    #0b1220;
+.premium-glass-background__ambient {
+  inset: 0;
+  opacity: .52;
+  background: radial-gradient(ellipse 30rem 24rem at 10% 8%, color-mix(in srgb, var(--premium-glow-warm) 17%, transparent), transparent 76%);
+  transform: translate3d(0, 0, 0);
 }
-.global-animated-background canvas.vanta-canvas {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-  pointer-events: none !important;
-  opacity: .95;
+.premium-glass-background__dot-grid {
+  opacity: .88;
+  background-image: radial-gradient(circle, var(--premium-dot) .95px, transparent 1.2px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse at 50% 46%, black 12%, transparent 94%);
 }
-html[data-theme="light"] .global-animated-background canvas.vanta-canvas { opacity: .66; }
-body:has(.construction-suite) .global-animated-background canvas.vanta-canvas { opacity: .025; }
-@media (prefers-reduced-motion: reduce) {
-  .global-animated-background canvas.vanta-canvas { display: none !important; }
+@media (prefers-reduced-motion: no-preference) {
+  .premium-glass-background[data-animation-enabled="true"] .premium-glass-background__ambient {
+    animation: premium-glass-ambient 84s ease-in-out infinite alternate;
+    animation-play-state: paused;
+  }
+  .premium-glass-background[data-animation-enabled="true"][data-page-visible="true"] .premium-glass-background__ambient {
+    animation-play-state: running;
+  }
+}
+@keyframes premium-glass-ambient {
+  from { transform: translate3d(-.2%, .1%, 0) scale(1); }
+  to { transform: translate3d(.35%, -.25%, 0) scale(1.01); }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .global-animated-background { background: var(--background); }
-  html[data-theme="dark"] .global-animated-background { background: #0b1220; }
-  .global-animated-background canvas.vanta-canvas { opacity: .055; }
+  .premium-glass-background__ambient { opacity: .25; }
+  .premium-glass-background__dot-grid { opacity: .52; }
 }
 @media (forced-colors: active) {
-  .global-animated-background { background: Canvas; }
-  .global-animated-background canvas.vanta-canvas { display: none !important; }
+  .premium-glass-background { background: Canvas; }
+  .premium-glass-background__ambient,
+  .premium-glass-background__dot-grid { display: none; }
 }
 
 /* F9.14.4: the semantic workspace is the only roof measurement/drawing surface. */

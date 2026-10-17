@@ -1,5 +1,48 @@
 # F7.3.2 állapot
 
+## F9.37.3 — Háttér finomítása és Safari React script-hiba javítása
+
+Státusz: **A SCRIPT-HIBA JAVÍTVA ÉS SAFARI/BRAVE DESKTOPON ELLENŐRIZVE; A KÖTELEZŐ KÓD-ELLENŐRZÉSEK PASS. A MOBIL VIEWPORT-MÁTRIX NEM FUTOTT.**
+
+- A Safari `Encountered a script tag while rendering React component` hibájának oka a gyökérlayoutban React-gyerekként renderelt nyers inline `<script dangerouslySetInnerHTML>`. A korai téma/skála/üveg-beállítás bootstrap most a Next.js `Script` komponensét használja, stabil `id`-val és `beforeInteractive` stratégiával. A tartalom/korai végrehajtás megmarad; nyers `<script>` nincs a gyökérlayoutban. Új forrásszerződés-teszt védi ezt.
+- A meglévő `PremiumGlassBackground` és CSS dot-grid maradt. A sötét alap mély grafit, a pontminta jól észlelhető, de visszafogott; felső-bal oldalon meleg borostyán, jobb oldalon hűvös kék fény van. Világos mód törtfehér alapon slate pontokat, nagyon enyhe champagne és hűvös fényeket mutat. A shared `--glass-border` token mindkét témában finomodott, így a közös kártyaszélek kevésbé dominálnak.
+- A világos téma pontjai külön kontraszterősítést kaptak (`--premium-dot` alpha `.38`, rács opacity `.88`), hogy az off-white alapon is egyértelműen kivehetők legyenek. A célzott háttérteszt rögzíti a két értéket.
+- A rács és fő fények statikusak. Egy kisebb ambient fényfolt legfeljebb 84 s-os, kis amplitúdójú `transform` mozgást kap, csak `no-preference` és beállított ON esetén. OFF ugyanazt az artworköt statikusan tartja; rejtett lap indulásra szünetel. Nincs JS animációs loop vagy új függőség.
+- **Böngésző:** autentikált LOCAL DEMO dashboard Safari és Brave alatt megnyitva. Sötét + ON képernyőkép mindkét böngészőben szemrevételezve; Safari világos + OFF állapotban is ellenőrizve a megmaradó statikus artworköt, dot-gridet, kontrasztot és kártyaolvashatóságot. Safari frissítés után az oldal rendesen kirajzolódott és a Next dev issue badge nem jelezte a korábbi React-hibát; Brave DevTools konzolban a hiba javítás utáni frissítéskor nem jelent meg. Safari natív konzolbejegyzéseit külön nem olvastuk ki. A széles desktop képeken vízszintes túlcsordulás nem látszott; mobil breakpointot nem emuláltunk. Safari végállapot: sötét + ON.
+- **Ellenőrzések:** fókuszált Vitest 8 fájl / 18 teszt PASS; `npm run typecheck`, `npm run lint`, izolált ideiglenes másolaton `npm run build` (Next.js 16.4.0 webpack, 30 route), `git diff --check` PASS. A fókuszált dashboard suite egy már meglévő nem-boolean `priority` DOM attribútum figyelmeztetést adott.
+- **Korlátok:** mobil nézet, OS reduced-motion aktív állapot, rejtett lap tényleges energiafelvétele és Safari konzolnapló közvetlen olvasása nem történt. DB/Auth/RLS/hosted tartalom nem változott; nincs commit, push vagy deploy.
+
+Javasolt Conventional Commit: `fix(F9.37.3): resolve Safari script rendering and refine background`.
+
+## F9.37.2 — Premium ambient dot-grid globális háttér
+
+Státusz: **IMPLEMENTÁLVA / AUTHENTIKÁLT LOCAL DEMO BÖNGÉSZŐBEN A NÉGY TÉMA- ÉS MOZGÁSÁLLAPOT MEGTEKINTVE; KÉPERNYŐMÉRET-MÁTRIX NEM TELJES.**
+
+- Az F9.37 háttérkomponens megmaradt, de két SVG rétegét statikus CSS `radial-gradient` pontminta és egyetlen ambient fényfolt váltja. A pontok 32 px kiosztásúak, CSS maszkkal halkulnak; világos módban meleg törtfehér/champagne, sötétben grafit/borostyán tokenek láthatók. A glow-színréteg egyetlen CSS radial gradient, blur/filter nélkül.
+- A meglévő helyi preferencia kizárólag a fényfoltot animálja 78 s `transform` mozgással. A dot-grid szabály statikus. OFF esetén ugyanaz a háttér marad látható és mozdulatlan; SSR markup motion OFF-ként indul. `prefers-reduced-motion` leállítja az ambient animációt, rejtett tabnál a CSS paused állapotú.
+- A preferenciacímke most kifejezetten jelzi, hogy a pontminta statikus. A díszítő rétegek pointer-eventet nem fogadnak.
+- **Böngésző:** hitelesített LOCAL DEMO dashboardon mind a sötét/világos × ON/OFF kombináció láthatóan megtekintve. Az OFF állapotban a háttér változatlan artworkként maradt meg. Az eredeti sötét + ON beállítás visszaállítva. A képernyőfelbontás/viewport nem állítható a rendelkezésre álló natív böngészős kezelővel; a 1440/1024/768/390/320-as viewport-mátrix és a fizikai mobil nincs ellenőrizve. Animáció időbeli sebességét, reduced-motion OS beállítást, rejtett lap energiafogyasztását nem mértük.
+- **Ellenőrzések:** célzott Vitest 7 fájl / 17 teszt PASS; `npm run typecheck`, `npm run lint`, ideiglenes tiszta worktree-másolaton futtatott `npm run build` (Next.js 16.4.0 webpack, 30 route) és `git diff --check` PASS. A Vitest dashboard suite egy meglévő, nem boolean `priority` DOM-attribútum warningot adott.
+- **Korlátok:** viewport breakpoint-mátrix, reduced-motion OS/emuláció, rejtett lap GPU- vagy energiafogyasztás és fizikai mobil nem ellenőrizhető ebben a natív böngésző-környezetben. A négy szín/mozgás állapot desktop képernyőn lett szemrevételezve; a 78 s mozgási ciklust időméréssel nem validáltuk.
+
+Javasolt Conventional Commit: `feat(F9.37.2): add ambient dot-grid background`.
+
+## F9.37 — Premium Liquid Glass globális háttér
+
+Az alábbi bejegyzés az F9.37 eredeti implementációs állapotát dokumentálja; a jelenlegi aktív CSS-pontmintás változatot a fenti F9.37.2 mérföldkő írja le.
+
+Státusz: **MEGVALÓSÍTVA / AUTHENTIKÁLT HELYI BÖNGÉSZŐBEN TÉMA- ÉS PREFERENCIA-FLOW ELLENŐRIZVE; responsive/reduced-motion emuláció részleges.**
+
+- A Vanta NET/WebGL hátteret a gyökérlayout tartós `PremiumGlassBackground` komponense váltja fel. Három réteg: témaszínezett token-alap, saját inline SVG radial-gradient ambient fényfoltok és saját inline SVG engineering grid. Külső fffuel SVG-t vagy új eszközfüggőséget nem használ.
+- A meglévő `tetopro-background-animation-v1` localStorage beállítás és esemény maradt. A szervermarkup kezdetben statikus artwork; a kliens a mentett preferencia visszaállítása után állítja be a motion attribútumot. Kikapcsolva a teljes artwork látható és mozdulatlan. Reduced-motion alatt a CSS leállítja mindkét mozgást; rejtett oldalon az animációk paused állapotot kapnak és visszatéréskor folytatódnak.
+- Az ambient és grid mozgása 56/92 másodperces, kizárólag `transform` kulcskockákkal; `pointer-events: none`, viewport-fixed háttér, két animált réteg. Forced-colors módban dekorációt elrejti, natív Canvas alap marad. Téma-palettája CSS tokenekkel az alkalmazás `data-theme` értékét követi.
+- A `vanta`, `three`, `@types/three`, régi Vanta policy és moduldeklaráció eltávolítva. Nincs adatbázis-, Auth/RLS-, üzleti workflow- vagy Liquid Glass beállításmódosítás.
+- **Böngésző, autentikált LOCAL DEMO:** a Dashboard háttérét sötét és világos témában megtekintettem. Animációt OFF-ra állítottam: a képen az ambient és rács megmaradt. Frissítés után a beállítás OFF állapota visszatöltődött; majd az eredeti sötét téma és ON állapot visszaállt. Dashboard → Kalkulátorok → Dashboard kliensnavigáció hitelesítve maradt. Mentett üzleti adat nem változott.
+- **Ellenőrzések:** hét Vitest fájl / 16 teszt PASS; `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack, 30 statikus oldal) PASS; `git diff --check` PASS. A Vitest dashboard suite egy már meglévő, nem boolean `priority` DOM-attribútum warningot írt ki.
+- **Korlátok:** böngésző viewport emulációja 1440/1024/768/390/320 px-re, OS reduced-motion kapcsoló, hidden-tab GPU-mérés, UI-scale manipuláció, fizikai mobil és energia/fogyasztás mérés nem futott. A screenshot smoke desktop Brave nézetű. Teljes Vitest suite nem futott.
+
+Javasolt Conventional Commit: `feat(F9.37): replace Vanta with premium glass background`.
+
 ## F9.31 — legacy kalkulátorfüggőségek és biztonságos mentésjavítás
 
 Státusz: **A kért aktív mentési útvonalak és biztonságos UI-kivezetés megvalósítva; a felsorolt helyi ellenőrzések PASS.**
