@@ -3,7 +3,7 @@ export const liquidGlassVersion = 2;
 
 export const liquidGlassDefaults = {
   version: liquidGlassVersion,
-  opacity: 0,
+  opacity: 10,
   tintMode: "auto",
   customTint: "#FFFFFF",
 } as const;
@@ -43,8 +43,8 @@ export function parseLiquidGlassPreferences(raw: string | null): LiquidGlassPref
     const storedOpacity = clampGlassOpacity(candidate.opacity);
     return {
       version: liquidGlassVersion,
-      // Version 1 wrote the old 10% first-use baseline; migrate that default.
-      opacity: candidate.version === 1 && storedOpacity === 10 ? 0 : storedOpacity,
+      // Version 1's 10% first-use baseline is also the current default.
+      opacity: storedOpacity,
       tintMode: candidate.tintMode === "custom" ? "custom" : "auto",
       customTint,
     };

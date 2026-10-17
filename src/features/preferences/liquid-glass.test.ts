@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { liquidGlassDefaults, normalizeGlassColor, parseLiquidGlassPreferences, persistLiquidGlassPreferences, resetLiquidGlassPreferences, serializeLiquidGlassPreferences } from "./liquid-glass";
 
 describe("global Liquid Glass preferences", () => {
-  it("starts with the nearly transparent, theme-aware appearance", () => {
-    expect(liquidGlassDefaults).toEqual({ version: 2, opacity: 0, tintMode: "auto", customTint: "#FFFFFF" });
+  it("starts with the 10% transparent, theme-aware appearance", () => {
+    expect(liquidGlassDefaults).toEqual({ version: 2, opacity: 10, tintMode: "auto", customTint: "#FFFFFF" });
     expect(parseLiquidGlassPreferences(null)).toEqual(liquidGlassDefaults);
   });
 
-  it("migrates the previous first-use opacity while retaining customized values", () => {
+  it("retains the previous 10% first-use opacity and customized values", () => {
     expect(parseLiquidGlassPreferences(JSON.stringify({ version: 1, opacity: 10, tintMode: "auto", customTint: "#FFFFFF" }))).toEqual(liquidGlassDefaults);
     expect(parseLiquidGlassPreferences(JSON.stringify({ version: 1, opacity: 35, tintMode: "custom", customTint: "#ed6100" }))).toEqual({ version: 2, opacity: 35, tintMode: "custom", customTint: "#ED6100" });
   });

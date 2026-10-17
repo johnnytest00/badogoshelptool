@@ -35,8 +35,8 @@ const appearanceBootstrap = `(() => {
     const storedGlass = JSON.parse(localStorage.getItem('${liquidGlassStorageKey}') || '{}');
     const glassVersion = storedGlass.version;
     const supportedGlassVersion = glassVersion === 1 || glassVersion === 2;
-    const storedOpacity = typeof storedGlass.opacity === 'number' && Number.isFinite(storedGlass.opacity) ? Math.min(100, Math.max(0, Math.round(storedGlass.opacity))) : 0;
-    const opacity = !supportedGlassVersion ? 0 : glassVersion === 1 && storedOpacity === 10 ? 0 : storedOpacity;
+    const storedOpacity = typeof storedGlass.opacity === 'number' && Number.isFinite(storedGlass.opacity) ? Math.min(100, Math.max(0, Math.round(storedGlass.opacity))) : 10;
+    const opacity = !supportedGlassVersion ? 10 : storedOpacity;
     const tint = supportedGlassVersion && typeof storedGlass.customTint === 'string' && /^#(?:[\\da-f]{3}|[\\da-f]{6})$/i.test(storedGlass.customTint) ? storedGlass.customTint : '#FFFFFF';
     root.style.setProperty('--glass-opacity', opacity + '%');
     root.style.setProperty('--glass-custom-tint', tint);

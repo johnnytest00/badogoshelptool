@@ -4,7 +4,7 @@
   --background: #f5f7fb;
   --foreground: #0f172a;
   --muted: #475569;
-  --glass-opacity: 0%;
+  --glass-opacity: 10%;
   --glass-custom-tint: #ffffff;
   --glass-tint: #ffffff;
   --surface: rgba(255, 255, 255, 0.1);
@@ -1229,7 +1229,7 @@ html[data-theme="light"] .global-animated-background {
 html[data-theme="dark"] .global-animated-background {
   background:
     radial-gradient(ellipse at 78% 6%, rgba(237, 97, 0, .055), transparent 35rem),
-    #000;
+    #0b1220;
 }
 .global-animated-background canvas.vanta-canvas {
   display: block;
@@ -1244,7 +1244,7 @@ html[data-theme="light"] .global-animated-background canvas.vanta-canvas { opaci
 }
 @media (prefers-reduced-transparency: reduce) {
   .global-animated-background { background: var(--background); }
-  html[data-theme="dark"] .global-animated-background { background: #000; }
+  html[data-theme="dark"] .global-animated-background { background: #0b1220; }
   .global-animated-background canvas.vanta-canvas { opacity: .055; }
 }
 @media (forced-colors: active) {
@@ -3506,6 +3506,12 @@ textarea {
 .liquid-glass-color-row input[type="color"] { width: 3rem; height: 2.35rem; border: 1px solid var(--glass-border); border-radius: .65rem; background: var(--surface-strong); padding: .2rem; cursor: pointer; }
 .liquid-glass-color-row input[type="color"]:disabled { cursor: not-allowed; opacity: .55; }
 .liquid-glass-reset { justify-self: start; min-height: 2.6rem; }
+.background-animation-setting { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 3.25rem; color: var(--foreground); cursor: pointer; }
+.background-animation-setting > span { display: grid; gap: .2rem; }
+.background-animation-setting strong { font-size: calc(.84rem * var(--tp-text-scale)); }
+.background-animation-setting small { max-width: 24rem; color: var(--muted); font-size: calc(.74rem * var(--tp-text-scale)); line-height: 1.4; }
+.background-animation-setting input { flex: 0 0 auto; width: 2.8rem; height: 1.55rem; accent-color: var(--brand); cursor: pointer; }
+.background-animation-setting input:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
 .scaling-launcher { overflow: hidden; }
 .scaling-launcher > svg { position: relative; z-index: 1; }
 

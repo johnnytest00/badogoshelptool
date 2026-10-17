@@ -1,5 +1,22 @@
 # Tesztmátrix
 
+## F9.22.1 — Global Vanta.NET performance
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Render limit / DPR | PASS, FOCUSED UNIT | A renderer adapter a Vanta meglévő ciklusában `renderer.render()` hívást korlátozza. 60 Hz-es szimulált bemenettel a 30 FPS desktop és 20 FPS mobil cél, valamint DPR≤1 tesztelve; a Vanta/Three csomagfájl nem módosult. A Vanta `onUpdate()` CPU-része az eredeti RAF ütemben marad. |
+| Mobil animáció / input / komplexitás | PASS, CODE + POLICY TEST | A mobil/coarse pointer profil nem static policy; `points: 6`, `mouseControls:false`, `touchControls:false`, `gyroControls:false`. Fizikai mobil nem tesztelt. |
+| Állapotváltások és cleanup | CODE VERIFIED / BROWSER PARTIAL | Reduced-motion, tárolt kapcsoló, hidden tab, theme, viewport listener; destroy/restart és cleanup a komponensben. Rejtett lap és reduced-motion böngészőemuláció nem futott. |
+| Viewport / route / pointer | PASS, LOCAL IAB / PARTIAL | Desktop 1280×720 és mobil 390×844; host rect pontosan viewport-méretű, fixed és `pointer-events:none`. `/` → `/felmeresek/uj` után egy host. Rajz-SVG egyidejű touch/scroll nem ellenőrzött. |
+| WebGL fallback / canvas mérések | PASS, LOCAL BRAVE + IAB FALLBACK | Helyi IAB-en `webgl-init-failed`, static fallback aktív. Helyi Brave-ben egy élő WebGL canvas: 1900×721 CSS px viewport/puffer, DPR 1, 22 renderelt FPS mintavétel; nincs duplikált canvas. A sötét static fallback az animált háttér `#0b1220` alapszínét használja. |
+| Téma / opacity | PASS, UNIT + BROWSER PARTIAL | A témafüggő színpár unit tesztelve; a helyi Brave sötét hálója narancssárga. Világos aktív háló színváltása nem bizonyított. Root CSS token és új/reset Liquid Glass opacity 10%; korábbi tárolt személyes értékek változatlanok. |
+| Vitest / typecheck / lint / build | PASS, FOCUSED | 3 Vitest fájl / 10 teszt; `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack). Teljes Vitest regresszió nem futott. |
+| Adat / jogosultság / adatbázis | NEM VÁLTOZOTT | Nincs DB, migration, auth/RLS, anyag- vagy üzleti adatváltozás. |
+
+Státusz: **PARTIAL**. A renderkorlát, DPR/pufferdimenzió és desktop tényleges FPS helyi WebGL böngészőben igazolt. Mobil valós rendersebesség, állapot-emuláció és fizikai mobil nincs bizonyítva, ezért COMPLETE nem adható.
+
+Javasolt Conventional Commit: `perf(F9.22.1): throttle global Vanta rendering`.
+
 ## F9.22 — termék-UX és Anyagkezelő
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

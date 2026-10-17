@@ -11,7 +11,7 @@ import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { LogoutButton } from "@/features/auth/auth-controls";
 import { AccountManagementDialog } from "@/features/auth/account-management-dialog";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
-import { LiquidGlassControls } from "@/features/preferences/liquid-glass-controls";
+import { BackgroundAnimationControl, LiquidGlassControls } from "@/features/preferences/liquid-glass-controls";
 import { LiquidGlassLayer } from "@/components/ui/liquid-glass-layer";
 import { dashboardFunctionHref, dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
 import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
@@ -100,6 +100,9 @@ export function DashboardSettings({ onOpenAccount }: Readonly<{ onOpenAccount: (
     </GlassDisclosure>
     <GlassDisclosure className="settings-disclosure" summary="Liquid Glass" libraryEffect>
       <LiquidGlassControls />
+    </GlassDisclosure>
+    <GlassDisclosure className="settings-disclosure" summary="Háttéranimáció" libraryEffect>
+      <BackgroundAnimationControl />
     </GlassDisclosure>
     <LogoutButton className="settings-logout-form" />
   </aside>;

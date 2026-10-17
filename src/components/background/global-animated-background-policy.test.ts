@@ -1,20 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { getBackgroundColor, getNetworkColor, shouldUseStaticBackground } from "./global-animated-background-policy";
+import { capBackgroundPixelRatio, createRenderGate, getBackgroundColor, getNetworkColor, getRenderTargetFps, shouldUseStaticBackground } from "./global-animated-background-policy";
 
 describe("global animated background policy", () => {
-  it("keeps animation static for reduced motion, mobile, data saver and lower power devices", () => {
-    const base = { reducedMotion: false, isMobile: false, saveData: false, hardwareConcurrency: 8, deviceMemory: 8 };
-
-    expect(shouldUseStaticBackground({ ...base, reducedMotion: true })).toBe(true);
-    expect(shouldUseStaticBackground({ ...base, isMobile: true })).toBe(true);
-    expect(shouldUseStaticBackground({ ...base, saveData: true })).toBe(true);
-    expect(shouldUseStaticBackground({ ...base, hardwareConcurrency: 4 })).toBe(true);
-    expect(shouldUseStaticBackground({ ...base, deviceMemory: 4 })).toBe(true);
+  it("keeps animation enabled on mobile while respecting reduced motion and the saved setting", () => {
+    expect(shouldUseStaticBackground({ reducedMotion: true, enabled: true })).toBe(true);
+    expect(shouldUseStaticBackground({ reducedMotion: false, enabled: false })).toBe(true);
+    expect(shouldUseStaticBackground({ reducedMotion: false, enabled: true })).toBe(false);
   });
 
-  it("allows animation on a capable desktop profile", () => {
-    expect(shouldUseStaticBackground({ reducedMotion: false, isMobile: false, saveData: false, hardwareConcurrency: 8, deviceMemory: 8 })).toBe(false);
-    expect(shouldUseStaticBackground({ reducedMotion: false, isMobile: false, saveData: false, hardwareConcurrency: undefined, deviceMemory: undefined })).toBe(false);
+  it("selects device frame targets and caps high-DPI rendering at one", () => {
+    expect(getRenderTargetFps(false)).toBe(30);
+    expect(getRenderTargetFps(true)).toBe(20);
+    expect(capBackgroundPixelRatio(2.5)).toBe(1);
+    expect(capBackgroundPixelRatio(1)).toBe(1);
+    expect(capBackgroundPixelRatio(0)).toBe(1);
+  });
+
+  it("limits actual render calls over a simulated 60 Hz animation loop", () => {
+    for (const targetFps of [30, 20]) {
+      let now = 0;
+      let renderedFrames = 0;
+      const allowRender = createRenderGate(targetFps, () => now);
+      for (let frame = 0; frame < 600; frame += 1) {
+        now = frame * (1000 / 60);
+        if (allowRender()) renderedFrames += 1;
+      }
+      expect(renderedFrames).toBeLessThanOrEqual(targetFps * 10);
+      expect(renderedFrames).toBeGreaterThanOrEqual(targetFps * 9);
+    }
   });
 
   it("uses theme-appropriate network and canvas colors", () => {

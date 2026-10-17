@@ -32,6 +32,23 @@ Részletek: `docs/F9.22_PRODUCT_UX_AND_MATERIAL_MANAGER.md`.
 
 Javasolt Conventional Commit: `feat(F9.22): add material manager and streamline workflows`.
 
+## F9.22.1 — Globális Vanta.NET teljesítmény és Liquid Glass alapfedettség
+
+Státusz: **PARTIAL — implementáció kész; a fizikai mobil és több médiaállapot nincs böngészőben bizonyítva**.
+
+- A globális Vanta marad a tartós `RootLayout` egyszeri, viewport-méretű rétegében. A Three.js `WebGLRenderer` adaptere az eredeti Vanta RAF-ciklust tartja meg, de a tényleges `renderer.render()` hívásokat desktopon legfeljebb 30, mobilon legfeljebb 20 FPS-re engedi át; Three.js/Vanta forrása nem módosul, második RAF-ciklus nincs. A `<canvas>` diagnosztikai attribútumai az utolsó ténylegesen kirajzolt képkockák sebességét, pixelarányát és pufferdimenzióit rögzítik.
+- A renderer `setPixelRatio()` hívása 1-re korlátoz. Mobil/coarse-pointer profilon az animáció engedélyezett marad, `points: 6` értékkel indul, az egér- és érintésvezérlés, valamint a giroszkóp kikapcsolt. A NET szín és az alap háttérszín továbbra is a meglévő világos/sötét téma színpárját használja.
+- `prefers-reduced-motion`, a tartós, alapértelmezetten bekapcsolt **Háttéranimáció** kapcsoló és a WebGL/Vanta inicializálási hiba statikus CSS-háttérre vált. Rejtett lapnál a példány destroy-olódik, láthatóvá váláskor újraindul; beállítás-, reduced-motion-, viewport- és témaesemények leiratkozása, valamint canvas eltávolítása cleanupban történik. Téma/route váltáskor a root host megmarad; újrainicializálás előtt meglévő canvas eltávolításával a duplikációt megelőzi.
+- A Liquid Glass új és resetelt alapfedettsége 10%; a korábbi v1-es 10%-os induló érték is megmarad. A felhasználó korábban mentett, verziózott személyes értéke nem íródik felül. Nincs adatbázis-, migráció-, hitelesítési vagy üzleti logikai változás.
+
+**Böngészős bizonyíték:** a helyi Codex IAB-en a host desktopon 1280×720, mobil emulációban 390×844 CSS px volt, mindkét esetben fix viewport-méretű és `pointer-events: none`; a DPR 2, illetve 1 volt. A host alatt pontosan egy elem maradt route navigáció (`/` → `/felmeresek/uj`) után. Az IAB nem adott használható WebGL-t, ezért ott a fallback látszott. A helyi Brave-ben teljes oldal-újratöltés után az aktív sötét témájú Vanta-háló bizonyított: 1900×721 CSS px-es viewporthoz 1900×721 puffer, DPR 1, egy canvas; egy másodperces mintában 22 tényleges renderelt FPS (desktop felső korlát 30). A korábban látott fekete képernyő a statikus fallback volt; a fallback sötét alapját a Vanta `#0b1220` színéhez igazítottam. A gyökér Liquid Glass CSS token 10%.
+
+**Ellenőrzések:** célzott Vitest: 3 fájl / 10 teszt PASS; a renderkapu szimulált 60 Hz-es bemeneten a 30/20 FPS felső célt és a DPR-korlátot ellenőrzi. `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4.0 webpack) PASS. Böngészőben desktop és 390×844 mobil viewport, route navigáció, host-méret, pointer-events és WebGL init fallback ellenőrizve. Teljes Vitest regresszió nem futott.
+
+**Korlátok / nem ellenőrzött:** a helyi Brave-ben az aktuális 22 FPS minta megfelel a desktop 30 FPS felső határának; mobil 20 FPS tényleges renderminta, tablet viewport, világos témájú aktív háló színváltása, reduced-motion emuláció, rejtett/előhozott lap GPU-renderciklusa, valódi mobil/iOS és technikai SVG scroll interakció nincs bizonyítva. A mobil 20 FPS renderkaput célzott unit teszt fedi, de fizikai WebGL-eszközt nem. A Vanta saját `onUpdate()` CPU-része továbbra is az eredeti egyetlen RAF ütemében fut; mobilon az alacsonyabb `points` érték mérsékli ennek CPU-terhelését. iOS Low Power Mode-ot nem próbálja felismerni. Átmeneti init-hiba után a látható lapra visszatérés vagy animáció újbóli engedélyezése újra próbálja a renderert.
+
+Javasolt Conventional Commit: `perf(F9.22.1): throttle global Vanta rendering`.
+
 ## F9.18 — iOS hibajavítások és mobil UX-megerősítés
 
 Állapot: **PARTIAL**. A survey kliensoldali azonosítói egy közös, kriptográfiai

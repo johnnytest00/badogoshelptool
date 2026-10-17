@@ -2,20 +2,27 @@
 
 import { useEffect, useRef } from "react";
 import {
+  capBackgroundPixelRatio,
+  createRenderGate,
   getBackgroundColor,
   getNetworkColor,
+  getRenderTargetFps,
   shouldUseStaticBackground,
 } from "./global-animated-background-policy";
+import {
+  backgroundAnimationChangeEvent,
+  backgroundAnimationStorageKey,
+  parseBackgroundAnimationPreference,
+} from "@/features/preferences/background-animation";
 
 type VantaInstance = {
   destroy: () => void;
   setOptions: (options: Record<string, unknown>) => void;
-  renderer?: { setPixelRatio: (ratio: number) => void; domElement?: HTMLCanvasElement };
 };
 
 type VantaNetFactory = (options: Record<string, unknown>) => VantaInstance;
+type ThreeModule = typeof import("three");
 
-const MAX_PIXEL_RATIO = 1.5;
 const isPageHidden = () => document.visibilityState === "hidden";
 
 function hasWebGLSupport(): boolean {
@@ -30,20 +37,55 @@ function hasWebGLSupport(): boolean {
   }
 }
 
-function getDeviceProfile() {
-  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+function getBackgroundProfile() {
   const isDark = document.documentElement.dataset.theme === "dark";
-
+  let enabled = true;
+  try {
+    enabled = parseBackgroundAnimationPreference(window.localStorage.getItem(backgroundAnimationStorageKey));
+  } catch {
+    // Keep animation enabled by default when browser storage is unavailable.
+  }
   return {
     isDark,
-    profile: {
-      reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-      isMobile: window.matchMedia("(max-width: 767px), (pointer: coarse)").matches,
-      saveData: connection?.saveData === true,
-      hardwareConcurrency: navigator.hardwareConcurrency || undefined,
-      deviceMemory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
-    },
+    isMobile: window.matchMedia("(max-width: 767px), (pointer: coarse)").matches,
+    reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    enabled,
   };
+}
+
+function createBackgroundThree(THREE: ThreeModule, targetFps: number) {
+  class CappedWebGLRenderer extends THREE.WebGLRenderer {
+    constructor(parameters?: THREE.WebGLRendererParameters) {
+      super(parameters);
+      const originalRender = this.render.bind(this);
+      const originalSetPixelRatio = this.setPixelRatio.bind(this);
+      const renderAllowed = createRenderGate(targetFps);
+      let frameWindowStart = performance.now();
+      let renderedInWindow = 0;
+      this.render = ((scene, camera) => {
+        if (!renderAllowed()) return;
+        originalRender(scene, camera);
+        renderedInWindow += 1;
+        this.domElement.dataset.renderPixelRatio = String(this.getPixelRatio());
+        this.domElement.dataset.renderWidth = String(this.domElement.width);
+        this.domElement.dataset.renderHeight = String(this.domElement.height);
+        this.domElement.dataset.renderedFrames = String((Number(this.domElement.dataset.renderedFrames) || 0) + 1);
+        const now = performance.now();
+        const sampleDuration = now - frameWindowStart;
+        if (sampleDuration >= 1000) {
+          this.domElement.dataset.renderedFps = String(Math.round(renderedInWindow * 1000 / sampleDuration));
+          renderedInWindow = 0;
+          frameWindowStart = now;
+        }
+      }) as typeof this.render;
+      this.setPixelRatio = ((value: number) => {
+        originalSetPixelRatio(capBackgroundPixelRatio(value));
+        this.domElement.dataset.renderPixelRatio = String(this.getPixelRatio());
+      }) as typeof this.setPixelRatio;
+    }
+  }
+
+  return { ...THREE, WebGLRenderer: CappedWebGLRenderer };
 }
 
 export function GlobalAnimatedBackground() {
@@ -59,6 +101,8 @@ export function GlobalAnimatedBackground() {
     let token = 0;
     let instance: VantaInstance | null = null;
     let resizeFrame = 0;
+    let activeMobile: boolean | null = null;
+    let runtimeEnabled: boolean | null = null;
 
     const setStatic = (reason: string) => {
       host.dataset.mode = "static";
@@ -68,33 +112,30 @@ export function GlobalAnimatedBackground() {
     const stop = () => {
       token += 1;
       pending = false;
-      if (!instance) return;
-      try {
-        instance.destroy();
-      } catch {
-        host.querySelector("canvas.vanta-canvas")?.remove();
+      if (instance) {
+        try {
+          instance.destroy();
+        } catch {
+          // Remove the renderer canvas below even if upstream teardown fails.
+        }
       }
       instance = null;
-      host.querySelector("canvas.vanta-canvas")?.remove();
+      activeMobile = null;
+      host.querySelectorAll("canvas.vanta-canvas").forEach((canvas) => canvas.remove());
     };
 
     const profileAndMode = () => {
-      const { isDark, profile } = getDeviceProfile();
-      if (shouldUseStaticBackground(profile)) {
-        return { isDark, staticReason: profile.reducedMotion ? "reduced-motion" : profile.isMobile ? "mobile" : profile.saveData ? "data-saver" : "low-power" };
-      }
-      return { isDark, staticReason: null };
-    };
-
-    const capPixelRatio = () => {
-      if (instance?.renderer) {
-        instance.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO));
-      }
+      const deviceProfile = getBackgroundProfile();
+      const profile = { ...deviceProfile, enabled: runtimeEnabled ?? deviceProfile.enabled };
+      const staticReason = shouldUseStaticBackground(profile)
+        ? profile.reducedMotion ? "reduced-motion" : "user-disabled"
+        : null;
+      return { ...profile, staticReason };
     };
 
     const start = async () => {
       if (disposed || isPageHidden() || failed || instance || pending) return;
-      const { isDark, staticReason } = profileAndMode();
+      const { isDark, isMobile, staticReason } = profileAndMode();
       if (staticReason) {
         setStatic(staticReason);
         return;
@@ -107,6 +148,7 @@ export function GlobalAnimatedBackground() {
 
       pending = true;
       const startToken = ++token;
+      host.querySelectorAll("canvas.vanta-canvas").forEach((canvas) => canvas.remove());
       host.dataset.mode = "loading";
       try {
         const [threeModule, netModule] = await Promise.all([
@@ -119,16 +161,16 @@ export function GlobalAnimatedBackground() {
         const VANTA = (netModule.default ?? netModule) as VantaNetFactory;
         const result = VANTA({
           el: host,
-          THREE,
+          THREE: createBackgroundThree(THREE, getRenderTargetFps(isMobile)),
           color: getNetworkColor(isDark),
           backgroundColor: getBackgroundColor(isDark),
           backgroundAlpha: 1,
-          mouseControls: true,
-          touchControls: true,
+          mouseControls: !isMobile,
+          touchControls: !isMobile,
           gyroControls: false,
           scale: 1,
           scaleMobile: 1,
-          points: 10,
+          points: isMobile ? 6 : 10,
           spacing: 15,
           maxDistance: 20,
           showDots: true,
@@ -143,11 +185,11 @@ export function GlobalAnimatedBackground() {
           return;
         }
         instance = result;
+        activeMobile = isMobile;
         host.dataset.mode = "animated";
         host.dataset.reason = "";
-        capPixelRatio();
       } catch {
-        host.querySelector("canvas.vanta-canvas")?.remove();
+        host.querySelectorAll("canvas.vanta-canvas").forEach((canvas) => canvas.remove());
         failed = true;
         setStatic("webgl-init-failed");
       } finally {
@@ -157,7 +199,7 @@ export function GlobalAnimatedBackground() {
 
     const refresh = () => {
       if (disposed) return;
-      const { staticReason } = profileAndMode();
+      const { isMobile, staticReason } = profileAndMode();
       if (staticReason) {
         stop();
         setStatic(staticReason);
@@ -168,6 +210,7 @@ export function GlobalAnimatedBackground() {
         setStatic("page-hidden");
         return;
       }
+      if (instance && activeMobile !== isMobile) stop();
       if (instance) {
         const { isDark } = profileAndMode();
         host.dataset.theme = isDark ? "dark" : "light";
@@ -182,9 +225,23 @@ export function GlobalAnimatedBackground() {
 
     const onResize = () => {
       cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(capPixelRatio);
+      resizeFrame = requestAnimationFrame(refresh);
     };
-    const onVisibilityChange = () => refresh();
+    const onPreferenceChange = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail as { enabled?: unknown } : null;
+      runtimeEnabled = typeof detail?.enabled === "boolean" ? detail.enabled : null;
+      if (runtimeEnabled) failed = false;
+      refresh();
+    };
+    const onStorageChange = () => {
+      runtimeEnabled = null;
+      if (profileAndMode().enabled) failed = false;
+      refresh();
+    };
+    const onVisibilityChange = () => {
+      if (!isPageHidden()) failed = false;
+      refresh();
+    };
     const onThemeChange = () => {
       const { isDark } = profileAndMode();
       host.dataset.theme = isDark ? "dark" : "light";
@@ -197,13 +254,13 @@ export function GlobalAnimatedBackground() {
     };
     const rootObserver = new MutationObserver(onThemeChange);
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const mobileQuery = window.matchMedia("(max-width: 767px)");
-    const coarsePointerQuery = window.matchMedia("(pointer: coarse)");
+    const deviceQuery = window.matchMedia("(max-width: 767px), (pointer: coarse)");
     motionQuery.addEventListener("change", refresh);
-    mobileQuery.addEventListener("change", refresh);
-    coarsePointerQuery.addEventListener("change", refresh);
+    deviceQuery.addEventListener("change", refresh);
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("resize", onResize);
+    window.addEventListener(backgroundAnimationChangeEvent, onPreferenceChange);
+    window.addEventListener("storage", onStorageChange);
     rootObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
     refresh();
@@ -212,10 +269,11 @@ export function GlobalAnimatedBackground() {
       disposed = true;
       rootObserver.disconnect();
       motionQuery.removeEventListener("change", refresh);
-      mobileQuery.removeEventListener("change", refresh);
-      coarsePointerQuery.removeEventListener("change", refresh);
+      deviceQuery.removeEventListener("change", refresh);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener(backgroundAnimationChangeEvent, onPreferenceChange);
+      window.removeEventListener("storage", onStorageChange);
       cancelAnimationFrame(resizeFrame);
       stop();
     };
