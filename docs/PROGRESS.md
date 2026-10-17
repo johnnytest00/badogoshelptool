@@ -1,5 +1,18 @@
 # F7.3.2 állapot
 
+## F9.24 — Tetőkalkulátorok előtérben és árva fájlok takarítása
+
+Státusz: **IMPLEMENTED / PARTIAL — kódellenőrzések PASS; böngészős megjelenítés ezen a körön nem futott**.
+
+- A Kalkulátorok oldalon a tetőgeometria és cserepeslemez kalkulátor maradt az elsődleges, azonnal látható kategória. Az ereszcsatorna, szegély és lemezprofil kalkulátorok egy alulra tett, alapból összecsukott „Archivált kalkulátorok” részbe kerültek. A meglévő route-ok és mentett számítás-típusok változatlanok, így a régi számítások továbbra is megnyithatók.
+- A főoldali Kalkulátorok kártya leírása az elsődleges tetőfunkciókat tükrözi.
+- A TypeScript importgráf és kódbeli hivatkozáskeresés egy árva `ClientCreatePageForm` komponenst azonosított; az ügyféllétrehozás élő útvonala külön, használt űrlapot alkalmaz, így ezt az elérhetetlen komponenst töröltem. Töröltem a gyökér `ikon.png`-t is, mert sehol nem hivatkozott rá kód vagy dokumentáció, és a Next ikonfájlok a `src/app` alatt megvannak. A gyökér, `src/` és `supabase/` `.DS_Store` Finder-metaadatfájlokat szintén eltávolítottam. Az automatikus Next route-konvenciók és a route/config/test belépési pontok nem számítottak árva fájlnak.
+- Más adat-, route-, migráció-, jogosultság- vagy üzleti logika nem változott; DB-művelet, commit, push és deploy nem történt.
+
+**Ellenőrzések:** `node_modules/.bin/vitest run src/features/dashboard/dashboard.test.ts src/features/dashboard/dashboard-controls.test.tsx` — 2 fájl / 8 teszt PASS; `npm run typecheck` PASS; `npm run lint` PASS; `npm run build` PASS (Next.js 16.4.0 webpack; `/kalkulatorok` és az archivált route-ok lefordultak); `git diff --check` PASS. Teljes Vitest-regresszió és DB-teszt nem futott. A böngészős archívum-kibontás és vizuális ellenőrzés nincs igazolva.
+
+Javasolt Conventional Commit: `feat(F9.24): archive non-roof calculators and remove orphan files`.
+
 ## F9.22 — termék-UX és Anyagkezelő
 
 **Státusz: PARTIAL.** Az öt jóváhagyott fő navigációs útvonal változatlan; az

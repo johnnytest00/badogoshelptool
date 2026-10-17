@@ -1,5 +1,18 @@
 # Tesztmátrix
 
+## F9.24 — tetőkalkulátorok és repo-audit
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Fő Kalkulátorok kategória | CODE + BUILD PASS | A tetőgeometria és cserepeslemez azonnal látszik; az eresz, szegély és lemezprofil az alsó, natív `<details>` archívumban van. A korábbi kalkulátor route-ok és mentett típusok megmaradtak. |
+| Árva TypeScript fájl | PASS, STATIC REFERENCE AUDIT | TypeScript AST import/export gráf alapján a `ClientCreatePageForm` fájlnak nem volt bejövő importja; repo-szintű szöveges keresés sem talált használatot. Az élő ügyféllétrehozó route másik űrlapot használ. |
+| Árva kép és metaadat | PASS, REFERENCE AUDIT | A gyökér `ikon.png`-re nem volt hivatkozás; a framework által használt `src/app/icon.png` és `apple-icon.png` megvan. Három tracked `.DS_Store` Finder-metaadatfájl törölve. |
+| Vitest | PASS, FOCUSED | `node_modules/.bin/vitest run src/features/dashboard/dashboard.test.ts src/features/dashboard/dashboard-controls.test.tsx`: 2 fájl / 8 teszt. Nincs teljes regresszió. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` Next.js 16.4.0 webpack, `git diff --check`. |
+| Böngésző / adatbázis | NEM FUTOTT / NEM VÁLTOZOTT | Az archivált rész interaktív kibontása nem lett böngészőben ellenőrizve; DB tesztet nem futtattam, adatbázis és migráció változatlan. |
+
+Státusz: **PARTIAL**, mert a build és célzott ellenőrzések sikeresek, de a böngészős megjelenítés és kibontás nincs igazolva.
+
 ## F9.22.1 — Global Vanta.NET performance
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

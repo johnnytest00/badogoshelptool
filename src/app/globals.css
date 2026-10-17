@@ -1995,6 +1995,21 @@ html[data-theme="light"] .global-animated-background canvas.vanta-canvas { opaci
   box-shadow: 0 .35rem 1rem rgba(15, 23, 42, .045); padding: .85rem; backdrop-filter: blur(.65rem);
   transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
 }
+.calculator-archive { margin-top: 1.4rem; }
+.calculator-archive-summary {
+  display: flex; min-height: 4.1rem; align-items: center; justify-content: space-between; gap: 1rem;
+  border: 1px solid var(--glass-border); border-radius: 1.15rem; padding: .8rem 1rem;
+  background: var(--surface-glass); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-elevation);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  cursor: pointer; list-style: none;
+}
+.calculator-archive-summary::-webkit-details-marker { display: none; }
+.calculator-archive-summary::after { content: "⌄"; color: var(--muted); transition: transform .16s ease; }
+.calculator-archive[open] > .calculator-archive-summary::after { transform: rotate(180deg); }
+.calculator-archive-summary > span:first-child { display: grid; gap: .2rem; }
+.calculator-archive-summary strong { font-size: .92rem; }
+.calculator-archive-summary small, .calculator-archive-count { color: var(--muted); font-size: .75rem; }
+.calculator-archive-content { padding-top: .15rem; }
 .calculator-launcher-tile:hover { border-color: color-mix(in srgb, var(--brand) 42%, var(--glass-border)); box-shadow: 0 .65rem 1.4rem rgba(15, 23, 42, .09); transform: translateY(-1px); }
 .calculator-launcher-tile:active { background: color-mix(in srgb, var(--brand-soft) 68%, var(--surface)); transform: scale(.99); }
 .calculator-launcher-tile:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 45%, transparent); outline-offset: 2px; }
@@ -2019,7 +2034,7 @@ html[data-theme="light"] .global-animated-background canvas.vanta-canvas { opaci
   .calculator-entry-grid .calculator-launcher-tile { min-height: 5rem; align-items: center; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .project-workflow-link, .calculator-launcher-tile { transition: none; }
+  .project-workflow-link, .calculator-launcher-tile, .calculator-archive-summary::after { transition: none; }
   .project-workflow-link:hover, .calculator-launcher-tile:hover { transform: none; }
 }
 

@@ -17,13 +17,18 @@ export default async function CalculatorsPage({ searchParams }: Readonly<{ searc
     <section className="calculator-category"><div className="calculator-category-heading"><h2>Tető és tetőfedés</h2></div>
       <div className="project-module-list calculator-entry-grid"><Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/nyeregteto?organization=${organizationId}`}><span className="future-module-icon"><House aria-hidden="true" /></span><span><strong>Tetőgeometria és tetőfedés</strong><small>Hét tetőforma, méretezett rajz és menthető előnézet.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link><Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/cserepeslemez?organization=${organizationId}`}><span className="future-module-icon"><House aria-hidden="true" /></span><span><strong>Cserepeslemez-fedés</strong><small>Nyeregtető-méretek és sematikus lemezkiosztás.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link></div>
     </section>
-    <section className="calculator-category"><div className="calculator-category-heading"><h2>Ereszcsatorna</h2></div><div className="project-module-list calculator-entry-grid">
-      <Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/ereszcsatorna?organization=${organizationId}`}><span className="future-module-icon"><Waves aria-hidden="true" /></span><span><strong>Ereszcsatorna kalkulátor</strong><small>Szakaszok, lefolyók és kézi tartozékok becslése.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link>
-    </div></section>
-    <section className="calculator-category"><div className="calculator-category-heading"><h2>Szegélyek és lemezmunka</h2></div><div className="project-module-list calculator-entry-grid">
-      <Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/szegelyek?organization=${organizationId}`}><span className="future-module-icon"><Calculator aria-hidden="true" /></span><span><strong>Bádogos szegélyek</strong><small>Kézi szakaszok és előzetes mennyiségek.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link>
-      <Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/lemezprofilok?organization=${organizationId}`}><span className="future-module-icon"><Ruler aria-hidden="true" /></span><span><strong>Lemezprofilok és hajtások</strong><small>Profilgeometria és nettó teríték.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link>
-    </div></section>
+    <details className="calculator-archive">
+      <summary className="calculator-archive-summary"><span><strong>Archivált kalkulátorok</strong><small>Az általános bádogos kalkulátorok itt továbbra is elérhetők.</small></span><span className="calculator-archive-count">3 kalkulátor</span></summary>
+      <div className="calculator-archive-content">
+        <section className="calculator-category"><div className="calculator-category-heading"><h2>Ereszcsatorna</h2></div><div className="project-module-list calculator-entry-grid">
+          <Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/ereszcsatorna?organization=${organizationId}`}><span className="future-module-icon"><Waves aria-hidden="true" /></span><span><strong>Ereszcsatorna kalkulátor</strong><small>Szakaszok, lefolyók és kézi tartozékok becslése.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link>
+        </div></section>
+        <section className="calculator-category"><div className="calculator-category-heading"><h2>Szegélyek és lemezmunka</h2></div><div className="project-module-list calculator-entry-grid">
+          <Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/szegelyek?organization=${organizationId}`}><span className="future-module-icon"><Calculator aria-hidden="true" /></span><span><strong>Bádogos szegélyek</strong><small>Kézi szakaszok és előzetes mennyiségek.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link>
+          <Link className="detail-surface project-module-link calculator-launcher-tile" href={`/kalkulatorok/lemezprofilok?organization=${organizationId}`}><span className="future-module-icon"><Ruler aria-hidden="true" /></span><span><strong>Lemezprofilok és hajtások</strong><small>Profilgeometria és nettó teríték.</small></span><ArrowUpRight aria-hidden="true" className="calculator-tile-arrow" /></Link>
+        </div></section>
+      </div>
+    </details>
     <nav className="calculator-project-access" aria-label="Kapcsolódó munkaterületek"><Link href={`/kivitelezes?organization=${organizationId}`}>Munkanaplók →</Link><span>Az önálló számítás nem igényel projektet.</span></nav>
   </div></main>;
 }

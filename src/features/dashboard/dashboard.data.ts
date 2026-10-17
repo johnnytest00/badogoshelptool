@@ -15,7 +15,7 @@ export const dashboardFunctions: readonly DashboardFunction[] = [
   { id: "material-lists", label: "Anyaglisták", description: "Önálló vagy munkanaplóhoz kapcsolt anyagok", icon: PackageOpen, tone: "green" },
   { id: "material-manager", label: "Anyagkezelő", description: "Kategóriák és katalógustermékek kezelése", icon: PackageSearch, tone: "orange" },
   { id: "quotes", label: "Árajánlatok", description: "Szerkeszthető ajánlatpiszkozatok", icon: FileText, tone: "violet" },
-  { id: "calculators", label: "Kalkulátorok", description: "Eresz-, szegély- és profilkalkulátorok", icon: Calculator, tone: "blue" },
+  { id: "calculators", label: "Kalkulátorok", description: "Tetőgeometria és tetőfedés kalkulátorok", icon: Calculator, tone: "blue" },
 ] as const;
 
 export function dashboardFunctionHref(id: string, organizationId: string) {
