@@ -153,7 +153,8 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   }, BigInt(0)), [lines]);
   const currentPriceClasses = new Set(lines.map((line) => line.priceClass));
   const mixedPriceClasses = currentPriceClasses.size > 1;
-  const currentPriceBasisLabel = mixedPriceClasses ? "vegyes árbesorolás" : [...currentPriceClasses][0] === "gross" ? "bruttó HUF" : "nettó HUF";
+  const missingPriceCount = lines.filter((line) => !line.unitPrice.trim()).length;
+  const currentPriceBasisLabel = mixedPriceClasses ? "vegyes árbesorolás" : missingPriceCount ? `részleges ${[...currentPriceClasses][0] === "gross" ? "bruttó" : "nettó"} HUF` : [...currentPriceClasses][0] === "gross" ? "bruttó HUF" : "nettó HUF";
   const readinessDocument = document;
   const savedIssuerForReadiness: IssuerDocumentProfile | null = savedDocument.issuer ? {
     businessName: textValue(savedDocument.issuer.businessName) || null,
@@ -171,7 +172,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   }
   const readiness = validateQuotationDocumentReadiness(issuerForReadiness, readinessDocument, undefined, {
     hasCurrentRevision: Boolean(currentRevisionId && currentRevision?.id === currentRevisionId),
-    hasCompleteLines: savedLineValidation.ok && savedLines.length > 0 && currentRevision?.price_class !== null,
+    hasCompleteLines: savedLineValidation.ok && savedLineValidation.totals.complete && savedLines.length > 0 && currentRevision?.price_class !== null,
     monetaryValuesConsistent: savedTotalsConsistent,
     currency: currentRevision?.currency ?? null,
     priceBasis: currentRevision?.price_class ?? null,
@@ -407,7 +408,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
               : line.priceProvenance === "takeoff_snapshot" ? "Korábbi anyagkimutatás-ár-pillanatkép"
                 : line.priceProvenance === "user_entered" ? "Kézi ajánlati ár"
                   : "Ár eredete nincs megadva";
-          const lineAmount = (() => { try { return money(scaledToDecimal(lineTotal(line.quantity || "0", line.unitPrice || "0").minor, 2)); } catch { return "—"; } })();
+          const lineAmount = !line.unitPrice.trim() ? "Hiányzó egységár" : (() => { try { return money(scaledToDecimal(lineTotal(line.quantity || "0", line.unitPrice).minor, 2)); } catch { return "—"; } })();
           const unitLabel = quotationPurchasingUnitLabel(line.unit) || "—";
           const linePriceLabel = line.priceClass === "gross" ? "Bruttó egységár (Ft)" : "Nettó egységár (Ft)";
           const lineTotalLabel = line.priceClass === "gross" ? "Bruttó tételösszeg" : "Nettó tételösszeg";
@@ -449,7 +450,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
         })}
       </div>
       {catalogMessage && <p className="form-message" role="status">{catalogMessage}</p>}
-      <div className="quotation-summary"><div className="quotation-current-total"><span>{historical ? `Történeti revízió · ${savedAmountLabel}` : `Jelenlegi piszkozat becslése · ${currentPriceBasisLabel}`}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : mixedPriceClasses ? "Árbesorolás ellenőrzése" : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "Változtathatatlan ajánlati pillanatkép összege." : mixedPriceClasses ? "Nettó és bruttó tételek nem keverhetők; a mentés blokkolva marad." : "A szerver mentéskor újraszámítja; nem végleges ajánlat."}</small></div>{!historical && dirty && savedSubtotal !== null && <div className="quotation-saved-total"><span>Legutóbb mentve · v{currentRevision?.revision_number ?? version} · {savedAmountLabel}</span><strong>{money(String(savedSubtotal))}</strong></div>}</div>
+      <div className="quotation-summary"><div className="quotation-current-total"><span>{historical ? `Történeti revízió · ${savedAmountLabel}` : `Jelenlegi piszkozat becslése · ${currentPriceBasisLabel}`}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : mixedPriceClasses ? "Árbesorolás ellenőrzése" : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "Változtathatatlan ajánlati pillanatkép összege." : mixedPriceClasses ? "Nettó és bruttó tételek nem keverhetők; a mentés blokkolva marad." : missingPriceCount ? `${missingPriceCount} tétel egységára hiányzik; ez a részösszeg csak a megadott árakat tartalmazza, nem kész ajánlat.` : "A szerver mentéskor újraszámítja; nem végleges ajánlat."}</small></div>{!historical && dirty && savedSubtotal !== null && <div className="quotation-saved-total"><span>Legutóbb mentve · v{currentRevision?.revision_number ?? version} · {savedAmountLabel}</span><strong>{money(String(savedSubtotal))}</strong></div>}</div>
     </fieldset>
     {!historical && dirty && <p className="form-message" role="status">Mentetlen módosításaid vannak.</p>}
     {!historical && !result.ok && result.error && <div className="form-message is-error" role="alert">{result.error}{result.code === "CONFLICT" && quotationId && <button type="button" className="secondary-button" onClick={async () => { const accepted = await requestConfirmation({ title: "Helyi változat elvetése", message: "A legfrissebb revízió megnyitása elveti ezt a helyi módosításcsomagot.", cancelLabel: "Maradok", actions: [{ label: "Legfrissebb revízió megnyitása", tone: "danger", run: () => undefined }] }); if (accepted) { discardRecovery(); router.replace(latestUrl); } }}>Legfrissebb revízió megnyitása</button>}</div>}

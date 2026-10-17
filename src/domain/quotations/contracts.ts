@@ -24,5 +24,14 @@ export const quotationDraftSchema = z.object({
   lines: z.array(quotationLineSchema).max(200),
 });
 
+// Standalone drafts may carry unpriced material-list rows without inventing a zero price.
+export const standaloneQuotationLineSchema = quotationLineSchema.extend({
+  unitPrice: z.string().trim().regex(/^$|^\d+(?:[.,]\d{1,2})?$/, "Az egységár legfeljebb 2 tizedesjegyű nemnegatív szám lehet."),
+});
+
+export const standaloneQuotationDraftSchema = quotationDraftSchema.extend({
+  lines: z.array(standaloneQuotationLineSchema).max(200),
+});
+
 export type QuotationLine = z.infer<typeof quotationLineSchema>;
 export type QuotationDraft = z.infer<typeof quotationDraftSchema>;

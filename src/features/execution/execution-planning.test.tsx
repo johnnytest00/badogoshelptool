@@ -48,6 +48,16 @@ function renderWorkspace(plan = emptyPlan, timeline: ExecutionTimelineItem[] = [
 }
 
 describe("execution planning workspace", () => {
+  it("opens the create form on the standalone new-work-log route even when another plan exists", () => {
+    const html = renderToStaticMarkup(<ExecutionPlanning
+      organizationId="org-1" projectId={null} projectName="" clientName={null} location={null}
+      plans={[emptyPlan]} acceptedQuotations={[]} timelineByPlan={new Map([[emptyPlan.id, []]])}
+      initialCreate showHeading={false} showDescription={false} showPlanTabs={false}
+    />);
+    expect(html).toContain("execution-create-form");
+    expect(html).toContain("Elfogadott ajánlat forrásként");
+  });
+
   it("prioritizes daily entries and shows one concise empty state with task actions", () => {
     const html = renderWorkspace();
 

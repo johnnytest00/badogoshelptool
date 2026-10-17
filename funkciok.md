@@ -802,3 +802,11 @@ A Phase 1 után újraolvasott architekturális összefoglaló: ez UI/alkalmazás
 - Phase 2 context compaction: ebben a kliensben nincs külön explicit compaction eszköz. Ez a kézátadás és a leltár szolgál autoritatív rövid kontextusként; valódi compactiont nem állítunk.
 
 **Fázis 1 fájlrendszeri ellenőrzés (F9.30):** 441 projekt által kezelt `.ts/.tsx` útvonal és 441 leltárbejegyzés; hiányzó/többlet nincs. A generált `next-env.d.ts` és Supabase `database.types.ts` kizárva. A route discoveryt, aktív importokat, legacy handoff integration tesztet, fő adatbázistáblákat, RPC-ket, RLS-határokat és migration hivatkozásokat célzottan ellenőriztem.
+
+## F9.32 daily workflow implementation kiegészítés
+
+- `src/features/field-surveys/field-survey-editor.tsx`: az elmentett standalone survey összesítő nézetét helyi React állapottal nyitja; nem frissíti újra a `/(surveyId)` route-ot és nem nullázza az összesítőt.
+- `src/features/execution/execution-planning.tsx` és `/kivitelezes/uj`: az explicit `initialCreate` az önálló `Új munkanapló` útvonalon akkor is megnyitja a létrehozó űrlapot, ha már van létező napló; project detail továbbra is megőrzi az eddigi UX-et. Accepted quote választó csak a már elfogadott, végleges revíziókat ajánlja fel.
+- `src/domain/quotations/contracts.ts`, `standalone.ts`, standalone actions/editor és migration `20261017130000_allow_unpriced_standalone_drafts.sql`: a standalone quotation draft empty unit price-t megőrizhet. A draft subtotal csak árazott sorok részösszege; `complete=false`, kész dokumentum-readiness nincs. A projekt quotation közös required-price sémája változatlan.
+- A felmérés → anyaglista → ajánlat út pontos revision snapshotot őriz; felmérési tetőterület önmagában továbbra sem ajánlati/beszerzési anyagmennyiség. A független list/quote/worklog route-ok nem kapnak kötelező egymás közti függést.
+- A `.workflow-material-row` anyaglista-gird tabletre 1100 px alatt vált: 1024 px-es túlcsordulás javítva, a többi layout token, adatlogika és üzleti viselkedés változatlan.

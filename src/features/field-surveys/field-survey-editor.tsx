@@ -296,7 +296,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   }
   useEffect(() => { persistCurrentRef.current = () => persistCurrent(); });
   async function ensureSaved() { if (recovery) { setError("Előbb állítsd vissza vagy vesd el a korábbi piszkozatot."); return null; } return surveyId && workspacePersisted && !dirty ? { surveyId, version } : persistCurrent(); }
-  async function showSummary() { const saved = await ensureSaved(); if (saved) { setSummary(true); router.refresh(); } }
+  async function showSummary() { const saved = await ensureSaved(); if (saved) setSummary(true); }
   function navigate(href: string) { void requestNavigation(href); }
   const selectedVersion = historicalRevision?.version ?? version;
   const revisionSelector = surveyId && revisionVersions.length > 1 && <label className="field-survey-field"><span>Felmérés változata</span><select value={selectedVersion} disabled={blocked} onChange={(event) => navigate(`/felmeresek/${surveyId}?organization=${organizationId}${Number(event.target.value) === version ? "" : `&version=${event.target.value}`}`)}>{[...new Set([version, ...revisionVersions])].map((item) => <option key={item} value={item}>{item === version ? "Aktuális" : "Korábbi"} · V{item}</option>)}</select></label>;

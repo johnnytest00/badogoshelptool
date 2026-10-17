@@ -2786,7 +2786,7 @@ body:has(.construction-suite) .global-animated-background canvas.vanta-canvas { 
 .workflow-material-add-row > label > span { font-size: .75rem; }
 .workflow-material-save { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: .75rem; }
 .workflow-material-save p { margin: 0; color: var(--muted); font-size: .82rem; }
-@media (max-width: 980px) { .workflow-material-row { grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 2fr) minmax(5rem, .75fr) auto; }.workflow-material-row .workflow-material-edit-icon { grid-row: 1 / 3; }.workflow-material-row .workflow-material-category, .workflow-material-row .workflow-material-category-select { grid-column: 2; grid-row: 1; }.workflow-material-row input[id^="material-description-"] { grid-column: 3 / 5; grid-row: 1; }.workflow-material-row input[id^="material-quantity-"] { grid-column: 2; grid-row: 2; }.workflow-material-row .workflow-material-unit, .workflow-material-row .workflow-material-unit-select { grid-column: 3; grid-row: 2; }.workflow-material-row .workflow-material-price { grid-column: 4; grid-row: 2; }.workflow-material-row .workflow-material-price-select { grid-column: 2 / 5; grid-row: 3; }.workflow-material-row .icon-button { grid-column: 5; grid-row: 1 / 3; }.workflow-material-add-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }.workflow-material-add-row > button { grid-column: 1 / -1; } }
+@media (max-width: 1100px) { .workflow-material-row { grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 2fr) minmax(5rem, .75fr) auto; }.workflow-material-row .workflow-material-edit-icon { grid-row: 1 / 3; }.workflow-material-row .workflow-material-category, .workflow-material-row .workflow-material-category-select { grid-column: 2; grid-row: 1; }.workflow-material-row input[id^="material-description-"] { grid-column: 3 / 5; grid-row: 1; }.workflow-material-row input[id^="material-quantity-"] { grid-column: 2; grid-row: 2; }.workflow-material-row .workflow-material-unit, .workflow-material-row .workflow-material-unit-select { grid-column: 3; grid-row: 2; }.workflow-material-row .workflow-material-price { grid-column: 4; grid-row: 2; }.workflow-material-row .workflow-material-price-select { grid-column: 2 / 5; grid-row: 3; }.workflow-material-row .icon-button { grid-column: 5; grid-row: 1 / 3; }.workflow-material-add-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }.workflow-material-add-row > button { grid-column: 1 / -1; } }
 @media (max-width: 520px) { .workflow-material-meta { grid-template-columns: 1fr; }.workflow-material-row { grid-template-columns: auto minmax(0, 1fr) minmax(4.5rem, .65fr) auto; }.workflow-material-row .workflow-material-edit-icon { grid-row: 1 / 6; }.workflow-material-row .workflow-material-category, .workflow-material-row .workflow-material-category-select { grid-column: 2 / 4; grid-row: 1; }.workflow-material-row input[id^="material-description-"] { grid-column: 2 / 4; grid-row: 2; }.workflow-material-row input[id^="material-quantity-"] { grid-column: 2; grid-row: 3; }.workflow-material-row .workflow-material-unit, .workflow-material-row .workflow-material-unit-select { grid-column: 3; grid-row: 3; }.workflow-material-row .workflow-material-price { grid-column: 2 / 4; grid-row: 4; }.workflow-material-row .workflow-material-price-select { grid-column: 2 / 4; grid-row: 5; }.workflow-material-row .icon-button { grid-column: 4; grid-row: 1 / 6; align-self: start; }.workflow-material-save { align-items: stretch; flex-direction: column; }.workflow-material-save .primary-button { justify-content: center; } }
 .quotation-material-source { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; margin-block: .6rem; padding: .75rem .9rem; }
 .quotation-material-source > span { color: var(--muted); font-size: .82rem; }
@@ -4033,7 +4033,7 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .construction-stair-drawing *, .construction-stair-drawing *::before, .construction-stair-drawing *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
-@media (max-width: 980px) {
+@media (max-width: 1100px) {
   .workflow-material-row { grid-template-columns: 1.2rem minmax(0, 1fr) minmax(5rem, .65fr) auto; }
   .workflow-material-row .workflow-material-edit-icon { display: none; }
   .workflow-material-row-title { grid-column: 2 / 4; grid-row: 1; }
@@ -4186,7 +4186,7 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 .workflow-material-list-empty { margin-top: .4rem; }
 .workflow-material-lists :is(a, button, input, select, summary):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 
-@media (max-width: 980px) {
+@media (max-width: 1100px) {
   .workflow-material-catalog-entry { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(6rem, .55fr); }
   .workflow-material-catalog-entry .workflow-material-entry-facts { grid-column: 1 / 3; }
   .workflow-material-catalog-entry .workflow-material-add-button { grid-column: 3; grid-row: 2; }

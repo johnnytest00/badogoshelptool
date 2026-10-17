@@ -3070,3 +3070,17 @@ Javasolt Conventional Commit: `feat(F9.24.5): add concrete technical drawings`.
 Részletes handoff: [F9_28_HANDOFF.md](../F9_28_HANDOFF.md). Teljes Vitest regresszió nincs állítva.
 
 Javasolt Conventional Commit: `feat(F9.28): document architecture and streamline survey calculation`.
+
+## F9.32 — Daily workflow E2E validáció
+
+Státusz: **COMPLETE a helyi, hitelesített DEMO végigjárható workflow-ra; korlátozások a részletes riportban.**
+
+- A mentett, önálló DEMO felmérés összesítő gombja az első mentés után route-frissítéskor elvesztette a helyi nézetállapotot. A frissítést eltávolítottam ebből a gombműveletből; a V1 összesítő és anyaglista CTA most böngészőben megnyílik.
+- A felmérésből induló, üres árú anyaglista tételeit a standalone árajánlat draft szabálya és DB írója elutasította. A standalone-only validator és additive SQL writer módosítás üresen megőrzi az árat és a `missing` eredetet; részösszeget csak megadott árakból képez, a `complete` értéket hamisan állítja, a kiállítási readiness pedig hiányos marad. Projektajánlat-séma változatlan.
+- Munkanapló `Új` útvonala létező naplók mellett csak régi naplót mutatott. Az útvonal explicit `initialCreate`-et ad; külön teszt igazolja a létrehozó űrlap megjelenését.
+- Anyaglista 1024 px-en túlcsordult, mert a mobil/táblagép sor- és mezőgrid csak 980 px alatt váltott. A kapcsolódó töréspontok 1100 px-re kerültek; mind a négy workflow 1440/1024/768/390/320 CSS px-en újra ellenőrzött.
+- Kód és adatbizonyíték: [F9.32 end-to-end riport](F9_32_END_TO_END_REPORT.md). Nem történt hosted módosítás, adatbázis-reset, commit, push vagy deploy.
+
+**Ellenőrzés:** teljes Vitest 134 fájl PASS / 9 SKIP, 584 teszt PASS / 27 SKIP; teljes helyi pgTAP 39 fájl / 960 assertion PASS; helyi Auth/RLS integráció 4 fájl / 11 teszt PASS; typecheck, lint, production build és `git diff --check` PASS. A migration CLI a korábbi, helyi F9.31 `20261017120000_secure_sheet_layout_writer.sql` napló/séma eltérése miatt megállt; a F9.32 create-or-replace RPC-t helyi DB-n, reset nélkül alkalmaztam és a pgTAP ellenőrizte. Ennek pontos korlátai a riportban.
+
+Javasolt Conventional Commit: `fix(F9.32): stabilize daily workflow and draft pricing`.

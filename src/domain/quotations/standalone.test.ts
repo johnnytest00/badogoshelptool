@@ -15,6 +15,11 @@ describe("standalone quotation draft lines", () => {
     expect(validateStandaloneLines([])).toMatchObject({ ok: true, totals: { subtotal: "0.00", priceClass: null } });
   });
 
+  it("preserves a missing source price and excludes it from the partial subtotal", () => {
+    const result = validateStandaloneLines([{ type: "MATERIAL", description: "DEMO felmérési tétel", quantity: "12", unit: "m", unitPrice: "", priceClass: "net", priceProvenance: "missing" }]);
+    expect(result).toMatchObject({ ok: true, lines: [{ unitPrice: "", priceProvenance: "missing" }], totals: { subtotal: "0.00", complete: false } });
+  });
+
   it("rejects missing item fields, unsupported decimals and mixed net/gross rows", () => {
     expect(validateStandaloneLines([{ ...item("LABOR", "", "1.00") }]).ok).toBe(false);
     expect(validateStandaloneLines([item("LABOR", "Túl pontos ár", "1.001")]).ok).toBe(false);

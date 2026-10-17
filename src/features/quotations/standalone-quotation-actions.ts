@@ -2,7 +2,7 @@
 
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
-import { quotationDraftSchema, type QuotationLine } from "@/domain/quotations/contracts";
+import { standaloneQuotationDraftSchema, type QuotationLine } from "@/domain/quotations/contracts";
 import { validateStandaloneLines } from "@/domain/quotations/standalone";
 import { decimalToScaled } from "@/domain/quotations/money";
 import { calculateQuotationFinancialContract } from "@/domain/quotations/financial-contract";
@@ -70,7 +70,7 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
     return failure("VALIDATION", "Válassz egy műhelyhez tartozó címzettet.");
   }
   if (document.recipientSource === "manual" && formText(form, "clientId")) return failure("VALIDATION", "Kézi címzetthez ne válassz ügyfélrekordot.");
-  const parsed = quotationDraftSchema.safeParse({ name: formText(form, "name"), clientId: formText(form, "clientId"), currency: "HUF", lines: rawLines });
+  const parsed = standaloneQuotationDraftSchema.safeParse({ name: formText(form, "name"), clientId: formText(form, "clientId"), currency: "HUF", lines: rawLines });
   if (!parsed.success) return failure("VALIDATION", parsed.error.issues[0]?.message ?? "Ellenőrizd az ajánlati adatokat.");
   const validation = validateStandaloneLines(parsed.data.lines);
   if (!validation.ok) return failure("VALIDATION", validation.error);
@@ -207,7 +207,7 @@ export async function validateStandaloneQuotationDocumentAction(organizationId: 
     let revisionCurrency: string | null = quotation.currency;
     if (quotation.current_revision_id) {
       const { data: revision, error: revisionError } = await supabase.from("quotation_revisions")
-        .select("id, revision_number, currency, price_class, subtotal, line_items_snapshot, quotation_id, input_snapshot")
+        .select("id, revision_number, currency, price_class, subtotal, line_items_snapshot, totals_snapshot, quotation_id, input_snapshot")
         .eq("id", quotation.current_revision_id).eq("quotation_id", quotation.id).eq("organization_id", organizationId).maybeSingle();
       if (revisionError) return failure("INTERNAL", "Az ajánlat pénzügyi pillanatképe nem tölthető be.");
       if (revision) {
@@ -222,13 +222,15 @@ export async function validateStandaloneQuotationDocumentAction(organizationId: 
         priceBasis = revision.price_class;
         const lines = Array.isArray(revision.line_items_snapshot) ? revision.line_items_snapshot : [];
         const validated = validateStandaloneLines(lines);
-        hasCompleteLines = validated.ok && lines.length > 0 && revision.price_class !== null;
+        hasCompleteLines = validated.ok && validated.totals.complete && lines.length > 0 && revision.price_class !== null;
         if (validated.ok && revision.subtotal !== null && revision.price_class === validated.totals.priceClass) {
           try {
             const expected = decimalToScaled(String(revision.subtotal), 2);
             const actual = decimalToScaled(validated.totals.subtotal, 2);
-            const contract = calculateQuotationFinancialContract(validated.lines);
-            monetaryValuesConsistent = expected === actual && contract.priceBasis === revision.price_class;
+            const contract = validated.totals.complete ? calculateQuotationFinancialContract(validated.lines) : null;
+            const savedTotals = revision.totals_snapshot && typeof revision.totals_snapshot === "object" && !Array.isArray(revision.totals_snapshot)
+              ? revision.totals_snapshot as Record<string, unknown> : null;
+            monetaryValuesConsistent = expected === actual && (contract ? contract.priceBasis === revision.price_class : savedTotals?.complete === false);
           } catch { monetaryValuesConsistent = false; }
         }
       }

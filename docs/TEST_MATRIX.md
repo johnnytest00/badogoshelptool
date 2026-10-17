@@ -1,5 +1,20 @@
 # Tesztmátrix
 
+## F9.32 — Daily workflow E2E (a korábbi F9.31/F9.30 mátrixokat felülíró futás)
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Survey → Material List → Quotation draft | PASS, LOCAL AUTHENTICATED DEMO | Survey V1 `1bb707f6-ca4a-47f0-8cbe-05a34e171b38` / revision `39d5f66c-b340-476f-909d-7d0bf394d3b1`; material V1 `e33eaf05-d1c2-45a5-830e-3838c49b9d82` / revision `57b44921-7e05-40a2-8990-6fd0746c0743`; quotation draft V1 `c3202c71-c686-4b2c-a6cd-64f3609b2bd8` / revision `06b0e2bf-2881-4075-b013-c6c6461a743d`. Exact source revision DB/UI ellenőrizve. Árazatlan 3 forrástétel üres árral maradt. |
+| Work Log / accepted boundary | PASS, LOCAL DEMO | Survey V1 társítása önálló munkanaplóhoz; a napi bejegyzés reload után megmaradt. Projektoldalon a külön `DEMO F9.32 accepted quote work log` terv forrása az eleve accepted `9f7f8e95-0ef5-4543-a041-1a94ac51e3f7` quotation immutable revision `eac61b01-415b-4c0e-b952-1b844e392fc2`. Quote státuszt nem változtattam. |
+| Független munkafolyamatok | PASS, LOCAL DEMO | Felmérés ügyfél/projekt nélkül; standalone anyaglista survey nélkül; üres standalone quote material list nélkül; üres forrású worklog. Létrehozás és újranyitás browserben. |
+| Régi kalkulátor útvonal | PASS, LOCAL BROWSER | `/kalkulatorok/szegelyek` a `/kalkulatorok` gyűjtőoldalra irányít; a külön kalkulátorszekció aktív. Történeti adatokat nem töröltem. |
+| Teljes Vitest | PASS | `npm test`: 134 fájl pass, 9 skip; 584 pass, 27 skip (611 összes). |
+| Teljes pgTAP | PASS, LOCAL DB | `SUPABASE_TELEMETRY_DISABLED=1 npx supabase test db --local`: 39 fájl / 960 assertion, köztük új 038 árazatlan standalone quote draft teszt. |
+| Local Auth/RLS integráció | PASS, LOCAL DEMO | Felmérés, sheet-layout writer, multi-roof writer és material manager: 4 fájl / 11 teszt; a korlátozott writer/authorization regressziók futottak. |
+| Typecheck / lint / build / diff | PASS | `npm run typecheck`, `npm run lint`, `npm run build` (Next 16.4.0 webpack, 30 static paths), `git diff --check`. |
+| Responsive / keyboard / theme | PASS, BROWSER EMULATION | Mind a négy workflow document/body scrollWidth tesztje 1440/1024/768/390/320 CSS px-en overflow nélkül. Enterrel a survey összesítő és világos/sötét téma váltása működött. Fizikai eszköz, screen reader és forced-colors nem ellenőrzött. |
+| Migration replay / hosted | KORLÁTOS / NEM FUTOTT | A helyi migration history az F9.31 `20261017120000_secure_sheet_layout_writer` fájlnál már létező `sheet_layout_save_operations` táblán elbukott. Új F9.32 writer migrationt közvetlenül helyi DB-re alkalmaztam; hosted nem érintett. Pristine migration replay és hosted viselkedés nincs állítva. |
+
 ## F9.31 — legacy kalkulátorfüggőségek
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |
