@@ -63,5 +63,3 @@ Minimize token usage without sacrificing correctness.
   - Csak a releváns dokumentumszakaszt olvasd és szerkeszd; nagy dokumentumot ne tölts be egészében, hacsak valóban nem szükséges. Ismétlődő szerkesztéshez célzott patch vagy script is jó, ha biztonságosabb és hatékonyabb.
   - Ne írd újra a teljes leltárt egy kisebb változásért, és ne hozz létre dokumentumot triviális implementációs részletek rögzítésére.
   - Őrizd meg a pontosságot és a nyomon követhetőséget; a bizonyított, nem futtatott és blokkolt állapotot külön jelöld.
-- Ne telepíts csomagot, ne futtass teljes tesztkészletet indok nélkül. Commitot, pusht, deployt, távoli migrációt vagy destruktív adatbázis-műveletet csak kifejezett kérésre végezz.
-- Minden mérföldkő végén javasolj rövid Conventional Commit üzenetet, benne a verzióval és fő funkcióval; ne commitolj külön kérés nélkül.
