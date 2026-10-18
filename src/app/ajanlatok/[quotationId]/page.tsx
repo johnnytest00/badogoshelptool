@@ -5,6 +5,7 @@ import { getMaterialCategories, getMaterialProductsForOrganization } from "@/fea
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getStandaloneDocumentSourcesAction, getStandaloneQuotationHeaderAction, getStandaloneQuotationMaterialSourceAction, listStandaloneQuotationRevisionsAction, readStandaloneQuotationAction } from "@/features/quotations/standalone-quotation-actions";
 import { StandaloneQuotationEditor } from "@/features/quotations/standalone-quotation-editor";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 export default async function StandaloneQuotationPage({ params, searchParams }: Readonly<{ params: Promise<{ quotationId: string }>; searchParams: Promise<{ organization?: string; revision?: string }> }>) {
   const { quotationId } = await params;
@@ -20,14 +21,14 @@ export default async function StandaloneQuotationPage({ params, searchParams }: 
   ]);
   if (!header.ok || !history.ok) {
     const error = header.ok ? (!history.ok ? history.error : "") : header.error;
-    return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/ajanlatok?organization=${organizationId}`}>← Vissza az ajánlatokhoz</Link><section className="empty-state" role="alert"><div><h1>Az ajánlat nem nyitható meg</h1><p>{error}</p><Link className="secondary-button" href={`/ajanlatok?organization=${organizationId}`}>Vissza az ajánlatlistához</Link></div></section></div></main>;
+    return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/ajanlatok?organization=${organizationId}`} label="Vissza az ajánlatokhoz" /><section className="empty-state" role="alert"><div><h1>Az ajánlat nem nyitható meg</h1><p>{error}</p><Link className="secondary-button" href={`/ajanlatok?organization=${organizationId}`}>Vissza az ajánlatlistához</Link></div></section></div></main>;
   }
   const revisions = history.data;
   const requestedRevisionId = query.revision ?? header.data.currentRevisionId ?? undefined;
   const revisionResponse = requestedRevisionId ? await readStandaloneQuotationAction(organizationId, quotationId, requestedRevisionId) : null;
   const activeRevision = revisionResponse?.ok ? revisionResponse.data[0] : undefined;
-  if (requestedRevisionId && !activeRevision) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/ajanlatok/${quotationId}?organization=${organizationId}`}>← Legfrissebb ajánlat</Link><p className="form-message is-error" role="alert">A kért revízió nem tölthető be. A mentett ajánlati adat nem változott.</p></div></main>;
-  if (header.data.status !== "draft") return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/ajanlatok?organization=${organizationId}`}>← Vissza az ajánlatokhoz</Link><section className="detail-surface"><p className="section-eyebrow">Önálló ajánlat</p><h1>{header.data.name}</h1><p>Állapot: {header.data.status}. Ehhez az állapothoz nincs standalone művelet támogatva.</p></section></div></main>;
+  if (requestedRevisionId && !activeRevision) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/ajanlatok/${quotationId}?organization=${organizationId}`} label="Legfrissebb ajánlat" /><p className="form-message is-error" role="alert">A kért revízió nem tölthető be. A mentett ajánlati adat nem változott.</p></div></main>;
+  if (header.data.status !== "draft") return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/ajanlatok?organization=${organizationId}`} label="Vissza az ajánlatokhoz" /><section className="detail-surface"><p className="section-eyebrow">Önálló ajánlat</p><h1>{header.data.name}</h1><p>Állapot: {header.data.status}. Ehhez az állapothoz nincs standalone művelet támogatva.</p></section></div></main>;
   const [products, categories, documentSources, materialSourceResponse] = await Promise.all([
     getMaterialProductsForOrganization(organizationId), getMaterialCategories(organizationId, false), getStandaloneDocumentSourcesAction(organizationId),
     requestedRevisionId ? getStandaloneQuotationMaterialSourceAction(organizationId, quotationId, requestedRevisionId) : Promise.resolve({ ok: true as const, data: null }),

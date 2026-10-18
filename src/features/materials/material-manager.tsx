@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Archive, Check, Pencil, Plus, Search } from "lucide-react";
+import { Archive, Check, Pencil, Plus, Search } from "lucide-react";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { GlassSectionHeader } from "@/components/ui/glass-section-header";
@@ -11,6 +11,7 @@ import type { MaterialActionResult } from "./material-actions";
 import { createMaterialCategoryAction, renameMaterialCategoryAction, setMaterialCategoryActiveAction } from "./material-actions";
 import type { MaterialCategoryRecord, MaterialManufacturerRecord, MaterialProductRecord } from "./material-data";
 import { ManufacturerForm, MaterialManagerProductForm, ProductStatusForm } from "./material-forms";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 type CategoryDialog = { mode: "create" } | { mode: "rename"; category: MaterialCategoryRecord } | null;
 
@@ -48,14 +49,20 @@ export function MaterialManager({
   useEffect(() => {
     const dialogElement = dialogRef.current;
     if (!dialogElement) return;
-    if (dialog && !dialogElement.open) dialogElement.showModal();
+    if (dialog && !dialogElement.open) {
+      dialogElement.showModal();
+      dialogElement.querySelector<HTMLElement>("input[name='name']")?.focus();
+    }
     if (!dialog && dialogElement.open) dialogElement.close();
   }, [dialog]);
 
   useEffect(() => {
     const dialogElement = productDialogRef.current;
     if (!dialogElement) return;
-    if (productDialogOpen && !dialogElement.open) dialogElement.showModal();
+    if (productDialogOpen && !dialogElement.open) {
+      dialogElement.showModal();
+      dialogElement.querySelector<HTMLElement>("input:not([type='hidden']), select, textarea")?.focus();
+    }
     if (!productDialogOpen && dialogElement.open) dialogElement.close();
   }, [productDialogOpen]);
 
@@ -109,7 +116,7 @@ export function MaterialManager({
   const editCategory = dialog?.mode === "rename" ? dialog.category : null;
 
   return <div className="dashboard-shell"><div className="dashboard-container materials-workspace material-manager-workspace">
-    <Link className="back-link" href={`/?organization=${organizationId}`}><ArrowLeft className="size-4" /> Műhely áttekintése</Link>
+    <BackNavigation href={`/?organization=${organizationId}`} label="Műhely áttekintése" />
     <GlassPageHeader title="Anyagkezelő" context="Kategóriák, termékek, egységek és árak" actions={<>
       <button className="secondary-button" type="button" onClick={() => { setFeedback(""); setDialog({ mode: "create" }); }}><Plus className="size-4" /> Új kategória</button>
       <button className="primary-button" type="button" onClick={() => setProductDialogOpen(true)}><Plus className="size-4" /> Új termék</button>

@@ -1,11 +1,11 @@
-import { GuardedLink as Link } from "@/components/navigation/guarded-link";
-import { ArrowLeft, Ruler, Sparkles } from "lucide-react";
+import { Ruler, Sparkles } from "lucide-react";
 import { DemoRoofDrawing } from "@/drawings/demo-roof";
 import { ScalingBubble } from "@/components/accessibility/scaling-bubble";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { redirect } from "next/navigation";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 export default async function ScalingDemoPage() {
   const auth = await getAuthContext();
@@ -15,7 +15,7 @@ export default async function ScalingDemoPage() {
   return (
     <main id="main-content" tabIndex={-1} className="demo-page-shell">
       <div className="demo-page-container">
-        <Link className="back-link" href="/"><ArrowLeft aria-hidden="true" className="size-4" /> Vissza a műhelyhez</Link>
+        <BackNavigation href="/" label="Vissza a műhelyhez" />
         <header className="demo-page-header"><div><p className="eyebrow">DEMO · felületméretezés</p><h1 className="demo-page-title">Méretezési műhely</h1><p className="demo-page-lead">Három független beállítással ellenőrizheted, hogyan alkalmazkodik a felület a munkamódszeredhez.</p></div><span className="demo-page-icon"><Ruler aria-hidden="true" className="size-6" /></span></header>
         <div className="demo-grid">
           <section className="demo-surface" aria-labelledby="demo-controls-title"><div className="demo-section-heading"><Sparkles aria-hidden="true" className="size-5" /><div><p className="section-eyebrow">Élő vezérlés</p><h2 id="demo-controls-title">Globális megjelenítés</h2></div></div><p className="demo-copy">A beállítások helyben mentődnek. A szöveg, a kezelőszervek és a műszaki rajz külön-külön méretezhető.</p><ScalingControls /></section>

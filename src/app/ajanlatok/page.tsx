@@ -1,9 +1,9 @@
-import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getGlobalProjectQuotations } from "@/features/quotations/global-quotation-data";
 import { QuotationOverview } from "@/features/quotations/quotation-overview";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 export default async function QuotationsIndexPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string }> }>) {
   const selected = await getProjectOrganization((await searchParams).organization);
@@ -18,5 +18,5 @@ export default async function QuotationsIndexPage({ searchParams }: Readonly<{ s
     const result = await getGlobalProjectQuotations(organizationId);
     projectItems = result.items; projectHasMore = result.hasMore;
   } catch (error) { projectError = error instanceof Error ? error.message : "A projektajánlatok listája nem tölthető be."; }
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/?organization=${organizationId}`}>← Műhely áttekintése</Link><QuotationOverview organizationId={organizationId} projectItems={projectItems} projectHasMore={projectHasMore} projectError={projectError} /></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/?organization=${organizationId}`} label="Műhely áttekintése" /><QuotationOverview organizationId={organizationId} projectItems={projectItems} projectHasMore={projectHasMore} projectError={projectError} /></div></main>;
 }

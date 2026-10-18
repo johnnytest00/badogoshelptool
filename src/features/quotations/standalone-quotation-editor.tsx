@@ -18,6 +18,7 @@ import type { MaterialCategoryRecord } from "@/features/materials/material-data"
 import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "@/features/material-takeoffs/workflow-material-product-picker";
 import { catalogReplacementNeedsConfirmation, changeQuotationMaterialCategory, quotationMaterialLinkState, quotationPricesEqual, quotationPurchasingUnitLabel, quotationPurchasingUnitsMatch } from "./quotation-material-state";
 import { emptyQuotationDocumentDraft, validateQuotationDocumentReadiness, type DocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 type Line = QuotationDraftValues["lines"][number];
 type EditorLine = Line & { localId: string };
@@ -323,10 +324,11 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   };
 
   return <section className="quotation-editor detail-surface standalone-quotation-editor">
-    <Link className="back-link" href={`/ajanlatok?organization=${organizationId}`}>← Vissza az ajánlatokhoz</Link>
+    <BackNavigation href={`/ajanlatok?organization=${organizationId}`} label="Vissza az ajánlatokhoz" />
     <div className="section-heading standalone-quotation-header glass-bubble"><div className="standalone-quotation-title"><ClipboardList aria-hidden="true" className="standalone-quotation-icon" /><div><p className="section-eyebrow">Önálló ajánlat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2><p className="standalone-quotation-subtitle">HUF · Menthető piszkozat</p></div></div><span className="status-pill status-draft">Piszkozat</span></div>
     <p className="standalone-quotation-note">A véglegesítés, az ÁFA-kezelés és a hivatalos PDF még nem támogatott.</p>
     {materialSource && <section className="glass-bubble quotation-material-source" aria-label="Anyaglista forrás"><strong>Anyaglista-forrás · {materialSource.listName}</strong><span>V{materialSource.revisionNumber} revízió · {materialSource.sourceLineMap.length} forrástétel</span>{materialSource.currentRevisionId && materialSource.currentRevisionId !== materialSource.materialRevisionId && <p role="status">A lista azóta V{materialSource.currentVersion} verzióra változott. Az ajánlat a kiválasztott, változtathatatlan V{materialSource.revisionNumber} forrásból indul.</p>}</section>}
+    <div className="standalone-quotation-toolbar">
     <div className="standalone-revision-bar" aria-label="Ajánlati revíziók">
       {revisions.map((revision) => <Link key={revision.id} className={`secondary-button ${revision.id === (selectedRevisionId ?? currentRevisionId) ? "is-current" : ""}`} href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`} aria-current={revision.id === (selectedRevisionId ?? currentRevisionId) ? "page" : undefined}>v{revision.revisionNumber} · {money(revision.subtotal)}</Link>)}
       {historical && <Link className="primary-button" href={latestUrl}>Legfrissebb revízió megnyitása (v{version})</Link>}
@@ -346,6 +348,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
         </div>
       </section>}
     </div>}
+    </div>
     {recovery && !historical && <section className="form-message" role="status"><p>{recovery.current ? "Korábban nem mentett módosítás található ebben a munkamenetben." : "A helyi változat régebbi szerverrevízióból készült, ezért nem állítható vissza automatikusan."}</p>{recovery.current && <button className="secondary-button" type="button" onClick={restoreRecovery}>Változat visszaállítása</button>}<button className="text-button" type="button" onClick={discardRecovery}>Helyi változat elvetése</button></section>}
     <fieldset className="quotation-editor-fields" disabled={historical || pending || !recoveryReady} aria-busy={pending || !recoveryReady}>
       <div className="quotation-meta"><label htmlFor="standalone-name">Ajánlat neve<input id="standalone-name" required maxLength={200} value={name} onChange={(event) => { setName(event.target.value); syncDirty(event.target.value); setResult({ ok: false, code: "INTERNAL", error: "" }); }} aria-describedby="standalone-name-hint" placeholder="Például: Tóth utca tetőfelújítás" /></label><small id="standalone-name-hint">Ez az egyetlen kötelező alapadat; a címzett és dokumentummezők opcionálisak.</small></div>

@@ -126,3 +126,34 @@ A beállítások popover, a geometriai eredménykártya (nagy érték + 5 mutat�
 - **Javítva:** Anyagkezelő gyártó-`summary` és felmérés „Kapcsolt régi adatok” link 24 px magas → 44 px (≤1023 px vagy `pointer: coarse`); 9.6–11 px-es szövegek (kategória-számláló, állapot-/kategória-pill, szakasz-számláló, termékkód, anyaglista-mezőcímkék és eyebrow) legalább .75rem (a felhasználó szövegméret-skálája alkalmazva).
 - **Nem módosítva (szándékos):** kategória-sáv vízszintesen görgethető (csak a konténeren belül, oldal nem); a felmérés-fejléc „Vissza” gombja mobilon teljes szélességű (közös `GlassPageHeader`, nem érintettem); ≥701 px-en a lebegő gomb rejtett, a méretezés a fejléc beállításaiban érhető el.
 - **Nem mért:** fizikai billentyűzet/safe-area (a böngészőpanel nem emulálja; a logika a `visualViewport`-ra épül, egységteszttel fedett), sötét téma képernyőnként, Munkanapló/Anyagkezelő mélyebb állapotai, dialógusok pixelpontos elhelyezése.
+
+---
+
+## F9.41 — Liquid Glass rendszer-egységesítés — 2026-10-18
+
+**Módszer:** minden aktív útvonal (42 `page.tsx`) forrásszintű leltára + számított-stílus audit a böngészőben (felület/gomb/mező sugár és magasság, átlátszatlan hátterek, h1 méret, túlcsordulás) ~30 útvonalon, világos témában (1024–1440 px); sötét téma képernyőképpel a reprezentatív képernyőkön. **[M]** mért, **[F]** csak forrás.
+
+**Közös gyökérokok és javítás (in-place, nincs új override-réteg):**
+1. **Hardcode-olt világos státusz-/hiba-panelek** (`#fff7ed`, `#fef2f2`, `#dcfce7` stb.; `.profile-warnings/errors`, `.flashing-errors`, `.login-error`, `.preparation-stale-banner/missing`, `.status-*`, `.preparation-state/category`, `.drawing-state`) sötét témában félreillettek → új `--tone-success/warning/danger/info` tokenek (a meglévő `--success/--warning/--danger/--info`-ból, mindkét témában); elhalt duplikált szabályok és külön sötét felülírások törölve.
+2. **Sugárskála:** 15 különböző `border-radius` érték (.55–1.6rem) → 4 token: `--radius-control` (.7), `--radius-panel` (.9, új), `--radius-popover` (1), `--radius-card` (1.25); ~190 deklaráció átírva. Mérés után a felületek 20/16/14,4 px, a mezők mind 11,2 px (korábban 8,8–12 px).
+3. **Mezők**: komponens-szintű `.65/.75/.55rem` sugarak felülírták az alap `input/select/textarea` szabályt → 35 szabály tokenre; profil-szerkesztő „Anyagszükséglet” mezői (24 px, keret nélkül) és a Munkanapló fotószűrők (38 px) stílusa/magassága javítva.
+4. **Oldalfejlécek:** Lemezprofilok, Szegélykalkulátor, Ereszcsatorna-kalkulátor (h2, h1 nélkül), Cserepeslemez-fedés (16 px h1), projekt Anyagkimutatás/Ajánlatok régi `project-detail-header` blokkja → közös `GlassPageHeader`; a halott `.profile-header` CSS törölve.
+5. **Vissza-navigáció (U3 JSX):** 17 fájl kézzel írt `<Link className="back-link">` → közös `BackNavigation` (GuardedLink). Egyetlen `.back-link` gomb maradt (`standalone-project-association`, vezérlő-callback).
+6. **Érintési célok/szöveg:** `.text-action/.text-button`, checkbox/rádió-címkék 44 px (≤1023 px vagy `pointer: coarse`); `.status-pill`, `.preparation-state`, eyebrow-ok ≥ .75rem; login-gomb sugara a vezérlő-tokenre.
+
+**Lefedettségi tábla (útvonal-családok):**
+
+| Család | Útvonalak | Állapot |
+| --- | --- | --- |
+| Műhely, beállítások, popover/dialógus | `/`, fejléc-beállítások, `AnchoredPopover`, megerősítő dialógus | [M] már egységes (F9.39); tokenek változatlanok |
+| Felmérések | `/felmeresek`, `/uj`, `/[id]` (+ kalkulátor-aloldal) | [M] egységes; sugarak tokenre, két oszlop és sticky sáv változatlan; sötét ✔ |
+| Kalkulátorok | `/kalkulatorok`, `nyeregteto`, `ereszcsatorna`, `lemezprofilok`, `cserepeslemez`, `szegelyek`, `epitesi`, `mentett` | [M] frissítve (fejlécek, panelek, mezők); `epitesi`/`szegelyek` szervezet-választó nélkül átirányít [F] |
+| Anyag | `/anyagkezelo`, `/anyagok/*`, `/anyaglistak*` | [M] egységes; kis szövegek, 44 px sor |
+| Ajánlatok | `/ajanlatok`, `/uj`, `/[id]`, projekt `ajanlatok` | [M] frissítve (fejléc, vissza, panelek); sötét ✔ (`/uj`) |
+| Munkanapló | `/kivitelezes`, `/uj`, `/[id]` | [M] frissítve (mezők, checkbox-sorok); sötét ✔ |
+| Projekt-aloldalak | `/projektek/[id]`, `anyagkimutatas`, `beszerzes`, `szegelyek`, `ereszcsatorna`, `lemezprofilok`, `tetomodellek/*` | [M] anyagkimutatás/ajánlatok/lemezprofilok/ereszcsatorna; `tetomodellek/*`, `beszerzes` csak sugár-audit [F] |
+| Ügyfelek, új projekt | `/ugyfelek*`, `/projektek/uj`, `/projektek` | átirányítanak a Műhelyre [M]; űrlap-kód [F] |
+| Auth és hibaállapotok | `/bejelentkezes`, `auth-state-card`, `error.tsx`, `NoOrganizationAccess` | [F] kód/CSS (tokenizált hibaüzenet, gombsugár); kijelentkezett állapot nem renderelve |
+| Demo | `/demo/meretezes` | [M] sugár-audit; vissza-gomb egységesítve |
+
+**Maradt:** `.login-card`/auth-state h1 (2–3,3 rem) szándékosan hero-méret; a modul-specifikus fix betűméretek migrálása tokenekre (U4); `.text-button` Nyomtatás sor tabletnél csak a fenti média-szabályon át; a kijelentkezett/hiba/üres állapotok és a dialógusok minden változata nem lett renderelve; sötét téma teljes képernyő-mátrixa nem készült; ~4,6 ezer soros `globals.css` rétegei továbbra is léteznek (csak a bizonyítottan ütköző szabályok lettek összevonva).

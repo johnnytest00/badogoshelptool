@@ -9,6 +9,7 @@ import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 export default async function ExecutionPlanPage({ params, searchParams }: Readonly<{ params: Promise<{ planId: string }>; searchParams: Promise<{ organization?: string }> }>) {
   const { planId } = await params;
@@ -31,7 +32,7 @@ export default async function ExecutionPlanPage({ params, searchParams }: Readon
   if (!plan) return <NotFound organizationId={organizationId} />;
   const planMaterialLists = materialLists.filter((list) => list.executionPlanId === plan.id);
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
-    <Link className="back-link" href={`/kivitelezes?organization=${organizationId}`}>← Munkanaplók</Link>
+    <BackNavigation href={`/kivitelezes?organization=${organizationId}`} label="Munkanaplók" />
     <GlassPageHeader title={plan.title} context="Munkanapló" />
     <ExecutionPlanning organizationId={organizationId} projectId={planOption.projectId} projectName={project?.name ?? ""} clientName={project?.clientName ?? null} location={project?.location ?? null} plans={workspace.plans} acceptedQuotations={workspace.acceptedQuotations} timelineByPlan={workspace.timelineByPlan} initialPlanId={plan.id} showHeading={false} showDescription={false} showPlanTabs={false} />
     <GlassDisclosure className="execution-workflow-links" summary={`Anyaglisták · ${planMaterialLists.length}`}>

@@ -14,6 +14,7 @@ import type { MaterialCategoryRecord, MaterialProductRecord } from "@/features/m
 import type { MaterialPreparationList } from "./material-preparation-data";
 import { saveWorkflowMaterialListAction, type WorkflowMaterialListActionState } from "./workflow-material-list-actions";
 import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "./workflow-material-product-picker";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 type WorkflowLine = {
   id: string;
@@ -308,7 +309,7 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
     ? `Mentett verzió V${list.version} · ${lines.length} tétel`
     : creatingFromSurvey ? `Felmérés V${surveySource!.surveyVersion} · önálló anyaglista` : "Önálló anyaglista · a munkanapló opcionális";
   return <div className="dashboard-shell"><div className="dashboard-container workflow-material-lists">
-    <Link className="back-link" href={`/anyaglistak?organization=${organizationId}`}>← Anyaglisták</Link>
+    <BackNavigation href={`/anyaglistak?organization=${organizationId}`} label="Anyaglisták" />
     <GlassPageHeader title={list?.name ?? (defaultName || "Új anyaglista")} context={headerContext} className="workflow-material-page-header" actions={<>
       {list?.currentRevisionId && <Link className="secondary-button" href={`/ajanlatok/uj?organization=${organizationId}&${planId ? `plan=${planId}&` : ""}materialList=${list.id}&materialRevision=${list.currentRevisionId}`}>Ajánlat ebből <ArrowUpRight aria-hidden="true" size={16} /></Link>}
       <Link className="secondary-button workflow-material-manager-link" href={`/anyagkezelo?organization=${organizationId}`}>Anyagkezelő</Link>

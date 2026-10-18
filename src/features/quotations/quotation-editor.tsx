@@ -5,13 +5,13 @@ import { QuotationSaveBar, quotationSaveState } from "./quotation-save-bar";
 import { useRouter } from "next/navigation";
 import { lineTotal, scaledToDecimal } from "@/domain/quotations/money";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
-import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { saveQuotationDraftAction, type QuotationActionResult } from "./quotation-actions";
 import type { QuotationRecord } from "./quotation-data";
 import type { QuotationVariant } from "./quotation-data";
 import { clearOtherQuotationRecoveryOwners, isQuotationRecoveryCurrent, quotationRecoveryKey, readQuotationRecovery, writeQuotationRecovery, type QuotationRecovery } from "./quotation-draft-recovery";
 import type { PreparedQuotationMaterialLine } from "@/domain/material-takeoffs/aggregation";
 import { materialPurchasingUnitLabels, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 type Line = { type: "MATERIAL" | "LABOR" | "OTHER"; description: string; quantity: string; unit: string; unitPrice: string; priceClass: "net" | "gross"; variantId: string; priceId: string; takeoffItemId: string; takeoffSourceItemIds: string[]; priceProvenance: "catalog_snapshot" | "takeoff_snapshot" | "user_entered" | "missing"; notes: string };
 const empty = (type: Line["type"] = "LABOR"): Line => ({ type, description: "", quantity: "1", unit: type === "LABOR" ? "óra" : "db", unitPrice: "", priceClass: "net", variantId: "", priceId: "", takeoffItemId: "", takeoffSourceItemIds: [], priceProvenance: "missing", notes: "" });
@@ -87,7 +87,7 @@ export function QuotationEditor({ userId, organizationId, projectId, clients, va
   const save = async () => { try { if (await persist()) router.push(`/projektek/${projectId}/ajanlatok?organization=${organizationId}`); } catch { /* The inline result and shared notification explain the failure. */ } };
   return <section className="quotation-editor detail-surface">
     <div className="section-heading"><div><p className="section-eyebrow">Belső ajánlati piszkozat</p><h2>{quote ? `Ajánlat szerkesztése · v${quote.version}` : "Új ajánlati piszkozat"}</h2></div><span className="status-pill">HUF</span></div>
-    <Link className="back-link" href={`/projektek/${projectId}?organization=${organizationId}`}>← Vissza a projekthez</Link>
+    <BackNavigation href={`/projektek/${projectId}?organization=${organizationId}`} label="Vissza a projekthez" />
     {transferError && <p className="form-message is-error" role="alert">{transferError}</p>}
     {(importedCount > 0 || alreadyIncludedCount > 0) && <p className="form-message" role="status">{importedCount > 0 ? `${importedCount} kimutatási anyagtétel összevonva.` : "Minden kiválasztott tétel már szerepel az ajánlatban."} {alreadyIncludedCount > 0 ? `${alreadyIncludedCount} már átvett forrás kimaradt a duplikáció elkerülésére. ` : ""}{importedCount > 0 ? "Ellenőrizd az árat, majd egészítsd ki a munkadíjjal és az egyéb tételekkel." : ""}</p>}
     {recovery && <section className="form-message" role="status"><p>{recovery.current ? "Korábban nem mentett ajánlati változat található ebben a munkamenetben." : "A helyi változat alapjául szolgáló ajánlati revízió azóta megváltozott. A mentett szerveradatokat nem írjuk felül."}</p>{recovery.current && <button className="secondary-button" type="button" onClick={restoreRecovery}>Változat visszaállítása</button>}<button className="text-button" type="button" onClick={discardRecovery}>Helyi változat elvetése</button></section>}

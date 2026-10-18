@@ -56,7 +56,12 @@ Minimize token usage without sacrificing correctness.
 - A `package.json` parancsait használd: `npm run dev`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`; adatbázis-parancsok a csomagban és `docs/DATABASE.md`-ben vannak.
 - Csak a változtatáshoz szükséges célzott ellenőrzéseket futtasd; célzott teszt nem teljes regresszió. Adatbázis- és böngészőellenőrzést csak releváns változtatáskor végezz, az eredményt pontosan nevezd meg.
 - Next.js kód módosítása előtt olvasd el a telepített verzió megfelelő útmutatóját a `node_modules/next/dist/docs/` alatt. Ez a repó Next.js 16.4-et használ, és az API-k eltérhetnek a korábbról ismert Next.js-től.
-- Új vagy módosított funkció után frissítsd a `funkciok.md` érintett részét. Architektúra- vagy séma-változás után a `docs/PROJECT_MAP.md` és/vagy `docs/DATABASE.md` releváns részét. Mérföldkőnél a `docs/PROGRESS.md`-t; jelentős állapotváltozáskor vagy munkamenet lezárásakor a `docs/CLAUDE_HANDOFF.md`-t.
-- Ne írd újra a teljes leltárt egy kisebb változásért. A bizonyított, nem futtatott és blokkolt állapotot külön jelöld.
+- Dokumentációs hatékonyság:
+  - A `docs/PROGRESS.md` az elsődleges fejlesztési történet; mérföldkő leírása itt él, máshol csak rövid hivatkozás legyen rá.
+  - Más dokumentumot csak akkor frissíts, ha annak konkrét tartalma vagy állapota érdemben megváltozott: `funkciok.md` (új/módosított funkció), `docs/PROJECT_MAP.md` és/vagy `docs/DATABASE.md` (architektúra- vagy sémaváltozás), `docs/CLAUDE_HANDOFF.md` (jelentős állapotváltozás vagy munkamenet-lezárás). Soha ne frissítsd automatikusan az összeset.
+  - A `docs/CLAUDE_HANDOFF.md` rövid maradjon: jelenlegi állapot, megoldatlan kockázatok, következő lépések.
+  - Csak a releváns dokumentumszakaszt olvasd és szerkeszd; nagy dokumentumot ne tölts be egészében, hacsak valóban nem szükséges. Ismétlődő szerkesztéshez célzott patch vagy script is jó, ha biztonságosabb és hatékonyabb.
+  - Ne írd újra a teljes leltárt egy kisebb változásért, és ne hozz létre dokumentumot triviális implementációs részletek rögzítésére.
+  - Őrizd meg a pontosságot és a nyomon követhetőséget; a bizonyított, nem futtatott és blokkolt állapotot külön jelöld.
 - Ne telepíts csomagot, ne futtass teljes tesztkészletet indok nélkül. Commitot, pusht, deployt, távoli migrációt vagy destruktív adatbázis-műveletet csak kifejezett kérésre végezz.
 - Minden mérföldkő végén javasolj rövid Conventional Commit üzenetet, benne a verzióval és fő funkcióval; ne commitolj külön kérés nélkül.

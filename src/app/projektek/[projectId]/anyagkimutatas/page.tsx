@@ -1,4 +1,3 @@
-import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { redirect } from "next/navigation";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getProjectForOrganization } from "@/features/projects/project-data";
@@ -11,6 +10,8 @@ import { getMaterialPreparationLists } from "@/features/material-takeoffs/materi
 import type { MaterialSourceTakeoff, MaterialPriceSnapshot } from "@/domain/material-takeoffs/aggregation";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { materialCategoryLabels, materialProvenanceLabels, materialPurchasingUnitLabels, type MaterialCategory, type MaterialProvenance, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
+import { BackNavigation } from "@/components/navigation/back-navigation";
+import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
 const sourceLabels: Record<string, string> = {
   "areas.combinedRoofM2": "Teljes tetőfelület", "areas.individualRoofPlaneM2": "Egy tetősík felülete", "areas.horizontalProjectedM2": "Vízszintes vetület",
@@ -38,8 +39,8 @@ export default async function MaterialTakeoffPage({ params, searchParams }: Read
   const preparationLists = await getMaterialPreparationLists(organizationId, projectId, currentSourceRevisions);
   const draftQuotations = quotationWorkspace.quotations.filter((quote) => quote.status === "draft").map(({ id, name, version }) => ({ id, name, version }));
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
-    <Link className="back-link" href={`/projektek/${projectId}?organization=${organizationId}`}>← Vissza a projekthez</Link>
-    <section className="project-detail-header"><div><p className="section-eyebrow">Anyagkimutatás</p><h1>{project.name}</h1><p>Mentett, a rendszer által ellenőrzött számítás alapján; a mennyiségek szakmai jóváhagyása külön feladat.</p></div></section>
+    <BackNavigation href={`/projektek/${projectId}?organization=${organizationId}`} label="Vissza a projekthez" />
+    <GlassPageHeader title={project.name} context="Anyagkimutatás · mentett, a rendszer által ellenőrzött számítás alapján; a mennyiségek szakmai jóváhagyása külön feladat." />
     <MaterialPreparationWorkspace organizationId={organizationId} projectId={projectId} projectName={project.name} takeoffs={preparationSources} lists={preparationLists} selectedListId={null} draftQuotations={draftQuotations} />
     <section className="detail-surface"><h2>Új anyagkimutatás</h2><form action={createMaterialTakeoffFormAction} className="stack-form"><input type="hidden" name="organizationId" value={organizationId} /><input type="hidden" name="projectId" value={projectId} /><label>Megnevezés<input name="name" defaultValue="Anyagkimutatás" required /></label><label>Forráskalkuláció<select name="calculationSource" required><option value="">Válassz mentett kalkulációt…</option>{calculations.map((calculation) => <option key={`${calculation.id}-${calculation.revisionId}`} value={`${calculation.id}|${calculation.revisionId}`}>{calculation.displayName} · változat {calculation.revisionNumber}</option>)}</select></label><p className="detail-description">A kiválasztott revízió a szerveren újra ellenőrzésre kerül. Módosítatlan forrás nélkül jóváhagyás nem lehetséges.</p><button className="primary-button" type="submit">Piszkozat létrehozása</button></form></section>
     {takeoffs.map((takeoff) => <section className="detail-surface" key={takeoff.id} id={`takeoff-${takeoff.id}`} data-selected={query.takeoff === takeoff.id ? "true" : undefined}>

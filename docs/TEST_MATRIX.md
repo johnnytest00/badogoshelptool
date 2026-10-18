@@ -33,6 +33,17 @@
 | Mobil sötét (375) | PASS (szemrevételezés) | Fejléc és szöveg olvasható. |
 | Nem futott | — | Bejelentkezést igénylő oldalak (felmérés-szerkesztő) böngészős újramérése, világos mobil, képernyőolvasó, Safari, tabulátor-bejárás teljes oldalon. |
 
+## F9.41 — Liquid Glass rendszer-egységesítés — 2026-10-18
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Teljes Vitest | PASS | `npm test`: 142 fájl, 732 passed, 27 skipped (egy SSR-teszt a profil-fejléc új szövegéhez igazítva). |
+| typecheck / lint / build | PASS | `npm run typecheck`, `npm run lint`, `npm run build`. |
+| Böngésző — számított stílus | PASS (célzott) | ~30 útvonal világos témában: felület-sugár {20,16,14,4}, mező 11,2 px, h1 egységes; átlátszatlan hardcode-panelek megszűntek. |
+| Böngésző — túlcsordulás 390 px | PASS (célzott) | lemezprofilok, ereszcsatorna, cserepeslemez, anyagkimutatás, projekt ajánlatok, szegélyek, munkanapló, új ajánlat: nincs oldal-túlcsordulás; érintési célok javítva. |
+| Böngésző — sötét téma | PASS (képernyőkép) | felmérés (1440), lemezprofilok, új ajánlat, anyagkimutatás. |
+| Nem futott | — | Kijelentkezett/auth és hibaállapotok renderelése, dialógus-variánsok, sötét téma teljes mátrix, 768/320 px minden oldalon, fizikai eszköz. |
+
 ## F9.40.7 — Mobil UI/UX, U10 lebegő méretező gomb — 2026-10-18
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

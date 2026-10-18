@@ -4,6 +4,7 @@ import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { ConstructionCalculatorSuite } from "@/features/calculators/construction-suite";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 
 export default async function CalculatorsPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string; calculator?: string }> }>) {
   const query = await searchParams;
@@ -14,7 +15,7 @@ export default async function CalculatorsPage({ searchParams }: Readonly<{ searc
 
   const organizationId = selected.organization.id;
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
-    <Link className="back-link" href={`/?organization=${organizationId}`}>← Műhely áttekintése</Link>
+    <BackNavigation href={`/?organization=${organizationId}`} label="Műhely áttekintése" />
     <GlassPageHeader title="Kalkulátorok" actions={<Link className="secondary-button" href={`/kalkulatorok/mentett?organization=${organizationId}`}>Mentett számításaim →</Link>} />
     <ConstructionCalculatorSuite initialCalculatorId={query.calculator} />
   </div></main>;

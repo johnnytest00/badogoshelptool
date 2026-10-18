@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
-import { ChevronDown, Construction, Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
 import { MeasurementGuidance, measurementGuideFor } from "@/features/roof-models/measurement-guidance";
@@ -446,7 +446,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
       {field.kind === "select" ? <select id={field.key} required={isRequired} value={values[field.key] ?? field.initial ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, event.target.value)} aria-label={field.label}>{field.initial === undefined && <option value="">Válasszon…</option>}{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input id={field.key} type={field.kind === "checkbox" ? "checkbox" : field.kind === "text" ? "text" : "number"} inputMode={field.kind === "text" ? "text" : field.kind === "checkbox" ? undefined : "decimal"} min={!field.kind ? "0" : undefined} step={field.integer ? "1" : "any"} required={isRequired} checked={field.kind === "checkbox" ? values[field.key] === "true" : undefined} value={field.kind === "checkbox" ? undefined : values[field.key] ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, field.kind === "checkbox" ? String(event.target.checked) : event.target.value)} aria-label={`${field.label}${field.unit ? `, ${field.unit}` : ""}`} />}
     </label>;
   };
-  const headingContent = <header className="construction-suite-title"><span className="future-module-icon"><Construction aria-hidden="true" /></span><div><p className="section-eyebrow">ELLENŐRZÖTT GEOMETRIAI SZÁMÍTÁS</p><h2>{definition.reference.title}</h2></div></header>;
+  const headingContent = <header className="construction-suite-title"><div><p className="section-eyebrow">ELLENŐRZÖTT GEOMETRIAI SZÁMÍTÁS</p><h2>{definition.reference.title}</h2></div></header>;
   const noteContent = <><p className="construction-suite-note">{definition.note}</p>{activeGuide && <MeasurementGuidance compact guide={activeGuide} />}</>;
   const fieldsContent = <>
     <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>

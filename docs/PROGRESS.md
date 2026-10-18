@@ -1,5 +1,25 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## F9.41.1 — Célzott Liquid Glass finomítás
+
+Státusz: **PARTIAL.** Csak megjelenítés; üzleti logika, DB, Auth/RLS, perzisztencia nem változott. Nincs commit.
+
+- **Anyagkezelő modálok (gyökérok):** a Tailwind preflight nullázza a `margin`-t, így a natív `<dialog>` `margin:auto` központosítása elveszett (bal felső sarok). Javítás: közös `dialog:modal { margin: auto }`, tömör `--surface-popover` háttér, viewport-alapú max-magasság; `showModal` után az első mezőre fókusz. Böngészőben igazolva 1024 px és 375 px; Esc és fókuszvisszaállítás igazolva.
+- **Tetőkalkulátor:** a dekoratív építkezés-ikon eltávolítva a címből. A Nyereg/Fél-nyereg/Kontytető számított stílusa és szerkezete azonos; háttér-eltérést nem sikerült reprodukálni, ezért külön háttérszabály nem készült.
+- **Ajánlatszerkesztő:** egységes fejléc-rács (állapotjelvény jobbra), revíziósáv + PDF-előnézet közös eszköztár-sávban, csak olvasható revízió szaggatott mezőkkel, tabuláris számok.
+- **Felmérés-szerkesztő:** „Fényképek”/„További műveletek” lenyíló tartalma saját üvegpanelt kap, egységes tipográfia és fókusz.
+- Ellenőrzés: typecheck, lint, érintett vitest (materials, quotations, calculators, field-survey-editor) PASS; teljes `npm test`/build nem futott; 1440 px és sötét/világos teljes mátrix nem készült.
+
+## F9.41 — Liquid Glass rendszer-egységesítés
+
+Státusz: **PARTIAL (jelentős közös javítás, nem teljes képernyő×téma bizonyíték).** Csak megjelenítés/jelölés; számítás, adatbázis, Auth/RLS, perzisztencia nem változott. Nincs commit.
+
+- **Tokenek:** `--tone-*` (siker/figyelmeztetés/hiba/info) és `--radius-panel`; hardcode-olt világos pasztell-panelek és halott duplikált szabályok eltávolítva; sugárskála 15 értékről 4 tokenre; ~35 mező-szabály az alap mező-sugárra.
+- **Komponensek:** Lemezprofilok, Szegély-, Ereszcsatorna-kalkulátor, Cserepeslemez, projekt Anyagkimutatás/Ajánlatok fejléce → `GlassPageHeader`; 17 `back-link` → `BackNavigation`.
+- **Mérés:** számított-stílus audit ~30 útvonalon (felület 20/16/14,4 px, mező 11,2 px, h1 egységes), 390/320/768 px túlcsordulás-audit módosított oldalakon, sötét téma képernyőképek (felmérés, lemezprofilok, új ajánlat, anyagkimutatás).
+- **Ellenőrzés:** teljes `npm test` 142 fájl/732 teszt PASS (27 kihagyva), `typecheck`, `lint`, `npm run build` PASS.
+- **Korlát:** lásd `UI_UX_AUDIT.md` F9.41 „Maradt”; kijelentkezett/hiba-állapotok és dialógus-változatok nem renderelve.
+
 ## F9.40.7 — Mobil UI/UX optimalizálás (U10 lezárva)
 
 Státusz: **KÉSZ a mért hatókörre.** Csak megjelenítés/elhelyezés; számítás, adatbázis, Auth/RLS, perzisztencia nem változott. Nincs commit.
