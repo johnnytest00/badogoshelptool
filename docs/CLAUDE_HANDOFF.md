@@ -12,7 +12,8 @@ A repó működő, moduláris Next.js alkalmazást, lokális Supabase-adatmodell
 
 ## B. Elkészült fázisok és mérföldkövek
 
-- **F9.40.4:** közös `QuotationSaveBar` (önálló + projekthez kötött ajánlat-szerkesztő), „Nincs megadva” semleges jelvény érintetlen dokumentumcsoportra, hiányzó ár kiemelése. Nyitva: tényleges mentés/CONFLICT böngészős végigpróbálása, projekt-szerkesztő böngészős mérése. Commitolva nincs.
+- **F9.40.5 (legutóbbi):** `docs/UI_UX_AUDIT.md` alapján: F9.40.4 mentés/újratöltés böngészőben igazolva (standalone szerkesztő); U3 vissza-navigáció (`.back-link` / `BackNavigation`) vizuálisan egységesítve közös Liquid Glass CSS-sel (JSX-duplikáció és feliratminta még nyitott); U5 Munkanapló „Napi bejegyzések” redundáns belső `<h2>` eltávolítva. Nyitva: U10 (mobil méretező gomb áthelyezése), U11 fennmaradó tételei, U3 JSX-konszolidáció, projekthez kötött ajánlat-szerkesztő és CONFLICT-eset böngészős próbája. Commitolva nincs.
+- **F9.40.4:** közös `QuotationSaveBar` (önálló + projekthez kötött ajánlat-szerkesztő), „Nincs megadva” semleges jelvény érintetlen dokumentumcsoportra, hiányzó ár kiemelése. F9.40.5-ben böngészőben igazolva (standalone szerkesztő mentés/újratöltés); projekt-szerkesztő böngészős mérése továbbra is nyitott. Commitolva nincs.
 - **F9.40.3 (legutóbbi):** tipográfiai tokenek (`--tp-fs-*`, `--tp-fw-*`, `--tp-lh-*`) a `globals.css` végén, skip-link a gyökér layoutban, minden `<main id="main-content">`. Nyitott: a modul-specifikus fix betűméretek migrálása tokenekre; bejelentkezett oldalak böngészős tipográfia-újramérése. Commitolva nincs.
 - A `PROJECT_BLUEPRINT.md` F0–F11 fázisterve jóváhagyott célarchitektúra. A tényleges repo több későbbi fázis funkcióit megvalósította; a blueprint tervezett elemei nem tekintendők késznek.
 - Adatbázis-alap, Auth, projektek/ügyfelek, revíziózott számítások, anyagkatalógus, anyagkimutatás, ajánlat és kivitelezés kódja/migrációja jelen van; részletek a [`DATABASE.md`](DATABASE.md) fájlban.

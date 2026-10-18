@@ -1,5 +1,18 @@
 # Tesztmátrix
 
+## F9.40.5 — Audit lezárás és munkafolyamat-ellenőrzés — 2026-10-18
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Célzott Vitest | PASS | `src/features/execution`, `src/features/quotations`: 11 fájl / 32 teszt. Teljes `npm test`, build nem futott. |
+| Typecheck | PASS | `npm run typecheck` (teljes projekt, hiba nélkül). |
+| Célzott lint | PASS | `execution-planning.tsx` ESLint hiba nélkül; `globals.css` nem ESLint-hatókör. |
+| Önálló ajánlat mentés/újratöltés (böngésző, helyi DEMO, 1024) | PASS | Üres „Címzett és dokumentumadatok” → „Nincs megadva”; kézi tétel ár nélkül → „Hiányzó egységár” kiemelés; „Piszkozat mentése” → „Mentve · v1”, navigáció a mentett ajánlat URL-jére; oldal-újratöltés után az állapot és a cím azonos marad. Egy korábbi mentési kísérlet `net::ERR_ABORTED`-del elhasalt (dev-szerver HMR-blip, nem reprodukálható, nem alkalmazáshiba — megismételt mentés sikeres volt). |
+| Projekthez kötött ajánlat-szerkesztő, CONFLICT-eset | NEM FUTOTT | Csak a standalone szerkesztő lett böngészőben végigpróbálva ebben a körben; a konfliktkezelés célzott Vitest-tesztekre támaszkodik (meglévők, nem módosítva). |
+| U3 vissza-navigáció egységesítés (böngésző, 1024 és 390) | PASS | `/ajanlatok`, `/felmeresek` és `/kivitelezes` pirulái vizuálisan azonosak (kerekített Liquid Glass pirula); mobilon nincs vízszintes túlcsordulás. |
+| U5 redundáns „Napi bejegyzések” címsor | PASS | Munkanapló-részlet DOM-ban csak egyszer szerepel a „Napi bejegyzések” szöveg a napló szekcióban (a lenyíló összefoglalóban); a belső duplikált `<h2>` eltávolítva. |
+| Nem futott / korlát | — | Teljes `npm test`/build, 768/320 px, képernyőolvasó, U10 (mobil méretező gomb áthelyezése) és U11 fennmaradó akadálymentességi tételek. |
+
 ## F9.40.4 — Ajánlat-szerkesztő UX — 2026-10-18
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

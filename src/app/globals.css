@@ -579,13 +579,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 /* F7.2.3 mobile readability and navigation hardening. */
 .eyebrow, .surface-label { color: var(--brand-ink); }
-.back-link { color: var(--foreground); }
-.back-link:hover { color: var(--brand-ink); }
-.back-link { min-height: calc(2.9rem * var(--tp-ui-scale)); margin-bottom: var(--tp-stack); border: 1px solid var(--border); border-radius: .9rem; background: var(--surface-strong); box-shadow: 0 .35rem .9rem rgba(15, 23, 42, .08); padding: .65rem .9rem; }
-.back-link:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 40%, transparent); outline-offset: 3px; }
-.back-navigation { display: inline-flex; align-items: center; gap: .55rem; min-height: calc(2.9rem * var(--tp-ui-scale)); margin-bottom: var(--tp-stack); border: 1px solid var(--border); border-radius: .9rem; background: var(--surface-strong); box-shadow: 0 .35rem .9rem rgba(15, 23, 42, .08); color: var(--foreground); padding: .65rem .9rem; font-size: calc(.88rem * var(--tp-text-scale)); font-weight: 800; text-decoration: none; }
-.back-navigation:hover { border-color: var(--brand); color: var(--brand-ink); transform: translateY(-.05rem); }
-.back-navigation:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 40%, transparent); outline-offset: 3px; }
+.back-link, .back-navigation { display: inline-flex; align-items: center; gap: .55rem; min-height: calc(2.75rem * var(--tp-ui-scale)); margin-bottom: var(--tp-stack); border-radius: 999px; color: var(--foreground); padding: .45rem .85rem; font-size: calc(.88rem * var(--tp-text-scale)); font-weight: 800; text-decoration: none; }
+.back-link:hover, .back-navigation:hover { border-color: color-mix(in srgb, var(--brand) 48%, var(--glass-border)); color: var(--brand-ink); transform: translateY(-.05rem); }
+.back-link:focus-visible, .back-navigation:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 40%, transparent); outline-offset: 3px; }
 .project-filters label, .client-search label { color: var(--foreground); }
 .project-filters label { min-width: 0; }
 .project-filters select, .project-filters input:not([type="checkbox"]) { width: 100%; max-width: 100%; min-width: 0; }
@@ -1129,7 +1125,7 @@ body {
 .page-shell, .dashboard-shell { padding: clamp(.75rem, 3.5vw, 2.5rem); }
 .dashboard-container { width: min(100%, 72rem); }
 
-.glass-navigation, .glass-toolbar {
+.glass-navigation, .glass-toolbar, .back-link, .back-navigation {
   position: relative;
   isolation: isolate;
   border: 1px solid var(--glass-border);
@@ -1144,10 +1140,10 @@ body {
 .roof-calculator-toolbar.glass-toolbar { border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; padding-inline: 0; }
 
 @supports (backdrop-filter: blur(12px)) {
-  .glass-navigation, .glass-toolbar, .preparation-save-bar { backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+  .glass-navigation, .glass-toolbar, .preparation-save-bar, .back-link, .back-navigation { backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
 }
 @supports not (backdrop-filter: blur(12px)) {
-  .glass-navigation, .glass-toolbar, .preparation-save-bar { background: var(--surface-strong); }
+  .glass-navigation, .glass-toolbar, .preparation-save-bar, .back-link, .back-navigation { background: var(--surface-strong); }
 }
 
 .surface-card { border-color: var(--border); border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow-surface); backdrop-filter: none; }
@@ -1317,7 +1313,7 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .glass-navigation, .glass-toolbar, .preparation-save-bar { background: var(--surface-strong); backdrop-filter: none; }
+  .glass-navigation, .glass-toolbar, .preparation-save-bar, .back-link, .back-navigation { background: var(--surface-strong); backdrop-filter: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .primary-button, .secondary-button, .function-launcher, .dashboard-content, .roof-related-workflows, .drawing-advanced-controls-content { transition: none !important; animation: none !important; }
@@ -1325,11 +1321,11 @@ input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="
 @media (prefers-contrast: more) {
   :root { --border: #687586; --focus-ring: #8a3c00; }
   html[data-theme="dark"] { --border: #b1c0d1; --focus-ring: #ffbd7a; }
-  .glass-navigation, .glass-toolbar { background: var(--surface-strong); backdrop-filter: none; border-color: currentColor; }
+  .glass-navigation, .glass-toolbar, .back-link, .back-navigation { background: var(--surface-strong); backdrop-filter: none; border-color: currentColor; }
   .primary-button { box-shadow: none; }
 }
 @media (forced-colors: active) {
-  .glass-navigation, .glass-toolbar, .roof-result-metric { border: 1px solid CanvasText; box-shadow: none; }
+  .glass-navigation, .glass-toolbar, .roof-result-metric, .back-link, .back-navigation { border: 1px solid CanvasText; box-shadow: none; }
   .primary-button, .secondary-button, .drawing-toolbar-group button { forced-color-adjust: auto; }
 }
 

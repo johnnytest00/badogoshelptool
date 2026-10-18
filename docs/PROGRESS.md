@@ -1,5 +1,18 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## F9.40.5 — UI/UX audit lezárás és munkafolyamat-ellenőrzés
+
+Státusz: **KÉSZ a célzott hatókörre (F9.40.4 böngészős verifikáció; U3, U5 vizuális/jelölésbeli egységesítés).** Csak megjelenítés/jelölés; üzleti logika, számítás, séma, Auth/RLS nem változott.
+
+- **F9.40.4 verifikáció (böngésző, helyi DEMO, bejelentkezve):** új önálló ajánlat → üres „Címzett és dokumentumadatok” csoport „Nincs megadva” jelvényt kap; kézi tétel ár nélkül „Hiányzó egységár” kiemelést kap; „Piszkozat mentése” → „Mentve · v1” állapot, az oldal a mentett ajánlat saját URL-jére navigál; teljes oldal-újratöltés (`navigate`) után a cím és a „Mentve · v1” állapot megmarad. A projekthez kötött szerkesztő és a CONFLICT-eset böngészős végigpróbálása ebben a körben nem történt meg (meglévő célzott Vitest-tesztek fedik, változatlanok).
+- **U3 — vissza-navigáció egységesítés:** a `.back-link` (≈20 fájl, kézzel írt `<Link>`) és a megosztott `BackNavigation` komponens (`.back-navigation`) CSS-e összevonva: azonos kerekített Liquid Glass pirula alak, betűsúly és hover; a közös üvegfelület (`border`, `background: var(--surface-glass)`, `box-shadow`, `backdrop-filter`) és az akadálymentességi fallback-ek (`prefers-reduced-transparency`, `prefers-contrast`, `forced-colors`) megosztva (`globals.css`). A JSX-duplikáció (≈20 fájl saját `<Link className="back-link">` jelölése) és a feliratminta egységesítése (pl. „← {szülő neve}”) nem történt meg — ez a `BackNavigation` komponensre való átállás, külön, nagyobb kockázatú feladat.
+- **U5 — redundáns címsor:** a Munkanapló-részlet „Napi bejegyzések” szekciójában a lenyíló összefoglaló címe mellett megjelenő, duplikált belső `<h2>Napi bejegyzések</h2>` eltávolítva (`execution-planning.tsx`); a tartalom (üres állapot szövege, „+ Új bejegyzés” gomb) változatlan. Az „Ártételek”/„Tételek” kettősség már az F9.40.4-ben megszűnt (ellenőrizve: a kódban „Ártételek” szöveg nem szerepel).
+- **Nem érintett ebben a körben:** U10 (mobil méretező gomb áthelyezése — a meglévő átfedés-elkerülő logika elrejti a gombot ütközéskor, de nem helyezi át), U11 fennmaradó tételei (rajz-vezérlők, jelölőnégyzetek más oldalakon), U4 modul-specifikus betűméret-migráció, U6/U9 már korábban lezárva.
+- **Ellenőrzés:** célzott Vitest `src/features/execution`, `src/features/quotations` (11 fájl/32 teszt) PASS; `npm run typecheck` PASS; célzott ESLint (`execution-planning.tsx`) PASS. Teljes `npm test`/build nem futott (kockázat nem indokolta). Böngésző: lásd `TEST_MATRIX.md` F9.40.5.
+- **Korlát:** egy mentési kísérlet közben `net::ERR_ABORTED` jelent meg (dev-szerver HMR-blip, nem reprodukálható — megismételt mentés azonnal sikeres volt); projekthez kötött ajánlat-szerkesztő és CONFLICT-eset böngészős próbája nem történt meg; 768/320 px és képernyőolvasó nem futott.
+
+Javasolt Conventional Commit: `fix(F9.40.5): unify back-navigation glass styling and remove duplicate journal heading`.
+
 ## F9.40.4 — Ajánlat-szerkesztő UX
 
 Státusz: **KÉSZ a célzott hatókörre (U8, U9).** Csak megjelenítés; számítás, ár, ÁFA, jogi státusz, adatbázis, Auth/RLS, piszkozat-korlátok és revíziók változatlanok.

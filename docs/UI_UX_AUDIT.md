@@ -31,16 +31,16 @@ Javaslat [J]: asztalon kétoszlopos elrendezés (balra mérések, jobbra sticky 
 
 ### P1 — jelentős következetlenség vagy használhatósági hiba
 
-**U3. Két különböző „vissza” komponens [M].**
-Legtöbb oldalon kompakt pirula (`.back-navigation`), az új ajánlatnál 1152 px széles teljes sáv (`.back-link`, mérve 1152 px). A felirat is változó („Műhely áttekintése” / „Vissza a műhelyhez” / „Vissza az ajánlatokhoz” / „Munkanaplók”).
+**U3. Két különböző „vissza” komponens [M].** — 🟢 **VIZUÁLISAN EGYSÉGESÍTVE (F9.40.5):** a `.back-link` (≈20 fájl, kézzel írt `<Link>`) és a megosztott `BackNavigation`/`.back-navigation` komponens most azonos kompakt Liquid Glass pirulát kap közös CSS-ből (`globals.css`: alap üvegfelület, backdrop-filter, csökkentett-átlátszóság/kontraszt/forced-colors fallback is megosztva); JSX és feliratszöveg (`Műhely áttekintése` / `Vissza a műhelyhez` stb.) egyelőre eltér — a ~20 fájl `BackNavigation`-re váltása és a feliratminta egységesítése külön feladat.
+Eredeti [M]: Legtöbb oldalon kompakt pirula (`.back-navigation`), az új ajánlatnál 1152 px széles teljes sáv (`.back-link`, mérve 1152 px). A felirat is változó („Műhely áttekintése” / „Vissza a műhelyhez” / „Vissza az ajánlatokhoz” / „Munkanaplók”).
 Javaslat: egy `BackNavigation` komponens, szabályos felirat-minta: „← {szülő neve}”.
 
 **U4. Tipográfiai skála nem tokenizált [M].**
 _🟡 **RÉSZBEN (F9.40.3):** `--tp-fs-*`/`--tp-fw-*`/`--tp-lh-*` tokenek a `globals.css` végén; közös fejlécek, gombok, mezőcímkék, lenyílók és `small` átállítva. A modul-specifikus, kézzel írt méretek (~200 szabály) fokozatosan migrálandók._Mért értékek: az ajánlat „Ártételek” h2 32 px/400-as súllyal, máshol a címsorok 700-as súlyúak; a beviteli mezők szövege 800-as súllyal (a beírt érték vizuálisan egyforma a címkével); gombok 13,1 px, `small` 12 px, a mezőcímkék a képernyőképeken ~11–12 px. Mobilon a mezők 16 px-esek (jó), asztalon ugyanez a méret és a 13 px-es gombok aránytalanok.
 Javaslat: típus-tokenek (display/h1/h2/h3/body/label/caption), beviteli érték 500–600-as súly, címke 600; minimum 13 px tartalmi szöveg.
 
-**U5. Ismétlődő és redundáns címsorok [M].**
-Munkanapló részlet: a „Napi bejegyzések” lenyíló címe és a belső címsor azonos. Új ajánlat: „Tételek” felirat alatt „Ártételek”. A felmérés-fejlécben a „V1” verzió a cím alatti apró szövegként él.
+**U5. Ismétlődő és redundáns címsorok [M].** — 🟢 **RÉSZBEN KÉSZ (F9.40.5):** a Munkanapló részlet „Napi bejegyzések” lenyíló címe és a belső duplikált `<h2>Napi bejegyzések</h2>` közül az utóbbi eltávolítva (`execution-planning.tsx`); az „Ártételek” felirat már korábban (F9.40.4) megszűnt, csak „Tételek” maradt. A felmérés-fejléc „V1” apró szövege és a verzió→jelvény átalakítás nem része ennek a körnek.
+Eredeti [M]: Munkanapló részlet: a „Napi bejegyzések” lenyíló címe és a belső címsor azonos. Új ajánlat: „Tételek” felirat alatt „Ártételek”. A felmérés-fejlécben a „V1” verzió a cím alatti apró szövegként él.
 Javaslat: egy szint egy címke; a verzió/állapot kerüljön jelvénybe a fejlécben.
 
 **U6. Túl sok, egyforma súlyú lenyíló sor [M].** — 🟢 **KÉSZ a szerkesztőre (F9.40.2):** a Név/munkatípus/sorrend, Megjegyzés és Fotók-hozzárendelés egyetlen „További szakaszbeállítások · Opcionális” csoportba került (alcímekkel, nem beágyazott panelekkel); a Tetőmodellhez mentés és Korábbi projektkapcsolat a „További műveletek · Opcionális” csoportba. A mérések, a rajz és a Mentés változatlanul elöl.

@@ -26,6 +26,9 @@ Minimize token usage without sacrificing correctness.
 - Run full regression/build only when risk justifies it.
 - Keep documentation and final reports concise.
 - Do not repeat completed audits or project onboarding.
+- Activate plugins, skills és opcionális eszközök csak akkor, ha egyértelmű értéket adnak az adott feladathoz; elérhető pluginok pl. typescript-native-lsp, Engineering, Design — használat előtt ellenőrizd az elérhetőséget.
+- Kódkereséshez LSP szimbólumkeresést és célzott keresést részesíts előnyben teljes projekt-újraátvizsgálás helyett.
+- Soha ne áldozd fel a helyességet token-megtakarításért.
 ## A tényleges rendszer röviden
 
 - Next.js App Router, React és TypeScript; a kód a `src/` alatt van.

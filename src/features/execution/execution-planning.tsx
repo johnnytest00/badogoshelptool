@@ -82,7 +82,7 @@ function PlanPanel({ organizationId, projectId, plan, timeline, onSubmit, onJour
 
     <ExecutionSubsection title="Napi bejegyzések" defaultOpen>
       <section className="execution-journal" id="execution-journal">
-        <div className="execution-journal-heading"><div><h2>Napi bejegyzések</h2>{timeline.length === 0 && <p className="execution-empty-hint">Rögzítsd röviden, mit végeztél el. A bejegyzéshez nem szükséges projekt vagy feladatkapcsolat.</p>}</div><button className="primary-button" type="button" onClick={() => setJournalFormOpen((open) => !open)} aria-expanded={journalFormOpen} aria-controls={`execution-journal-entry-form-${plan.id}`}>{journalFormOpen ? "Bezárás" : "+ Új bejegyzés"}</button></div>
+        <div className="execution-journal-heading"><div>{timeline.length === 0 && <p className="execution-empty-hint">Rögzítsd röviden, mit végeztél el. A bejegyzéshez nem szükséges projekt vagy feladatkapcsolat.</p>}</div><button className="primary-button" type="button" onClick={() => setJournalFormOpen((open) => !open)} aria-expanded={journalFormOpen} aria-controls={`execution-journal-entry-form-${plan.id}`}>{journalFormOpen ? "Bezárás" : "+ Új bejegyzés"}</button></div>
         {journalFormOpen && <form id={`execution-journal-entry-form-${plan.id}`} className="stack-form execution-journal-entry-form" onSubmit={onJournalSubmit} onChange={onJournalChange}>
           <label>Mit végeztél?<textarea id="execution-journal-entry-content" name="content" rows={4} required maxLength={10000} placeholder="Röviden írd le az elvégzett munkát…" /></label>
           <label>Munkavégzés dátuma<input name="workDate" type="date" defaultValue={localDate()} required /></label>
