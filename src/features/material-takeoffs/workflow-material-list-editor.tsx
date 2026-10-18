@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, PackageOpen, Plus, Trash2 } from "lucide-react";
+import { PackageOpen, Plus, Trash2 } from "lucide-react";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
@@ -15,6 +15,10 @@ import type { MaterialPreparationList } from "./material-preparation-data";
 import { saveWorkflowMaterialListAction, type WorkflowMaterialListActionState } from "./workflow-material-list-actions";
 import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "./workflow-material-product-picker";
 import { BackNavigation } from "@/components/navigation/back-navigation";
+import { MaterialListQuotationButton } from "@/features/quotations/material-list-quotation-button";
+import { ExecutionPlanLinkControl } from "@/features/execution/execution-plan-link-control";
+import type { DocumentPlanLink } from "@/features/execution/execution-document-links";
+import type { LinkedQuotationDraft } from "./material-list-links";
 
 type WorkflowLine = {
   id: string;
@@ -177,7 +181,7 @@ function formatHuf(amount: number) {
   return `${amount.toLocaleString("hu-HU", { maximumFractionDigits: 2 })} Ft`;
 }
 
-export function WorkflowMaterialListEditor({ organizationId, products, plans, categories, list, requestedPlanId = "", surveySource = null, defaultName = "" }: Readonly<{
+export function WorkflowMaterialListEditor({ organizationId, products, plans, categories, list, requestedPlanId = "", surveySource = null, defaultName = "", quotations = [], planLinks = [] }: Readonly<{
   organizationId: string;
   products: readonly MaterialProductRecord[];
   plans: readonly ExecutionPlanOption[];
@@ -186,6 +190,8 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
   requestedPlanId?: string;
   surveySource?: WorkflowMaterialListSurveyContext | null;
   defaultName?: string;
+  quotations?: readonly LinkedQuotationDraft[];
+  planLinks?: readonly DocumentPlanLink[];
 }>) {
   const router = useRouter();
   const { notify, requestConfirmation } = useAppInteraction();
@@ -311,7 +317,6 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
   return <div className="dashboard-shell"><div className="dashboard-container workflow-material-lists">
     <BackNavigation href={`/anyaglistak?organization=${organizationId}`} label="Anyaglisták" />
     <GlassPageHeader title={list?.name ?? (defaultName || "Új anyaglista")} context={headerContext} className="workflow-material-page-header" actions={<>
-      {list?.currentRevisionId && <Link className="secondary-button" href={`/ajanlatok/uj?organization=${organizationId}&${planId ? `plan=${planId}&` : ""}materialList=${list.id}&materialRevision=${list.currentRevisionId}`}>Ajánlat ebből <ArrowUpRight aria-hidden="true" size={16} /></Link>}
       <Link className="secondary-button workflow-material-manager-link" href={`/anyagkezelo?organization=${organizationId}`}>Anyagkezelő</Link>
     </>} />
     <form action={action} className="workflow-material-editor">
@@ -334,12 +339,16 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
       </section>}
       {savedSurveySource && <aside className={`glass-bubble survey-material-source-card${savedSurveySource.stale ? " is-stale" : ""}`} aria-label="Kapcsolt forrásfelmérés">
         <div className="workflow-source-heading"><span className="workflow-source-mark" aria-hidden="true"><PackageOpen size={17} /></span><div><strong>{savedSurveySource.surveyName} · V{savedSurveySource.surveyVersion}</strong><p>{savedSurveySource.stale ? `Korábbi forrásrevízió · jelenlegi felmérés V${savedSurveySource.currentSurveyVersion}` : "Pontos, változtathatatlan felmérésrevízió"}</p></div></div>
+        <Link className="text-action" href={`/felmeresek/${savedSurveySource.surveyId}?organization=${organizationId}${savedSurveySource.stale ? `&version=${savedSurveySource.surveyVersion}` : ""}`}>Forrásfelmérés megnyitása</Link>
         <details className="workflow-source-disclosure"><summary>Forrásazonosítók</summary><p>Felmérés: {savedSurveySource.surveyId}</p><p>Revízió: {savedSurveySource.surveyRevisionId}</p></details>
       </aside>}
+      {list?.currentRevision && <div className="glass-bubble material-quotation-card"><MaterialListQuotationButton organizationId={organizationId} listId={list.id} listVersion={list.currentRevision.revisionNumber} itemCount={list.currentRevision.items.length} quotations={quotations} disabled={dirty} /></div>}
+      {list && <div className="glass-bubble material-quotation-card"><ExecutionPlanLinkControl organizationId={organizationId} kind="material_list" documentId={list.id} links={planLinks} plans={plans} /></div>}
       <section className="glass-bubble workflow-material-meta" aria-label="Lista beállításai">
         <label className="workflow-material-meta-name"><span>Anyaglista neve</span><input name="name" maxLength={120} required value={name} onChange={(event) => setName(event.target.value)} placeholder="Például: Tetőfelújítás anyagai" /></label>
         {creatingFromSurvey ? <><input type="hidden" name="executionPlanId" value="" /><p className="workflow-material-hint">Önálló lista · munkanapló és ügyfél nem szükséges</p></>
-          : <label className="workflow-material-meta-association"><span>Munkanapló <small>opcionális kapcsolat</small></span><select name="executionPlanId" value={planId} disabled={Boolean(list)} onChange={(event) => setPlanId(event.target.value)}><option value="">Önálló anyaglista</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.title}</option>)}</select></label>}
+          : list ? <p className="workflow-material-hint">{list.executionPlanId ? "Munkanaplóban készült · a kapcsolatok fent kezelhetők" : "Önálló lista · munkanapló-kapcsolat fent kezelhető"}</p>
+          : <label className="workflow-material-meta-association"><span>Munkanapló <small>opcionális kapcsolat</small></span><select name="executionPlanId" value={planId} onChange={(event) => setPlanId(event.target.value)}><option value="">Önálló anyaglista</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.title}</option>)}</select></label>}
         {list && <input type="hidden" name="executionPlanId" value={planId} />}
       </section>
       <section className="glass-bubble workflow-material-lines" aria-labelledby="workflow-material-lines-title">

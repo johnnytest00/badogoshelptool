@@ -6,8 +6,7 @@ import { getMaterialCategories, getMaterialProductsForOrganization } from "@/fea
 import { getExecutionPlanOptionsForOrganization } from "@/features/execution/execution-data";
 import { getFieldSurvey, getFieldSurveyRevision } from "@/features/field-surveys/field-survey-data";
 import { getSurveyRelationships } from "@/features/field-surveys/workspace-data";
-import { surveySections } from "@/domain/field-surveys/workspace";
-import { deriveSurveyMaterialSuggestions } from "@/domain/material-takeoffs/survey-material-suggestions";
+import { buildSurveyMaterialSource, defaultSurveyMaterialListName, type SurveyMaterialSource } from "@/features/material-takeoffs/survey-material-source";
 import { WorkflowMaterialListEditor } from "@/features/material-takeoffs/workflow-material-list-editor";
 
 export default async function NewMaterialListPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string; plan?: string; surveyId?: string; surveyVersion?: string }> }>) {
@@ -18,7 +17,7 @@ export default async function NewMaterialListPage({ searchParams }: Readonly<{ s
   if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt az anyaglistához.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const organizationId = selected.organization.id;
   const [products, plans, categories] = await Promise.all([getMaterialProductsForOrganization(organizationId), getExecutionPlanOptionsForOrganization(organizationId), getMaterialCategories(organizationId, false)]);
-  let surveySource = null;
+  let surveySource: SurveyMaterialSource | null = null;
   let defaultName = "";
   if (query.surveyId || query.surveyVersion) {
     if (!query.surveyId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(query.surveyId) || query.plan) notFound();
@@ -31,27 +30,8 @@ export default async function NewMaterialListPage({ searchParams }: Readonly<{ s
       getSurveyRelationships(organizationId, sourceSurvey.id),
     ]);
     if (!sourceRevision) notFound();
-    const sections = surveySections(sourceRevision);
-    const calculations = relationships.calculations.filter((link) => link.surveyRevisionId === sourceRevision.id);
-    const derived = deriveSurveyMaterialSuggestions({
-      surveyId: sourceSurvey.id,
-      revisionId: sourceRevision.id,
-      version: sourceRevision.version,
-      workType: sourceRevision.workType,
-      measurements: sourceRevision.measurements,
-      sections,
-    }, calculations);
-    surveySource = {
-      surveyId: sourceSurvey.id,
-      surveyRevisionId: sourceRevision.id,
-      surveyName: sections.map((section) => section.name).join(" · "),
-      surveyVersion: sourceRevision.version,
-      currentSurveyVersion: sourceSurvey.version,
-      stale: sourceSurvey.version > sourceRevision.version,
-      suggestions: derived.suggestions,
-      unavailable: derived.unavailable,
-    };
-    defaultName = `${sections.map((section) => section.name).join(" · ")} · V${sourceRevision.version} anyaglista`.slice(0, 120);
+    surveySource = buildSurveyMaterialSource(sourceSurvey, sourceRevision, relationships.calculations);
+    defaultName = defaultSurveyMaterialListName(surveySource);
   }
   const requestedPlanId = query.plan && plans.some((plan) => plan.id === query.plan) ? query.plan : "";
   if (query.plan && !requestedPlanId) notFound();

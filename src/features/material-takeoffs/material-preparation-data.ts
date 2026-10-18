@@ -106,11 +106,12 @@ export async function getMaterialPreparationLists(organizationId: string, projec
   });
 }
 
-export async function getWorkflowMaterialLists(organizationId: string): Promise<MaterialPreparationList[]> {
+export async function getWorkflowMaterialLists(organizationId: string, onlyListId?: string): Promise<MaterialPreparationList[]> {
   const supabase = await createClient();
-  const { data: lists, error: listError } = await supabase.from("material_preparation_lists")
+  const listQuery = supabase.from("material_preparation_lists")
     .select("id, organization_id, project_id, execution_plan_id, name, current_revision_id, version, updated_at")
-    .eq("organization_id", organizationId).is("project_id", null)
+    .eq("organization_id", organizationId).is("project_id", null);
+  const { data: lists, error: listError } = await (onlyListId ? listQuery.eq("id", onlyListId) : listQuery)
     .order("updated_at", { ascending: false }).limit(200);
   if (listError) throw new Error("Az anyaglisták betöltése nem sikerült.");
   if (!lists?.length) return [];

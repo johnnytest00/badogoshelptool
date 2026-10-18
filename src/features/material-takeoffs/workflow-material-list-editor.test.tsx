@@ -5,7 +5,12 @@ import type { WorkflowMaterialListSurveyContext } from "./workflow-material-list
 import type { MaterialPreparationList } from "./material-preparation-data";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
-vi.mock("@/lib/secure-uuid", () => ({ generateSecureUuid: () => "00000000-0000-4000-8000-000000000099" }));
+vi.mock("@/lib/secure-uuid", () => ({
+  generateSecureUuid: () => "00000000-0000-4000-8000-000000000099",
+  createIdempotencyKey: () => ({ current: () => "00000000-0000-4000-8000-000000000098", renew: () => "00000000-0000-4000-8000-000000000098" }),
+}));
+vi.mock("@/features/quotations/material-list-quotation-actions", () => ({ createQuotationDraftFromMaterialListAction: vi.fn() }));
+vi.mock("@/features/execution/execution-document-link-actions", () => ({ linkExecutionPlanDocumentAction: vi.fn(), unlinkExecutionPlanDocumentAction: vi.fn(), createExecutionPlanAndLinkDocumentAction: vi.fn() }));
 vi.mock("./workflow-material-list-actions", () => ({ saveWorkflowMaterialListAction: async () => ({ ok: false }) }));
 vi.mock("@/components/feedback/app-interaction-provider", () => ({
   useAppInteraction: () => ({
@@ -113,5 +118,30 @@ describe("survey material list editor", () => {
     expect(html).toContain('value="150.00"');
     expect(html).toContain("375 Ft");
     expect(html).toContain("Ehhez a tételhez nincs rögzített felmérési forrás.");
+  });
+
+  it("links a saved list to its source survey, its quotation drafts and its work logs", () => {
+    const itemId = "00000000-0000-4000-8000-000000000016";
+    const list = {
+      id: "00000000-0000-4000-8000-000000000015", projectId: null, executionPlanId: null, name: "DEMO lista", version: 2, updatedAt: "2026-10-17T00:00:00Z",
+      currentRevisionId: "00000000-0000-4000-8000-000000000017",
+      currentRevision: { id: "00000000-0000-4000-8000-000000000017", revisionNumber: 2, state: "preliminary", sourceTakeoffs: [], createdAt: "2026-10-17T00:00:00Z", staleTakeoffIds: [],
+        items: [{ id: itemId, kind: "manual", description: "DEMO eresz", quantity: "9.25", unit: "linear_meter", materialCategory: "gutter" }],
+        surveySource: { surveyId: surveySource.surveyId, surveyRevisionId: surveySource.surveyRevisionId, surveyVersion: 1, surveyName: "DEMO ereszcsatorna", currentSurveyVersion: 1, stale: false, items: [] } },
+      history: [],
+    } as unknown as MaterialPreparationList;
+    const html = renderToStaticMarkup(createElement(WorkflowMaterialListEditor, {
+      organizationId: "00000000-0000-4000-8000-000000000009", products: [], plans: [], categories: [], list,
+      quotations: [{ quotationId: "00000000-0000-4000-8000-000000000018", name: "DEMO ajánlat", status: "draft", sourceListVersion: 2, currentListVersion: 2, createdAt: "" }],
+      planLinks: [{ linkId: "00000000-0000-4000-8000-000000000019", planId: "00000000-0000-4000-8000-000000000020", planTitle: "DEMO munkanapló", origin: "link" }],
+    }));
+    expect(html).toContain("/felmeresek/" + surveySource.surveyId);
+    expect(html).toContain("Forrásfelmérés megnyitása");
+    expect(html).toContain("/ajanlatok/00000000-0000-4000-8000-000000000018");
+    expect(html).toContain("Újabb piszkozat ugyanebből");
+    expect(html).not.toContain("Árajánlat-piszkozat készítése");
+    expect(html).toContain("/kivitelezes/00000000-0000-4000-8000-000000000020");
+    expect(html).toContain("Leválasztás");
+    expect(html).toContain("Munkanapló kapcsolása");
   });
 });

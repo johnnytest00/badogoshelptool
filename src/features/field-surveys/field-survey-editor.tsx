@@ -16,6 +16,9 @@ import type { FieldSurveyRecord, FieldSurveyRevisionRecord } from "./field-surve
 import { FieldSurveyPhotos } from "./field-survey-photos";
 import { SurveyExecutionActions } from "./survey-execution-actions";
 import { WorkspaceSummary } from "./workspace-summary";
+import { SurveyMaterialListPanel } from "./survey-material-list-panel";
+import type { SurveyMaterialSource } from "@/features/material-takeoffs/survey-material-source";
+import type { SurveyLinkedMaterialList } from "@/features/material-takeoffs/material-list-links";
 import { SurveyRoofWorkspace } from "./survey-roof-workspace";
 import { RoofTypeSelector, roofTypeOptions } from "@/features/roof-models/roof-type-selector";
 import { geometryFromSurveyMeasurements, surveyRoofFields } from "@/domain/field-surveys/roof-geometry";
@@ -50,12 +53,13 @@ const initialSections = (survey?: FieldSurveyRecord | null): SectionDraft[] => s
 const serialize = serializeSurveyDraftSections;
 const emptyRelationships: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[]; executionPlans: [] } = { calculations: [], followups: [], executionPlans: [] };
 
-export function FieldSurveyEditor({ organizationId, userId, projects, executionPlans = [], survey, initialProjectId = null, initialSectionId = null, revisionVersions = [], historicalRevision = null, relationships = emptyRelationships }: Readonly<{
+export function FieldSurveyEditor({ organizationId, userId, projects, executionPlans = [], survey, initialProjectId = null, initialSectionId = null, revisionVersions = [], historicalRevision = null, relationships = emptyRelationships, materialListSource = null, linkedMaterialLists = [], initialMaterialPanelOpen = false }: Readonly<{
   organizationId: string; userId?: string; projects: readonly { id: string; name: string }[]; survey?: FieldSurveyRecord | null; initialProjectId?: string | null;
   executionPlans?: readonly ExecutionPlanOption[];
   initialSectionId?: string | null;
   revisionVersions?: readonly number[]; historicalRevision?: FieldSurveyRevisionRecord | null;
   relationships?: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[]; executionPlans: SurveyExecutionPlanLink[] };
+  materialListSource?: SurveyMaterialSource | null; linkedMaterialLists?: readonly SurveyLinkedMaterialList[]; initialMaterialPanelOpen?: boolean;
 }>) {
   const router = useRouter();
   const { requestConfirmation, requestNavigation, notify } = useAppInteraction();
@@ -70,8 +74,9 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   const [workspacePersisted, setWorkspacePersisted] = useState(Boolean(survey?.sections));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [followupPending, setFollowupPending] = useState(false);
-  const [summary, setSummary] = useState(false);
+  const [materialPanelOpen, setMaterialPanelOpen] = useState(initialMaterialPanelOpen);
+  const [materialPanelPreparing, setMaterialPanelPreparing] = useState(false);
+  const materialPanelRef = useRef<HTMLElement>(null);
   const [photoState, setPhotoState] = useState({ busy: false, queued: false });
   const [photos, setPhotos] = useState<{ id: string; filename: string }[]>([]);
   const [photoAssociationPending, setPhotoAssociationPending] = useState(false);
@@ -85,7 +90,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   const measurementHighlightTimer = useRef<number | null>(null);
   const pendingMeasurementFocus = useRef<{ id: string; sectionId: string; keyboard: boolean } | null>(null);
   const dirty = baseline !== fingerprint;
-  const blocked = saving || photoState.busy || followupPending;
+  const blocked = saving || photoState.busy;
   const active = sections.find((section) => section.id === activeId) ?? sections[0];
   const needsInitialWorkTypeChoice = surveyId === null && !initialWorkTypeChosen;
   const activeGablePreview = active.workType === "roof" && active.roofType === "gable" ? buildGableSurveyPreview(active.measurements) : null;
@@ -215,7 +220,6 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
     setSections(next);
     persistDraftSnapshot(next);
     setError("");
-    setSummary(false);
   }
   function patchMeasurement(id: string, patch: Partial<MeasurementDraft>) { patchSection({ measurements: active.measurements.map((measurement) => measurement.id === id ? { ...measurement, ...patch } : measurement) }); }
   async function selectRoofType(type: RoofGeometryType) {
@@ -236,7 +240,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   }
   function addSection(workType: FieldSurveyWorkType) {
     const id = generateSecureUuid();
-    setSections((current) => [...current, { id, name: fieldSurveyWorkTypeLabels[workType], workType, notes: "", photoIds: [], measurements: [emptyMeasurement(workType, generateSecureUuid())] }]); setActiveId(id); setSummary(false);
+    setSections((current) => [...current, { id, name: fieldSurveyWorkTypeLabels[workType], workType, notes: "", photoIds: [], measurements: [emptyMeasurement(workType, generateSecureUuid())] }]); setActiveId(id);
   }
   function changeType(workType: FieldSurveyWorkType) {
     const empty = active.measurements.length === 1 && active.measurements[0].value === "" && active.measurements[0].label === fieldSurveyTemplates[active.workType][0].label;
@@ -274,7 +278,6 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   function associateUploadedPhoto(photoId: string) {
     setSections((current) => current.map((section) => section.id === activeId && !section.photoIds.includes(photoId) ? { ...section, photoIds: [...section.photoIds, photoId] } : section));
     setPhotoAssociationPending(true);
-    setSummary(false);
   }
   async function persistCurrent(nextSections: SectionDraft[] = sections) {
     if (surveyId && workspacePersisted && !dirty && !photoAssociationPending) return { surveyId, version };
@@ -305,8 +308,28 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
     finally { saveLock.current = false; setSaving(false); }
   }
   useEffect(() => { persistCurrentRef.current = () => persistCurrent(); });
+  const materialPanelReady = materialPanelOpen && !materialPanelPreparing && !saving && Boolean(surveyId && materialListSource && materialListSource.surveyVersion === version);
+  useEffect(() => {
+    if (!materialPanelOpen) return;
+    // Deferred so the framework's own scroll handling after hydration/navigation cannot undo the move.
+    const timer = window.setTimeout(() => {
+      const panel = materialPanelRef.current;
+      if (!panel) return;
+      const reduceMotion = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      panel.scrollIntoView({ behavior: reduceMotion || !document.hasFocus() ? "auto" : "smooth", block: "start" });
+      panel.focus({ preventScroll: true });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [materialPanelOpen, materialPanelReady]);
   async function ensureSaved() { if (recovery) { setError("Előbb állítsd vissza vagy vesd el a korábbi piszkozatot."); return null; } return surveyId && workspacePersisted && !dirty && !photoAssociationPending ? { surveyId, version } : persistCurrent(); }
-  async function showSummary() { const saved = await ensureSaved(); if (saved) setSummary(true); }
+  async function openMaterialPanel() {
+    setMaterialPanelOpen(true); setMaterialPanelPreparing(true);
+    const saved = await ensureSaved();
+    if (!saved) { setMaterialPanelOpen(false); setMaterialPanelPreparing(false); return; }
+    setMaterialPanelPreparing(false);
+    if (!materialListSource) router.replace(`/felmeresek/${saved.surveyId}?organization=${organizationId}&anyaglista=1`);
+    else if (materialListSource.surveyVersion !== saved.version) router.refresh();
+  }
   function navigate(href: string) { void requestNavigation(href); }
   const selectedVersion = historicalRevision?.version ?? version;
   const revisionSelector = surveyId && revisionVersions.length > 1 && <label className="field-survey-field"><span>Felmérés változata</span><select value={selectedVersion} disabled={blocked} onChange={(event) => navigate(`/felmeresek/${surveyId}?organization=${organizationId}${Number(event.target.value) === version ? "" : `&version=${event.target.value}`}`)}>{[...new Set([version, ...revisionVersions])].map((item) => <option key={item} value={item}>{item === version ? "Aktuális" : "Korábbi"} · V{item}</option>)}</select></label>;
@@ -401,18 +424,18 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
 
     <section className="survey-completion-area" aria-labelledby="survey-completion-title">
       <div className="survey-completion-heading"><div><h2 id="survey-completion-title">Következő lépések</h2></div></div>
-      <GlassToolbar ariaLabel="Felmérés folytatása" className="survey-completion-toolbar"><button type="button" className="secondary-button" disabled={!canSaveSurvey || photoState.queued} onClick={() => void showSummary()}>Felmérés összesítése</button></GlassToolbar>
+      <GlassToolbar ariaLabel="Felmérés folytatása" className="survey-completion-toolbar"><button type="button" className="secondary-button" aria-expanded={materialPanelOpen} aria-controls="survey-material-list-panel" disabled={!canSaveSurvey || photoState.queued} onClick={() => void openMaterialPanel()}>Anyaglista készítése</button></GlassToolbar>
       <SurveyExecutionActions organizationId={organizationId} surveyId={surveyId} version={version} plans={executionPlans} linkedPlans={relationships.executionPlans} canSave={canSaveSurvey} ensureSaved={ensureSaved} />
       {!needsInitialWorkTypeChoice && !recovery && <GlassDisclosure className="survey-completion-disclosure" summary="Fotók hozzáadása · privát felmérési képek"><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={version} onVersionChange={setVersion} onEnsureSaved={ensureSaved} onPendingChange={setPhotoState} onPhotosChange={onPhotos} onPhotoUploaded={associateUploadedPhoto} onUploadComplete={() => router.refresh()} /></GlassDisclosure>}
       {effectiveProjectId && <GlassDisclosure className="survey-completion-disclosure survey-section-more" summary={<>További műveletek<span className="survey-optional-badge">Opcionális</span></>}>
-        {active.workType === "roof" && active.roofType && effectiveProjectId && surveyId && !recovery && <div className="survey-section-more-block"><h3>Tetőmodellhez mentés</h3><SurveyRoofWorkspace organizationId={organizationId} surveyId={surveyId} version={version} sectionId={active.id} sectionName={active.name} roofType={active.roofType} links={relationships.calculations} ensureSaved={ensureSaved} onLinked={() => router.refresh()} /></div>}
+        {active.workType === "roof" && active.roofType && effectiveProjectId && surveyId && !recovery && <GlassDisclosure className="survey-section-roof-model" summary="Tetőmodell-revízió mentése · a tetőfelület anyaglistába vételéhez"><p>A felmérés rajza és eredménye a mérésekből automatikusan frissül. Ellenőrzött tetőfelületet az anyaglista csak a felmérésváltozathoz kapcsolt, mentett tetőmodell-revízióból vehet át.</p><SurveyRoofWorkspace organizationId={organizationId} surveyId={surveyId} version={version} sectionId={active.id} sectionName={active.name} roofType={active.roofType} links={relationships.calculations} ensureSaved={ensureSaved} onLinked={() => router.refresh()} /></GlassDisclosure>}
         {effectiveProjectId && <div className="survey-section-more-block"><h3>{`Korábbi projektkapcsolat · ${projects.find((project) => project.id === effectiveProjectId)?.name ?? "elérhető"}`}</h3>
         <p>Ez a felmérés korábbi projektazonosítót őriz meg kompatibilitásból. Az új felméréseknél nincs szükség projekt létrehozására.</p>
         {projects.some((project) => project.id === effectiveProjectId) && <Link href={`/projektek/${effectiveProjectId}?organization=${organizationId}`}>Kapcsolt régi adatok megnyitása →</Link>}
       </div>}
       </GlassDisclosure>}
     </section>
-    {summary && surveyId && !dirty && <WorkspaceSummary key={version} organizationId={organizationId} surveyId={surveyId} version={version} sections={serialize(sections)} calculations={relationships.calculations} initialFollowups={relationships.followups} onPendingChange={setFollowupPending} originalProjectId={projectId || null} />}
+    {materialPanelOpen && <SurveyMaterialListPanel ref={materialPanelRef} organizationId={organizationId} savedVersion={version} source={surveyId ? materialListSource : null} linkedLists={linkedMaterialLists} unsaved={unsaved} preparing={materialPanelPreparing || saving} onClose={() => setMaterialPanelOpen(false)} />}
   </section>;
 }
 

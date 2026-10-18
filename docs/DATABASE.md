@@ -1,5 +1,13 @@
 # F2.1 adatbázis-alap
 
+## F9.42 — munkanapló-kapcsolatok (2026-10-18, csak helyi)
+
+Migráció: `20261018100000_execution_plan_document_links.sql`; teszt: `supabase/tests/database/040_execution_plan_document_links.sql` (24 állítás, helyi PASS). Hosted DB-re nem alkalmazva.
+
+- `execution_plan_document_links`: visszavonható kapcsolat munkanapló és `material_preparation_lists` (projekt nélküli) vagy önálló `quotations` között; összetett `(id, organization_id)` FK-k; aktív kapcsolat egyedi (részleges unique index), `unlinked_at/by` egyszeri időbélyeg, `request_key` idempotencia, törlés és átpointolás tiltott (trigger `55000`).
+- RLS: csak select `authenticated` részére, a kapcsolat azoknak látszik, akik a dokumentumot is látják (alkotó-hatókörű önálló lista/ajánlat); írás kizárólag `link_execution_plan_document` / `unlink_execution_plan_document` (security definer, org-tagság, actor, azonos szervezet, alkotó-hatókör ellenőrzés). A létrehozáskor munkanaplóhoz kötött lista `execution_plan_id`-je változatlanul immutable; ahhoz nincs link.
+- A meglévő `field_survey_execution_plan_links` (felmérés↔munkanapló) változatlan, immutable.
+
 ## F9.31 — legacy kalkulátor függőségek és írójavítás (2026-10-17)
 
 A részletes runtime caller/adatfüggőségi tábla és kockázati döntés a

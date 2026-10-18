@@ -5,6 +5,8 @@ import { getProjectOrganization } from "@/features/projects/organization";
 import { getMaterialCategories, getMaterialProductsForOrganization } from "@/features/materials/material-data";
 import { getExecutionPlanOptionsForOrganization } from "@/features/execution/execution-data";
 import { getWorkflowMaterialLists } from "@/features/material-takeoffs/material-preparation-data";
+import { getQuotationsForMaterialLists } from "@/features/material-takeoffs/material-list-links";
+import { getPlanLinksForDocument } from "@/features/execution/execution-document-links";
 import { WorkflowMaterialListEditor } from "@/features/material-takeoffs/workflow-material-list-editor";
 
 export default async function MaterialListPage({ params, searchParams }: Readonly<{ params: Promise<{ listId: string }>; searchParams: Promise<{ organization?: string }> }>) {
@@ -18,5 +20,7 @@ export default async function MaterialListPage({ params, searchParams }: Readonl
   const [lists, products, plans, categories] = await Promise.all([getWorkflowMaterialLists(organizationId), getMaterialProductsForOrganization(organizationId), getExecutionPlanOptionsForOrganization(organizationId), getMaterialCategories(organizationId, false)]);
   const list = lists.find((item) => item.id === listId);
   if (!list) notFound();
-  return <WorkflowMaterialListEditor key={`${list.id}:${list.currentRevisionId ?? "new"}`} organizationId={organizationId} products={products} plans={plans} categories={categories} list={list} />;
+  const quotations = (await getQuotationsForMaterialLists(organizationId, [list.id])).get(list.id) ?? [];
+  const planLinks = await getPlanLinksForDocument(organizationId, "material_list", list.id, list.executionPlanId);
+  return <WorkflowMaterialListEditor key={`${list.id}:${list.currentRevisionId ?? "new"}`} organizationId={organizationId} products={products} plans={plans} categories={categories} list={list} quotations={quotations} planLinks={planLinks} />;
 }

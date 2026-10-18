@@ -7,8 +7,10 @@ import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getFieldSurvey, getFieldSurveyRevision, getFieldSurveyRevisionVersions } from "@/features/field-surveys/field-survey-data";
 import { FieldSurveyEditor } from "@/features/field-surveys/field-survey-editor";
 import { getExecutionPlanOptionsForOrganization } from "@/features/execution/execution-data";
+import { buildSurveyMaterialSource } from "@/features/material-takeoffs/survey-material-source";
+import { getSurveyLinkedMaterialLists } from "@/features/material-takeoffs/material-list-links";
 
-export default async function FieldSurveyPage({ params, searchParams }: Readonly<{ params: Promise<{ surveyId: string }>; searchParams: Promise<{ organization?: string; version?: string; section?: string }> }>) {
+export default async function FieldSurveyPage({ params, searchParams }: Readonly<{ params: Promise<{ surveyId: string }>; searchParams: Promise<{ organization?: string; version?: string; section?: string; anyaglista?: string }> }>) {
   const { surveyId } = await params;
   const query = await searchParams;
   const selected = await getProjectOrganization(query.organization);
@@ -29,8 +31,13 @@ export default async function FieldSurveyPage({ params, searchParams }: Readonly
   ]);
   if (requestedVersion !== null && requestedVersion !== survey.version && !historicalRevision) return <NotFound organizationId={organizationId} />;
   const relationships = await getSurveyRelationships(organizationId, surveyId);
+  const viewingCurrent = !historicalRevision;
+  const [currentRevision, linkedMaterialLists] = viewingCurrent
+    ? await Promise.all([getFieldSurveyRevision(organizationId, surveyId, survey.version), getSurveyLinkedMaterialLists(organizationId, surveyId)])
+    : [null, []];
+  const materialListSource = currentRevision ? buildSurveyMaterialSource(survey, currentRevision, relationships.calculations) : null;
   const projectOptions = linkedProject ? [{ id: linkedProject.id, name: linkedProject.name }] : [];
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} executionPlans={executionPlans} relationships={relationships} survey={survey} initialSectionId={query.section} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} executionPlans={executionPlans} relationships={relationships} materialListSource={materialListSource} linkedMaterialLists={linkedMaterialLists} initialMaterialPanelOpen={viewingCurrent && query.anyaglista === "1"} survey={survey} initialSectionId={query.section} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
 }
 
 function NotFound({ organizationId }: Readonly<{ organizationId: string }>) {

@@ -141,6 +141,14 @@ describe("field survey editor", () => {
     expect(html).toContain("Felmérés csatolása meglévő munkanaplóhoz");
   });
 
+  it("offers the material list as the primary next step and no longer shows the survey summary toggle", () => {
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={survey} />);
+    expect(html).toContain("Anyaglista készítése");
+    expect(html).not.toContain("Felmérés összesítése");
+    expect(html).not.toContain("Tetőmodellhez mentés");
+    expect(html).not.toContain('id="survey-material-list-panel"');
+  });
+
   it("keeps editors hidden until work type selection and retains disabled survey actions", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} />);
     expect(html).not.toContain('class="field-survey-measurements"');
@@ -274,7 +282,8 @@ describe("field survey editor", () => {
   it("keeps project roof-model persistence optional without repeating the survey drawing", () => {
     const projectSurvey = { ...roofSurvey("hip"), projectId: survey.projectId };
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[{ id: survey.projectId!, name: "DEMO project" }]} survey={projectSurvey} />);
-    expect(html).toContain("Tetőmodellhez mentés");
+    expect(html).toContain("Tetőmodell-revízió mentése");
+    expect(html).toContain("survey-section-roof-model");
     expect(html).toContain("Tetőmodell mentése");
     expect(html.match(/class="technical-drawing is-compact"/g)).toHaveLength(1);
     expect(html).not.toContain("Ereszél kiválasztása");
