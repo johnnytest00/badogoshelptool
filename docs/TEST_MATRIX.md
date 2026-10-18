@@ -33,6 +33,16 @@
 | Mobil sötét (375) | PASS (szemrevételezés) | Fejléc és szöveg olvasható. |
 | Nem futott | — | Bejelentkezést igénylő oldalak (felmérés-szerkesztő) böngészős újramérése, világos mobil, képernyőolvasó, Safari, tabulátor-bejárás teljes oldalon. |
 
+## F9.40.7 — Mobil UI/UX, U10 lebegő méretező gomb — 2026-10-18
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Célzott Vitest | PASS | `src/components`, `src/lib`, `src/features/preferences`, `src/features/field-surveys`: 102 passed, 3 skipped; új `chooseFloatingPlacement` esetek (alap, sticky sáv fölé, szabad hely megtartása, visszatérés az alapra, teljes fedés). Teljes `npm test` nem futott. |
+| typecheck / lint | PASS | `npm run typecheck`, `npm run lint`. |
+| Böngésző 390/320/768 px | PASS (célzott) | 7 képernyő DOM-mérés: nincs vízszintes oldal-túlcsordulás, rövid célok javítva. A gomb szintetikus akadályokra áthelyez és visszatér. |
+| Böngésző 1440 px regresszió | PASS (célzott) | Felmérés kétoszlopos, gomb rejtett, nincs túlcsordulás. |
+| Nem futott | — | Fizikai billentyűzet/safe-area, sötét téma mobilon, build, adatbázis. |
+
 ## F9.40.1 — Felmérés-szerkesztő UX — 2026-10-18
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

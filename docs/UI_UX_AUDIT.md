@@ -59,7 +59,8 @@ Javaslat: sticky alsó műveletsáv saját háttérrel és helylefoglalással (p
 Új önálló ajánlat: „Címzett és dokumentumadatok · Opcionális” mellett piros hangvételű „Hibás adat” (a domain készenléti állapotból jön). Tiszta űrlapon ez félrevezető.
 Javaslat: üres opcionális szekciónál „Nincs megadva” semleges jelvény; a hibajelzés csak szerkesztés után. (Üzleti logikához nem nyúlni, csak megjelenítés.)
 
-**U10. Lebegő méretező gomb mobilon még mindig takar [M].**
+**U10. Lebegő méretező gomb mobilon még mindig takar [M].** — ✅ **MEGOLDVA (F9.40.7):** a gomb már nem tűnik el; `chooseFloatingPlacement` (`src/lib/floating-control-placement.ts`) a látható viewportban (`visualViewport`, billentyűzet- és safe-area-inset figyelembevételével) szabad helyet választ: alapértelmezett jobb-alsó, ha foglalt, a megtartott szabad hely, majd felemelve/bal oldalon; ha minden foglalt, a legkevésbé fedő pozíció. Akadályok: sticky mentősávok, rajz-eszköztár, mezők, lenyíló-összefoglalók, gombok, dialógusok, nav. Beállítások/funkció változatlan; ≥701 px-en továbbra is a fejléc beállításai.
+Eredeti [M]:
 Az F9.39 óta kisebb és üveg-stílusú, de 320–390 px-en tartalom fölé kerül (szöveg alatt/mellett), és az akadályfelismerés csak beviteli elemekre/gombokra figyel.
 Javaslat: a gomb költözzön a fejléc beállításai közé mobilon (ott már van méretezési csoport), vagy kerüljön a lap alján fix, helyet foglaló sávba.
 
@@ -116,3 +117,12 @@ Javaslat: Feladatok + „Új bejegyzés” elsődleges, bejegyzés-napló alatta
 ## 5. Amit érdemes békén hagyni
 
 A beállítások popover, a geometriai eredménykártya (nagy érték + 5 mutató), a kalkulátor-választó ikonok, az anyaglista-termékválasztó és a Műhely csempék már jó minőségűek; ezeket csak a tokenek átállításakor szabad érinteni.
+
+---
+
+## F9.40.7 — mobil kör (390/320/768 px mérés, helyi, bejelentkezve) — 2026-10-18
+
+**[M]** mért képernyők: Műhely, felmérés-szerkesztő, kalkulátorválasztó + tető, anyaglista (új), Anyagkezelő, új ajánlat, Munkanapló. Mind a három szélességen **nincs vízszintes túlcsordulás**, a vezérlők ≥40 px-esek, kivéve:
+- **Javítva:** Anyagkezelő gyártó-`summary` és felmérés „Kapcsolt régi adatok” link 24 px magas → 44 px (≤1023 px vagy `pointer: coarse`); 9.6–11 px-es szövegek (kategória-számláló, állapot-/kategória-pill, szakasz-számláló, termékkód, anyaglista-mezőcímkék és eyebrow) legalább .75rem (a felhasználó szövegméret-skálája alkalmazva).
+- **Nem módosítva (szándékos):** kategória-sáv vízszintesen görgethető (csak a konténeren belül, oldal nem); a felmérés-fejléc „Vissza” gombja mobilon teljes szélességű (közös `GlassPageHeader`, nem érintettem); ≥701 px-en a lebegő gomb rejtett, a méretezés a fejléc beállításaiban érhető el.
+- **Nem mért:** fizikai billentyűzet/safe-area (a böngészőpanel nem emulálja; a logika a `visualViewport`-ra épül, egységteszttel fedett), sötét téma képernyőnként, Munkanapló/Anyagkezelő mélyebb állapotai, dialógusok pixelpontos elhelyezése.

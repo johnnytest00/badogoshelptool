@@ -1,5 +1,23 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## F9.40.7 — Mobil UI/UX optimalizálás (U10 lezárva)
+
+Státusz: **KÉSZ a mért hatókörre.** Csak megjelenítés/elhelyezés; számítás, adatbázis, Auth/RLS, perzisztencia nem változott. Nincs commit.
+
+- **U10 lebegő méretező gomb:** a `scaling-bubble.tsx` az eltűnés helyett `chooseFloatingPlacement`-tel (`src/lib/floating-control-placement.ts`) áthelyezi a gombot: visualViewport + billentyűzet-inset + safe-area; alap jobb-alsó, foglaltság esetén felemel/bal oldalra vált, vissza az alapra ha szabad; nincs `display:none` szerkesztés közben és nincs `is-obstructed` elrejtés. rAF helyett 40 ms-os debounce (háttérpanelben is fut). Panel max-magassága a gomb helyzetéhez igazodik.
+- **Megosztott CSS:** sub-12 px szövegek .75rem-re (`.material-category-pill`, `.status-pill`, `.survey-section-tab-count`, anyagkezelő kategória-számláló/kód, anyaglista-mező és eyebrow); 44 px célok a maradék rövid `summary`/link soroknak.
+- **Mérés (böngésző):** 390/320/768 px, 7 képernyő: nincs oldalszintű túlcsordulás; 1440 px-en a felmérés kétoszlopos elrendezése és a rejtett gomb változatlan. Szintetikus akadályokkal igazolva: teljes szélességű alsó sáv fölé emelés, bal-oldali váltás, visszatérés az alaphelyre.
+- **Ellenőrzés:** Vitest `src/components`, `src/lib`, `src/features/preferences`, `src/features/field-surveys` (26 fájl/102 teszt PASS, 3 kihagyva), typecheck PASS, ESLint PASS. Teljes `npm test`/build nem futott.
+- **Korlát:** valódi billentyűzet/safe-area eszközön nem mért; sötét téma és mélyebb állapotok nem külön mértek; mobil „Vissza” gomb teljes szélessége nem változott.
+
+## F9.40.6 — Felmérés-szerkesztő elrendezés finomítás
+
+Státusz: **KÉSZ (csak CSS, `globals.css` F9.40.1 blokk).** Számítás, perzisztencia, üzleti szabály, JSX nem változott.
+
+- **Gyökérok:** a sticky rajz a gridben csak a `2 / span 2` sorokat foglalta (a bal oszlop alatt üres sor), az eredmény-panelek pedig teljes szélességben a rajz alatt futottak, így a sticky tartomány (a grid-terület) alig engedett mozgást, bal oldalon pedig üres tér maradt.
+- **Változás:** ≥1024 px-en a mérések, számított eredmények, faanyag/alátét panelek és műveletek a bal oszlopba kerültek (meglévő komponensek, nincs duplikáció); a rajz egyetlen elem a `2 / span 12` sorokon, `align-items:start`, sor-gap 0 (margó viszi a térközt), így a sticky tartomány pontosan a bal oszlop. 1024 px alatt változatlan egyoszlopos sorrend (mérések → rajz → eredmények → műveletek). `max-height: 760px` alatt a rajz statikus.
+- **Ellenőrzés:** böngésző 1440×900: görgetés az elejétől a végéig, a rajz a szekció alján megáll (nincs átfedés), nincs vízszintes túlcsordulás; 390 px: egy oszlop, nincs túlcsordulás. Vitest `src/features/field-surveys`, typecheck, lint lásd futtatás. Sötét téma/zoom-pan interakció külön nem futott (színek, rajz-logika nem változott).
+
 ## F9.40.5 — UI/UX audit lezárás és munkafolyamat-ellenőrzés
 
 Státusz: **KÉSZ a célzott hatókörre (F9.40.4 böngészős verifikáció; U3, U5 vizuális/jelölésbeli egységesítés).** Csak megjelenítés/jelölés; üzleti logika, számítás, séma, Auth/RLS nem változott.

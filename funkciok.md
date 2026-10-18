@@ -27,6 +27,7 @@ Ez a rövid térkép a route- és feature-forráskódot a `docs/PROGRESS.md` akt
 Fő útvonal- és adatfolyam-áttekintés: [`docs/PROJECT_MAP.md`](docs/PROJECT_MAP.md). Claude Code átadás: [`docs/CLAUDE_HANDOFF.md`](docs/CLAUDE_HANDOFF.md). A történeti mérföldkő-bejegyzés nem bizonyít mai runtime állapotot; a tényleges ellenőrzési részletek a [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md) fájlban vannak.
 
 > **F9.40.1 — Felmérés-szerkesztő:** a mentés állapota és az elsődleges „Mentés” gomb sticky sávban érhető el a szerkesztés közben (nincs külön mentés-csempe); a mérőmezők címkéje a mező fölött van, az egység badge, a név/egység/szerep/törlés egy „⋯” menüben; rajz esetén asztalon a mezők mellett sticky rajz, mobilon egymás alatt. Számítás és adatmodell változatlan.
+> **F9.40.6 — Felmérés-szerkesztő elrendezés:** asztalon a bal oszlop a mérések, számított eredmények és műveletek, a jobb oszlopban a rajz a szekció végéig sticky, utána megáll (nem fedi az eredményeket); mobilon egy oszlop. Csak CSS.
 
 ## Rendszeráttekintés
 
