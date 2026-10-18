@@ -8,7 +8,7 @@
 
 A TetőPro munkanév alatt futó Bádogos HelpTool napi bádogos/tetőfedő munkához készülő magyar webalkalmazás. A cél a felmérés, a geometriai és anyagmennyiségi számítás, anyag-előkészítés, ajánlat és kivitelezési dokumentáció egyszerűsítése, kevés ismételt adatbevitellel. Az egyszerű felmérés vagy számítás nem igényel minden esetben projektet vagy teljes tetőmodellt.
 
-A repó működő, moduláris Next.js alkalmazást, lokális Supabase-adatmodellt, Auth/RLS útvonalakat, sok célzott matematikai és adatbázistesztet tartalmaz. A legutóbbi dokumentált fejlesztési állapot az **F9.37.3**. Ez nem jelenti, hogy a termék production/pilot-ready: hosted telepítés, backup/restore, adatvédelmi döntések, cross-org staging-bizonyíték, fizikai mobil/terepi QA és szakmai/jogi review blokkoló marad. Lásd [`PILOT_READINESS.md`](PILOT_READINESS.md).
+A repó működő, moduláris Next.js alkalmazást, lokális Supabase-adatmodellt, Auth/RLS útvonalakat, sok célzott matematikai és adatbázistesztet tartalmaz. A legutóbbi dokumentált fejlesztési állapot az **F9.37.3**; azóta az F9.38.x kalkulátorikon-sorozat és az **F9.39/F9.39.1** megjelenítési finomítás (csak UI; a `liquid-glass-react` rim réteg megszűnt, tokenek: `--tp-stack*`, `--surface-popover`) készült, részletük a `PROGRESS.md` elején. Ez nem jelenti, hogy a termék production/pilot-ready: hosted telepítés, backup/restore, adatvédelmi döntések, cross-org staging-bizonyíték, fizikai mobil/terepi QA és szakmai/jogi review blokkoló marad. Lásd [`PILOT_READINESS.md`](PILOT_READINESS.md).
 
 ## B. Elkészült fázisok és mérföldkövek
 
@@ -19,6 +19,8 @@ A repó működő, moduláris Next.js alkalmazást, lokális Supabase-adatmodell
 - F9.35.1 faanyag-kiosztás/mennyiségek: domain, survey snapshot, rajz és célzott helyi ellenőrzés **IMPLEMENTED / STABILIZÁLVA**; statikai és tényleges fizikai tagozás nem igazolt.
 - F9.36.1 alátét mennyiségi alap: gable/shed/hip geometriai csíkozás és 1D vágási minimum **IMPLEMENTED**, de a vágási minimum nem beszerzési mennyiség. Többi geometria nem támogatott. Az F9.36.2 2D lemezkiosztás csak specifikáció, még nem implementáció.
 - F9.37.3 háttér és Safari `Script`-renderelési hiba: a dokumentált fókuszált ellenőrzések PASS; mobil/reduced-motion runtime teljes mátrix nincs.
+
+- F9.40.1 felmérés-szerkesztő UX: sticky mentési sáv (állapot + egyetlen „Mentés”), `MeasurementField` (címke fölül, egység-badge, „⋯” menü), ≥1024 px-en mezők + sticky rajz két oszlopban. Csak megjelenítés; célzott tesztek, typecheck, lint és böngészős save/reopen PASS; teljes `npm test`/build nem futott. Részletek: `PROGRESS.md` F9.40.1. A többi audit-pont (U3–U6, U9–U16) nyitott.
 
 A legfrissebb bizonyítékot mindig a [`PROGRESS.md`](PROGRESS.md) elejéről, a tesztadatot a [`TEST_MATRIX.md`](TEST_MATRIX.md) mérföldkő-szakaszaiból olvasd.
 
@@ -123,7 +125,7 @@ npm run db:test
 
 A tesztparancs példája csak minta: az aktuális feladathoz választott pontos tesztútvonalat futtasd. A `db:reset` helyi adatot töröl és újraépít, csak eldobható helyi adatbázis és ellenőrzött szándék esetén használható. Távoli link/push/migráció nincs a normál helyi workflow-ban.
 
-Átadáskori ellenőrzés **nem futtatott**: alkalmazásteszt, DB teszt, typecheck, lint, build és böngészős workflow. Ehhez a docs-only feladat nem módosított alkalmazáskódot. A korábbi mérföldkövek ellenőrzései a `PROGRESS.md`/`TEST_MATRIX.md` fájlban történeti bizonyítékok.
+Az F9.39 UI-mérföldkő végén lefutott: teljes Vitest (726 PASS), typecheck, teljes lint, izolált production build és `git diff --check`; DB-teszt nem (nem érintett). A lint a harmadik féltől származó `.agent/.agents/.claude` skill-könyvtárakat az `eslint.config.mjs`-ben kizárja. Az UI-munka (F9.39) részleteit, korlátait és a nem ellenőrzött területeket lásd `PROGRESS.md` elején. A korábbi mérföldkövek ellenőrzései történeti bizonyítékok.
 
 ## L. Fontos dokumentáció
 

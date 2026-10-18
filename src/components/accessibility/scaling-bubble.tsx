@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { closeBubbleOnKey, closeBubbleOnOutsideClick, toggleBubble } from "@/components/accessibility/scaling-bubble.utils";
 import { rectanglesOverlap } from "@/lib/floating-control-placement";
-import { LiquidGlassLayer } from "@/components/ui/liquid-glass-layer";
 
 export function ScalingBubble() {
   const [open, setOpen] = useState(false);
@@ -68,13 +67,11 @@ export function ScalingBubble() {
   return (
     <div className={`scaling-bubble ${open ? "is-open" : ""} ${obstructed ? "is-obstructed" : ""}`} ref={bubbleRef}>
       {open && <div className="scaling-quick-cluster" id="scaling-quick-cluster" aria-label="Gyors méretezés">
-        <LiquidGlassLayer radius={18} />
         <button type="button" className="scaling-quick-close" onClick={() => setOpen(false)} aria-label="Méretező bezárása"><span aria-hidden="true">×</span></button>
         <section className="scaling-quick-bubble"><h2>Szövegméret</h2><ScalingControls compact keys={["text"]} labels={{ text: "Szövegméret" }} showReset={false} idPrefix="quick-scale" /></section>
         <section className="scaling-quick-bubble"><h2>Felületméret</h2><ScalingControls compact keys={["ui"]} labels={{ ui: "Felületméret" }} showReset={false} idPrefix="quick-scale" /></section>
       </div>}
       <button ref={launcherRef} className="scaling-launcher" type="button" onClick={() => setOpen(toggleBubble)} aria-expanded={open} aria-controls="scaling-quick-cluster" aria-label={open ? "Méretező bezárása" : "Méretezés és megjelenítés"}>
-        <LiquidGlassLayer radius={999} />
         <Scaling aria-hidden="true" className="size-5" />
       </button>
     </div>

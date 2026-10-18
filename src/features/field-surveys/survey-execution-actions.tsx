@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { ClipboardList, Link2, Save } from "lucide-react";
+import { ClipboardList, Link2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { createIdempotencyKey } from "@/lib/secure-uuid";
@@ -11,7 +11,7 @@ import { createExecutionPlanFromSurvey, linkSurveyToExecutionPlan } from "./work
 
 type SavedSurvey = { surveyId: string; version: number };
 
-export function SurveyExecutionActions({ organizationId, surveyId, version, plans, linkedPlans, canSave, ensureSaved, onStandaloneSave }: Readonly<{
+export function SurveyExecutionActions({ organizationId, surveyId, version, plans, linkedPlans, canSave, ensureSaved }: Readonly<{
   organizationId: string;
   surveyId: string | null;
   version: number;
@@ -19,7 +19,6 @@ export function SurveyExecutionActions({ organizationId, surveyId, version, plan
   linkedPlans: readonly SurveyExecutionPlanLink[];
   canSave: boolean;
   ensureSaved: () => Promise<SavedSurvey | null>;
-  onStandaloneSave: () => void;
 }>) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -74,13 +73,8 @@ export function SurveyExecutionActions({ organizationId, surveyId, version, plan
   const linkedPlanIds = new Set(linkedPlans.filter((link) => link.surveyVersion === version).map((link) => link.executionPlanId));
   const availablePlans = plans.filter((plan) => !linkedPlanIds.has(plan.id));
 
-  return <section className="survey-workflow-actions" aria-label="Felmérés mentése és továbblépés">
+  return <section className="survey-workflow-actions" aria-label="Továbblépés a felméréssel">
     <div className="survey-workflow-tiles">
-      <button type="button" className="survey-workflow-tile" disabled={!canSave || pending} onClick={onStandaloneSave}>
-        <Save aria-hidden="true" className="size-5" />
-        <span>{surveyId ? "Felmérés mentése" : "Önálló felmérés mentése"}</span>
-        <small>{surveyId ? `Aktuális változat · V${version}` : "Később is folytatható"}</small>
-      </button>
       <button type="button" className="survey-workflow-tile is-primary" disabled={!canSave || pending} onClick={() => { setMessage(""); setMode((current) => current === "create" ? null : "create"); }}>
         <ClipboardList aria-hidden="true" className="size-5" />
         <span>Munkanapló létrehozása</span>

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import { LiquidGlassLayer } from "@/components/ui/liquid-glass-layer";
 
-/** Compact glass title bubble for a primary section within a page. */
+/** Flat section heading inside a card; the glass surface belongs to the card, not the heading. */
 export function GlassSectionHeader({
   title,
   id,
@@ -15,7 +14,6 @@ export function GlassSectionHeader({
 }>) {
   return (
     <header className={`glass-section-header${className ? ` ${className}` : ""}`}>
-      <LiquidGlassLayer radius={18} />
       <h2 id={id}>{title}</h2>
       {actions && <div className="glass-section-header-actions">{actions}</div>}
     </header>

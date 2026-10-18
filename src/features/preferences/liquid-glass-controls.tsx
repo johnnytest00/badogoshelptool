@@ -35,7 +35,8 @@ export function LiquidGlassControls() {
   );
 }
 
-export function BackgroundAnimationControl() {
+/** Shared device-local background animation preference, kept in step with the settings toggle through its change event. */
+export function useBackgroundAnimationEnabled(): [boolean, (next: boolean) => void] {
   const [enabled, setEnabled] = useState(true);
 
   useEffect(() => {
@@ -59,6 +60,12 @@ export function BackgroundAnimationControl() {
       window.removeEventListener("storage", restore);
     };
   }, []);
+
+  return [enabled, setEnabled];
+}
+
+export function BackgroundAnimationControl() {
+  const [enabled, setEnabled] = useBackgroundAnimationEnabled();
 
   const toggle = (next: boolean) => {
     setEnabled(next);

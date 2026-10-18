@@ -3,7 +3,7 @@
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { Plus, Settings2, Trash2 } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDot, Loader2, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { AnchoredPopover } from "@/components/ui/anchored-popover";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
@@ -127,6 +127,10 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   const recoveryKey = userId ? `tetopro-survey:${userId}:${organizationId}:${surveyId ?? "new"}` : null;
   const [recovery, setRecovery] = useState<SurveyDraftRecovery | null>(null);
   const canSaveSurvey = !blocked && !recovery && !needsInitialWorkTypeChoice;
+  const unsaved = dirty || photoAssociationPending;
+  const saveBarState: "saving" | "error" | "recovery" | "unsaved" | "saved" | "new" = saving ? "saving" : error ? "error" : recovery ? "recovery" : unsaved ? "unsaved" : surveyId && workspacePersisted ? "saved" : "new";
+  const saveBarLabels = { saving: "Mentés…", error: "A mentés nem sikerült", recovery: "Helyreállítható piszkozat", unsaved: "Nem mentett módosítások", saved: `Mentve · V${version}`, new: surveyId ? `Mentés szükséges · V${version}` : "Új felmérés · még nincs mentve" } as const;
+  const SaveBarIcon = { saving: Loader2, error: CircleAlert, recovery: CircleDot, unsaved: CircleDot, saved: CircleCheck, new: CircleDot }[saveBarState];
   const recoveryChecked = useRef(false);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const [draftStorageAvailable, setDraftStorageAvailable] = useState(true);
@@ -309,6 +313,11 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   if (historicalRevision && surveyId) return <section className="field-survey-card"><GlassPageHeader title="Korábbi felmérés" context={`V${historicalRevision.version}`} />{revisionSelector}<WorkspaceSummary organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} sections={surveySections(historicalRevision)} calculations={relationships.calculations} initialFollowups={relationships.followups.filter((row) => row.surveyRevisionId === historicalRevision.id)} originalProjectId={historicalRevision.projectId} readOnly /><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} historical onVersionChange={() => undefined} onEnsureSaved={async () => null} onUploadComplete={() => undefined} /><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek/${surveyId}?organization=${organizationId}`)}>Aktuális felmérés folytatása</button></section>;
   return <section className={`field-survey-card${active.workType === "roof" && active.roofType ? " field-survey-card-roof" : ""}`}>
     <GlassPageHeader title={surveyId ? "Felmérés szerkesztése" : "Új felmérés"} context={surveyId ? `V${version}` : undefined} actions={<button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek?organization=${organizationId}`)}>Vissza a felmérésekhez</button>} />
+    {!needsInitialWorkTypeChoice && <div className={`survey-savebar is-${saveBarState}`}>
+      <p className="survey-savebar-status" role="status" aria-live="polite"><SaveBarIcon aria-hidden="true" className={`size-4${saveBarState === "saving" ? " animate-spin" : ""}`} /><span>{saveBarLabels[saveBarState]}</span></p>
+      <button type="submit" form="field-survey-editor-form" className="primary-button survey-savebar-save" disabled={!canSaveSurvey || (!unsaved && Boolean(surveyId) && workspacePersisted)}>{saving ? "Mentés…" : "Mentés"}</button>
+    </div>}
+    {error && <p role="alert" className="form-message is-error survey-save-error">{error}</p>}
     {revisionSelector}
     {recovery && <aside className="survey-handoff-banner"><p>Korábbi nem mentett szerkesztés helyreállítható · alap V{recovery.version}.{recovery.version !== version ? " A mentett felmérés közben változott; a visszaállított piszkozat mentése verzióellenőrzést kap." : ""}</p><button type="button" className="secondary-button" onClick={() => { createIdRef.current = recovery.requestSurveyId; setSections(recovery.sections); setActiveId(recovery.activeSectionId); setProjectId(recovery.projectId); setVersion(recovery.version); setInitialWorkTypeChosen(true); setRecovery(null); }}>Piszkozat visszaállítása</button><button type="button" className="secondary-button" onClick={() => { if (recoveryKey) { try { removeSurveyDraftRecovery(sessionStorage, recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } } setRecovery(null); }}>Korábbi piszkozat elvetése</button></aside>}
     {dirty && !recovery && !draftStorageAvailable && <p className="form-message is-error" role="alert">A böngésző helyi tárhelye nem elérhető. A mentetlen módosítás frissítéskor elveszhet; mentsd el a felmérést.</p>}
@@ -346,13 +355,18 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
             }}
             measurementInputs={
               <>
-                <div className="roof-survey-measurement-strip">{active.measurements.map((measurement, index) => {
-                  const geometryError = activeGablePreview?.issue?.fieldMessages[measurement.id];
-                  return <div className={`field-survey-measurement${measurement.id === recentMeasurementId ? " is-recently-added" : ""}${geometryError ? " has-geometry-error" : ""}`} key={measurement.id}>
-                  <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input id={`survey-measurement-${measurement.id}`} type="text" aria-label={`Mérés ${index + 1} értéke`} aria-invalid={geometryError ? true : undefined} aria-describedby={geometryError ? `survey-measurement-error-${measurement.id}` : undefined} inputMode="decimal" autoComplete="off" value={measurement.value} onFocus={() => setFocusedRoofMeasurement(measurement.semanticType)} onBlur={() => setFocusedRoofMeasurement(null)} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} />{geometryError && <span className="field-survey-inline-error" id={`survey-measurement-error-${measurement.id}`}>{geometryError}</span>}</label>
-                  <MeasurementTools measurement={measurement} index={index} disabled={blocked || Boolean(recovery)} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => void removeMeasurement(measurement.id)} />
-                </div>;
-                })}</div>
+                <div className="roof-survey-measurement-strip">{active.measurements.map((measurement, index) => <MeasurementField
+                  key={measurement.id}
+                  measurement={measurement}
+                  index={index}
+                  recent={measurement.id === recentMeasurementId}
+                  geometryError={activeGablePreview?.issue?.fieldMessages[measurement.id]}
+                  disabled={blocked || Boolean(recovery)}
+                  onFocus={() => setFocusedRoofMeasurement(measurement.semanticType)}
+                  onBlur={() => setFocusedRoofMeasurement(null)}
+                  onPatch={(patch) => patchMeasurement(measurement.id, patch)}
+                  onRemove={() => void removeMeasurement(measurement.id)}
+                />)}</div>
               </>
             }
             actions={
@@ -364,10 +378,15 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
               </>
             }
           /> : <>
-            {active.measurements.map((measurement, index) => <div className={`field-survey-measurement${measurement.id === recentMeasurementId ? " is-recently-added" : ""}`} key={measurement.id}>
-              <label className="field-survey-field field-survey-measurement-value"><span>{measurement.label} · {fieldSurveyUnitLabels[measurement.unit]}</span><input id={`survey-measurement-${measurement.id}`} type="text" aria-label={`Mérés ${index + 1} értéke`} inputMode="decimal" autoComplete="off" value={measurement.value} onChange={(event) => patchMeasurement(measurement.id, { value: event.target.value })} /></label>
-              <MeasurementTools measurement={measurement} index={index} disabled={blocked || Boolean(recovery)} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => void removeMeasurement(measurement.id)} />
-            </div>)}
+            <div className="field-survey-measurement-list">{active.measurements.map((measurement, index) => <MeasurementField
+              key={measurement.id}
+              measurement={measurement}
+              index={index}
+              recent={measurement.id === recentMeasurementId}
+              disabled={blocked || Boolean(recovery)}
+              onPatch={(patch) => patchMeasurement(measurement.id, patch)}
+              onRemove={() => void removeMeasurement(measurement.id)}
+            />)}</div>
             <button type="button" className="field-survey-add" disabled={measurementAddPending} onClick={(event) => addMeasurement(undefined, event)}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><GlassDisclosure className="field-survey-template-details" summary="Másik sablonmérés hozzáadása">{fieldSurveyTemplates[active.workType].map((template) => <button type="button" key={template.label} disabled={measurementAddPending} onClick={(event) => addMeasurement(template, event)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</GlassDisclosure>
           </>}
         </section> : null}
@@ -379,17 +398,15 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
     </div>
     {active.workType === "roof" && active.roofType && effectiveProjectId && surveyId && !recovery && <GlassDisclosure className="survey-completion-disclosure" summary="Tetőmodellhez mentés · opcionális"><SurveyRoofWorkspace organizationId={organizationId} surveyId={surveyId} version={version} sectionId={active.id} sectionName={active.name} roofType={active.roofType} links={relationships.calculations} ensureSaved={ensureSaved} onLinked={() => router.refresh()} /></GlassDisclosure>}
     <section className="survey-completion-area" aria-labelledby="survey-completion-title">
-      <div className="survey-completion-heading"><div><h2 id="survey-completion-title">Következő lépések</h2></div>{(saving || dirty || surveyId) && <div className="survey-completion-primary"><p role="status">{saving ? "Mentés…" : dirty ? "Nem mentett módosítások" : `Mentve · V${version}`}</p></div>}</div>
+      <div className="survey-completion-heading"><div><h2 id="survey-completion-title">Következő lépések</h2></div></div>
       <GlassToolbar ariaLabel="Felmérés folytatása" className="survey-completion-toolbar"><button type="button" className="secondary-button" disabled={!canSaveSurvey || photoState.queued} onClick={() => void showSummary()}>Felmérés összesítése</button></GlassToolbar>
-      <SurveyExecutionActions organizationId={organizationId} surveyId={surveyId} version={version} plans={executionPlans} linkedPlans={relationships.executionPlans} canSave={canSaveSurvey} ensureSaved={ensureSaved} onStandaloneSave={() => { if (canSaveSurvey) void persistCurrent(); }} />
+      <SurveyExecutionActions organizationId={organizationId} surveyId={surveyId} version={version} plans={executionPlans} linkedPlans={relationships.executionPlans} canSave={canSaveSurvey} ensureSaved={ensureSaved} />
       {!needsInitialWorkTypeChoice && !recovery && <GlassDisclosure className="survey-completion-disclosure" summary="Fotók hozzáadása · privát felmérési képek"><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={version} onVersionChange={setVersion} onEnsureSaved={ensureSaved} onPendingChange={setPhotoState} onPhotosChange={onPhotos} onPhotoUploaded={associateUploadedPhoto} onUploadComplete={() => router.refresh()} /></GlassDisclosure>}
       {effectiveProjectId && <GlassDisclosure className="survey-completion-disclosure" summary={`Korábbi projektkapcsolat · ${projects.find((project) => project.id === effectiveProjectId)?.name ?? "elérhető"}`}>
         <p>Ez a felmérés korábbi projektazonosítót őriz meg kompatibilitásból. Az új felméréseknél nincs szükség projekt létrehozására.</p>
         {projects.some((project) => project.id === effectiveProjectId) && <Link href={`/projektek/${effectiveProjectId}?organization=${organizationId}`}>Kapcsolt régi adatok megnyitása →</Link>}
       </GlassDisclosure>}
-      {photoAssociationPending && !needsInitialWorkTypeChoice && <button type="button" className="primary-button survey-photo-save" disabled={!canSaveSurvey} onClick={() => void persistCurrent()}>{saving ? "Kapcsolás mentése…" : `Fénykép kapcsolásának mentése · ${active.name}`}</button>}
     </section>
-    {error && <p role="alert" className="form-message is-error">{error}</p>}
     {summary && surveyId && !dirty && <WorkspaceSummary key={version} organizationId={organizationId} surveyId={surveyId} version={version} sections={serialize(sections)} calculations={relationships.calculations} initialFollowups={relationships.followups} onPendingChange={setFollowupPending} originalProjectId={projectId || null} />}
   </section>;
 }
@@ -418,15 +435,25 @@ function SurveyRoofPreview({ roofType, roofTimberParameters, onRoofTimberParamet
   />;
 }
 
-function MeasurementTools({ measurement, index, disabled, onPatch, onRemove }: Readonly<{ measurement: MeasurementDraft; index: number; disabled: boolean; onPatch: (patch: Partial<MeasurementDraft>) => void; onRemove: () => void }>) {
-  return <div className="field-survey-measurement-settings">
-    <AnchoredPopover label={`Beállítások: ${measurement.label}`} heading={`${measurement.label} · beállítások`} icon={Settings2} disabled={disabled} focusFirst>
-      <div className="field-survey-measurement-tools">
-        <label className="field-survey-field"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} disabled={disabled} onChange={(event) => onPatch({ label: event.target.value })} /></label>
-        <label className="field-survey-field"><span>Egység</span><select aria-label={`Mérés ${index + 1} egysége`} value={measurement.unit} disabled={disabled} onChange={(event) => onPatch({ unit: event.target.value as FieldSurveyUnit })}>{Object.entries(fieldSurveyUnitLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-        <label className="field-survey-field"><span>Számítási szerep</span><select aria-label={`Mérés ${index + 1} számítási szerepe`} value={measurement.semanticType} disabled={disabled} onChange={(event) => onPatch({ semanticType: event.target.value as FieldSurveySemanticType })}>{Object.entries(fieldSurveySemanticTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-      </div>
-    </AnchoredPopover>
-    <button type="button" className="field-survey-remove" aria-label={`${measurement.label} törlése`} title="Mérés törlése" disabled={disabled} onClick={onRemove}><Trash2 aria-hidden="true" className="size-4" /></button>
+function MeasurementField({ measurement, index, recent, geometryError, disabled, onFocus, onBlur, onPatch, onRemove }: Readonly<{ measurement: MeasurementDraft; index: number; recent: boolean; geometryError?: string; disabled: boolean; onFocus?: () => void; onBlur?: () => void; onPatch: (patch: Partial<MeasurementDraft>) => void; onRemove: () => void }>) {
+  const inputId = `survey-measurement-${measurement.id}`;
+  const errorId = `survey-measurement-error-${measurement.id}`;
+  return <div className={`field-survey-measurement${recent ? " is-recently-added" : ""}${geometryError ? " has-geometry-error" : ""}`}>
+    <div className="field-survey-measurement-head">
+      <label className="field-survey-measurement-name" htmlFor={inputId}>{measurement.label}</label>
+      <AnchoredPopover label={`Beállítások: ${measurement.label}`} heading={`${measurement.label} · beállítások`} icon={MoreHorizontal} triggerClassName="field-survey-measurement-menu" disabled={disabled} focusFirst>
+        <div className="field-survey-measurement-tools">
+          <label className="field-survey-field"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} disabled={disabled} onChange={(event) => onPatch({ label: event.target.value })} /></label>
+          <label className="field-survey-field"><span>Egység</span><select aria-label={`Mérés ${index + 1} egysége`} value={measurement.unit} disabled={disabled} onChange={(event) => onPatch({ unit: event.target.value as FieldSurveyUnit })}>{Object.entries(fieldSurveyUnitLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+          <label className="field-survey-field"><span>Számítási szerep</span><select aria-label={`Mérés ${index + 1} számítási szerepe`} value={measurement.semanticType} disabled={disabled} onChange={(event) => onPatch({ semanticType: event.target.value as FieldSurveySemanticType })}>{Object.entries(fieldSurveySemanticTypeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+          <button type="button" className="field-survey-remove" aria-label={`${measurement.label} törlése`} disabled={disabled} onClick={onRemove}><Trash2 aria-hidden="true" className="size-4" />Mérés törlése</button>
+        </div>
+      </AnchoredPopover>
+    </div>
+    <div className="field-survey-measurement-control">
+      <input id={inputId} type="text" aria-label={`Mérés ${index + 1} értéke: ${measurement.label}`} aria-invalid={geometryError ? true : undefined} aria-describedby={geometryError ? errorId : undefined} inputMode="decimal" autoComplete="off" value={measurement.value} onFocus={onFocus} onBlur={onBlur} onChange={(event) => onPatch({ value: event.target.value })} />
+      <span className="field-survey-measurement-unit-badge" aria-hidden="true">{fieldSurveyUnitLabels[measurement.unit]}</span>
+    </div>
+    {geometryError && <span className={`field-survey-inline-error${measurement.value === "" ? " is-missing" : ""}`} id={errorId} title={geometryError}>{measurement.value === "" ? "Kötelező a rajzhoz" : geometryError}</span>}
   </div>;
 }

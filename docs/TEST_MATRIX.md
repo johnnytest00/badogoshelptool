@@ -1,5 +1,44 @@
 # Tesztmátrix
 
+## F9.40.1 — Felmérés-szerkesztő UX — 2026-10-18
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Célzott Vitest | PASS | `src/features/field-surveys`, `roof-models`, `components`: 143 passed, 15 skipped (statikus SSR-tesztek a sávra és mezőre frissítve). Teljes `npm test` nem futott. |
+| Typecheck / lint | PASS | `npm run typecheck`, `npm run lint`. Build nem futott. |
+| Mentés / újranyitás (1440) | PASS (böngésző) | Új nyeregtető-felmérés: mentetlen → sticky „Mentés” → „Mentve · V1”, újratöltés után értékek és állapot azonos, gomb letiltva. |
+| Mentetlen változás | PASS | Szerkesztés után „Nem mentett módosítások”; „Vissza” → megerősítő (Mentés és kilépés / Kilépés mentés nélkül / Maradok); mobilon a piszkozat-helyreállítás és a sáv „Helyreállítható piszkozat” állapota. |
+| Elrendezés 1440 / 390 | PASS (mért) | 1440: mezők balra, sticky rajz jobbra, nincs vízszintes görgetés. 390: egymás alatt, 2 oszlopos mezők, `scrollWidth` = 390. |
+| Rajz-interakció | PASS (részleges) | Nagyítás 82→92% és a mezőből élő rajzfrissítés ellenőrizve; illesztés/visszaállítás/pan, dimenzió-kattintás nem lett külön végigpróbálva. |
+| Mező menü / törlés | PASS | „⋯” popover (egy oszlop, törlés alul) és törlés-megerősítő megnyílik; Mégse. |
+| Nem futott | — | 768/320 px, világos/sötét újramérés, fizikai eszköz, képernyőolvasó, Safari. Futás közben a böngésző 800 px-es panelen emulált nézetet használt. |
+
+## F9.39.1 — Ritmus, popover, glass konszolidáció — 2026-10-18
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Vitest (teljes) | PASS | 724 passed, 27 skipped. |
+| Typecheck / lint / build / diff-check | PASS | `tsc --noEmit`, `npm run lint`, izolált `npm run build`, `git diff --check`. |
+| Beállítások popover | PASS (mért) | Nyitva/zárva a tabok és a csempe-rács pozíciója azonos 390 és 1440 px-en; Escape zár és fókuszt ad vissza; külső pointerdown zár. |
+| Lap-ritmus | PASS (mért, 1440 px) | Vissza→fejléc→tartalom köz ~14 px hat oldalon. |
+| Világos/sötét | RÉSZLEGES | Sötét 1440/390, világos 390 beállításpanel; világos 1440 nem újramérve. |
+| 320/768 px, fizikai eszköz, képernyőolvasó | NEM FUTOTT | Lásd `PROGRESS.md` F9.39.1. |
+
+## F9.39 — Precision Liquid Glass UI/UX — 2026-10-18
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Teljes Vitest | PASS | `npm test`: 726 passed, 27 skipped (753). |
+| TypeScript | PASS | `npm run typecheck`. |
+| Lint | PASS | `npm run lint` a teljes repón; `.agent/.agents/.claude` harmadik fél skill-könyvtárak kizárva az `eslint.config.mjs`-ben. |
+| Production build | PASS | `npm run build` izolált másolatból (Next 16.4 webpack); a futó dev `.next` érintetlen. |
+| `git diff --check` | PASS | Whitespace-hiba nincs. |
+| Böngésző: sötét + világos | PASS (kiválasztott képernyők) | Műhely, Kalkulátorok, Anyagkezelő, Ajánlatok, Új felmérés, Felmérés szerkesztő, Új anyaglista, Munkanaplók, beállítások panel; lásd `PROGRESS.md`. |
+| Böngésző: 320/390/1024/1440 | RÉSZLEGES | 320 és 390 px: scrollWidth = clientWidth hét oldalon; 1024/1440 képernyőképek a fő oldalakon; 768 px külön nem. |
+| Érintőméret | RÉSZLEGES | Az audit-szkript az Új felmérés, Anyagkezelő oldalakon 43,5 px alatti elemet nem talált; minden oldalra nem futott. |
+| Fizikai eszköz, képernyőolvasó, kontrasztmérő | NEM FUTOTT | Csak az emulált böngészőpanel. |
+| DB/Auth/jogosultság | NEM ÉRINTETT | Csak CSS/UI. Helyi Auth teszt-fiók készült a bejelentkezéshez (helyi Supabase). |
+
 ## Fejlécikon és favicon — 2026-10-18
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

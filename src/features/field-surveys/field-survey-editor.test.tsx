@@ -85,7 +85,7 @@ describe("field survey editor", () => {
     expect(html).not.toContain("Felmért tetőforma");
     expect(html).not.toContain("roof-type-illustration");
     expect(html).not.toContain('class="field-survey-measurements"');
-    expect(html).toContain("Önálló felmérés mentése");
+    expect(html).not.toContain("survey-savebar");
     expect(html).toContain("Munkanapló létrehozása");
     expect(html).not.toContain("Projekt létrehozása / kapcsolása");
     expect(html).toContain("A felmérés munkanapló és tetőforma nélkül is folytatható.");
@@ -93,10 +93,14 @@ describe("field survey editor", () => {
 
   it("keeps measurement values prominent while advanced mapping stays available", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={survey} />);
-    expect(html).toContain("Ereszszakasz · m");
+    expect(html).toContain(">Ereszszakasz</label>");
+    expect(html).toContain('<span class="field-survey-measurement-unit-badge" aria-hidden="true">m</span>');
     expect(html).toContain('value="8.5"');
     expect(html).toContain('aria-label="Beállítások: Ereszszakasz"');
-    expect(html).toContain('aria-label="Ereszszakasz törlése"');
+    expect(html).toContain("survey-savebar is-new");
+    expect(html).toContain("Mentés szükséges · V2");
+    expect(html).toContain('form="field-survey-editor-form"');
+    expect(html.match(/>Mentés<\/button>/g)).toHaveLength(1);
   });
 
   it("keeps only roof and other in the primary section toolbar while retaining specialized work types", () => {
@@ -145,8 +149,8 @@ describe("field survey editor", () => {
     expect(html).toContain('id="field-survey-editor-form"');
     expect(html).toContain("Következő lépések");
     expect(html).not.toContain("Fotók hozzáadása");
-    expect(html).toContain("Önálló felmérés mentése");
-    expect(html).toContain('class="survey-workflow-tile" disabled=""');
+    expect(html).not.toContain("Önálló felmérés mentése");
+    expect(html).not.toContain("Felmérés mentése");
     expect(html).not.toContain("Terv és ügyfél nélkül");
     expect(html).toContain("Munkanapló létrehozása");
     expect(html).not.toContain("Projekt létrehozása / kapcsolása");

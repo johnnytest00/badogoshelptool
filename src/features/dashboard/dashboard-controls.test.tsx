@@ -12,6 +12,7 @@ vi.mock("@/features/auth/actions", () => ({ logoutAction: vi.fn() }));
 
 import { Dashboard, DashboardHeader, DashboardSettings } from "./dashboard";
 import { LiquidGlassProvider } from "@/features/preferences/liquid-glass-provider";
+import { ScalingProvider } from "@/features/preferences/scaling-provider";
 
 describe("dashboard shared mobile header and full settings", () => {
   it("keeps one semantic title, the two tabs and six function cards without decorative introductions", () => {
@@ -39,7 +40,7 @@ describe("dashboard shared mobile header and full settings", () => {
   });
 
   it("keeps account management in full settings and places one secure logout form there", () => {
-    const html = renderToStaticMarkup(createElement(LiquidGlassProvider, null, createElement(DashboardSettings, { onOpenAccount: () => undefined })));
+    const html = renderToStaticMarkup(createElement(ScalingProvider, null, createElement(LiquidGlassProvider, null, createElement(DashboardSettings, { onOpenAccount: () => undefined }))));
     expect(html).toContain("Fiókbeállítások");
     expect(html).toContain("Méretezések");
     expect(html).toContain("Liquid Glass");
@@ -50,5 +51,12 @@ describe("dashboard shared mobile header and full settings", () => {
     expect(html).toContain('class="settings-logout-form"');
     expect(html).toContain("Kilépés");
     expect(html.match(/Kilépés/g)).toHaveLength(1);
+  });
+
+  it("shows the current value beside each closed settings group", () => {
+    const html = renderToStaticMarkup(createElement(ScalingProvider, null, createElement(LiquidGlassProvider, null, createElement(DashboardSettings, { onOpenAccount: () => undefined }))));
+    expect(html).toContain("Szöveg 100% · Felület 115%");
+    expect(html).toContain("Átlátszóság 10% · automatikus szín");
+    expect(html).toContain("Bekapcsolva");
   });
 });

@@ -5,7 +5,6 @@ import { Eye, EyeOff, LockKeyhole, Mail, UserRound, X } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/infrastructure/supabase/browser";
 import { accountEmailSchema, accountPasswordSchema, getAccountAuthErrorMessage } from "./account-management";
-import { LiquidGlassLayer } from "@/components/ui/liquid-glass-layer";
 
 type AccountManagementDialogProps = Readonly<{ open: boolean; onClose: () => void }>;
 type CurrentAccount = { email: string; providers: string[] };
@@ -112,7 +111,6 @@ export function AccountManagementDialog({ open, onClose }: AccountManagementDial
 
   return (
     <dialog ref={dialogRef} className="account-management-dialog" aria-labelledby="account-management-title" onCancel={(event) => { event.preventDefault(); onClose(); }}>
-      <LiquidGlassLayer radius={22} />
       <div className="account-management-heading"><div className="account-management-title"><span className="account-management-avatar"><UserRound aria-hidden="true" className="size-5" /></span><div><p className="section-eyebrow">TetőPro-fiók</p><h2 id="account-management-title">Fiókbeállítások</h2></div></div><button className="account-management-close" type="button" onClick={onClose} aria-label="Fiókbeállítások bezárása"><X aria-hidden="true" className="size-5" /></button></div>
       <p className="account-dialog-intro">Az itt megadott adatok a fiókod azonosítására szolgálnak.</p>
       {loadingError ? <p className="account-message is-error" role="alert">{loadingError}</p> : !account ? <p className="account-message" role="status">Fiókadatok betöltése…</p> : <>

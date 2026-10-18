@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { LiquidGlassLayer } from "@/components/ui/liquid-glass-layer";
 
 export type WorkflowMaterialProductOption = Readonly<{
   id: string;
@@ -182,7 +181,6 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
           <span>{option.name}</span><small>{option.detail}</small>
         </div>) : <p className="workflow-material-product-empty" role="status">Nincs ilyen termék ebben a kategóriában.</p>}
       </div>
-      {isOpen && <LiquidGlassLayer radius={18} />}
     </dialog>
   </>;
 }
