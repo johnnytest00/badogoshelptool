@@ -5,6 +5,7 @@ import { getProjectOrganization } from "@/features/projects/organization";
 import { getMaterialCategories, getMaterialProductsForOrganization } from "@/features/materials/material-data";
 import { getExecutionPlanOptionsForOrganization } from "@/features/execution/execution-data";
 import { getFieldSurvey, getFieldSurveyRevision } from "@/features/field-surveys/field-survey-data";
+import { getSurveyRoofGeometrySources } from "@/features/field-surveys/survey-geometry-source-data";
 import { getSurveyRelationships } from "@/features/field-surveys/workspace-data";
 import { buildSurveyMaterialSource, defaultSurveyMaterialListName, type SurveyMaterialSource } from "@/features/material-takeoffs/survey-material-source";
 import { WorkflowMaterialListEditor } from "@/features/material-takeoffs/workflow-material-list-editor";
@@ -25,12 +26,13 @@ export default async function NewMaterialListPage({ searchParams }: Readonly<{ s
     if (!sourceSurvey) notFound();
     const sourceVersion = query.surveyVersion === undefined ? sourceSurvey.version : Number(query.surveyVersion);
     if (!Number.isSafeInteger(sourceVersion) || sourceVersion < 1) notFound();
-    const [sourceRevision, relationships] = await Promise.all([
+    const [sourceRevision, relationships, geometrySources] = await Promise.all([
       getFieldSurveyRevision(organizationId, sourceSurvey.id, sourceVersion),
       getSurveyRelationships(organizationId, sourceSurvey.id),
+      getSurveyRoofGeometrySources(organizationId, sourceSurvey.id),
     ]);
     if (!sourceRevision) notFound();
-    surveySource = buildSurveyMaterialSource(sourceSurvey, sourceRevision, relationships.calculations);
+    surveySource = buildSurveyMaterialSource(sourceSurvey, sourceRevision, relationships.calculations, geometrySources);
     defaultName = defaultSurveyMaterialListName(surveySource);
   }
   const requestedPlanId = query.plan && plans.some((plan) => plan.id === query.plan) ? query.plan : "";

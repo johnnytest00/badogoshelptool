@@ -70,7 +70,7 @@ export function ExecutionPlanLinkControl({ organizationId, kind, documentId, lin
         {link.origin === "creation" ? <small>Létrehozáskor kapcsolt · nem választható le</small>
           : !readOnly && <button type="button" className="text-action" disabled={pending} onClick={() => void unlink(link)}>Leválasztás</button>}
       </li>)}</ul>}
-    {!readOnly && <GlassDisclosure className="plan-link-add" summary="Munkanapló kapcsolása">
+    {!readOnly && <GlassDisclosure className="plan-link-add" summary="Munkanaplóhoz csatolás">
       <div className="plan-link-modes" role="group" aria-label="Kapcsolás módja">
         <button type="button" className={mode === "existing" ? "primary-button" : "secondary-button"} aria-pressed={mode === "existing"} onClick={() => setMode("existing")}>Meglévő munkanapló</button>
         <button type="button" className={mode === "new" ? "primary-button" : "secondary-button"} aria-pressed={mode === "new"} onClick={() => setMode("new")}>Új munkanapló</button>

@@ -7,6 +7,7 @@ import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getFieldSurvey, getFieldSurveyRevision, getFieldSurveyRevisionVersions } from "@/features/field-surveys/field-survey-data";
 import { FieldSurveyEditor } from "@/features/field-surveys/field-survey-editor";
 import { getExecutionPlanOptionsForOrganization } from "@/features/execution/execution-data";
+import { getSurveyRoofGeometrySources } from "@/features/field-surveys/survey-geometry-source-data";
 import { buildSurveyMaterialSource } from "@/features/material-takeoffs/survey-material-source";
 import { getSurveyLinkedMaterialLists } from "@/features/material-takeoffs/material-list-links";
 
@@ -30,12 +31,12 @@ export default async function FieldSurveyPage({ params, searchParams }: Readonly
     getExecutionPlanOptionsForOrganization(organizationId),
   ]);
   if (requestedVersion !== null && requestedVersion !== survey.version && !historicalRevision) return <NotFound organizationId={organizationId} />;
-  const relationships = await getSurveyRelationships(organizationId, surveyId);
+  const [relationships, geometrySources] = await Promise.all([getSurveyRelationships(organizationId, surveyId), getSurveyRoofGeometrySources(organizationId, surveyId)]);
   const viewingCurrent = !historicalRevision;
   const [currentRevision, linkedMaterialLists] = viewingCurrent
     ? await Promise.all([getFieldSurveyRevision(organizationId, surveyId, survey.version), getSurveyLinkedMaterialLists(organizationId, surveyId)])
     : [null, []];
-  const materialListSource = currentRevision ? buildSurveyMaterialSource(survey, currentRevision, relationships.calculations) : null;
+  const materialListSource = currentRevision ? buildSurveyMaterialSource(survey, currentRevision, relationships.calculations, geometrySources) : null;
   const projectOptions = linkedProject ? [{ id: linkedProject.id, name: linkedProject.name }] : [];
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} executionPlans={executionPlans} relationships={relationships} materialListSource={materialListSource} linkedMaterialLists={linkedMaterialLists} initialMaterialPanelOpen={viewingCurrent && query.anyaglista === "1"} survey={survey} initialSectionId={query.section} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
 }

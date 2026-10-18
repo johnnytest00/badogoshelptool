@@ -39,6 +39,8 @@ export type SurveyCalculationLink = SavedSurveyCalculation & {
   id: string; sectionId: string; surveyRevisionId: string; surveyVersion: number; calculatorType: string;
   name: string; output: unknown; warnings: unknown; provenance: unknown; validationStatus: string;
 };
+/** Immutable, server-verified roof area derived from one exact survey revision section (no project/roof model needed). */
+export type SurveyRoofGeometrySource = { id: string; sectionId: string; surveyRevisionId: string; combinedRoofM2: number };
 export type SurveyFollowup = { id: string; kind: "project" | "quotation"; projectId: string | null; quotationId: string | null; quotationRevisionId: string | null; surveyRevisionId: string };
 export type SurveyExecutionPlanLink = { id: string; executionPlanId: string; surveyRevisionId: string; surveyVersion: number; planTitle: string };
 

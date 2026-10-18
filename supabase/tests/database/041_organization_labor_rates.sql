@@ -1,0 +1,31 @@
+begin;
+select no_plan();
+select ok((select relrowsecurity from pg_class where oid='public.organization_labor_rates'::regclass), 'labor rates enforce RLS');
+select ok(not has_table_privilege('authenticated', 'public.organization_labor_rates', 'INSERT'), 'clients cannot insert rates directly');
+set local role postgres;
+insert into public.organizations(id, name) values ('00000000-0000-4000-8000-000000000010', 'DEMO F9.42.1') on conflict do nothing;
+insert into public.organization_members(organization_id, user_id, role) values
+  ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000001', 'owner'),
+  ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000002', 'member') on conflict do nothing;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
+select set_config('test.rate', (select rate_id::text from public.create_organization_labor_rate('00000000-0000-4000-8000-000000000010', 'DEMO tetőfedés', 'roof_area_m2', 1500.50, 'net', '00000000-0000-4000-8000-000000984301')), true);
+select ok(current_setting('test.rate') <> '', 'an owner can create a rate');
+select is((select created from public.create_organization_labor_rate('00000000-0000-4000-8000-000000000010', 'DEMO tetőfedés', 'roof_area_m2', 1500.50, 'net', '00000000-0000-4000-8000-000000984301')), false, 'same request key is idempotent');
+select throws_ok($$select * from public.create_organization_labor_rate('00000000-0000-4000-8000-000000000010', 'DEMO más', 'roof_area_m2', 1.00, 'net', '00000000-0000-4000-8000-000000984301')$$, '22023', null, 'reused key with other content is rejected');
+select throws_ok($$select * from public.create_organization_labor_rate('00000000-0000-4000-8000-000000000010', 'DEMO', 'roof_area_m2', 1.005, 'net', '00000000-0000-4000-8000-000000984302')$$, '22023', null, 'more than two decimals is rejected');
+select throws_ok($$select * from public.create_organization_labor_rate('00000000-0000-4000-8000-000000000010', 'DEMO', 'hours', 1, 'net', '00000000-0000-4000-8000-000000984303')$$, '22023', null, 'unknown basis is rejected');
+select is((select count(*)::integer from public.organization_labor_rates where id=current_setting('test.rate')::uuid), 1, 'a member can read the rates');
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
+select is((select count(*)::integer from public.organization_labor_rates where id=current_setting('test.rate')::uuid), 1, 'any member reads rates');
+select throws_ok($$select * from public.create_organization_labor_rate('00000000-0000-4000-8000-000000000010', 'DEMO', 'run_length_m', 1, 'gross', '00000000-0000-4000-8000-000000984304')$$, '42501', null, 'a plain member cannot create rates');
+select throws_ok($$select * from public.archive_organization_labor_rate('00000000-0000-4000-8000-000000000010', current_setting('test.rate')::uuid)$$, '42501', null, 'a plain member cannot archive rates');
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
+select is((select archived from public.archive_organization_labor_rate('00000000-0000-4000-8000-000000000010', current_setting('test.rate')::uuid)), true, 'an owner can archive');
+select is((select archived from public.archive_organization_labor_rate('00000000-0000-4000-8000-000000000010', current_setting('test.rate')::uuid)), false, 'archiving twice is harmless');
+select is((select rate_amount::text from public.organization_labor_rates where id=current_setting('test.rate')::uuid), '1500.50', 'the archived rate keeps its value');
+set local role postgres;
+select throws_ok($$delete from public.organization_labor_rates$$, '55000', null, 'rates cannot be deleted');
+select throws_ok($$update public.organization_labor_rates set rate_amount=1$$, '55000', null, 'rates cannot be rewritten');
+select * from finish();
+rollback;

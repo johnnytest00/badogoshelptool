@@ -6,6 +6,7 @@ import { PackageOpen } from "lucide-react";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { materialPurchasingUnitLabels } from "@/domain/materials/contracts";
 import { createIdempotencyKey, generateSecureUuid } from "@/lib/secure-uuid";
+import { ensureSurveyRoofGeometryAction } from "@/features/field-surveys/survey-geometry-source-actions";
 import { saveWorkflowMaterialListAction } from "@/features/material-takeoffs/workflow-material-list-actions";
 import { MaterialListQuotationButton } from "@/features/quotations/material-list-quotation-button";
 import { defaultSurveyMaterialListName, type SurveyMaterialSource } from "@/features/material-takeoffs/survey-material-source";
@@ -38,6 +39,16 @@ export const SurveyMaterialListPanel = forwardRef<HTMLElement, Readonly<{
   const [created, setCreated] = useState<CreatedList | null>(null);
   const [addAnother, setAddAnother] = useState(false);
   const lock = useRef(false);
+
+  const [geometryError, setGeometryError] = useState("");
+  const geometryRequested = useRef(false);
+  useEffect(() => {
+    if (!source?.geometryPending || source.surveyVersion !== savedVersion || preparing || geometryRequested.current) return;
+    geometryRequested.current = true;
+    void ensureSurveyRoofGeometryAction({ organizationId, surveyId: source.surveyId, version: source.surveyVersion })
+      .then((result) => { if (result.ok) router.refresh(); else setGeometryError(result.error ?? "A tetőfelület ellenőrzése nem sikerült."); })
+      .catch(() => setGeometryError("A tetőfelület ellenőrzése nem sikerült."));
+  }, [source, savedVersion, preparing, organizationId, router]);
 
   useEffect(() => {
     if (source && !nameTouched) setName(defaultSurveyMaterialListName(source));
@@ -111,7 +122,9 @@ export const SurveyMaterialListPanel = forwardRef<HTMLElement, Readonly<{
           ? <p className="workflow-source-warning" role="status">Ebből a felmérésváltozatból most nincs biztonságosan átvehető mennyiség. Kézi tételekkel kitöltve az anyaglista-szerkesztőben folytathatod.</p>
           : <ul>{source.suggestions.map((suggestion) => <li key={suggestion.key}><label><input type="checkbox" checked={!excluded.has(suggestion.key)} onChange={(event) => toggle(suggestion.key, event.target.checked)} /><span><strong>{suggestion.description}</strong><small>{Number(suggestion.quantity).toLocaleString("hu-HU", { maximumFractionDigits: 6 })} {materialPurchasingUnitLabels[suggestion.unit]} · {suggestion.quantityKind === "measured" ? "mért adat" : "ellenőrzött számítás"} · {suggestion.sourceLabel}</small></span></label></li>)}</ul>}
         <p className="survey-material-panel-note">Csak mért szakaszhossz és ellenőrzött tetőfelület kerül át. Szálhossz, toldás, átfedés, veszteség és darabszám nem becsült; azt az anyaglistában, termékkel és kézzel adhatod meg.</p>
-        {source.unavailable.some((reason) => reason.includes("nyeregtető")) && <p className="survey-material-panel-note">A tetőfelület jelenleg csak nyeregtetőnél, a felmérésváltozathoz kapcsolt, ellenőrzött tetőmodell-revízióból vehető át (a „További műveletek” alatt). Más tetőformánál a felületet kézi tételként add meg az anyaglistában.</p>}
+        {source.geometryPending && !geometryError && <p className="survey-material-panel-note" role="status">A tetőfelület ellenőrzése a mentett felmérésváltozatból…</p>}
+        {geometryError && <p className="form-message is-error" role="alert">{geometryError}</p>}
+        {source.unavailable.some((reason) => reason.includes("nyeregtető")) && !source.geometryPending && <p className="survey-material-panel-note">A tetőfelület jelenleg csak teljes, érvényes nyeregtető-méretekből vehető át a felmérésváltozatból; projekt vagy tetőmodell nem kell hozzá. Más tetőformánál vagy hiányos méreteknél a felületet kézi tételként add meg az anyaglistában.</p>}
         {source.unavailable.length > 0 && <details className="workflow-source-unavailable"><summary>Nem átvehető mérések ({source.unavailable.length})</summary><ul>{source.unavailable.map((reason) => <li key={reason}>{reason}</li>)}</ul></details>}
       </div>
       <label className="field-survey-field"><span>Anyaglista neve</span><input value={name} maxLength={120} onChange={(event) => { setNameTouched(true); key.renew(); setName(event.target.value); }} /></label>

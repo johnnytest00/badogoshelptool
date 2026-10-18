@@ -6,6 +6,7 @@ import { getProjectOrganization } from "@/features/projects/organization";
 import { getStandaloneDocumentSourcesAction, getStandaloneQuotationHeaderAction, getStandaloneQuotationMaterialSourceAction, listStandaloneQuotationRevisionsAction, readStandaloneQuotationAction } from "@/features/quotations/standalone-quotation-actions";
 import { StandaloneQuotationEditor } from "@/features/quotations/standalone-quotation-editor";
 import { BackNavigation } from "@/components/navigation/back-navigation";
+import { getLaborContext } from "@/features/quotations/labor-rate-data";
 import { ExecutionPlanLinkControl } from "@/features/execution/execution-plan-link-control";
 import { getPlanLinksForDocument } from "@/features/execution/execution-document-links";
 import { getExecutionPlanOptionsForOrganization } from "@/features/execution/execution-data";
@@ -40,5 +41,6 @@ export default async function StandaloneQuotationPage({ params, searchParams }: 
   ]);
   if (!documentSources.ok) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">{documentSources.error}</p></div></main>;
   if (!materialSourceResponse.ok) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">{materialSourceResponse.error}</p></div></main>;
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor key={`${quotationId}:${activeRevision?.id ?? "empty"}`} userId={selected.auth.userId} organizationId={organizationId} quotationId={quotationId} name={header.data.name} version={header.data.version} currentRevisionId={header.data.currentRevisionId} currentRevision={activeRevision} revisions={revisions} selectedRevisionId={requestedRevisionId} products={products} categories={categories} documentSources={documentSources.data} materialSource={materialSourceResponse.data} />{planLinkControl}</div></main>;
+  const labor = await getLaborContext(organizationId, materialSourceResponse.data);
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor key={`${quotationId}:${activeRevision?.id ?? "empty"}`} userId={selected.auth.userId} organizationId={organizationId} quotationId={quotationId} name={header.data.name} version={header.data.version} currentRevisionId={header.data.currentRevisionId} currentRevision={activeRevision} revisions={revisions} selectedRevisionId={requestedRevisionId} products={products} categories={categories} documentSources={documentSources.data} materialSource={materialSourceResponse.data} laborRates={labor.rates} laborBases={labor.bases} />{planLinkControl}</div></main>;
 }

@@ -40,6 +40,43 @@ describe("buildSurveyMaterialSource", () => {
     expect(source.unavailable.join(" ")).toContain("nem becslünk");
   });
 
+  describe("independent roof geometry (no project, roof model or work log)", () => {
+    const roofId = "00000000-0000-4000-8000-000000000206";
+    const m = (n: number, semanticType: "roof_building_length" | "roof_building_width" | "roof_rise" | "roof_eave_overhang" | "roof_front_gable_overhang" | "roof_rear_gable_overhang", value: number) => ({ id: `00000000-0000-4000-8000-0000000003${n}`, label: semanticType, value, unit: "mm" as const, semanticType });
+    const roofRevision = () => revision({ workType: "roof", sections: [{ id: roofId, name: "DEMO tető", workType: "roof", notes: "", photoIds: [], measurements: [
+      m(10, "roof_building_length", 10000), m(11, "roof_building_width", 6000), m(12, "roof_rise", 3000),
+      m(13, "roof_eave_overhang", 300), m(14, "roof_front_gable_overhang", 200), m(15, "roof_rear_gable_overhang", 200),
+    ] }] });
+    const survey = { id: "00000000-0000-4000-8000-000000000204", version: 2 };
+    const geometry = (overrides = {}) => ({ id: "00000000-0000-4000-8000-000000000207", sectionId: roofId, surveyRevisionId: "00000000-0000-4000-8000-000000000203", combinedRoofM2: 106.66044252673998, ...overrides });
+
+    it("reports a complete roof section without a recorded area as pending, not as an invented quantity", () => {
+      const source = buildSurveyMaterialSource(survey, roofRevision(), []);
+      expect(source.suggestions).toEqual([]);
+      expect(source.geometryPending).toBe(true);
+    });
+
+    it("offers the recorded area at six decimals and references the exact geometry source", () => {
+      const source = buildSurveyMaterialSource(survey, roofRevision(), [], [geometry()]);
+      expect(source.geometryPending).toBe(false);
+      expect(source.suggestions).toHaveLength(1);
+      expect(source.suggestions[0]).toMatchObject({ quantity: "106.660443", unit: "square_meter", materialCategory: "roof_covering", quantityKind: "calculated",
+        sourceRef: { type: "surveyGeometry", sectionId: roofId, geometrySourceId: "00000000-0000-4000-8000-000000000207" } });
+    });
+
+    it("ignores a geometry source recorded for another revision or section", () => {
+      const other = buildSurveyMaterialSource(survey, roofRevision(), [], [geometry({ surveyRevisionId: "00000000-0000-4000-8000-000000000299" }), geometry({ sectionId: sectionId })]);
+      expect(other.suggestions).toEqual([]);
+      expect(other.unavailable.join(" ")).toContain("nem becslünk");
+    });
+
+    it("never marks incomplete or non-roof sections as pending", () => {
+      expect(buildSurveyMaterialSource(survey, revision(), []).geometryPending).toBe(false);
+      const incomplete = revision({ sections: [{ id: roofId, name: "DEMO tető", workType: "roof", notes: "", photoIds: [], measurements: [m(10, "roof_building_length", 10000)] }] });
+      expect(buildSurveyMaterialSource(survey, incomplete, []).geometryPending).toBe(false);
+    });
+  });
+
   it("builds a bounded default list name that names the source version", () => {
     expect(defaultSurveyMaterialListName({ surveyName: "DEMO eresz", surveyVersion: 2 })).toBe("DEMO eresz · V2 anyaglista");
     expect(defaultSurveyMaterialListName({ surveyName: "x".repeat(300), surveyVersion: 1 })).toHaveLength(120);

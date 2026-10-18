@@ -1,10 +1,11 @@
 import { gableRoofCalculator } from "@/domain/calculations/gable-roof";
-import { surveySections, type SurveyCalculationLink, type SurveySection } from "@/domain/field-surveys/workspace";
+import { surveySections, type SurveyCalculationLink, type SurveyRoofGeometrySource, type SurveySection } from "@/domain/field-surveys/workspace";
 import type { FieldSurveyMeasurement, FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
 
 export type SurveyMaterialSourceRef = Readonly<
   | { type: "measurement"; sectionId: string; measurementId: string }
   | { type: "calculation"; sectionId: string; calculationId: string; calculationRevisionId: string }
+  | { type: "surveyGeometry"; sectionId: string; geometrySourceId: string }
 >;
 
 export type SurveyMaterialSuggestion = Readonly<{
@@ -22,7 +23,7 @@ export type SurveyMaterialSuggestion = Readonly<{
 export type SurveyMaterialProvenanceItem = Readonly<{
   itemId: string;
   sectionId: string;
-  sourceKind: "measurement" | "calculation";
+  sourceKind: "measurement" | "calculation" | "geometry";
   sourceRef: SurveyMaterialSourceRef;
   sourceLabel: string;
   sourceValue: string;
@@ -64,6 +65,7 @@ function isEmptyWarnings(value: unknown): boolean {
 export function deriveSurveyMaterialSuggestions(
   source: SurveySource,
   calculations: readonly SurveyCalculationLink[],
+  geometrySources: readonly SurveyRoofGeometrySource[] = [],
 ): SurveyMaterialSuggestionResult {
   const sections = surveySections({
     ...source,
@@ -127,7 +129,23 @@ export function deriveSurveyMaterialSuggestions(
           sourceRef: { type: "calculation", sectionId: section.id, calculationId: calculation.calculationId, calculationRevisionId: calculation.revisionId },
         });
       } else {
-        unavailable.push(`${section.name}: nincs ehhez a felmérésrevízióhoz kapcsolt, figyelmeztetés nélküli, ellenőrzött nyeregtető-geometriai számítás. Fedési darabszámot vagy ráhagyást nem becslünk.`);
+        const geometry = geometrySources.find((candidate) => candidate.sectionId === section.id && candidate.surveyRevisionId === source.revisionId);
+        const geometryQuantity = geometry ? calculatedQuantity(geometry.combinedRoofM2) : null;
+        if (geometry && geometryQuantity) {
+          suggestions.push({
+            key: `${section.id}:geometry:${geometry.id}`,
+            sectionId: section.id,
+            description: `${section.name} · ellenőrzött tetőfelület`,
+            quantity: geometryQuantity,
+            unit: "square_meter",
+            materialCategory: "roof_covering",
+            sourceLabel: `Tetőgeometria · felmérés V${source.version}`,
+            quantityKind: "calculated",
+            sourceRef: { type: "surveyGeometry", sectionId: section.id, geometrySourceId: geometry.id },
+          });
+        } else {
+          unavailable.push(`${section.name}: nincs ehhez a felmérésrevízióhoz rögzített, ellenőrzött tetőgeometria (teljes, érvényes nyeregtető-méretek szükségesek). Fedési darabszámot vagy ráhagyást nem becslünk.`);
+        }
       }
     }
   }

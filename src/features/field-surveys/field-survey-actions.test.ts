@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const record = vi.hoisted(() => ({ revision: vi.fn(), record: vi.fn() }));
 const state = vi.hoisted(() => ({ auth: { userId: "user-1", organizations: [{ id: "123e4567-e89b-42d3-a456-426614174000", name: "DEMO", role: "owner" }] }, rpc: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/features/auth/auth.server", () => ({ getAuthContext: async () => state.auth }));
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: async () => ({ rpc: state.rpc }) }));
+
+vi.mock("./field-survey-data", () => ({ getFieldSurveyRevision: record.revision }));
+vi.mock("./survey-geometry-source", () => ({ recordSurveyRoofGeometrySources: record.record }));
 
 import { saveFieldSurveyAction } from "./field-survey-actions";
 
@@ -32,6 +36,21 @@ describe("field survey server action", () => {
     data.set("sections", JSON.stringify(sections));
     expect((await saveFieldSurveyAction(data)).ok).toBe(true);
     expect(state.rpc).toHaveBeenCalledWith("save_field_survey_workspace", expect.objectContaining({ p_sections: sections, p_measurements: [] }));
+  });
+
+  it("records the verified roof geometry of the saved revision without a project and survives a recording failure", async () => {
+    const roofSections = [{ id: "123e4567-e89b-42d3-a456-426614174010", name: "DEMO tető", workType: "roof", measurements: [], notes: "", photoIds: [] }];
+    const data = form({ measurements: "[]" });
+    data.set("sections", JSON.stringify(roofSections));
+    record.revision.mockResolvedValue({ id: "rev-1" });
+    record.record.mockResolvedValue({ recorded: 1, failed: 0 });
+    expect(await saveFieldSurveyAction(data)).toMatchObject({ ok: true, version: 1 });
+    expect(record.record).toHaveBeenCalledWith(values.organizationId, { id: "rev-1" }, "user-1");
+    record.record.mockRejectedValue(new Error("writer down"));
+    expect(await saveFieldSurveyAction(data)).toMatchObject({ ok: true });
+    record.record.mockClear();
+    expect((await saveFieldSurveyAction(form())).ok).toBe(true);
+    expect(record.record).not.toHaveBeenCalled();
   });
 
   it("preserves an explicitly selected project association", async () => {

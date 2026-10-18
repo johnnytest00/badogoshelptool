@@ -18,13 +18,14 @@ const itemSchema = z.object({
   sourceRef: z.discriminatedUnion("type", [
     z.object({ type: z.literal("measurement"), sectionId: uuid, measurementId: uuid }),
     z.object({ type: z.literal("calculation"), sectionId: uuid, calculationId: uuid, calculationRevisionId: uuid }),
+    z.object({ type: z.literal("surveyGeometry"), sectionId: uuid, geometrySourceId: uuid }),
   ]).optional(),
 }).superRefine((item, context) => {
   if (Number(item.quantity) <= 0) context.addIssue({ code: "custom", path: ["quantity"], message: "Adj meg nullánál nagyobb mennyiséget." });
   if (item.kind === "catalog" && (!item.variantId || !item.categoryId)) context.addIssue({ code: "custom", path: ["variantId"], message: "Válassz kategóriát és katalógusterméket." });
   if (item.kind === "manual" && (item.variantId || item.priceId || item.categoryId)) context.addIssue({ code: "custom", path: ["variantId"], message: "A kézi tételhez ne adj katalógus-hivatkozást." });
   if (item.sourceRef?.type === "measurement" && item.unit !== "linear_meter") context.addIssue({ code: "custom", path: ["unit"], message: "A szakaszhossz mértékegysége méter; darabra nem váltható." });
-  if (item.sourceRef?.type === "calculation" && item.unit !== "square_meter") context.addIssue({ code: "custom", path: ["unit"], message: "A számított tetőfelület m²; más egységre nem váltható." });
+  if ((item.sourceRef?.type === "calculation" || item.sourceRef?.type === "surveyGeometry") && item.unit !== "square_meter") context.addIssue({ code: "custom", path: ["unit"], message: "A számított tetőfelület m²; más egységre nem váltható." });
   if (item.priceId && item.kind !== "catalog") context.addIssue({ code: "custom", path: ["priceId"], message: "Árat csak katalógustételhez lehet kapcsolni." });
   if (item.kind === "catalog" && (item.manualPriceAmount || item.manualPriceKind)) context.addIssue({ code: "custom", path: ["manualPriceAmount"], message: "Katalógustételhez a rögzített katalógusár használható." });
   if (item.kind === "manual" && Boolean(item.manualPriceAmount) !== Boolean(item.manualPriceKind)) context.addIssue({ code: "custom", path: ["manualPriceAmount"], message: "Ár megadásakor válaszd ki, hogy nettó vagy bruttó." });

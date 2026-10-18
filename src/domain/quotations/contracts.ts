@@ -15,6 +15,8 @@ export const quotationLineSchema = z.object({
   takeoffSourceItemIds: z.array(z.string().uuid()).max(100).optional().default([]),
   priceProvenance: z.enum(["catalog_snapshot", "takeoff_snapshot", "user_entered", "missing"]).optional(),
   notes: z.string().max(500).nullish().transform((value) => value ?? undefined),
+  // Only the ids survive parsing; the server rebuilds the immutable rate snapshot and verified source quantity.
+  laborSource: z.object({ rateId: z.string().uuid(), materialListId: z.string().uuid(), materialRevisionId: z.string().uuid(), materialItemId: z.string().uuid() }).nullish().transform((value) => value ?? undefined),
 });
 
 export const quotationDraftSchema = z.object({

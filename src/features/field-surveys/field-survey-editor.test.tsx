@@ -6,6 +6,7 @@ import type { RoofGeometryType } from "@/domain/calculations/roof-geometry";
 import type { SurveySection } from "@/domain/field-surveys/workspace";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+vi.mock("./survey-geometry-source-actions", () => ({ ensureSurveyRoofGeometryAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("@/features/field-surveys/field-survey-actions", () => ({ saveFieldSurveyAction: vi.fn() }));
 

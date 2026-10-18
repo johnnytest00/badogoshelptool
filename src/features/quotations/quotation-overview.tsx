@@ -29,7 +29,7 @@ export function QuotationOverview({ organizationId, projectItems, projectHasMore
   useEffect(() => { void load(); }, [load]);
 
   return <>
-    <GlassPageHeader title="Árajánlatok" actions={<Link className="primary-button" href={`/ajanlatok/uj?organization=${organizationId}`}>+ Új árajánlat</Link>} />
+    <GlassPageHeader title="Árajánlatok" actions={<><Link className="secondary-button" href={`/beallitasok/munkadij?organization=${organizationId}`}>Munkadíj-szabályok</Link><Link className="primary-button" href={`/ajanlatok/uj?organization=${organizationId}`}>+ Új árajánlat</Link></>} />
     <section className="quotation-overview-section" aria-labelledby="standalone-quotations-heading"><GlassSectionHeader id="standalone-quotations-heading" title="Önálló ajánlatok" />
       {loading && <p role="status" className="form-message">Ajánlatok betöltése…</p>}
       {error && <div className="form-message is-error" role="alert"><span>{error}</span> <button type="button" className="text-button" onClick={() => void load()}>Újrapróbálom</button></div>}

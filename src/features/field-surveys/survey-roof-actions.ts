@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput, type GableRoofOutput } from "@/domain/calculations/gable-roof";
+import { calculateGableRoof, type GableRoofInput, type GableRoofOutput } from "@/domain/calculations/gable-roof";
 import { mapFieldSurveyToCalculator } from "@/domain/field-surveys/calculator-handoff";
 import { completeSectionMeasurements, surveySections } from "@/domain/field-surveys/workspace";
 import { getAuthContext } from "@/features/auth/auth.server";
@@ -13,6 +13,7 @@ import { createClient } from "@/infrastructure/supabase/server";
 import { persistGableRoof } from "@/infrastructure/supabase/gable-roof-writer";
 import { calculateRoofGeometry, type RoofGeometry, type RoofGeometryInput } from "@/domain/calculations/roof-geometry";
 import { geometryFromSurveyMeasurements } from "@/domain/field-surveys/roof-geometry";
+import { gableGeometryFromSurveySection } from "@/domain/field-surveys/gable-section-geometry";
 import { persistRoofGeometry, registerSurveyMultiRoofSource } from "@/infrastructure/supabase/roof-geometry-writer";
 import { getVerifiedMultiRoofSources } from "@/features/roof-models/multi-roof-source-data";
 
@@ -53,12 +54,7 @@ async function exactSurveySource(input: z.infer<typeof sourceSchema>) {
 }
 
 function geometryFromSection(revision: Awaited<ReturnType<typeof getFieldSurveyRevision>>, section: ReturnType<typeof surveySections>[number]) {
-  if (!revision) return null;
-  const handoff = mapFieldSurveyToCalculator({ surveyId: revision.surveyId, revisionId: revision.id, version: revision.version, workType: "roof", measurements: completeSectionMeasurements(section) });
-  if (!handoff.ok || handoff.calculator !== "roof" || handoff.missing.length) return null;
-  const raw = handoff.input;
-  const parsed = gableRoofInputSchema.safeParse({ inputMode: raw.inputMode, buildingLengthMm: Number(raw.buildingLengthMm), buildingWidthMm: Number(raw.buildingWidthMm), eaveOverhangMm: Number(raw.eaveOverhangMm), frontGableOverhangMm: Number(raw.frontGableOverhangMm), rearGableOverhangMm: Number(raw.rearGableOverhangMm), ...(raw.inputMode === "height" ? { roofRiseMm: Number(raw.roofRiseMm) } : { roofPitchDegrees: Number(raw.roofPitchDegrees) }) });
-  return parsed.success ? parsed.data : null;
+  return revision ? gableGeometryFromSurveySection(revision, section) : null;
 }
 
 export async function listVerifiedSurveyRoofs(raw: z.infer<typeof sourceSchema>): Promise<VerifiedSurveyRoof[]> {

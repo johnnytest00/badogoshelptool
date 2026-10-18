@@ -19,6 +19,8 @@ import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } fro
 import { catalogReplacementNeedsConfirmation, changeQuotationMaterialCategory, quotationMaterialLinkState, quotationPricesEqual, quotationPurchasingUnitLabel, quotationPurchasingUnitsMatch } from "./quotation-material-state";
 import { emptyQuotationDocumentDraft, validateQuotationDocumentReadiness, type DocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
 import { BackNavigation } from "@/components/navigation/back-navigation";
+import { LaborRatePanel } from "./labor-rate-panel";
+import { appliedLaborKeys, quantityAtSix, sameQuantity, type LaborBase, type LaborRate } from "@/domain/quotations/labor-rate";
 
 type Line = QuotationDraftValues["lines"][number];
 type EditorLine = Line & { localId: string };
@@ -57,10 +59,10 @@ function revisionDocument(revision?: CurrentRevision): { draft: QuotationDocumen
 
 export type QuotationMaterialSource = Readonly<{ materialListId: string; materialRevisionId: string; listName: string; revisionNumber: number; currentRevisionId: string | null; currentVersion: number; executionPlanId: string | null; sourceLineMap: ReadonlyArray<{ materialItemId: string; quotationLineIndex: number }> }>;
 
-export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products, categories, documentSources, materialSource = null, initialLines = [] }: Readonly<{
+export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products, categories, documentSources, materialSource = null, initialLines = [], laborRates = [], laborBases = [] }: Readonly<{
   userId: string; organizationId: string; quotationId: string | null; name?: string; version: number; currentRevisionId: string | null;
   currentRevision?: CurrentRevision; revisions: Revision[]; selectedRevisionId?: string; products: MaterialProductRecord[]; categories: MaterialCategoryRecord[]; documentSources: StandaloneDocumentSources;
-  materialSource?: QuotationMaterialSource | null; initialLines?: Line[];
+  materialSource?: QuotationMaterialSource | null; initialLines?: Line[]; laborRates?: readonly LaborRate[]; laborBases?: readonly LaborBase[];
 }>) {
   const router = useRouter();
   const { requestConfirmation } = useAppInteraction();
@@ -185,6 +187,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const documentUntouched = displayedReadiness.status !== "valid_draft" && JSON.stringify(document) === JSON.stringify(emptyQuotationDocumentDraft());
 
   const addLine = (type: Line["type"]) => { const next = [{ ...empty(type), localId: makeLocalId() }, ...lines]; setLines(next); syncDirty(name, next); };
+  const addPrebuiltLine = (line: Line) => { const next = [{ ...line, localId: makeLocalId() }, ...lines]; setLines(next); syncDirty(name, next); };
   const moveLine = (index: number, offset: -1 | 1) => {
     const target = index + offset;
     if (target < 0 || target >= lines.length) return;
@@ -327,7 +330,8 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     <BackNavigation href={`/ajanlatok?organization=${organizationId}`} label="Vissza az ajánlatokhoz" />
     <div className="section-heading standalone-quotation-header glass-bubble"><div className="standalone-quotation-title"><ClipboardList aria-hidden="true" className="standalone-quotation-icon" /><div><p className="section-eyebrow">Önálló ajánlat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2><p className="standalone-quotation-subtitle">HUF · Menthető piszkozat</p></div></div><span className="status-pill status-draft">Piszkozat</span></div>
     <p className="standalone-quotation-note">A véglegesítés, az ÁFA-kezelés és a hivatalos PDF még nem támogatott.</p>
-    {materialSource && <section className="glass-bubble quotation-material-source" aria-label="Anyaglista forrás"><strong>Anyaglista-forrás · {materialSource.listName}</strong><span>V{materialSource.revisionNumber} revízió · {materialSource.sourceLineMap.length} forrástétel</span>{materialSource.currentRevisionId && materialSource.currentRevisionId !== materialSource.materialRevisionId && <p role="status">A lista azóta V{materialSource.currentVersion} verzióra változott. Az ajánlat a kiválasztott, változtathatatlan V{materialSource.revisionNumber} forrásból indul.</p>}</section>}
+    {materialSource && <section className="glass-bubble quotation-material-source" aria-label="Anyaglista forrás"><strong>Anyaglista-forrás · <Link href={`/anyaglistak/${materialSource.materialListId}?organization=${organizationId}`}>{materialSource.listName}</Link></strong><span>V{materialSource.revisionNumber} revízió · {materialSource.sourceLineMap.length} forrástétel</span>{materialSource.currentRevisionId && materialSource.currentRevisionId !== materialSource.materialRevisionId && <p role="status">A lista azóta V{materialSource.currentVersion} verzióra változott. Az ajánlat a kiválasztott, változtathatatlan V{materialSource.revisionNumber} forrásból indul.</p>}</section>}
+    {!historical && materialSource && <LaborRatePanel organizationId={organizationId} rates={laborRates} bases={laborBases} quotationClass={lines[0]?.priceClass ?? null} appliedKeys={appliedLaborKeys(lines)} source={materialSource} onApply={addPrebuiltLine} />}
     <div className="standalone-quotation-toolbar">
     <div className="standalone-revision-bar" aria-label="Ajánlati revíziók">
       {revisions.map((revision) => <Link key={revision.id} className={`secondary-button ${revision.id === (selectedRevisionId ?? currentRevisionId) ? "is-current" : ""}`} href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`} aria-current={revision.id === (selectedRevisionId ?? currentRevisionId) ? "page" : undefined}>v{revision.revisionNumber} · {money(revision.subtotal)}</Link>)}
@@ -449,6 +453,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
                 <div className="quotation-price-provenance"><strong>{priceOrigin}</strong>{selected && <small>A katalógusváltozat eredete: {provenanceLabel(selected.variant.provenance)}.</small>}{latestKnownPrice && <small>Elérhető nettó katalógusár: {latestKnownPrice.amount.toLocaleString("hu-HU")} Ft/{materialPurchasingUnitLabels[latestKnownPrice.purchasingUnit]} · {provenanceLabel(latestKnownPrice.provenance)} · {latestKnownPrice.effectiveDate}.</small>}</div>
                 <label className="quotation-notes-field" htmlFor={`${line.localId}-notes`}>Megjegyzés<textarea id={`${line.localId}-notes`} maxLength={500} rows={2} value={line.notes} onChange={(event) => update(index, { notes: event.target.value })} /></label>
               </div>
+              {line.laborSource && <div className="quotation-source-line quotation-labor-source"><strong>Munkadíj-szabály forrása</strong>{line.laborSource.rateSnapshot ? <small>{line.laborSource.rateSnapshot.name} · {line.laborSource.rateSnapshot.rateAmount} Ft/{line.laborSource.sourceUnit} · {line.laborSource.rateSnapshot.priceClass === "net" ? "nettó" : "bruttó"} · forrás: {line.laborSource.sourceLabel}, {line.laborSource.sourceQuantity} {line.laborSource.sourceUnit} (felmérés V{line.laborSource.surveyVersion})</small> : <small>Mentés után jelenik meg a rögzített szabály- és forráspillanatkép.</small>}{line.laborSource.rateSnapshot && (!sameQuantity(line.quantity, quantityAtSix(line.laborSource.sourceQuantity ?? line.quantity)) || line.unitPrice !== line.laborSource.rateSnapshot.rateAmount) && <small className="quotation-labor-edited">A mennyiség vagy az ár a szabálytól kézzel eltér; a forrás megmarad.</small>}</div>}
               {line.sourceMaterialItemId && <div className="quotation-source-line"><strong>Változtathatatlan forrástétel</strong><code>{line.sourceMaterialItemId}</code>{materialSource && <small>{materialSource.listName} · V{materialSource.revisionNumber} · anyaglista-revízió {materialSource.materialRevisionId}</small>}</div>}
               <div className="standalone-line-actions"><button className="text-button" type="button" disabled={index === 0} aria-label={`${line.description || "Tétel"} mozgatása fel`} onClick={() => moveLine(index, -1)}>↑ Fel</button><button className="text-button" type="button" disabled={index === lines.length - 1} aria-label={`${line.description || "Tétel"} mozgatása le`} onClick={() => moveLine(index, 1)}>↓ Le</button><button className="text-button" type="button" aria-label={`${line.description || "Tétel"} törlése`} onClick={() => void removeLine(line)}>Tétel törlése</button></div>
             </div>}

@@ -8,6 +8,18 @@ Migráció: `20261018100000_execution_plan_document_links.sql`; teszt: `supabase
 - RLS: csak select `authenticated` részére, a kapcsolat azoknak látszik, akik a dokumentumot is látják (alkotó-hatókörű önálló lista/ajánlat); írás kizárólag `link_execution_plan_document` / `unlink_execution_plan_document` (security definer, org-tagság, actor, azonos szervezet, alkotó-hatókör ellenőrzés). A létrehozáskor munkanaplóhoz kötött lista `execution_plan_id`-je változatlanul immutable; ahhoz nincs link.
 - A meglévő `field_survey_execution_plan_links` (felmérés↔munkanapló) változatlan, immutable.
 
+## F9.42.1 — munkadíj-szabályok (2026-10-18, csak helyi)
+
+Migráció: `20261018110000_organization_labor_rates.sql`; teszt `041_organization_labor_rates.sql` (PASS). `organization_labor_rates`: append-only szabály (alap, HUF díj, nettó/bruttó), tagok olvashatják; írás csak `create_/archive_organization_labor_rate` RPC-vel, tulajdonos/admin, idempotens; törlés/átírás trigger tiltja. Hosted DB-re nincs alkalmazva.
+
+## F9.42.6 — független felmérés-tetőgeometria (2026-10-18, csak helyi)
+
+Migráció `20261018130000_survey_roof_geometry_sources.sql`, teszt `043_survey_roof_geometry_sources.sql`. Új immutable `field_survey_roof_geometry_sources` (egyedi: `survey_revision_id`+`section_id`; RLS-olvasás `can_access_field_survey`; módosítás/törlés 55000). Író: `save_survey_roof_geometry_source_secure` (csak `tetopro_covering_writer`; bemenet-egyezés `survey_roof_input_matches`, idempotens). `save_workflow_material_list_from_survey_revision` új `surveyGeometry` ágat kapott (újradefiniált függvény, a többi ág változatlan).
+
+## F9.42.2 — munkadíj-provenance az önálló ajánlatsorban (2026-10-18, csak helyi)
+
+Migráció `20261018120000_quotation_labor_source.sql`, teszt `042_quotation_labor_source.sql`. A `LABOR` sor `line_items_snapshot` elemében opcionális `laborSource` (szabály-id és pillanatkép, anyaglista/revízió/tétel, felmérés/revízió/verzió, forrás címke, ellenőrzött mennyiség és mértékegység), amelyet az RPC a DB-ből épít; a korábbi sorok és revíziók változatlanok.
+
 ## F9.31 — legacy kalkulátor függőségek és írójavítás (2026-10-17)
 
 A részletes runtime caller/adatfüggőségi tábla és kockázati döntés a

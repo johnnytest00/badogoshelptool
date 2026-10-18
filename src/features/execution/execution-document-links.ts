@@ -75,8 +75,8 @@ export async function getPlanLinkedDocuments(organizationId: string, planId: str
 /** Standalone quotations visible to the caller, for the work log's "link existing" picker. */
 export async function getStandaloneQuotationCandidates(organizationId: string): Promise<LinkCandidate[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("quotations").select("id, name, status")
+  const { data, error } = await supabase.from("quotations").select("id, name, status, version, updated_at")
     .eq("organization_id", organizationId).eq("ownership_scope" as never, "standalone" as never).order("updated_at", { ascending: false }).limit(100);
   if (error) throw new Error("Az ajánlatok nem tölthetők be.");
-  return (data ?? []).map((row) => ({ kind: "quotation" as const, documentId: row.id, name: row.name, detail: `Ajánlat · ${row.status === "draft" ? "piszkozat" : row.status}` }));
+  return (data ?? []).map((row) => ({ kind: "quotation" as const, documentId: row.id, name: row.name, detail: `Ajánlat · ${row.status === "draft" ? "piszkozat" : row.status} · v${row.version} · ${row.updated_at.slice(0, 10)}` }));
 }

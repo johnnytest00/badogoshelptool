@@ -56,7 +56,7 @@ export function ExecutionPlanDocumentLinks({ organizationId, planId, documents, 
   }
 
   const [kind, documentId] = selected.split(":");
-  return <GlassDisclosure className="execution-workflow-links" summary={`Kapcsolt anyaglisták és ajánlatok · ${documents.length}`}>
+  return <GlassDisclosure className="execution-workflow-links" defaultOpen={documents.length > 0} summary={`Kapcsolódó dokumentumok · ${documents.length}`}>
     {documents.length === 0 ? <p className="missing-data">Még nincs utólag kapcsolt anyaglista vagy ajánlat. A kapcsolás opcionális, és bármikor megszüntethető.</p>
       : <ul className="plan-link-list">{documents.map((document) => <li key={`${document.kind}:${document.documentId}`}>
         <Link href={hrefFor(organizationId, document)}><strong>{document.name}</strong><span>{document.detail}</span></Link>

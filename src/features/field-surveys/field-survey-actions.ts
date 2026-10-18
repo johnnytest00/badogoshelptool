@@ -7,6 +7,8 @@ import { fieldSurveyInputSchema, fieldSurveyMeasurementSchema } from "@/domain/f
 import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
 import type { Json } from "@/infrastructure/supabase/database.types";
+import { getFieldSurveyRevision } from "./field-survey-data";
+import { recordSurveyRoofGeometrySources } from "./survey-geometry-source";
 
 export type FieldSurveySaveResult = {
   ok: boolean;
@@ -69,6 +71,11 @@ export async function saveFieldSurveyAction(data: FormData): Promise<FieldSurvey
       if (error?.code === "22023") return { ok: false, error: "A felmérés adatai érvénytelenek, vagy a projektkapcsolat nem módosítható." };
       return { ok: false, error: "A felmérés mentése nem sikerült. Ellenőrizd a kapcsolatot, majd próbáld újra." };
     }
+    // Verified roof area for this exact revision; best-effort here, the material list panel retries when missing.
+    try {
+      const revision = sections?.some((section) => section.workType === "roof") ? await getFieldSurveyRevision(organizationId, saved[0].survey_id, saved[0].version) : null;
+      if (revision) await recordSurveyRoofGeometrySources(organizationId, revision, auth.userId);
+    } catch { /* retried on demand */ }
     revalidatePath("/felmeresek");
     if (parsed.data.projectId) revalidatePath(`/projektek/${parsed.data.projectId}`);
     return { ok: true, surveyId: saved[0].survey_id, version: saved[0].version };

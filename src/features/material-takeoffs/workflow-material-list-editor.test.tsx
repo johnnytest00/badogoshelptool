@@ -142,6 +142,6 @@ describe("survey material list editor", () => {
     expect(html).not.toContain("Árajánlat-piszkozat készítése");
     expect(html).toContain("/kivitelezes/00000000-0000-4000-8000-000000000020");
     expect(html).toContain("Leválasztás");
-    expect(html).toContain("Munkanapló kapcsolása");
+    expect(html).toContain("Munkanaplóhoz csatolás");
   });
 });

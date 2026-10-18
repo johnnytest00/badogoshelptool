@@ -7,6 +7,7 @@ import { getWorkflowMaterialLists } from "@/features/material-takeoffs/material-
 import { getProjectOrganization } from "@/features/projects/organization";
 import { StandaloneQuotationEditor, type QuotationMaterialSource } from "@/features/quotations/standalone-quotation-editor";
 import { getStandaloneDocumentSourcesAction } from "@/features/quotations/standalone-quotation-actions";
+import { getLaborContext } from "@/features/quotations/labor-rate-data";
 import { quotationLinesFromMaterialList } from "@/features/quotations/material-list-quotation-import";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 
@@ -38,5 +39,6 @@ export default async function NewStandaloneQuotationPage({ searchParams }: Reado
     initialLines = quotationLinesFromMaterialList(selectedRevision, products);
     initialName = `${list.name} – ajánlata`.slice(0, 200);
   }
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor userId={selected.auth.userId} organizationId={organizationId} quotationId={null} name={initialName} version={0} currentRevisionId={null} revisions={[]} products={products} categories={categories} documentSources={documentSources.data} materialSource={materialSource} initialLines={initialLines} /></div></main>;
+  const labor = await getLaborContext(organizationId, materialSource);
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor userId={selected.auth.userId} organizationId={organizationId} quotationId={null} name={initialName} version={0} currentRevisionId={null} revisions={[]} products={products} categories={categories} documentSources={documentSources.data} materialSource={materialSource} laborRates={labor.rates} laborBases={labor.bases} initialLines={initialLines} /></div></main>;
 }
