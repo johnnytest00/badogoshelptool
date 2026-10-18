@@ -12,6 +12,7 @@ A repó működő, moduláris Next.js alkalmazást, lokális Supabase-adatmodell
 
 ## B. Elkészült fázisok és mérföldkövek
 
+- **F9.40.4:** közös `QuotationSaveBar` (önálló + projekthez kötött ajánlat-szerkesztő), „Nincs megadva” semleges jelvény érintetlen dokumentumcsoportra, hiányzó ár kiemelése. Nyitva: tényleges mentés/CONFLICT böngészős végigpróbálása, projekt-szerkesztő böngészős mérése. Commitolva nincs.
 - **F9.40.3 (legutóbbi):** tipográfiai tokenek (`--tp-fs-*`, `--tp-fw-*`, `--tp-lh-*`) a `globals.css` végén, skip-link a gyökér layoutban, minden `<main id="main-content">`. Nyitott: a modul-specifikus fix betűméretek migrálása tokenekre; bejelentkezett oldalak böngészős tipográfia-újramérése. Commitolva nincs.
 - A `PROJECT_BLUEPRINT.md` F0–F11 fázisterve jóváhagyott célarchitektúra. A tényleges repo több későbbi fázis funkcióit megvalósította; a blueprint tervezett elemei nem tekintendők késznek.
 - Adatbázis-alap, Auth, projektek/ügyfelek, revíziózott számítások, anyagkatalógus, anyagkimutatás, ajánlat és kivitelezés kódja/migrációja jelen van; részletek a [`DATABASE.md`](DATABASE.md) fájlban.

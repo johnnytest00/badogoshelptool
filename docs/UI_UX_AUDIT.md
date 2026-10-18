@@ -51,11 +51,11 @@ Javaslat [J]: kötelező lépések kinyitva, opcionálisak egy „További beál
 Öt egyenrangú elem (összesítés, mentés, munkanapló, csatolás, fotók, projektkapcsolat); az „Felmérés összesítése” egy apró gomb egy széles sávban.
 Javaslat: egy elsődleges (Mentés), a többi másodlagos vagy a „⋯” menüben; kártyák helyett szöveges listaelem-műveletek.
 
-**U8. Az új ajánlat oldalán a lebegő mentés takarja a tartalmat [M].** — ⚪ Nyitva (az ajánlat-szerkesztő nem része az F9.40.1-nek; a felmérés-szerkesztő sávja a minta).
+**U8. Az új ajánlat oldalán a lebegő mentés takarja a tartalmat [M].** — ✅ **KÉSZ (F9.40.4):** `QuotationSaveBar`, helyfoglaló sticky sáv állapotjelzéssel.
 A `standalone-save` sticky pirula jobb alul a becslés-kártya fölé úszik, 1440 px-en a kártya címe mellett.
 Javaslat: sticky alsó műveletsáv saját háttérrel és helylefoglalással (padding-bottom), vagy fejléc-mentés (lásd U1).
 
-**U9. „Hibás adat” állapotjelző üres, opcionális csoporton [M].**
+**U9. „Hibás adat” állapotjelző üres, opcionális csoporton [M].** — ✅ **KÉSZ (F9.40.4):** érintetlen csoportnál „Nincs megadva”.
 Új önálló ajánlat: „Címzett és dokumentumadatok · Opcionális” mellett piros hangvételű „Hibás adat” (a domain készenléti állapotból jön). Tiszta űrlapon ez félrevezető.
 Javaslat: üres opcionális szekciónál „Nincs megadva” semleges jelvény; a hibajelzés csak szerkesztés után. (Üzleti logikához nem nyúlni, csak megjelenítés.)
 

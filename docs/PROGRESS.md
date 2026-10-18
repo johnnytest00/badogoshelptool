@@ -1,5 +1,14 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## F9.40.4 — Ajánlat-szerkesztő UX
+
+Státusz: **KÉSZ a célzott hatókörre (U8, U9).** Csak megjelenítés; számítás, ár, ÁFA, jogi státusz, adatbázis, Auth/RLS, piszkozat-korlátok és revíziók változatlanok.
+
+- **Mentés (U8):** új közös `QuotationSaveBar` (`quotation-save-bar.tsx`) az önálló és a projekthez kötött szerkesztőben: helyfoglaló sticky sáv, állapot (Még nincs mentve / Nem mentett módosítások / Mentés folyamatban… / Mentve · vN / A mentés nem sikerült) + egyetlen elsődleges gomb. A lebegő `standalone-save` gomb és a duplikált „Mentetlen módosításaid…” / „…mentve” üzenetek kivéve; a hibasáv (CONFLICT-művelettel) megmaradt.
+- **Validáció (U9):** érintetlen, üres „Címzett és dokumentumadatok” csoport semleges „Nincs megadva” jelvényt kap; „Hibás adat”/„Hiányos” csak szerkesztés után (a domain-readiness változatlan, a kötelező validáció és a piszkozat-korlátok érintetlenek).
+- **Elrendezés:** hiányzó egységár a tételsoron kiemelt (szaggatott mező, borostyán „Hiányzó egységár”); a „Tételek / Ártételek” kettős cím egy „Tételek” címmé vonva.
+- **Ellenőrzés:** `quotations`, `app`, `components` célzott tesztek PASS (új `quotation-save-bar.test.ts`); typecheck, lint PASS; böngésző `/ajanlatok/uj` 1024 és 390 px: nincs vízszintes túlcsordulás, a sáv nem takar tartalmat.
+
 ## F9.40.3 — Globális tipográfia és akadálymentesség
 
 Státusz: **KÉSZ a célzott hatókörre (U4, U11 skip-link).** Csak megjelenítés/jelölés; üzleti logika, számítás, adatbázis, függőség nem változott.

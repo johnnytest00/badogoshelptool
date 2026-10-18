@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ClipboardList } from "lucide-react";
+import { QuotationSaveBar, quotationSaveState } from "./quotation-save-bar";
 import { decimalToScaled, lineTotal, scaledToDecimal } from "@/domain/quotations/money";
 import { validateStandaloneLines } from "@/domain/quotations/standalone";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
@@ -179,6 +180,8 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     taxTreatment: "unresolved",
   });
   const displayedReadiness = serverReadiness ?? readiness;
+  // Presentation only: an untouched, still-empty optional document group is "not provided", not an error.
+  const documentUntouched = displayedReadiness.status !== "valid_draft" && JSON.stringify(document) === JSON.stringify(emptyQuotationDocumentDraft());
 
   const addLine = (type: Line["type"]) => { const next = [{ ...empty(type), localId: makeLocalId() }, ...lines]; setLines(next); syncDirty(name, next); };
   const moveLine = (index: number, offset: -1 | 1) => {
@@ -347,7 +350,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     <fieldset className="quotation-editor-fields" disabled={historical || pending || !recoveryReady} aria-busy={pending || !recoveryReady}>
       <div className="quotation-meta"><label htmlFor="standalone-name">Ajánlat neve<input id="standalone-name" required maxLength={200} value={name} onChange={(event) => { setName(event.target.value); syncDirty(event.target.value); setResult({ ok: false, code: "INTERNAL", error: "" }); }} aria-describedby="standalone-name-hint" placeholder="Például: Tóth utca tetőfelújítás" /></label><small id="standalone-name-hint">Ez az egyetlen kötelező alapadat; a címzett és dokumentummezők opcionálisak.</small></div>
       <details className="standalone-document-details quotation-document-disclosure" aria-labelledby="standalone-document-heading">
-        <summary id="standalone-document-heading" className="quotation-document-summary"><span><small>Opcionális</small><strong>Címzett és dokumentumadatok</strong></span><span className="status-pill status-draft">{displayedReadiness.status === "valid_draft" ? "Adatok rendben" : displayedReadiness.status === "invalid_document_data" ? "Hibás adat" : "Hiányos kiállítási adatok"}</span></summary>
+        <summary id="standalone-document-heading" className="quotation-document-summary"><span><small>Opcionális</small><strong>Címzett és dokumentumadatok</strong></span><span className={`status-pill status-draft${documentUntouched ? " is-neutral" : ""}`}>{documentUntouched ? "Nincs megadva" : displayedReadiness.status === "valid_draft" ? "Adatok rendben" : displayedReadiness.status === "invalid_document_data" ? "Hibás adat" : "Hiányos kiállítási adatok"}</span></summary>
         <div className="quotation-document-disclosure-body">
         <p className="missing-data">Ez a piszkozat menthető. Az adókezelés és a véglegesítés még nincs támogatva; ez az összegzés nem jelent kiállíthatóságot.</p>
         <div className="quotation-line-grid">
@@ -379,7 +382,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
         {serverReadiness && <small role="status">Az ellenőrzés hitelesített szerveroldali adatokkal lefutott.</small>}
         </div>
       </details>
-      <div className="quotation-lines"><div className="section-heading"><div><p className="section-eyebrow">Tételek</p><h3>Ártételek</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("MATERIAL")}>+ Kézi anyag</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
+      <div className="quotation-lines"><div className="section-heading"><div><h3>Tételek</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("MATERIAL")}>+ Kézi anyag</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
         {lines.length === 0 && <p className="empty-state">Még nincs tétel. Üres piszkozatot is elmenthetsz.</p>}
         {lines.map((line, index) => {
           const selected = line.variantId ? catalogVariant(line.variantId) : undefined;
@@ -418,8 +421,8 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
               <div className="quotation-compact-title"><span className={`quotation-material-state state-${linkState}`}>{line.type === "MATERIAL" ? linkLabel : line.type === "LABOR" ? "Munkadíj" : "Egyéb tétel"}</span><strong>{line.description || "Névtelen tétel"}</strong><small>{category?.name ?? ""}</small></div>
               <label className="quotation-compact-field"><span>Mennyiség</span><input aria-label={`${line.description || "Tétel"} mennyisége`} inputMode="decimal" value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} /></label>
               <div className="quotation-compact-field quotation-compact-unit"><span>Egység</span><strong>{unitLabel}</strong></div>
-              <label className="quotation-compact-field"><span>{linePriceLabel}</span><input aria-label={`${line.description || "Tétel"} ${linePriceLabel.toLowerCase()}`} inputMode="decimal" value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value, priceId: "", priceProvenance: event.target.value.trim() ? "user_entered" : "missing" })} /></label>
-              <output className="quotation-compact-total"><span>{lineTotalLabel}</span><strong>{lineAmount}</strong></output>
+              <label className="quotation-compact-field"><span>{linePriceLabel}</span><input aria-label={`${line.description || "Tétel"} ${linePriceLabel.toLowerCase()}`} className={line.unitPrice.trim() ? undefined : "is-missing"} inputMode="decimal" value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value, priceId: "", priceProvenance: event.target.value.trim() ? "user_entered" : "missing" })} /></label>
+              <output className={`quotation-compact-total${line.unitPrice.trim() ? "" : " is-missing"}`}><span>{lineTotalLabel}</span><strong>{lineAmount}</strong></output>
               <button className="secondary-button quotation-edit-toggle" type="button" aria-expanded={Boolean(expandedLineIds[line.localId])} aria-controls={editId} onClick={() => setExpandedLineIds((current) => ({ ...current, [line.localId]: !current[line.localId] }))}>{expandedLineIds[line.localId] ? "Bezárás" : "Szerkesztés"}</button>
             </div>
             {expandedLineIds[line.localId] && <div id={editId} className="quotation-line-edit">
@@ -452,9 +455,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
       {catalogMessage && <p className="form-message" role="status">{catalogMessage}</p>}
       <div className="quotation-summary"><div className="quotation-current-total"><span>{historical ? `Történeti revízió · ${savedAmountLabel}` : `Jelenlegi piszkozat becslése · ${currentPriceBasisLabel}`}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : mixedPriceClasses ? "Árbesorolás ellenőrzése" : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "Változtathatatlan ajánlati pillanatkép összege." : mixedPriceClasses ? "Nettó és bruttó tételek nem keverhetők; a mentés blokkolva marad." : missingPriceCount ? `${missingPriceCount} tétel egységára hiányzik; ez a részösszeg csak a megadott árakat tartalmazza, nem kész ajánlat.` : "A szerver mentéskor újraszámítja; nem végleges ajánlat."}</small></div>{!historical && dirty && savedSubtotal !== null && <div className="quotation-saved-total"><span>Legutóbb mentve · v{currentRevision?.revision_number ?? version} · {savedAmountLabel}</span><strong>{money(String(savedSubtotal))}</strong></div>}</div>
     </fieldset>
-    {!historical && dirty && <p className="form-message" role="status">Mentetlen módosításaid vannak.</p>}
     {!historical && !result.ok && result.error && <div className="form-message is-error" role="alert">{result.error}{result.code === "CONFLICT" && quotationId && <button type="button" className="secondary-button" onClick={async () => { const accepted = await requestConfirmation({ title: "Helyi változat elvetése", message: "A legfrissebb revízió megnyitása elveti ezt a helyi módosításcsomagot.", cancelLabel: "Maradok", actions: [{ label: "Legfrissebb revízió megnyitása", tone: "danger", run: () => undefined }] }); if (accepted) { discardRecovery(); router.replace(latestUrl); } }}>Legfrissebb revízió megnyitása</button>}</div>}
-    {!historical && result.ok && <p className="form-message is-success" role="status">A piszkozat v{result.data.revision_number} revíziója mentve.</p>}
-    {!historical && <button className="primary-button standalone-save" type="button" disabled={pending || !recoveryReady} onClick={() => save()}>{pending ? "Mentés folyamatban…" : "Piszkozat mentése"}</button>}
+    {!historical && <QuotationSaveBar state={quotationSaveState({ pending, error: !result.ok && Boolean(result.error), dirty, hasRevision: Boolean(currentRevisionId) || result.ok })} labels={{ saving: "Mentés folyamatban…", error: "A mentés nem sikerült", unsaved: "Nem mentett módosítások", saved: `Mentve · v${result.ok ? result.data.revision_number : currentRevision?.revision_number ?? version}`, new: "Még nincs mentve" }} disabled={pending || !recoveryReady} onSave={() => save()} />}
   </section>;
 }

@@ -1,5 +1,14 @@
 # Tesztmátrix
 
+## F9.40.4 — Ajánlat-szerkesztő UX — 2026-10-18
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Célzott Vitest | PASS | `src/features/quotations`, `src/app`, `src/components`; új `quotation-save-bar.test.ts`. Teljes `npm test`, build nem futott. |
+| Typecheck / lint | PASS | — |
+| Új önálló ajánlat (böngésző) | PASS | „Nincs megadva” jelvény; „+ Kézi anyag” után „Nem mentett módosítások”, hiányzó ár kiemelve; `scrollWidth` = viewport 1024-en és 390-en. |
+| Nem futott | — | Tényleges mentés/CONFLICT/újranyitás ebben a körben, projekthez kötött szerkesztő böngészőben, 1440 px pontos mérés (a panel 1024 px), történeti revízió nézet, billentyűzetes bejárás, képernyőolvasó. |
+
 ## F9.40.3 — Tipográfia és akadálymentesség — 2026-10-18
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

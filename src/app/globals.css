@@ -4570,3 +4570,29 @@ html:has(.survey-savebar) { scroll-padding-top: 5rem; }
 .skip-link:focus, .skip-link:focus-visible { transform: none; outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 main[id="main-content"]:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) { .skip-link { transition: none; } }
+
+/* F9.40.4 — quotation save bar (in-flow sticky, replaces the floating save pill) and neutral/missing states. */
+.quotation-savebar {
+  position: sticky; bottom: max(.5rem, env(safe-area-inset-bottom)); z-index: 12;
+  display: flex; min-height: 3.35rem; align-items: center; justify-content: space-between; gap: .75rem;
+  border: 1px solid var(--glass-border); border-radius: 999px; padding: .4rem .45rem .4rem 1rem;
+  background: var(--surface-popover);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15); backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow: 0 .45rem 1.2rem rgba(15, 23, 42, .1);
+}
+.quotation-savebar-status { display: flex; min-width: 0; align-items: center; gap: .5rem; margin: 0; color: var(--muted); font-size: var(--tp-fs-label); font-weight: 650; line-height: 1.25; }
+.quotation-savebar-status > span { min-width: 0; overflow-wrap: anywhere; }
+.quotation-savebar.is-saved .quotation-savebar-status { color: var(--success); }
+.quotation-savebar.is-unsaved .quotation-savebar-status { color: var(--warning); }
+.quotation-savebar.is-error { border-color: var(--danger); }
+.quotation-savebar.is-error .quotation-savebar-status { color: var(--danger); }
+.quotation-savebar-save { flex: 0 0 auto; min-width: 8.5rem; border-radius: 999px; }
+.quotation-editor > .quotation-savebar { margin-top: .25rem; }
+.status-pill.is-neutral { border-color: var(--border); background: transparent; color: var(--muted); }
+.quotation-compact-total.is-missing strong, .quotation-line-total.is-missing { color: var(--warning); font-weight: 700; }
+.quotation-compact-field input.is-missing { border-color: var(--warning); border-style: dashed; }
+@media (max-width: 520px) {
+  .quotation-savebar { padding-left: .8rem; gap: .5rem; }
+  .quotation-savebar-save { min-width: 7rem; padding-inline: .8rem; }
+}
+@media (forced-colors: active) { .quotation-savebar { border-color: CanvasText; background: Canvas; backdrop-filter: none; box-shadow: none; } }
