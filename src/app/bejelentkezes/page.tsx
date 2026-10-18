@@ -13,7 +13,7 @@ export default async function LoginPage({ searchParams }: Readonly<{ searchParam
   return (
     <main className="auth-page-shell">
       <section className="login-card" aria-labelledby="login-title">
-        <div className="auth-brand"><Image className="brand-icon" src={brandIcon} alt="" priority /><span>TETŐPRO</span></div>
+        <div className="auth-brand"><Image className="brand-icon" src={brandIcon} alt="" sizes="(max-width: 380px) 38px, 41px" priority /><span>TETŐPRO</span></div>
         <p className="eyebrow">Bádogos HelpTool</p>
         <h1 id="login-title">Üdv újra a műhelyben.</h1>
         <p className="login-lead">Jelentkezz be a helyi munkafelület folytatásához.</p>

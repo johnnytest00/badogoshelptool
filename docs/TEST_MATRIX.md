@@ -1,5 +1,17 @@
 # Tesztmátrix
 
+## Fejlécikon és favicon — 2026-10-18
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Bemeneti kép és előállított fájlok | PASS | A forrás 1254×1254 RGBA, átlátszó pixelekkel. 512×512 fejlécforrás, 32×32 `icon.png`, 180×180 `apple-icon.png`, valamint 16/32/48 px ICO-variant készült; a generált PNG-k és ICO szerkezete ellenőrizve. |
+| Next.js metadata-konvenció | PASS | A Next 16 fájlalapú konvenciója adja a favicon, app-icon és Apple-touch hivatkozásokat. A futó app `<head>`-jében az új `/favicon.ico` és `/icon.png` látszott; manuális `metadata.icons` és manifest nem készült. |
+| Fejléc és képméretezés | PASS | A dashboard fejlécben sötét témával asztali és 390 px mobilnézetben vizuálisan ellenőrizve. A header/login közös statikus `next/image` forrást használ; a `sizes` a 38/41 px CSS-mérethez igazított. A login oldalt külön böngészőben nem ellenőriztem. |
+| Célzott automatizált ellenőrzés | PASS | `npx vitest run src/features/dashboard/dashboard-controls.test.tsx src/app/layout.test.tsx --reporter=dot` — 2 fájl / 4 teszt; `npm run typecheck`; `npx eslint src/features/dashboard/dashboard.tsx src/app/bejelentkezes/page.tsx`; tiszta, izolált munkafán `npm run build` — Next.js 16.4.0 webpack, 31 statikus oldal; `git diff --check`. A Vitest egy nem blokkoló figyelmeztetést adott a meglévő teszt-Image mock `priority` propjára. |
+| Világos/sötét témák | RÉSZLEGES | Sötét témás böngészőnézet PASS. A téma gomb az ellenőrző böngészőben nem váltott témát, ezért a világos mód képernyőképe nem igazolt; az ikonon nincs témánként eltérő CSS-stílus. |
+| DB/Auth és adatjogosultság | NEM ÉRINTETT | Csak statikus ikonassetek és Next Image méretezési hint változott; adatbázis-, Auth/RLS- vagy tartós adatútvonal nem változott. |
+
+
 ## F9.38.6 — Szürke/sárga, geometriát követő 2.5D bélyegképek
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

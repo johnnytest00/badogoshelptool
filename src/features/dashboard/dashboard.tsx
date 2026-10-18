@@ -75,7 +75,7 @@ export function DashboardHeader({ displayName, email, organizationName, settings
     <header className="dashboard-header glass-navigation">
       <LiquidGlassLayer radius={999} />
       <div className="brand-label" aria-label="TetőPro">
-        <Image className="brand-icon" src={brandIcon} alt="" priority />
+        <Image className="brand-icon" src={brandIcon} alt="" sizes="(max-width: 380px) 38px, 41px" priority />
         <span>TETŐPRO</span>
       </div>
       <div className="dashboard-account"><span className="dashboard-account-copy"><strong>{userLabel}</strong><span>{organizationName ?? "Helyi műhely"}</span></span></div>

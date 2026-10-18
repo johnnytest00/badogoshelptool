@@ -1,5 +1,16 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## 2026-10-18 — Fejlécikon és favicon csere
+
+Státusz: **IMPLEMENTÁLVA; az új, felhasználó által adott tető/eresz ikon a fejléc és az App Router ikonforrása.**
+
+- A közös `src/assets/brand-icon.png` maradt a dashboard és a bejelentkezési fejléc közös `next/image` forrása; az üres alt szöveg megmaradt, mert mellette látható TETŐPRO felirat van. A méret- és navigációs viselkedés változatlan; a Next Image `sizes` a 38/41 px megjelenítéshez igazodik.
+- Az új 1254×1254 RGBA képből átlátszóságot megtartó 512×512 forrás, 32×32 App Router ikon, 180×180 Apple Touch Icon, valamint 16/32/48 px felbontásokat tartalmazó ICO készült. Új manifest/PWA ikon nem kellett.
+- A Next.js fájlkonvenció automatikusan szolgáltatja a `favicon.ico`, `icon.png` és `apple-icon.png` hivatkozásokat; kézi `metadata.icons` konfiguráció nem került be.
+- **Ellenőrzések:** `npx vitest run src/features/dashboard/dashboard-controls.test.tsx src/app/layout.test.tsx --reporter=dot` — 2 fájl / 4 teszt PASS; `npm run typecheck` PASS; célzott ESLint a dashboard és belépési oldal fájljain PASS; izolált Next.js 16.4.0 webpack production build PASS (31 statikus oldal); `git diff --check` PASS. A Vitest a meglévő Image mock `priority` attribútuma miatt nem blokkoló React-figyelmeztetést jelzett.
+- **Böngésző:** a dashboard fejlécben a kép vizuálisan ellenőrizve asztali és 390 px-es nézetben sötét témával; a Next által generált favicon és PNG ikonhivatkozások láthatók a document headben. A külön világos témás képernyőellenőrzés nem sikerült.
+- **Adat/jogosultság:** csak képfájlok és két `next/image` prop változott; adatbázis, Auth/RLS, üzleti logika és tartós adat nem érintett.
+
 ## F9.38.6 — Zhitov-referenciaszellemű, saját 2.5D kalkulátorikonok
 
 Státusz: **IMPLEMENTÁLVA; a 33 ikon vizuálisan átnézve, a böngészős és célzott regresszió-ellenőrzés lefutott.**
