@@ -1,5 +1,77 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## F9.38.6 — Zhitov-referenciaszellemű, saját 2.5D kalkulátorikonok
+
+Státusz: **IMPLEMENTÁLVA; a 33 ikon vizuálisan átnézve, a böngészős és célzott regresszió-ellenőrzés lefutott.**
+
+- A felhasználói Zhitov-képernyőkép kizárólag rajzi nyelv referenciája volt; a geometriák saját, katalógusazonosítóhoz kötött SVG-k maradtak. Egységes műszaki grafitszürke kontúr, szürke oldalfelület és visszafogott márka-aranysárga felső felület fut világos és sötét témában.
+- Mind a 6 tetőikon megtartja a saját tetősík-topológiáját. A háromszögű faszerkezet sekély térbeli mélységet kapott. A szarufa, nyeregtető, félnyereg, manzárd és kontytető korábban helyreállított geometriai jegyei megmaradtak.
+- Mind a 17 lépcsőikon közös axonometrikus 2.5D nyelvet kapott: a fokok felső lapja, fellépője és iránya látható; az egyenes fa-/fémlépcsők oldalnézeti emelkedése különbözik a fordulós, alaprajzi lábnyomot megőrző rajztól. A 90° L-, 180° U- és háromkarú alakzatok külön maradtak; a pihenő egyetlen folytonos felület, a húzott fordulók egyedi ékfelületek. A csigalépcső nyolc szinteltolt sugárirányú fokkal szerepel.
+- A beton/alapozás 10 korábbi sziluettje megmaradt és a közös színrendszerhez igazodott. A betonacél rudak testet és visszafogott fényélt kaptak; az átlósegéd derékszögű háromszöge térbeli felületet és oldallapot kapott.
+- A meglévő választó, katalógus és számító motor nem változott; a 33 bélyegkép 56×51 viewBoxban jelenik meg. A mobil választó maradt gördíthető és a sor minimuma 61,6 px.
+- **Vizuális kapu:** ideiglenes összehasonlító oldalon mind a 33 ikont névvel, a valós 56 px-es és a 64 px-es ellenőrző méretben néztem át világos és sötét témában. A lap nem része a végleges alkalmazásnak.
+- **Böngésző:** mindhárom kategória × 1440/1024/768/390/320 CSS px × két téma, összesen 30 állapot. A DOM-mérésben mindenhol a dokumentumszélesség megegyezett a viewporttal, nem volt levágott címke, és a látható opciók száma 6/17/10 volt. Az ikon szélessége 56/56/56/46,8/44 px, a legalacsonyabb listaelem 61,6 px. A „betongyűrű” keresés egy találatot adott; annak kiválasztása a Betongyűrű űrlapra váltott.
+- **Adatkonzisztencia/jogosultság:** számítás, adatbázis, Auth/RLS, mentett adat, jogosultság vagy szervezeti határ nem módosult; tartós írás nem történt, ezért DB/jogosultsági regresszióteszt nem releváns.
+- **Ellenőrzések:** célzott Vitest 2 fájl/9 teszt PASS; `npm run typecheck` PASS; az érintett TypeScript-fájlok célzott ESLintje PASS; izolált, tiszta `.next` könyvtárból futtatott `npm run build` PASS (Next.js 16.4.0 webpack, 30 statikus oldal); `git diff --check` PASS. A teljes `npm run lint` 286, a módosítatlan `.agents/` és `.claude/` segédszkriptekhez tartozó lint hibával leállt; a mérföldkő érintett fájljain célzott lint sikeres.
+- **Korlát:** a fűrészfogas 90°/180°-os fémkalkulátorok katalógus szerint csak a kar- és pihenőgeometriát modellezik; a nem létező tartógeometriát az ikon sem találja ki. Fizikai érintőeszköz és külön képernyőolvasó-audit nem futott.
+
+Javasolt Conventional Commit: `feat(F9.38.6): unify calculator thumbnails in gray-yellow 2.5D`.
+
+
+## F9.38.5 — Geometriahű kalkulátorikonok
+
+Státusz: **IMPLEMENTÁLVA ÉS BÖNGÉSZŐBEN ELLENŐRIZVE; a fizikai érintéses és képernyőolvasós ellenőrzés nem futott.**
+
+- A hat tetőikon most a tető geometriáját mutatja: gerinc és tetőtérfogat, egyetlen lejtősík, négy kontysík és hip-élek, két lejtésű manzárd, ferde szarufa vágásjellel, valamint belső rácsos tartóelemek.
+- A 17 lépcsőikon felülnézeti L/U/háromkarú terveket, oldalnézeti egyenes foksort, külön zárt/nyitott tartót, fém- és fűrészfogas változatokat, radiális csigalépcsőt és ferde elemet tartalmaz. A pihenő folytonos téglalap, a húzott forduló legyezős, osztott fokgeometria.
+- A tíz beton/alapozás bélyegkép felismerhető sziluettje megmaradt; a közös semleges felület- és kontúlrendszer enyhe felületi kontrasztot ad. A kalkulátorkatalógus, kiválasztás és számítási logika változatlan.
+- A közös SVG aránya 56:51; desktopon a választó ikonmezője 48–56 CSS px közé méreteződik, mobilon 44–48 px. Az opciósor minimum magassága 61,6 px. A címkék tördelődnek, vízszintes overflow a képernyőképeken nem látszott.
+- **Vizuális összehasonlítás:** mind a 33 ikon egymás mellett, névvel, 48 és 64 px-en ellenőrizve. A tetőformák, landing/winder párok, 90°/180°/háromkarú fordulók, fa/fém tartók után az ideiglenes összehasonlító útvonalat eltávolítottam.
+- **Böngésző:** a helyi `/kalkulatorok` tényleges lapját 1440/768/390/320 CSS px-en, mindhárom kategóriával és világos/sötét témával képernyőképen ellenőriztem. A 768 px alatti listaváltó megnyitásával a mobilikonokat és feliratokat is szemrevételeztem. Fizikai eszköz, valódi touch/pinch és képernyőolvasó nem futott.
+- **Ellenőrzések:** célzott Vitest, `npm run typecheck`, `npm run lint`, `npm run build` és végső `git diff --check` állapotát a [F9.38.5 tesztmátrix](TEST_MATRIX.md#f9385--geometriahu-kalkulatorikonok) rögzíti.
+- **Konzisztencia/jogosultság:** nincs tartós adatváltozás, jogosultsági útvonal vagy konkurens írás; adatbázis-teszt nem releváns.
+
+Javasolt Conventional Commit: `feat(F9.38.5): restore geometry in calculator icons`.
+
+## F9.38.4 — Prémium minimalista műszaki ikonfinomítás
+
+Státusz: **IMPLEMENTÁLVA ÉS HELYI BÖNGÉSZŐBEN ELLENŐRIZVE; mind a 33 ikon elkészült.**
+
+- **Dizájnrendszer:** a korábbi többszínű, sűrű vonalhálót közös grafit/világosszürke főgeometriára, semleges felületkitöltésre és egyetlen meleg narancs jelentéses kiemelésre cseréltem. Az SVG-k szűrő, gradiens, Canvas és új függőség nélkül, egységes 56×51-es viewBoxban maradtak.
+- **Tetők:** a hat ikon egyszerű 2.5D sziluettből olvasható; a nyeregtető, félnyereg, manzárd és konty eltérő tetősíkot, a szarufa egyetlen gerenda/vágásjelet, a rácsos tartó csak lényegi öv- és rácsvonalakat mutat.
+- **Lépcsők:** a fordulók felülnézeti L/U/háromkarú alaprajzot használnak. A pihenőt tömör mező, a húzott fokot osztott forduló jelöli; a zárt, nyitott, fém, fűrészfogas, csiga-, ferde elem- és betonváltozat saját sziluettet kapott.
+- **Beton/alapozás:** a tíz ikon megtartja a sávalap, cölöp, lemez, gyűrű, térburkolat, körüljáró sáv, keverék, betonacél, háló és átló felismerhető geometriáját, a korábbi anyagonként eltérő telített színek nélkül.
+- **Vizuális kapu:** ideiglenes, a végső munkafából eltávolított összehasonlító oldalon mind a 33 ikont 48 és 64 px-en, világos és sötét témában szemrevételeztem. A fa/fém egyenes tartó, a pihenős/húzott 90°/180° és a háromkarú párok egymás melletti ellenőrzése után az egyenes fém tartó külön kettős, csomópontos szerkezeti jelet kapott.
+- **Böngésző:** a valódi /kalkulatorok oldalon 3 kategória × 4 viewport (1440/768/390/320 px) × 2 téma, összesen 24 állapotot mértem. A látható geometriák 71–91%-ot foglalnak az ikon szélességéből, minden elem a saját SVG-keretén belül marad, a dokumentumszélesség minden esetben a viewporttal egyezik. A 1440 és 320 px-es nézetben mindhárom kategóriáról, a 768 és 390 px-es nézetben reprezentatív kategóriákról tényleges képernyőképet ellenőriztem mindkét témában.
+- **Korlát:** fizikai érintőkészülék és képernyőolvasó nem futott. A rajzok választóikonok, nem gyártási vagy statikai tervek. Számítási motor, katalógus, kiválasztás, adatbázis, Auth és üzleti workflow nem változott.
+
+Javasolt Conventional Commit: refactor(F9.38.4): refine calculator icons into minimal two-tone system.
+
+## F9.38.3 — Profi kalkulátorválasztó-ikonok
+
+Státusz: **IMPLEMENTÁLVA; mind a 33 SVG-t helyi böngészőben ellenőriztem desktopon, tableten és mobilnézetben, világos és sötét témával.**
+
+- **Gyökérok:** a korábbi közös rajzfüggvények az egyes kalkulátortípusokat egyszerű, többnyire egyszínű vonalrajzokkal jelölték. A F9.38.2 méretezése megnövelte ezeket a bélyegképeket, de az ikonokon belüli geometriát nem részletezte.
+- **Megvalósítás:** a megosztott bélyegkép-komponens 6 tető-, 17 lépcső- és 10 beton/alapozás-illusztrációt ad; a kategória- és variánskülönbségek saját vektoros geometriát, felületkitöltést és témaszín-tokeneket kapnak. A kereső, katalógusazonosítók és kiválasztás változatlan.
+- **Böngésző:** Chromium-alapú Codex in-app browser, helyi `/kalkulatorok`. Minden 3 kategória × 5 szélesség (1440/1024/768/390/320 CSS px) × 2 téma kombinációt mértem. Az összes 33 ikont egyenként kiválasztottam 1440 px-en mindkét témában; a kiválasztott gomb ID-je és a kalkulátorcím mind a 66 esetben egyezett. A tényleges ikongeometria egyik nézetben sem lógott ki az SVG dobozából; a 320 px-es gyűjtemény, a 1440 px desktop, a 768 px tablet és a 390 px mobil mindkét témás képernyőit szemrevételeztem.
+- **Reszponzivitás:** az SVG 52/45,6/45,6/46,8/44 px széles a vizsgált szélességek sorrendjében, a 56:51 arány megmaradt. Az opciókártyák minimum 61,6 px, a mobilváltó 59,2 px, a kategóriafülek 46,4 px magasak; a feliratok 16 px-esek. Nincs oldalirányú túlcsordulás vagy felirat-túlcsordulás.
+- **Ellenőrzések:** `npx vitest run src/features/calculators/construction-thumbnails.test.tsx src/features/calculators/calculator-navigation.test.ts --reporter=dot` (2 fájl / 5 teszt PASS), `npm run typecheck`, `npm run lint`, `npm run build` (Next.js 16.4 webpack, 30 statikus oldal) és a végleges `git diff --check` eredménye a [F9.38.3 tesztmátrixban](TEST_MATRIX.md#f9383--profi-kalkulatorvalaszto-ikonok) szerepel.
+- **Korlátok:** fizikai eszközön végzett érintéses tesztet és képernyőolvasós auditot nem futtattam. Az illusztrációk a kalkulátorválasztást segítő szemléltető ikonok, nem gyártmány- vagy statikai tervek. Számító motor, adatbázis, Auth, tartós adat és üzleti workflow nem változott.
+
+Javasolt Conventional Commit: `feat(F9.38.3): redesign calculator selector SVG icons`.
+
+## F9.38.2 — Reszponzív kalkulátorikonok
+
+Státusz: **IMPLEMENTÁLVA; A TETŐ, LÉPCSŐ ÉS BETON/ALAPOZÁS VÁLASZTÓT 1440/1024/768/390/320 PX-EN, SÖTÉT ÉS VILÁGOS TÉMÁBAN HELYI BÖNGÉSZŐBEN ELLENŐRIZTEM.**
+
+- A közös SVG-bélyegkép desktopon korábban 16 px-re zsugorodott a `button > svg` szabály miatt; mobilon egy külön szabály 40 px-re növelte. A közös listaikon most folyékony, 44–52 px szélességet kap, aránya 56:51. A viewBox a meglévő rajzok belső üres sávját csökkenti, szélső geometriát nem vág le.
+- A tető 6, a lépcső 17, valamint a beton/alapozás 10 (9 beton + átlósegéd) ikonja ugyanazt a méretezést használja. A választókártya legalább 62 px, a mobil váltógomb 60 px magas; a feliratok tördelődnek.
+- **Böngésző:** helyi kalkulátoroldal, 1440/1024/768/390/320 CSS-pixeles viewport és mindhárom kategória, sötét és világos témában. A DOM-mérés szélességeket, kártya- és gombmagasságot, felirat-túlcsordulást és dokumentumszintű vízszintes overflow-t vizsgált; egyiket sem találtam. A képernyőképeket 1440 és 320 px-en mindhárom kategórián, mindkét témában szemrevételeztem; SVG-klippelés vagy torzulás nem látszott.
+- **Ellenőrzések:** `npx vitest run src/features/calculators/construction-thumbnails.test.tsx`; `npm run typecheck`; `npm run lint`; `npm run build`; `git diff --check` — végleges futtatásuk az átadási ellenőrzésben rögzítve.
+- **Korlát:** fizikai mobilkészülék és tényleges érintési interakció nem futott; a böngésző viewport-emulációban mért gombméretek 60–62 px.
+
+Javasolt Conventional Commit: `fix(F9.38.2): enlarge responsive calculator selector icons`.
+
 ## F9.37.4 — Claude Code fejlesztői projektátadás
 
 Státusz: **DOCUMENTATION COMPLETE / APP-CODE UNCHANGED**.

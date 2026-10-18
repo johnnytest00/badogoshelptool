@@ -1,5 +1,68 @@
 # Tesztmátrix
 
+## F9.38.6 — Szürke/sárga, geometriát követő 2.5D bélyegképek
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| 33 ikonlefedettség és rajzi variánsok | PASS, CÉLZOTT VITEST | `npx vitest run src/features/calculators/construction-thumbnails.test.tsx src/features/calculators/calculator-navigation.test.ts --reporter=dot` — 2 fájl / 9 teszt PASS. Katalóguslefedettség: 6 tető + 17 lépcső + 10 beton/alap/átló; teszteli a tetősíkokat és gerincet, 2.5D jelölést, L/U/háromkarú karokat, pihenő/húzott fordulót, csigalépcsőt, fa/fém támaszjelzést, betonlépcsőt, betonacélt és térbeli átlót. |
+| Vizuális minőségkapu | PASS, 33 IKON KÉPERNYŐN ÁTNÉZVE | Ideiglenes oldalon mind a 33 katalógusikon 56 és 64 CSS px-en, névvel és kategóriacsoporttal szerepelt. Világos és sötét képernyőképeken a tetők, 90°/180°/háromkarú fokmenetek, pihenős/húzott fordulók, csiga, betonformák, betonacél és átló láthatóságát ellenőriztem. Az ideiglenes route build előtt eltávolítva. |
+| Kategória × viewport × téma | PASS, DOM-MÉRT ÉS KÉPERNYŐKÉPPEL ELLENŐRIZVE | A helyi `/kalkulatorok` oldalon 3 kategória × 1440/1024/768/390/320 px × világos/sötét = 30 állapot. Minden állapotban `documentElement.scrollWidth === innerWidth`, nincs felirat-túlcsordulás; a látható opciók száma 6/17/10. SVG-szélességek 56/56/56/46,8/44 px; minimum sormagasság desktopon 69 px, tablet/mobilon 61,6 px. |
+| Keresés és kiválasztás | PASS, BÖNGÉSZŐS SMOKE | 320 px-es sötét témán a „betongyűrű” keresés egy `concrete.ring` találatot adott. A látható opció kiválasztása után a főpanel címe „Betongyűrű” lett. A mobilválasztó összecsukható, megnyitás után a 17 sor a saját listájában gördül. |
+| Témakontraszt / érintési méret | PASS, CSS VIEWPORT-EMULÁCIÓ | A 33 ikon mindkét témában szemrevételezve. A listaelemek legalább 61,6 px; a `320 px` nézet screenshotján az alkalmazás sorai nem lógtak ki oldalra. A fejlesztői Next.js jelvény a lokális dev-képernyőn látható volt; ez nem termék-UI. Fizikai érintés, pinch és képernyőolvasó-audit nem futott. |
+| Typecheck / módosított fájlok lintje / production build / whitespace | PASS | `npm run typecheck` PASS; `npx eslint src/features/calculators/construction-thumbnails.tsx src/features/calculators/construction-thumbnails.test.tsx src/features/calculators/construction-visuals.tsx` PASS; `npm run build` PASS tiszta `.next` könyvtárú izolált munkafán (Next.js 16.4.0 webpack, 30 statikus oldal, audit route nélkül); `git diff --check` PASS. |
+| Teljes repós lint | FAIL, VÁLTOZATLAN SEGÉDSZKRIPTEK | `npm run lint` 286 hibával megállt a módosítatlan `.agents/` és `.claude/` segédszkripteken (`no-undef`, CommonJS-import és unused-vars); a mérföldkő érintett TS-fájljain célzott ESLint PASS. |
+| DB/Auth/adatjogosultság | NEM ÉRINTETT | Nincs domainmotor, tartós adatírás, szervezeti scope, Auth/RLS, adatbázis vagy üzleti workflow-változás; DB/Auth teszt nem releváns. |
+
+
+## F9.38.5 — Geometriahű kalkulátorikonok
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| 33 ikon katalóguslefedettsége és geometriája | PASS, CÉLZOTT VITEST | `npx vitest run src/features/calculators/construction-thumbnails.test.tsx src/features/calculators/calculator-navigation.test.ts --reporter=dot` — 2 fájl / 6 teszt PASS. Mind a 6 tető, 17 lépcső és 10 beton/alapozás SVG-je megjelenik közös, aránytartó viewBoxban. Külön ellenőrzés védi a tetőváltozatok egyediségét, a landing/winder párok megkülönböztetését, a zárt/nyitott egyenes lépcsőt és a csigalépcső sugaras jelét. |
+| 48/64 px vizuális összehasonlító lap | PASS, HELYI KÉPERNYŐKÉP | Ideiglenes auditoldalon mind a 33 ikon névvel, 48 és 64 px-en; tető, lépcső és beton csoportok egymás mellett ellenőrizve. Az auditoldal eltávolítva, nem része a buildnek. |
+| Kategória × viewport × téma | PASS, HELYI BÖNGÉSZŐ, VIZUÁLIS | A `/kalkulatorok` oldalon mindhárom kategória és mindkét téma 1440/768/390/320 CSS px-en ténylegesen megnyitva és képernyőképen átnézve (24 állapot). 1440 px-en oldalsávos lista; a 768/390/320 nézetekben az összecsukható választó nyitott listája is ellenőrizve. Képernyőképeken vízszintes túlcsordulás vagy levágott SVG nem látszott; ez vizuális ellenőrzés, nem DOM-szélesség-mérés. |
+| Feliratok és érintési célok | PASS, CSS + KÉPERNYŐKÉP | A kategóriafülek és opciósorok címkéi a mobilképeken olvashatók/tördelődnek. Az opciósor minimum magassága CSS szerint `3.85rem` (61,6 px); fizikai érintőkészülék és tap/pinch mérés nem futott. |
+| Typecheck / lint / production build / whitespace | PASS | `npm run typecheck`; `npm run lint`; `npm run build` — Next.js 16.4.0 webpack, 30 statikus oldal; `git diff --check`. A build útvonal-listája nem tartalmazza az ideiglenes `/icon-audit` route-ot. |
+| DB/Auth/workflow | NEM ÉRINTETT | Nincs kalkulációs motor-, adatbázis-, hitelesítési, jogosultsági, tartósadat- vagy üzletiworkflow-változás. |
+| Fizikai eszköz / screen reader | NEM FUTOTT | A mobilellenőrzés CSS viewport-emuláció és képernyőkép-alapú; fizikai eszköz és manuális képernyőolvasó-audit nem történt. |
+
+## F9.38.4 — Prémium minimalista műszaki ikonfinomítás
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Mind a 33 ikon és a közös vizuális nyelv | PASS, CÉLZOTT VITEST | npx vitest run src/features/calculators/construction-thumbnails.test.tsx src/features/calculators/calculator-navigation.test.ts --reporter=dot — 2 fájl / 5 teszt PASS. A teszt a 6/17/10 katalóguslefedettség mellett a közös viewBoxot, kategóriát, nem üres geometriát, semleges főgeometria- és narancs accent-osztályt ellenőrzi. |
+| 48/64 px összehasonlító lap | PASS, VIZUÁLIS | Ideiglenes helyi auditoldalon 66 render: mind a 33 ikon 48 és 64 px-en. Világos és sötét témában ellenőrizve; az auditoldal a vizsgálat után eltávolítva. |
+| Reszponzív kategória- és témamátrix | PASS, HELYI BÖNGÉSZŐ | 3 kategória × 1440/768/390/320 px × 2 téma = 24 mért állapot. Ikonszélesség 52/45,6/46,8/44 px, látható geometria 71–91%, minden rajzelem az SVG-kereten belül; dokumentumszintű vízszintes overflow nincs. |
+| Képernyőképes vizuális ellenőrzés | PASS, HELYI BÖNGÉSZŐ | 1440 és 320 px-en mindhárom kategória, mindkét téma; 768 és 390 px-en témánként reprezentatív kategória. Felirat, spacing, kijelölt állapot, ikonkontraszt és mobil lista szemrevételezve. |
+| Érintési célok | PASS, MÉRT VIEWPORT | Opciókártya legalább 61,6 px, mobilváltó 59,2 px, kategóriafül legalább 46,4 px. Fizikai touch/pinch nem futott. |
+| Typecheck / lint / production build | PASS | npm run typecheck; npm run lint; npm run build — Next.js 16.4.0 webpack, 30 statikus oldal. |
+| Whitespace | PASS | git diff --check — végső dokumentáció után újrafuttatva. |
+| DB/Auth/workflow | NEM ÉRINTETT | Nincs kalkulációs, tartósadat-, adatbázis-, jogosultsági vagy üzletiworkflow-módosítás. |
+| Fizikai eszköz / screen reader | NEM FUTOTT | A mobilvizsgálat böngészős CSS viewport-emuláció; fizikai készülék és manuális képernyőolvasó-audit nincs. |
+
+## F9.38.3 — Profi kalkulátorválasztó-ikonok
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| A 33 kalkulátor SVG-illusztrációja | PASS, CÉLZOTT VITEST | `npx vitest run src/features/calculators/construction-thumbnails.test.tsx src/features/calculators/calculator-navigation.test.ts --reporter=dot` — 2 fájl / 5 teszt PASS. A 6 tető, 17 lépcső és 10 beton/alapozás katalógusazonosítót, kategóriát, aránytartó viewBox-ot és részletes, nem üres SVG-rajzot ellenőrzi. |
+| Típushelyes kiválasztás | PASS, HELYI BÖNGÉSZŐ | 1440 px-en mind a 33 kalkulátort kiválasztottam világos és sötét témában. Mind a 66 esetben a kiválasztott ikon ID-je, az `aria-pressed` állapot és a kalkulátor címe egyezett. |
+| Reszponzív megjelenés és téma | PASS, HELYI BÖNGÉSZŐ | 3 kategória × 1440/1024/768/390/320 px × 2 téma = 30 viewport-kategória-téma mérés. Ikonszélesség 52/45,6/45,6/46,8/44 px; képarány eltérése legfeljebb 0,0002; rajzgeometria az SVG dobozán belül; felirat 16 px; opciókártya legalább 61,6 px, mobilváltó 59,2 px, kategóriafül legalább 46,4 px; oldalirányú overflow nincs. A képernyőképeket mindhárom kategóriánál 1440, 768, 390 és 320 px-en, mindkét témában szemrevételeztem. 1024 px-en DOM-mérés történt. |
+| Typecheck / lint / production build | PASS | `npm run typecheck`; `npm run lint`; `npm run build` — Next.js 16.4.0 webpack, 30 statikus oldal. |
+| Whitespace | PASS | `git diff --check` — végső módosítás után. |
+| DB/Auth/workflow | NEM ÉRINTETT | Nincs számítási motor-, adatbázis-, hitelesítési, tartósadat- vagy üzletiworkflow-módosítás. |
+| Fizikai eszköz / screen reader | NEM FUTOTT | CSS viewport-emuláció és böngészős kiválasztás történt; fizikai érintéskészülék és képernyőolvasó nem. |
+
+## F9.38.2 — Kalkulátorikonok és reszponzív választó
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Roof/stair/concrete SVG-bélyegképek | PASS, CÉLZOTT VITEST | `npx vitest run src/features/calculators/construction-thumbnails.test.tsx` — 1 fájl / 3 teszt PASS; mind a 6 tető, 17 lépcső, valamint 9 beton + 1 segéd ikonján ellenőrzi a közös viewBox-ot és a nem üres rajzgeometriát. |
+| Sötét téma, desktop/tablet/mobil | PASS, HELYI BÖNGÉSZŐ | 1440/1024/768/390/320 px mindhárom kategóriával. Ikonszélesség 52/45,6/45,6/46,8/44 px; arány 1,10. Kártyák minimum 62 px magasak, feliratok nem lógnak ki, vízszintes overflow nincs. |
+| Világos téma, desktop/tablet/mobil | PASS, HELYI BÖNGÉSZŐ | Ugyanaz a 15 kategória × viewport kombináció. A 1440 és 320 px kategóriaképernyőket szemrevételeztem. SVG-klippelés, torzulás vagy vízszintes overflow nem látszott. |
+| Tap target és mobilválasztó | PASS, MÉRT VIEWPORT | Kategóriafülek legalább 46 px, opciókártyák legalább 62 px, mobil kalkulátorváltó 60 px magas. Fizikai érintéskészülék és pinch nem futott. |
+| Typecheck / lint / production build / diff | PASS | `npm run typecheck`; `npm run lint`; `npm run build` — Next.js 16.4.0 webpack, 30 statikus oldal; `git diff --check`. |
+| DB/Auth/workflow | NEM ÉRINTETT | Nincs adatbázis-, hitelesítési, számítási motor-, workflow- vagy tartós adatmódosítás. |
+
 ## F9.38.1 — Bemenetek és műszaki rajzok
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

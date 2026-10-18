@@ -1,5 +1,74 @@
 # F9.38 — Staircase & Concrete Calculator Completion Report
 
+## F9.38.6 — Zhitov-referenciaszellemű 2.5D bélyegképek
+
+**Státusz:** `IMPLEMENTED; FOCUSED TESTS, TYPECHECK, TARGETED ESLINT AND ISOLATED PRODUCTION BUILD PASS`. A teljes repós lint nem zöld: 286 előzetes hiba maradt a módosítatlan `.agents/` és `.claude/` segédszkriptekben; az érintett TypeScript-fájlokra célzott ESLint sikeres. A felhasználói képernyőkép a szín- és rajzi hangulatot adta; a saját 33 SVG-geometria nincs harmadik féltől másolva. Minden kalkulátorikon közös műszaki szürke kontúrt, szürke térbeli lapokat és visszafogott sárga felső felületet használ világos/sötét témában.
+
+- **Vetület:** a lépcsőfordulók korábbi sík felülnézete axonometrikus, foklap/fellépő oldalakat megmutató 2.5D vetületté változott. A 90° L-, 180° U- és háromkarú alaprajzi lábnyom, fordulás, karok sorrendje és az egyetlen összefüggő pihenőfelület megmaradt. A húzott forduló egyedi ékfelületek sorát használja. Az egyenes fa/fém lépcsőn az oldalsó emelkedés és zárt/nyitott/fűrészfogas jel külön olvasható.
+- **Tető:** a nyeregtetőn két sík és gerinc, a félnyeregnél egy sík, a manzárdnál két lejtés és törés, a kontynál négy sík és véges gerinc maradt; a rácsos tartó sekély mélységet kapott. A szarufa egyetlen ferde elemet és vágásjelzést mutat.
+- **Beton/alap:** a sávalap, cölöp, lemez, gyűrű, térkő, épületsáv, keverő és háló sziluettje megmaradt a közös palettára hangolva. A betonacél rudak és a derékszögű átló segédmodell térbeli oldalfelületet kapott.
+- **Méretezés/választó:** 56×51 arány és a meglévő 6/17/10 katalógus azonosítók megmaradtak. Mobil választó gördíthető maradt; sem kalkulátorkeresés, sem űrlap, sem motor nem változott.
+
+| Katalógusazonosító | F9.38.6 geometriai státusz | Rövid megjegyzés |
+| --- | --- | --- |
+| `roof.rafter` | MEGTARTOTT | Ferde szarufagerenda és vágási jel |
+| `roof.gable` | MEGTARTOTT | Két tetősík és közös gerinc |
+| `roof.shed` | MEGTARTOTT | Egyetlen lejtős tetősík |
+| `roof.mansard` | MEGTARTOTT | Két lejtés, látható törés |
+| `roof.hip` | MEGTARTOTT | Véges gerinc és négy sík |
+| `roof.truss` | FINOMÍTOTT | Szekunder térbeli mélység a háromszögű váznak |
+| `stair.wood.closed_straight` | FINOMÍTOTT | Emelkedő fokok és tömör zárt oldal |
+| `stair.wood.open_straight` | FINOMÍTOTT | Emelkedő fokok és nyitott tartóvonal |
+| `stair.wood.90_landing` | FINOMÍTOTT | 2.5D L-karok, összefüggő pihenő |
+| `stair.wood.90_winder` | FINOMÍTOTT | L-karok és külön húzott fordulófokok |
+| `stair.wood.180_landing` | FINOMÍTOTT | 2.5D visszatérő karok, egy pihenő |
+| `stair.wood.180_winder` | FINOMÍTOTT | Visszatérő karok és sugárirányú húzott fokok |
+| `stair.wood.three_landing` | FINOMÍTOTT | Három kar, két külön pihenő |
+| `stair.wood.three_winder` | FINOMÍTOTT | Három kar, két külön húzott forduló |
+| `stair.wood.spiral` | FINOMÍTOTT | Nyolc szinteltolt sugárirányú fok |
+| `stair.metal.straight` | FINOMÍTOTT | Emelkedő 2.5D fémfokok |
+| `stair.metal.zigzag` | FINOMÍTOTT | Emelkedő fokok és fűrészfogas jel |
+| `stair.metal.90_landing` | FINOMÍTOTT | L-karok, pihenő; tartómodell nélkül |
+| `stair.metal.90_zigzag` | MEGTARTOTT | Ugyanaz a számított L-kar/pihenő lábnyom |
+| `stair.metal.180_landing` | FINOMÍTOTT | Visszatérő karok és pihenő |
+| `stair.metal.180_zigzag` | MEGTARTOTT | Ugyanaz a számított visszatérő lábnyom |
+| `stair.beveled_riser` | FINOMÍTOTT | Külön térbeli ferde elem |
+| `stair.concrete_straight` | FINOMÍTOTT | Fokozott felső profilú tömör lépcsőék |
+| `concrete.strip` | MEGTARTOTT | Térbeli sávalap-szakasz |
+| `concrete.pile` | MEGTARTOTT | Hengeres cölöptestek |
+| `concrete.slab` | MEGTARTOTT | Téglalap lemez és oldalmélység |
+| `concrete.ring` | MEGTARTOTT | Üreges körhenger |
+| `concrete.paving` | MEGTARTOTT | Burkolt sík és rétegvastagság |
+| `concrete.blind_area` | MEGTARTOTT | Téglalap alakú körüljáró sáv |
+| `concrete.mix` | MEGTARTOTT | Betonkeverő tartály |
+| `concrete.rebar` | FINOMÍTOTT | Testet és sárga fényélt kapott rudak |
+| `concrete.mesh` | MEGTARTOTT | Rácsos háló és él |
+| `aux.diagonal` | JAVÍTOTT | Térbeli, derékszögű átlósegéd |
+
+**Minőségi kapu:** az ideiglenes auditoldal a katalógus valós sorrendjét használta, 56 és 64 px-es megjelenítésben mind a 33 ikont bemutatta, majd eltávolítottam. A helyi `/kalkulatorok` böngészőmátrixban 30 kategória/téma/viewport állapotot DOM-méréssel ellenőriztem; mindegyiknél nem volt vízszintes overflow vagy levágott címke. „betongyűrű” keresése egyetlen `concrete.ring` találatot adott, kiválasztása a megfelelő űrlapra váltott.
+
+**Ellenőrzések:** `npx vitest run src/features/calculators/construction-thumbnails.test.tsx src/features/calculators/calculator-navigation.test.ts --reporter=dot` — 2 fájl / 9 teszt PASS; `npm run typecheck` PASS; az érintett három TypeScript-fájl célzott `npx eslint` futása PASS; `npm run build` PASS izolált, tiszta `.next` könyvtárú másolaton (Next.js 16.4.0 webpack, 30 statikus oldal, ideiglenes audit route nélkül); `git diff --check` PASS. A teljes `npm run lint` 286 hibával megállt a változatlan `.agents/` és `.claude/` segédszkripteken.
+
+**Korlátok és határok:** a 90°/180° fűrészfogas fémlépcső katalógusában a fűrészfogas tartó nincs a számításban, ezért az ikon nem rajzol hozzá kitalált tartót. A sematikus fokszám és emelkedés nem bemeneti méretarány; az ikon nem gyártási, ergonómiai, statikai vagy szabványi terv. Nincs fizikai érintéses eszköz, pinch vagy képernyőolvasó-audit. Nincs számítási, adatbázis-, Auth/RLS, szervezeti jogosultsági, mentettadat- vagy üzletifolyamat-változás; tartós írás nem történt.
+
+Javasolt Conventional Commit: `feat(F9.38.6): unify calculator thumbnails in gray-yellow 2.5D`.
+
+
+## F9.38.5 — Geometriahű kalkulátorikonok
+
+**Állapot:** `IMPLEMENTED; VISUALLY VERIFIED IN LOCAL BROWSER`. A 33 kalkulátorválasztó ikon a meglévő SVG-komponensben maradt; a számítási motor, katalógus, adatbázis, jogosultsági útvonal és üzleti workflow nem változott.
+
+- **Tetők:** a nyeregtetőn külön tetősíkok és közös gerinc olvasható a tetőtest felett; a félnyereg egy folytonos lejtősík; a kontytető négy síkot, gerincet és kontyéleket; a manzárd mindkét oldalon két eltérő lejtést mutat. A szarufa a ferde faelemet és vágásjelet, a háromszögű tartó az öveket és belső rácsrudakat ábrázolja.
+- **Lépcsők:** a 17 katalóguselem megőrzi a saját variánskülönbségét. A fa/fém egyenes lépcsők oldalnézeti foksort és tartójelet használnak; a 90°-os L, 180°-os U és háromkarú felülnézeti elrendezések külön láthatók. A pihenő összefüggő téglalap, a húzott forduló ék alakú fokokra osztott. A csigalépcső sugaras, a ferde elem külön metszett alakú.
+- **Beton és alapozás:** a tíz meglévő sziluett – sávalap, cölöp, lemez, gyűrű, térburkolat, épület körüli sáv, keverő, betonacél, háló és átlósegéd – megmaradt. A közös kontúr- és felületstílus egyenletes vonalvastagságot, semleges árnyékolást és takarékos narancs kiemelést ad.
+- **Méret:** a 56×51 viewBox az arányt megtartja. Desktopon a lista 48–56 px-es ikonmezőt, mobilon 44–48 px-es mezőt használ. Az opciósor minimuma 61,6 px; a címkék sortörése és ikonláthatósága a kis képeken ellenőrizve.
+- **Összehasonlítás:** ideiglenes 48/64 px-es összehasonlító lapon mind a 33 ikon a nevével együtt szerepelt. A szarufa/nyereg/félnyereg/manzárd/konty és a fa/fém, pihenős/húzott, 90°/180°/háromkarú változatokat egymás mellett néztem át. A lapot a munka után eltávolítottam.
+- **Referenciák:** a rajzok a projekt [kalkulátorfedettségi mátrixában](CALCULATOR_COVERAGE_MATRIX.md) lévő Zhitov referenciaoldalak geometriai leírásából merítenek; harmadik féltől származó SVG-t vagy képet nem másoltam. A bélyegképek szemléltető ikonok, nem gyártási vagy statikai tervek.
+- **Böngésző:** helyi `/kalkulatorok`, mindhárom kategória, világos/sötét téma, 1440/768/390/320 CSS-pixel; 24 kategória-téma-viewport állapot képernyőképen átnézve. Vizuálisan nem látszott oldalirányú overflow, torzulás vagy SVG-levágás. Ez nem DOM-szélesség-mérés. Fizikai eszköz, érintés/pinch és képernyőolvasó-audit nem futott.
+- **Ellenőrzés:** célzott teszt 2 fájl / 6 teszt PASS; typecheck, lint, production build (30 statikus oldal) és `git diff --check` PASS. Részletes parancsok és korlátok: [F9.38.5 tesztmátrix](TEST_MATRIX.md#f9385--geometriahu-kalkulatorikonok).
+
+Javasolt Conventional Commit: `feat(F9.38.5): restore geometry in calculator icons`.
+
 **Állapot:** `PARTIAL` — mind a 27 meglévő kalkulátort áttekintettem és a biztonságosan levezethető eredményeket, rajzviselkedést, illetve eredményhierarchiát továbbfejlesztettem. A feladat teljes Zhitov-funkcióparitása, minden variáns invalid-input browser mátrixa, mobil/tablet viewportok és tervi/gyártási megfelelőség nem bizonyított, ezért a milestone nem `COMPLETE`.
 
 ## Megvalósított scope
@@ -138,3 +207,47 @@ Az alábbi tábla a korábbi F9.38 checklist aktuális input/rajz állapotát í
 - Nem releváns / nem érintett: adatbázis-, Auth/RLS-, szervezeti jogosultság-, snapshot- és konkurenciaviselkedés; nincs tartós adatírás vagy backend-módosítás. Commit, push, hosted módosítás és deploy nem történt.
 
 Javasolt Conventional Commit: `feat(F9.38.1): simplify calculator inputs and redraw technical SVGs`.
+
+## F9.38.2 — Reszponzív kalkulátorikonok
+
+Státusz: **IMPLEMENTÁLVA ÉS A HELYI BÖNGÉSZŐS MÉRETMÁTRIXBAN ELLENŐRIZVE.**
+
+- **Gyökérok:** az általános `.construction-suite-options button > svg` CSS-szabály 1rem-re (16 px) szorította a közös SVG-t desktopon. A mobil szabály ezt 2,5rem-re növelte, így a méretezés kategóriánként és töréspontonként eltért. A meglévő `64×54` viewBox a rajzot már megfelelően tartalmazta, ezért a kis méret oka a külső CSS-felülírás volt; a kisebb belső margójú viewBox a látható geometriát tovább növeli.
+- **Módosítás:** a közös lista-ikon a sidebar oszlopszélességéhez igazodó 44–52 px szélességet kapott, `56:51` viewBox-aránnyal. A vonalstílus és eredeti SVG-geometria megmaradt, a viewBox `4 3 56 51` lett, így a szélső szakaszok nem vágódnak. A kártyamagasság legalább 62 px; mobilon a kategóriák gombja és a kiválasztó feliratai olvashatók maradtak.
+- **Kategóriák:** roof 6/6, staircase 17/17, concrete/foundation 10/10 (9 betonreferencia és 1 átlósegéd) ugyanazt a komponenst és méretszabályt használja.
+- **Böngésző:** helyi `/kalkulatorok` oldal, Chromium-alapú Codex in-app browser viewport emulációja. Mind a 15 kategória × szélesség kombináció (`3×5`) sötét és világos témában futott: 1440, 1024, 768, 390 és 320 CSS px. Mért SVG-szélesség sorrendben: 52, 45,6, 45,6, 46,8 és 44 px; mindenhol 1,10 tényleges szélesség/magasság arány. A kártyák minimum 62 px magasak, a mobil váltógomb 60 px, a kategóriafülek 46 px. A feliratok nem lógtak ki, és a dokumentum vízszintes túlcsordulása mind a 30 kombinációban hamis volt. A 1440 és 320 px kategóriaképernyők mindkét témában szemrevételezve; torzulás vagy SVG-vágás nem látszott.
+- **Ellenőrzések:** a célzott thumbnail teszt, typecheck, lint, production build és `git diff --check` végleges eredménye a [F9.38.2 tesztmátrixban](TEST_MATRIX.md#f9382--kalkulatorikonok-es-reszponziv-valaszto) szerepel.
+- **Korlátok és adatkonzisztencia:** fizikai mobilérintést, pinch-zoomot és képernyőolvasós manuális auditot nem futtattam. Az SVG-ket eredeti komponensekből használja újra; domain-/alkalmazási motor, tartós adat, DB/Auth/RLS, szervezeti jogosultság és business workflow nem változott.
+
+Javasolt Conventional Commit: `fix(F9.38.2): enlarge responsive calculator selector icons`.
+
+## F9.38.3 — Profi kalkulátorválasztó-ikonok
+
+Státusz: **IMPLEMENTÁLVA ÉS HELYI BÖNGÉSZŐBEN ELLENŐRIZVE; fizikai mobil- és képernyőolvasó-teszt nélkül.**
+
+- **Korábbi állapot:** a tető-, lépcső- és beton/alapozás-választó egyetlen közös SVG-komponensből épült. A F9.38.2-ben beállított, aránytartó 44–52 px-es méretezés a kis, sematikus geometriát is csak felnagyította; a tetőtípusok, fa/fém lépcsők, pihenő/húzott fokok, fordulók és alapozási variánsok több esetben nehezen különültek el.
+- **Új SVG-k:** a [construction-thumbnails.tsx](../src/features/calculators/construction-thumbnails.tsx) fájlban a közös komponens megőrzi a katalógus-ID-kat, és mind a 33 tételhez saját, könnyű vektoros illusztrációt készít. A 56×51 viewBox és az explicit `xMidYMid meet` aránytartó illesztés közös maradt; a tényleges rajzelemek a megadott kereten belül vannak. A témafüggő kitöltések TetőPro-paletta-tokenekből épülnek, SVG-szűrő és külső asset nélkül.
+- **Tetők (6):** nyeregtető, félnyeregtető, manzárd- és kontytető térbeli síkjai megkülönböztethetők; a szarufán vágási/irányjelölés, a háromszögű faszerkezetnél övrudak, rácsrudak és kötőlemezek jelennek meg.
+- **Lépcsők (17):** külön rajz tartozik az egyenes nyitott/zárt tartóhoz, a 90°/180°-os pihenős és húzott fordulókhoz, a háromkarú változatokhoz, csigalépcsőhöz, fűrészfogas fém tartókhoz, ferde lépcsőelemhez és betonlépcsőhöz. A fa és acél felületek eltérő kék/lila, illetve fa/narancs árnyalatot és körvonalat kapnak.
+- **Beton/alapozás (10):** sávalap, cölöp, lemez, betongyűrű, térburkolat, épület körüli beton sáv, keverő, betonacél, hegesztett háló és derékszögű átló saját formával jelenik meg; a föld, beton, betonacél és kiegészítő geometria eltérő színt kap.
+- **Böngészős kiválasztás:** a helyi `/kalkulatorok` oldalon mind a 33 opciót egyenként kiválasztottam 1440 px-en világos és sötét témában. Mind a 66 esetben az ikon `data-calculator-icon` ID-je, az egyetlen aktív `aria-pressed` gomb és a kalkulátor címe egyezett.
+- **Reszponzív ellenőrzés:** a Chromium-alapú Codex in-app browserben mindhárom kategóriát és mindkét témát ellenőriztem 1440/1024/768/390/320 CSS px szélességeken. Ez összesen 30 kategória×viewport×téma mérés; mindegyikben 6/17/10 külön ikon jelent meg. Az ikonkeretek szélessége 52/45,6/45,6/46,8/44 px, aránytartási eltérésük legfeljebb 0,0002. A rajzelemek tényleges böngésző-befoglaló téglalapja a bélyegkép keretén belül maradt; a címkék nem lógtak ki, a dokumentum vízszintes túlcsordulása mind a 30 esetben nulla volt, az opciókártyák legalább 61,6 px, a mobilváltó 59,2 px, a kategóriafülek legalább 46,4 px magasak voltak. A képernyőképeket mindhárom kategóriánál 1440, 768, 390 és 320 px-en, mindkét témában áttekintettem. A 1024 px-es nézetet DOM-méréssel ellenőriztem.
+- **Teszt és build:** `npx vitest run src/features/calculators/construction-thumbnails.test.tsx src/features/calculators/calculator-navigation.test.ts --reporter=dot` — 2 fájl / 5 teszt PASS; `npm run typecheck` PASS; `npm run lint` PASS; `npm run build` PASS, Next.js 16.4.0 webpack, 30 statikus oldal. A végső whitespace-check eredménye a [tesztmátrixban](TEST_MATRIX.md#f9383--profi-kalkulatorvalaszto-ikonok) szerepel.
+- **Korlátok és adatkonzisztencia:** fizikai telefonos érintést, pinch-zoomot és screen reader auditot nem végeztem. Az ikonok sematikus választó-illusztrációk, nem gyártási vagy statikai tervek. A kalkulátor-katalógus, kereső, kiválasztó viselkedés, domain motor, üzleti folyamat, Auth, szervezeti jogosultság, adatbázis és tartós adat nem változott.
+
+Javasolt Conventional Commit: `feat(F9.38.3): redesign calculator selector SVG icons`.
+
+## F9.38.4 — Prémium minimalista műszaki ikonfinomítás
+
+Státusz: **COMPLETE A KÉRT KÓD-, AUTOMATIZÁLT ÉS EMULÁLT BÖNGÉSZŐS HATÁRON; fizikai mobil és képernyőolvasó nélkül.**
+
+- **Dizájnrendszer:** mind a 33 SVG egy közös „Premium Minimal Technical 2.5D” nyelvet használ. A fő kontúr világos témában grafit, sötét témában lágy világosszürke; a másodlagos sík semleges felületkitöltés. A TetőPro meleg narancs csak gerincet, menetirányt, vágási élt vagy fontos szerkezeti élt emel ki. Nincs zöld, türkiz, lila, gradiens, glow, filter, Canvas vagy új grafikai függőség.
+- **Tetők (6/6):** a négy tetőforma kevés, nagy tetősíkkal és eltérő gerinc/él sziluettel jelenik meg. A szarufa egy gerendát és vágási helyet, a háromszögű tartó a külső övet és a szükséges rácsvonalakat mutatja.
+- **Lépcsők (17/17):** a 90°-os, 180°-os és háromkarú változatok tiszta alaprajzi L/U/háromkarú formák. A pihenő tömör semleges mező, a húzott forduló osztott háromszög/fan; az egyenes zárt, nyitott, fém, fűrészfogas, csiga-, ferde elem- és betonlépcső eltérő profilú. A fém tartók kettős/csomópontos vagy szaggatott külső szerkezeti jelet kapnak, további szín nélkül.
+- **Beton/alapozás (10/10):** a sávalap, cölöpök, alaplemez, gyűrű, burkolat, épület körüli sáv, keverőedény, bordás rudak, ortogonális háló és derékszögű háromszög egyszerűsített, de különálló sziluett.
+- **Konzisztencia:** az ideiglenes összehasonlító lapon 48 és 64 px-en, mindkét témában mind a 33 ikon egymás mellett szerepelt. A finomítás után a rajzok közös kontúrvastagságot, lekerekített vonalvéget és 56×51 artboardot használnak; a látható geometria vízszintesen 71–91%-ot foglal.
+- **Desktop/mobil:** a helyi /kalkulatorok oldalon 1440, 768, 390 és 320 px-en, mindhárom kategóriában és mindkét témában 24 DOM-mérés futott. Nincs klippelés, torzulás vagy vízszintes overflow; az ikon 52/45,6/46,8/44 px, a kártya legalább 61,6 px, a mobilváltó 59,2 px, a kategóriafül legalább 46,4 px. Tényleges képernyőképet 1440 és 320 px-en mindhárom kategóriánál, 768 és 390 px-en reprezentatív kategóriáknál ellenőriztem mindkét témában.
+- **Tesztek:** fókuszált Vitest 2 fájl / 5 teszt PASS; typecheck PASS; lint PASS; production build PASS (Next.js 16.4.0 webpack, 30 statikus oldal); végső git diff --check PASS.
+- **Korlátok:** fizikai telefon/tablet, touch/pinch és manuális screen-reader audit nem futott. A böngésző viewport-emulációja valódi renderellenőrzés, de nem fizikai eszközteszt. A számítások, üzleti adatok, perzisztencia, Auth/RLS és adatbázis változatlanok.
+
+Javasolt Conventional Commit: `refactor(F9.38.4): refine calculator icons into minimal two-tone system`.

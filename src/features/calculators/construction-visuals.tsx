@@ -11,13 +11,6 @@ import { createStraightStairDrawingGeometry, type BeveledRiserDrawingGeometry, t
 import { clampDrawingZoom, clientPointToViewBox, drawingInitialViewport, fitDrawingViewport, panViewport, pinchViewport, rebasePanGesture, type ViewportPoint } from "@/features/roof-models/drawing-viewport";
 
 const VIEWBOX = { width: 1000, height: 560 } as const;
-const STAIR_IDS = new Set([
-  "stair.wood.closed_straight", "stair.wood.open_straight", "stair.wood.90_landing", "stair.wood.90_winder",
-  "stair.wood.180_landing", "stair.wood.180_winder", "stair.wood.three_landing", "stair.wood.three_winder",
-  "stair.wood.spiral", "stair.metal.straight", "stair.metal.zigzag", "stair.metal.90_landing",
-  "stair.metal.90_zigzag", "stair.metal.180_landing", "stair.metal.180_zigzag", "stair.beveled_riser",
-  "stair.concrete_straight",
-]);
 
 function n(values: Readonly<Record<string, string>>, key: string) {
   const value = Number((values[key] ?? "").replace(",", "."));
@@ -877,76 +870,4 @@ function InteractiveStairDrawing({ model, focusedDimension, onDimensionSelect, i
   </section>;
 }
 
-function stairProfileIcon(id: string) {
-  const stairs = (x: number, y: number, count: number, width: number, rise: number, fill: boolean) => {
-    const points = [`${x},${y + count * rise}`];
-    for (let i = 0; i < count; i++) points.push(`${x + i * width},${y + (count - i) * rise}`, `${x + (i + 1) * width},${y + (count - i) * rise}`);
-    return <><polyline points={points.join(" ")} /><line x1={x - 2} y1={y + count * rise + 3} x2={x + count * width + 4} y2={y - 2} className={fill ? "construction-icon-stringer" : "construction-icon-dash"} /></>;
-  };
-  const stairPlan = (turn: 90 | 180, winder: boolean, metal = false, three = false) => {
-    const treadClass = metal ? "construction-icon-metal-tread" : "construction-icon-tread";
-    if (turn === 90 && !three) return <>
-      <g className={treadClass}>{Array.from({ length: 5 }, (_, i) => <rect key={`a${i}`} x={7 + i * 9} y="31" width="8" height="7" />)}{Array.from({ length: 4 }, (_, i) => <rect key={`b${i}`} x="43" y={22 - i * 7} width="7" height="6" />)}</g>
-      {winder ? <><path className="construction-icon-winder" d="M43 31 L51 31 L51 23 Z M43 31 L43 23 L51 23 Z M43 31 L35 31 L43 23 Z" /><path d="M6 40 H43 V15 H53" /></> : <><rect className="construction-icon-landing" x="43" y="24" width="10" height="14" /><path d="M6 40 H43 V14" /></>}
-    </>;
-    if (turn === 180 && !three) return <>
-      <g className={treadClass}>{Array.from({ length: 5 }, (_, i) => <rect key={`a${i}`} x="17" y={7 + i * 7} width="7" height="6" />)}{Array.from({ length: 5 }, (_, i) => <rect key={`b${i}`} x="47" y={7 + i * 7} width="7" height="6" />)}</g>
-      {winder ? <><path className="construction-icon-winder" d="M24 40 L32 40 L32 32 Z M32 40 L40 40 L32 32 Z M40 40 L47 40 L40 32 Z" /><path d="M17 6 V40 H47 V6" /></> : <><rect className="construction-icon-landing" x="24" y="39" width="23" height="9" /><path d="M17 6 V39 H47 V6" /></>}
-    </>;
-    return <>
-      <g className={treadClass}>{Array.from({ length: 4 }, (_, i) => <rect key={`a${i}`} x="6" y={33 - i * 7} width="7" height="6" />)}{Array.from({ length: 4 }, (_, i) => <rect key={`b${i}`} x={22 + i * 7} y="8" width="6" height="7" />)}{Array.from({ length: 4 }, (_, i) => <rect key={`c${i}`} x="50" y={18 + i * 7} width="7" height="6" />)}</g>
-      {winder ? <><path className="construction-icon-winder" d="M14 12 L22 12 L22 20 Z M22 12 L30 12 L30 20 Z M43 16 L50 16 L43 23 Z" /><path d="M5 35 H18 V12 H50 V38" /></> : <><rect className="construction-icon-landing" x="14" y="10" width="9" height="25" /><rect className="construction-icon-landing" x="40" y="13" width="10" height="25" /><path d="M5 35 H18 V10 H45 V38" /></>}
-    </>;
-  };
-
-  if (id === "stair.wood.90_landing") return stairPlan(90, false);
-  if (id === "stair.wood.90_winder") return stairPlan(90, true);
-  if (id === "stair.metal.90_landing") return stairPlan(90, false, true);
-  if (id === "stair.metal.90_zigzag") return <>{stairPlan(90, false, true)}<path className="construction-icon-zigzag" d="M8 42 L15 38 L22 42 L29 38 L36 42 L43 38 L48 31 L52 26 L48 21 L52 16" /></>;
-  if (id === "stair.wood.180_landing") return stairPlan(180, false);
-  if (id === "stair.wood.180_winder") return stairPlan(180, true);
-  if (id === "stair.metal.180_landing") return stairPlan(180, false, true);
-  if (id === "stair.metal.180_zigzag") return <>{stairPlan(180, false, true)}<path className="construction-icon-zigzag" d="M17 6 L22 10 L17 14 L22 18 L17 22 L22 26 L17 30 L22 35 L32 35 L38 40 L32 44 L38 48" /></>;
-  if (id === "stair.wood.three_landing") return stairPlan(90, false, false, true);
-  if (id === "stair.wood.three_winder") return stairPlan(90, true, false, true);
-  if (id === "stair.wood.spiral") return <><circle cx="32" cy="27" r="19" /><circle cx="32" cy="27" r="5" />{Array.from({ length: 8 }, (_, i) => <line key={i} x1="32" y1="27" x2={32 + 19 * Math.cos(i * Math.PI / 4)} y2={27 + 19 * Math.sin(i * Math.PI / 4)} />)}</>;
-  if (id === "stair.beveled_riser") return <><path className="construction-icon-tread" d="M12 10 H36 V18 H25 L50 38 H15 Z" /><path d="M25 18 L15 38" /></>;
-  if (id === "stair.concrete_straight") return <><path className="construction-icon-concrete" d="M8 41 V34 H18 V27 H28 V20 H38 V13 H48 V6 H58 V46 H8 Z" /></>;
-  if (id === "stair.metal.straight") return <>{stairs(7, 7, 5, 9, 7, false)}<path className="construction-icon-zigzag" d="M7 47 L16 40 L25 33 L34 26 L43 19 L52 12" /></>;
-  if (id === "stair.metal.zigzag") return <>{stairs(7, 7, 5, 9, 7, false)}<path className="construction-icon-zigzag" d="M7 45 L7 40 L16 40 L16 33 L25 33 L25 26 L34 26 L34 19 L43 19 L43 12 L52 12" /></>;
-  if (id === "stair.wood.open_straight") return stairs(7, 7, 5, 9, 7, false);
-  return stairs(7, 7, 5, 9, 7, true);
-}
-
-function concreteIcon(id: string) {
-  if (id === "concrete.strip") return <><path className="construction-icon-concrete" d="M10 10 H54 V44 H10 Z" /><path d="M17 17 H47 V37 H17 Z" /><path className="construction-icon-tread" d="M10 10 H54 V17 H10 Z M10 37 H54 V44 H10 Z M10 17 H17 V37 H10 Z M47 17 H54 V37 H47 Z" /></>;
-  if (id === "concrete.pile") return <>{[17, 32, 47].map((x) => <g key={x}><ellipse className="construction-icon-tread" cx={x} cy="13" rx="6" ry="3" /><path className="construction-icon-concrete" d={`M ${x - 6} 13 V40 Q ${x} 46 ${x + 6} 40 V13 Z`} /></g>)}</>;
-  if (id === "concrete.slab") return <><path className="construction-icon-concrete" d="M9 17 L32 7 L55 17 L32 27 Z" /><path d="M9 17 V39 L32 50 V27 M55 17 V39 L32 50" /><path className="construction-icon-tread" d="M9 33 L32 43 L55 33 V40 L32 51 L9 40 Z" /></>;
-  if (id === "concrete.ring") return <><ellipse className="construction-icon-concrete" cx="32" cy="20" rx="21" ry="8" /><path d="M11 20 V37 C11 42 20 47 32 47 S53 42 53 37 V20" /><ellipse cx="32" cy="20" rx="10" ry="4" /></>;
-  if (id === "concrete.paving") return <><rect className="construction-icon-concrete" x="9" y="8" width="46" height="38" />{[1, 2].map((row) => <line key={`r${row}`} x1="9" y1={8 + row * 12.7} x2="55" y2={8 + row * 12.7} />)}{[1, 2, 3].map((col) => <line key={`c${col}`} x1={9 + col * 11.5} y1="8" x2={9 + col * 11.5} y2="46" />)}<line x1="14" y1="8" x2="14" y2="46" /></>;
-  if (id === "concrete.blind_area") return <><rect className="construction-icon-band" x="8" y="7" width="48" height="40" rx="2" /><path className="construction-icon-concrete" d="M18 17 H46 V37 H18 Z" /><path d="M23 17 V11 H40 V17 M32 28 V37" /></>;
-  if (id === "concrete.mix") return <><path className="construction-icon-concrete" d="M19 16 H46 L43 38 Q32 47 21 38 Z" /><path className="construction-icon-tread" d="M18 16 L11 10 L16 6 L27 15 M46 16 L55 10 L51 6 L40 15" /><path d="M23 40 L18 48 M41 40 L46 48 M15 49 H49" /></>;
-  if (id === "concrete.rebar") return <><path className="construction-icon-rebar" d="M13 42 L44 11 M8 35 L37 6 M24 48 L54 18 M12 12 L43 43 M7 19 L36 48 M20 6 L52 38" /><path className="construction-icon-rib" d="M16 37 L19 40 M24 29 L27 32 M32 21 L35 24 M40 13 L43 16" /></>;
-  if (id === "concrete.mesh") return <><rect className="construction-icon-concrete" x="8" y="8" width="48" height="40" />{[1, 2, 3, 4, 5].map((i) => <line key={`v${i}`} x1={8 + i * 8} y1="8" x2={8 + i * 8} y2="48" />)}{[1, 2, 3].map((i) => <line key={`h${i}`} x1="8" y1={8 + i * 10} x2="56" y2={8 + i * 10} />)}</>;
-  if (id === "aux.diagonal") return <><path className="construction-icon-band" d="M11 43 H52 V10 Z" /><line className="construction-icon-diagonal" x1="11" y1="43" x2="52" y2="10" /><path d="M43 43 V34 H52" /></>;
-  return null;
-}
-
-function roofIcon(id: string) {
-  if (id === "roof.shed") return <><path className="construction-icon-roof" d="M8 38 L55 12 V40 H8 Z" /><line x1="8" y1="42" x2="55" y2="42" /></>;
-  if (id === "roof.mansard") return <><path className="construction-icon-roof" d="M8 40 L18 25 L27 20 L37 20 L46 25 L56 40 Z" /><line x1="18" y1="25" x2="46" y2="25" /></>;
-  if (id === "roof.hip") return <><path className="construction-icon-roof" d="M8 18 L32 7 L56 18 L45 25 L20 25 Z" /><path d="M8 18 V39 L20 46 V25 M56 18 V39 L45 46 V25 M20 25 L32 18 L45 25" /></>;
-  if (id === "roof.truss") return <><path d="M8 42 L32 9 L56 42 Z M8 42 H56 M20 26 H44 M20 26 L32 9 M44 26 L32 9" /><circle className="construction-icon-joint" cx="32" cy="9" r="2.5" /></>;
-  if (id === "roof.rafter") return <><path d="M9 42 H55 M18 42 L41 11 M41 11 V44 M17 42 V32 H25 M24 32 V22 H32 M32 22 V11 H41" /><line className="construction-icon-zigzag" x1="14" y1="42" x2="41" y2="11" /></>;
-  return <><path className="construction-icon-roof" d="M7 27 L32 8 L57 27 V44 H7 Z" /><path d="M7 27 H57 M32 8 V44" /></>;
-}
-
-export function ConstructionCalculatorThumbnail({ id, className = "" }: Readonly<{ id: string; className?: string }>) {
-  const stair = STAIR_IDS.has(id);
-  const roof = id.startsWith("roof.");
-  return <svg className={`construction-thumbnail ${className}`.trim()} viewBox="0 0 64 54" aria-hidden="true" focusable="false">
-    <g className="construction-icon-geometry" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">
-      {stair ? stairProfileIcon(id) : roof ? roofIcon(id) : concreteIcon(id)}
-    </g>
-  </svg>;
-}
+export { ConstructionCalculatorThumbnail } from "./construction-thumbnails";

@@ -3901,12 +3901,12 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 .construction-suite-category-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
 .construction-suite-category-tabs button { min-height: 2.9rem; border: 1px solid var(--glass-border); border-radius: .85rem; background: color-mix(in srgb, var(--surface-glass) 50%, transparent); color: var(--foreground); padding: .55rem .7rem; font: inherit; font-weight: 750; cursor: pointer; }
 .construction-suite-category-tabs button.is-active { border-color: color-mix(in srgb, var(--brand) 55%, var(--glass-border)); background: color-mix(in srgb, var(--brand) 10%, var(--surface-glass)); color: var(--brand-ink); }
-.construction-suite-layout { display: grid; grid-template-columns: minmax(14rem, .72fr) minmax(0, 1.8fr); align-items: start; gap: 1rem; min-width: 0; }
+.construction-suite-layout { display: grid; grid-template-columns: minmax(15rem, .82fr) minmax(0, 1.8fr); align-items: start; gap: 1rem; min-width: 0; }
 .construction-suite-list, .construction-suite-workspace { min-width: 0; border: 1px solid var(--glass-border); border-radius: 1.15rem; background: color-mix(in srgb, var(--surface-glass) 48%, transparent); padding: 1rem; }
 .construction-suite-list { position: sticky; top: 1rem; }
 .construction-suite-search { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .5rem; color: var(--muted); }
 .construction-suite-search input { min-width: 0; min-height: 2.8rem; border: 1px solid var(--glass-border); border-radius: .75rem; background: var(--surface-glass); color: var(--foreground); padding: .55rem .7rem; font: inherit; }
-.construction-suite-options { display: grid; gap: .35rem; max-height: 35rem; overflow-y: auto; overscroll-behavior: contain; margin-top: .75rem; }
+.construction-suite-options { display: grid; gap: .35rem; max-height: min(70vh, 42rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; margin-top: .75rem; }
 .construction-suite-options button { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .55rem; min-height: 2.8rem; border: 1px solid transparent; border-radius: .75rem; background: transparent; color: var(--foreground); padding: .55rem .65rem; font: inherit; text-align: left; cursor: pointer; }
 .construction-suite-options button:hover, .construction-suite-options button.is-active { border-color: var(--glass-border); background: var(--surface-strong); }
 .construction-suite-options button.is-active { color: var(--brand-ink); font-weight: 750; }
@@ -3967,30 +3967,182 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
 
 /* F9.24.2 original construction and staircase SVG language */
 .construction-suite-list-label { margin: 0 0 .65rem; color: var(--brand-ink); font-size: .92rem; font-weight: 800; }
-.construction-suite-options button { grid-template-columns: 3rem minmax(0, 1fr); align-items: center; min-height: 3.45rem; }
+.construction-suite-options button { grid-template-columns: minmax(3rem, 3.5rem) minmax(0, 1fr); align-items: center; gap: .75rem; min-height: 3.85rem; padding: .5rem .65rem; line-height: 1.35; }
 .construction-suite-options button:disabled { cursor: not-allowed; }
 .construction-suite-options button.is-unavailable { color: var(--muted); }
 .construction-suite-options button.is-unavailable:hover { border-color: transparent; background: transparent; }
 .construction-suite-option-copy { display: grid; gap: .15rem; min-width: 0; }
 .construction-suite-option-copy > span { overflow-wrap: anywhere; }
 .construction-suite-option-copy small { color: var(--muted); font-size: .68rem; font-weight: 600; }
-.construction-thumbnail { display: block; width: 2.75rem; height: 2.35rem; overflow: visible; color: var(--foreground); }
-.construction-icon-geometry { stroke: currentColor; }
-.construction-icon-tread { fill: color-mix(in srgb, var(--brand) 28%, var(--surface-glass)); stroke: currentColor; }
-.construction-icon-landing { fill: color-mix(in srgb, var(--brand) 12%, var(--surface-glass)); stroke: currentColor; }
-.construction-icon-winder { fill: color-mix(in srgb, var(--brand) 45%, var(--surface-glass)); stroke: currentColor; }
-.construction-icon-metal-tread { fill: color-mix(in srgb, var(--muted) 22%, var(--surface-glass)); stroke: currentColor; }
-.construction-icon-zigzag { fill: none; stroke: var(--brand-ink); stroke-width: 2.4; }
-.construction-icon-stringer { fill: none; stroke: var(--muted); stroke-width: 2.2; }
-.construction-icon-dash { fill: none; stroke: var(--muted); stroke-width: 1.4; stroke-dasharray: 2 2; }
-.construction-icon-concrete { fill: color-mix(in srgb, var(--muted) 20%, var(--surface-glass)); stroke: currentColor; }
-.construction-icon-roof { fill: color-mix(in srgb, var(--brand) 25%, var(--surface-glass)); stroke: currentColor; }
-.construction-icon-joint { fill: var(--brand); stroke: currentColor; }
-.construction-icon-band { fill: color-mix(in srgb, var(--brand) 24%, var(--surface-glass)); stroke: currentColor; }
-.construction-icon-rebar { fill: none; stroke: var(--brand-ink); stroke-width: 3; }
-.construction-icon-rib { fill: none; stroke: var(--brand); stroke-width: 2.2; }
-.construction-icon-diagonal { fill: none; stroke: var(--construction-slope); stroke-width: 2.4px; stroke-dasharray: 11 3 2 3; }
+.construction-thumbnail { display: block; width: clamp(3rem, 4vw, 3.5rem); height: auto; aspect-ratio: 56 / 51; overflow: visible; color: var(--foreground); flex: none; }
+.construction-suite-options button > svg.construction-thumbnail { width: 100%; height: auto; }
+.construction-icon-art {
+  --construction-icon-primary: color-mix(in srgb, var(--foreground) 82%, var(--muted));
+  --construction-icon-face: color-mix(in srgb, var(--surface-strong) 76%, var(--muted));
+  --construction-icon-side: color-mix(in srgb, var(--surface-glass) 58%, var(--muted));
+  --construction-icon-detail: color-mix(in srgb, var(--foreground) 46%, var(--muted));
+  --construction-icon-yellow: #efd270;
+  --construction-icon-yellow-side: #c59d3b;
+  --construction-icon-yellow-line: #9a7426;
+  fill: none;
+  stroke: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+html[data-theme="dark"] .construction-icon-art {
+  --construction-icon-primary: color-mix(in srgb, var(--foreground) 82%, var(--muted));
+  --construction-icon-face: color-mix(in srgb, var(--surface-glass) 65%, var(--muted));
+  --construction-icon-side: color-mix(in srgb, var(--surface-glass) 40%, var(--foreground));
+  --construction-icon-detail: color-mix(in srgb, var(--foreground) 54%, var(--muted));
+  --construction-icon-yellow: #c99f45;
+  --construction-icon-yellow-side: #98752e;
+  --construction-icon-yellow-line: #e0bd66;
+}
+.construction-icon-art :is(path, rect, circle, ellipse, line, polygon) { vector-effect: non-scaling-stroke; }
+.construction-icon-art .construction-icon-line { fill: none; stroke: var(--construction-icon-primary); stroke-width: 1.4; }
+.construction-icon-art .construction-icon-muted-line,
+.construction-icon-art .construction-icon-detail { fill: none; stroke: var(--construction-icon-detail); stroke-width: 1; }
+.construction-icon-art .construction-icon-heavy { stroke-width: 1.8; }
+.construction-icon-art .construction-icon-accent-line,
+.construction-icon-art .construction-icon-angle { fill: none; stroke: var(--construction-icon-yellow-line); stroke-width: 1.45; }
+.construction-icon-art .construction-icon-accent-fill,
+.construction-icon-art .construction-icon-surface,
+.construction-icon-art .construction-icon-step-top,
+.construction-icon-art .construction-icon-landing-surface,
+.construction-icon-art .construction-icon-wood-beam,
+.construction-icon-art .construction-icon-truss-timber,
+.construction-icon-art .construction-icon-spiral-tread,
+.construction-icon-art .construction-icon-pile-cap,
+.construction-icon-art .construction-icon-ring-top,
+.construction-icon-art .construction-icon-paver,
+.construction-icon-art .construction-icon-mesh-plane,
+.construction-icon-art .construction-icon-square-fill { fill: var(--construction-icon-yellow); stroke: var(--construction-icon-primary); stroke-width: 1.05; }
+.construction-icon-art .construction-icon-side,
+.construction-icon-art .construction-icon-stair-body,
+.construction-icon-art .construction-icon-step-riser,
+.construction-icon-art .construction-icon-spiral-post,
+.construction-icon-art .construction-icon-spiral-post-side,
+.construction-icon-art .construction-icon-concrete-face,
+.construction-icon-art .construction-icon-pile-side,
+.construction-icon-art .construction-icon-ring-side,
+.construction-icon-art .construction-icon-mixer-drum,
+.construction-icon-art .construction-icon-steel-riser { fill: var(--construction-icon-face); stroke: var(--construction-icon-primary); stroke-width: 1.05; }
+.construction-icon-art .construction-icon-roof-plane-a,
+.construction-icon-art .construction-icon-mansard-low { fill: var(--construction-icon-yellow); }
+.construction-icon-art .construction-icon-roof-plane-b,
+.construction-icon-art .construction-icon-mansard-high,
+.construction-icon-art .construction-icon-wall-face,
+.construction-icon-art .construction-icon-gable-face { fill: var(--construction-icon-face); }
+.construction-icon-art .construction-icon-roof-plane-c,
+.construction-icon-art .construction-icon-roof-plane-d,
+.construction-icon-art .construction-icon-wall-side,
+.construction-icon-art .construction-icon-gable-side,
+.construction-icon-art .construction-icon-wood-beam-side,
+.construction-icon-art .construction-icon-concrete-side,
+.construction-icon-art .construction-icon-ground-side,
+.construction-icon-art .construction-icon-paving-side,
+.construction-icon-art .construction-icon-ring-side { fill: var(--construction-icon-side); }
+.construction-icon-art .construction-icon-roof-plane,
+.construction-icon-art .construction-icon-mansard-face { stroke: var(--construction-icon-primary); stroke-width: 1.05; }
+.construction-icon-art .construction-icon-roof-edge,
+.construction-icon-art .construction-icon-roof-detail,
+.construction-icon-art .construction-icon-rafter-cut,
+.construction-icon-art .construction-icon-truss-web,
+.construction-icon-art .construction-icon-joint-plate,
+.construction-icon-art .construction-icon-bolt,
+.construction-icon-art .construction-icon-joint,
+.construction-icon-art .construction-icon-stair-edge,
+.construction-icon-art .construction-icon-spiral-outer,
+.construction-icon-art .construction-icon-spiral-rail,
+.construction-icon-art .construction-icon-wood-grain,
+.construction-icon-art .construction-icon-concrete-edge,
+.construction-icon-art .construction-icon-concrete-grain,
+.construction-icon-art .construction-icon-soil-hatch,
+.construction-icon-art .construction-icon-ground-hatch,
+.construction-icon-art .construction-icon-pile-highlight,
+.construction-icon-art .construction-icon-slab-edge,
+.construction-icon-art .construction-icon-ring-inner,
+.construction-icon-art .construction-icon-ring-highlight,
+.construction-icon-art .construction-icon-paver-edge,
+.construction-icon-art .construction-icon-apron-edge,
+.construction-icon-art .construction-icon-wall-edge,
+.construction-icon-art .construction-icon-drain,
+.construction-icon-art .construction-icon-mixer-frame,
+.construction-icon-art .construction-icon-mixer-axle,
+.construction-icon-art .construction-icon-mesh-edge,
+.construction-icon-art .construction-icon-mesh-rim,
+.construction-icon-art .construction-icon-mesh-wire,
+.construction-icon-art .construction-icon-triangle-edge,
+.construction-icon-art .construction-icon-angle-square,
+.construction-icon-art .construction-icon-leg-detail { fill: none; stroke: var(--construction-icon-primary); stroke-width: 1.05; }
+.construction-icon-art .construction-icon-roof-ridge,
+.construction-icon-art .construction-icon-mansard-break,
+.construction-icon-art .construction-icon-joint,
+.construction-icon-art .construction-icon-rafter-cut,
+.construction-icon-art .construction-icon-wood-riser,
+.construction-icon-art .construction-icon-pile-cap,
+.construction-icon-art .construction-icon-ring-highlight,
+.construction-icon-art .construction-icon-mix-surface,
+.construction-icon-art .construction-icon-diagonal-fill { stroke: var(--construction-icon-yellow-line); }
+.construction-icon-art .construction-icon-roof-ridge,
+.construction-icon-art .construction-icon-mansard-break { fill: none; stroke-width: 1.65; }
+.construction-icon-art .construction-icon-truss-web { stroke-width: 1.35; }
+.construction-icon-art .construction-icon-rafter-cut { stroke-width: 1.4; }
+.construction-icon-art .construction-icon-step-top { stroke-width: .85; }
+.construction-icon-art .construction-icon-step-riser { stroke-width: .75; }
+.construction-icon-art .construction-icon-step-top.is-alternate,
+.construction-icon-art .construction-icon-metal-step,
+.construction-icon-art .construction-icon-wood-beam-side,
+.construction-icon-art .construction-icon-pile-cap { fill: var(--construction-icon-yellow-side); }
+.construction-icon-art .construction-icon-winder-step .construction-icon-step-top { fill: var(--construction-icon-yellow); }
+.construction-icon-art .construction-icon-landing-surface { fill: var(--construction-icon-yellow); stroke-width: .9; }
+.construction-icon-art .construction-icon-stair-stringer,
+.construction-icon-art .construction-icon-metal-cue,
+.construction-icon-art .construction-icon-zigzag-stringer,
+.construction-icon-art .construction-icon-steel-rib,
+.construction-icon-art .construction-icon-rafters,
+.construction-icon-art .construction-icon-sawtooth { fill: none; stroke: var(--construction-icon-primary); stroke-width: 1.8; }
+.construction-icon-art .construction-icon-zigzag-stringer { stroke-width: 1.15; }
+.construction-icon-art .construction-icon-closed-stringer,
+.construction-icon-art .construction-icon-open-stringer,
+.construction-icon-art .construction-icon-wood-bed,
+.construction-icon-art .construction-icon-steel-bed { fill: var(--construction-icon-side); stroke: var(--construction-icon-primary); }
+.construction-icon-art .construction-icon-winder-face,
+.construction-icon-art .construction-icon-flight-bed,
+.construction-icon-art .construction-icon-spiral-shadow { fill: var(--construction-icon-face); stroke: var(--construction-icon-primary); }
+.construction-icon-art .construction-icon-cutout,
+.construction-icon-art .construction-icon-ring-hole { fill: var(--background); stroke: var(--construction-icon-primary); }
+.construction-icon-art .construction-icon-node,
+.construction-icon-art .construction-icon-solid,
+.construction-icon-art .construction-icon-joint { fill: var(--construction-icon-yellow-side); stroke: var(--construction-icon-primary); }
+.construction-icon-art .construction-icon-mansard-light { fill: var(--construction-icon-yellow); stroke: none; }
+.construction-icon-art .construction-icon-mansard-dark { fill: var(--construction-icon-side); stroke: none; }
+.construction-icon-art .construction-icon-paving-bed,
+.construction-icon-art .construction-icon-ground { fill: var(--construction-icon-face); stroke: var(--construction-icon-primary); }
+.construction-icon-art .construction-icon-apron { fill: var(--construction-icon-yellow); stroke: var(--construction-icon-primary); }
+.construction-icon-art .construction-icon-mixer-rim,
+.construction-icon-art .construction-icon-mix-surface,
+.construction-icon-art .construction-icon-aggregate { fill: var(--construction-icon-yellow-side); stroke: var(--construction-icon-primary); }
+.construction-icon-art .construction-icon-diagonal-fill { fill: none; stroke-width: 3; }
+.construction-icon-art .construction-icon-triangle-edge { stroke-width: 1.35; }
+.construction-suite-options button.is-active .construction-icon-accent-line { stroke-width: 1.8; }
+.construction-suite-options button:disabled .construction-icon-art { opacity: .56; }
 .construction-suite-mobile-picker { display: none; }
+
+/* F9.38.6 — shared 2.5D geometry-specific thumbnail marks. */
+.construction-icon-art .construction-icon-roof-edge { stroke-width: 1.35; }
+.construction-icon-art .construction-icon-roof-plane-b { fill: var(--construction-icon-face); }
+.construction-icon-art .construction-icon-roof-plane-c { fill: var(--construction-icon-yellow-side); }
+.construction-icon-art .construction-icon-roof-plane-d { fill: var(--construction-icon-side); }
+.construction-icon-art .construction-icon-spiral-tread { stroke-width: .8; }
+.construction-icon-art .construction-icon-spiral-post,
+.construction-icon-art .construction-icon-spiral-post-side { fill: var(--construction-icon-side); stroke-width: .75; }
+.construction-icon-art .construction-icon-spiral-post-side { fill: var(--construction-icon-face); }
+.construction-icon-art .construction-icon-truss-depth,
+.construction-icon-art .construction-icon-diagonal-side { fill: var(--construction-icon-side); stroke: var(--construction-icon-primary); stroke-width: .9; }
+.construction-icon-art .construction-icon-diagonal-face { fill: var(--construction-icon-yellow); stroke: var(--construction-icon-primary); stroke-width: 1.05; }
+.construction-icon-art .construction-icon-rebar { fill: none; stroke: var(--construction-icon-primary); stroke-width: 2.4; stroke-linecap: round; }
+.construction-icon-art .construction-icon-rebar-highlight { fill: none; stroke: var(--construction-icon-yellow-line); stroke-width: .75; stroke-linecap: round; }
 
 .construction-stair-drawing { display: grid; gap: .65rem; min-width: 0; border: 1px solid var(--glass-border); border-radius: 1rem; background: color-mix(in srgb, var(--surface-glass) 38%, transparent); padding: .75rem; }
 .construction-stair-drawing-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
@@ -4154,8 +4306,8 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
   .construction-suite-mobile-trigger strong { overflow-wrap: anywhere; font-size: .88rem; }
   .construction-suite-mobile-trigger > svg:last-child { transition: transform .16s ease; }
   .construction-suite-mobile-trigger > svg:last-child.is-open { transform: rotate(180deg); }
-  .construction-suite-mobile-options { display: grid; gap: .35rem; border: 1px solid var(--glass-border); border-radius: .9rem; background: color-mix(in srgb, var(--surface-glass) 65%, var(--background)); padding: .65rem; }
-  .construction-suite-mobile-options .construction-suite-options { max-height: none; overflow: visible; grid-template-columns: minmax(0, 1fr); margin-top: .2rem; }
+  .construction-suite-mobile-options { position: relative; z-index: 21; display: grid; gap: .35rem; border: 1px solid var(--glass-border); border-radius: .9rem; background: var(--background); padding: .65rem; }
+  .construction-suite-mobile-options .construction-suite-options { max-height: min(58vh, 34rem); overflow-y: auto; grid-template-columns: minmax(0, 1fr); margin-top: .2rem; }
 }
 @media (max-width: 560px) {
   .construction-stair-drawing { border-radius: .9rem; padding: .6rem; }
@@ -4164,8 +4316,7 @@ html[data-glass-frame-free="true"] .tp-liquid-glass-effect { display: none; }
   .construction-stair-toolbar { flex-wrap: wrap; }
   .construction-stair-toolbar .drawing-toolbar-hint { display: none; }
   .construction-stair-svg { height: 16.5rem; }
-  .construction-suite-options button { grid-template-columns: 2.8rem minmax(0, 1fr); }
-  .construction-thumbnail { width: 2.5rem; }
+  .construction-suite-options button { grid-template-columns: clamp(2.75rem, 12vw, 3rem) minmax(0, 1fr); min-height: 3.85rem; gap: .65rem; }
 }
 @media (max-width: 390px) {
   .construction-stair-svg .stair-dimension-line + text,
