@@ -9,17 +9,15 @@ select ok((select has_column_privilege('authenticated', 'public.execution_photos
 select ok(exists(select 1 from pg_policies where policyname = 'execution_photos_member_category_update'), 'category update policy exists');
 
 set local role postgres;
-with selected as (
-  select p.id as plan_id, p.project_id, t.id as task_id, j.id as journal_id
-  from public.execution_plans p
-  join public.execution_tasks t on t.plan_id = p.id
-  join public.execution_journal_entries j on j.plan_id = p.id
-  where p.organization_id = '00000000-0000-4000-8000-000000000010'
-  limit 1
-)
+-- Saját DEMO fixture a tranzakción belül (nem támaszkodik korábbi adatra).
+insert into public.execution_plans (id, organization_id, project_id, title, created_by)
+values ('00000000-0000-4000-8000-000000000721', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', 'DEMO kategóriás terv', '00000000-0000-4000-8000-000000000001');
+insert into public.execution_tasks (id, organization_id, plan_id, title, created_by)
+values ('00000000-0000-4000-8000-000000000722', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000721', 'DEMO kategóriás feladat', '00000000-0000-4000-8000-000000000001');
+insert into public.execution_journal_entries (id, organization_id, plan_id, task_id, work_date, content, created_by)
+values ('00000000-0000-4000-8000-000000000723', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000721', '00000000-0000-4000-8000-000000000722', '2026-10-12', 'DEMO kategóriás naplóbejegyzés', '00000000-0000-4000-8000-000000000001');
 insert into public.execution_photos (id, organization_id, project_id, plan_id, task_id, journal_entry_id, object_key, display_filename, mime_type, file_size, caption, uploaded_by, request_key)
-select '00000000-0000-4000-8000-000000000720', '00000000-0000-4000-8000-000000000010', project_id, plan_id, task_id, journal_id, '00000000-0000-4000-8000-000000000010/' || project_id || '/' || plan_id || '/00000000-0000-4000-8000-000000000720.png', 'DEMO kategorizálható fénykép.png', 'image/png', 1024, 'DEMO kategória teszt', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000720'
-from selected;
+values ('00000000-0000-4000-8000-000000000720', '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000030', '00000000-0000-4000-8000-000000000721', '00000000-0000-4000-8000-000000000722', '00000000-0000-4000-8000-000000000723', '00000000-0000-4000-8000-000000000010/00000000-0000-4000-8000-000000000030/00000000-0000-4000-8000-000000000721/00000000-0000-4000-8000-000000000720.png', 'DEMO kategorizálható fénykép.png', 'image/png', 1024, 'DEMO kategória teszt', '00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000720');
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
 select ok(public.set_execution_photo_category('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000720', 'before'), 'valid category update succeeds');

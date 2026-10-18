@@ -74,9 +74,9 @@ select throws_ok($$update public.field_survey_roof_geometry_sources set combined
 select throws_ok($$delete from public.field_survey_roof_geometry_sources$$, '55000', null, 'a recorded source cannot be deleted');
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
-select is((select count(*)::int from public.field_survey_roof_geometry_sources), 1, 'the creator reads the source');
+select is((select count(*)::int from public.field_survey_roof_geometry_sources where survey_id=current_setting('test.survey')::uuid), 1, 'the creator reads the source');
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
-select is((select count(*)::int from public.field_survey_roof_geometry_sources), 0, 'another member does not see a creator-scoped source');
+select is((select count(*)::int from public.field_survey_roof_geometry_sources where survey_id=current_setting('test.survey')::uuid), 0, 'another member does not see a creator-scoped source');
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001', true);
 
 -- Material list from the verified area, no roof model, project or work log.

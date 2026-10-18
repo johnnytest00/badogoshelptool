@@ -77,6 +77,37 @@ describe("buildSurveyMaterialSource", () => {
     });
   });
 
+  describe("independent roof geometry for non-gable shapes (F9.42.7)", () => {
+    const hipId = "00000000-0000-4000-8000-000000000208";
+    const hipRevision = () => revision({ workType: "roof", sections: [{ id: hipId, name: "DEMO kontytető", workType: "roof", roofType: "hip", notes: "", photoIds: [], measurements: [
+      { id: "00000000-0000-4000-8000-000000000320", label: "hossz", value: 12000, unit: "mm", semanticType: "roof_outer_length" },
+      { id: "00000000-0000-4000-8000-000000000321", label: "szélesség", value: 8000, unit: "mm", semanticType: "roof_outer_width" },
+      { id: "00000000-0000-4000-8000-000000000322", label: "hajlás", value: 35, unit: "degree", semanticType: "roof_pitch" },
+    ] }] });
+    const survey = { id: "00000000-0000-4000-8000-000000000204", version: 2 };
+
+    it("reports a complete hip (kontytető) section without a recorded area as pending", () => {
+      const source = buildSurveyMaterialSource(survey, hipRevision(), []);
+      expect(source.suggestions).toEqual([]);
+      expect(source.geometryPending).toBe(true);
+    });
+
+    it("offers the recorded hip area and stops reporting it pending once recorded", () => {
+      const source = buildSurveyMaterialSource(survey, hipRevision(), [], [{ id: "00000000-0000-4000-8000-000000000209", sectionId: hipId, surveyRevisionId: "00000000-0000-4000-8000-000000000203", combinedRoofM2: 123.456789123456 }]);
+      expect(source.geometryPending).toBe(false);
+      expect(source.suggestions).toHaveLength(1);
+      expect(source.suggestions[0]).toMatchObject({ quantity: "123.456789", unit: "square_meter", materialCategory: "roof_covering", quantityKind: "calculated",
+        sourceRef: { type: "surveyGeometry", sectionId: hipId, geometrySourceId: "00000000-0000-4000-8000-000000000209" } });
+    });
+
+    it("does not flag an incomplete hip section as pending", () => {
+      const incomplete = revision({ workType: "roof", sections: [{ id: hipId, name: "DEMO kontytető", workType: "roof", roofType: "hip", notes: "", photoIds: [], measurements: [
+        { id: "00000000-0000-4000-8000-000000000320", label: "hossz", value: 12000, unit: "mm", semanticType: "roof_outer_length" },
+      ] }] });
+      expect(buildSurveyMaterialSource(survey, incomplete, []).geometryPending).toBe(false);
+    });
+  });
+
   it("builds a bounded default list name that names the source version", () => {
     expect(defaultSurveyMaterialListName({ surveyName: "DEMO eresz", surveyVersion: 2 })).toBe("DEMO eresz · V2 anyaglista");
     expect(defaultSurveyMaterialListName({ surveyName: "x".repeat(300), surveyVersion: 1 })).toHaveLength(120);

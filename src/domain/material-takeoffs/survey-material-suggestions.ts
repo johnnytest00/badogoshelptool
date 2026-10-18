@@ -144,7 +144,7 @@ export function deriveSurveyMaterialSuggestions(
             sourceRef: { type: "surveyGeometry", sectionId: section.id, geometrySourceId: geometry.id },
           });
         } else {
-          unavailable.push(`${section.name}: nincs ehhez a felmérésrevízióhoz rögzített, ellenőrzött tetőgeometria (teljes, érvényes nyeregtető-méretek szükségesek). Fedési darabszámot vagy ráhagyást nem becslünk.`);
+          unavailable.push(`${section.name}: nincs ehhez a felmérésrevízióhoz rögzített, ellenőrzött tetőgeometria (a kiválasztott tetőforma teljes, érvényes méretei szükségesek). Fedési darabszámot vagy ráhagyást nem becslünk.`);
         }
       }
     }

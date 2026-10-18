@@ -1,4 +1,5 @@
 import { gableGeometryFromSurveySection } from "@/domain/field-surveys/gable-section-geometry";
+import { multiRoofGeometryFromSurveySection } from "@/domain/field-surveys/multi-roof-section-geometry";
 import { surveySections, type SurveyCalculationLink, type SurveyRoofGeometrySource } from "@/domain/field-surveys/workspace";
 import { deriveSurveyMaterialSuggestions, type SurveyMaterialSuggestion } from "@/domain/material-takeoffs/survey-material-suggestions";
 import type { FieldSurveyRevisionRecord } from "@/features/field-surveys/field-survey-data";
@@ -13,7 +14,7 @@ export type SurveyMaterialSource = Readonly<{
   stale: boolean;
   suggestions: readonly SurveyMaterialSuggestion[];
   unavailable: readonly string[];
-  /** Roof sections with complete valid gable geometry whose verified area is not yet recorded for this revision. */
+  /** Roof sections with complete valid geometry (any supported roof type) whose verified area is not yet recorded for this revision. */
   geometryPending: boolean;
 }>;
 
@@ -34,7 +35,8 @@ export function buildSurveyMaterialSource(
   }, calculations.filter((link) => link.surveyRevisionId === revision.id), geometrySources.filter((item) => item.surveyRevisionId === revision.id));
   const covered = new Set(derived.suggestions.filter((item) => item.materialCategory === "roof_covering").map((item) => item.sectionId));
   const geometryPending = sections.some((section) => section.workType === "roof" && !covered.has(section.id)
-    && gableGeometryFromSurveySection({ surveyId: revision.surveyId, id: revision.id, version: revision.version }, section) !== null);
+    && (gableGeometryFromSurveySection({ surveyId: revision.surveyId, id: revision.id, version: revision.version }, section) !== null
+      || multiRoofGeometryFromSurveySection(section) !== null));
   return {
     surveyId: survey.id,
     surveyRevisionId: revision.id,
