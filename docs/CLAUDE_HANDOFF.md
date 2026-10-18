@@ -12,6 +12,7 @@ A repó működő, moduláris Next.js alkalmazást, lokális Supabase-adatmodell
 
 ## B. Elkészült fázisok és mérföldkövek
 
+- **F9.40.3 (legutóbbi):** tipográfiai tokenek (`--tp-fs-*`, `--tp-fw-*`, `--tp-lh-*`) a `globals.css` végén, skip-link a gyökér layoutban, minden `<main id="main-content">`. Nyitott: a modul-specifikus fix betűméretek migrálása tokenekre; bejelentkezett oldalak böngészős tipográfia-újramérése. Commitolva nincs.
 - A `PROJECT_BLUEPRINT.md` F0–F11 fázisterve jóváhagyott célarchitektúra. A tényleges repo több későbbi fázis funkcióit megvalósította; a blueprint tervezett elemei nem tekintendők késznek.
 - Adatbázis-alap, Auth, projektek/ügyfelek, revíziózott számítások, anyagkatalógus, anyagkimutatás, ajánlat és kivitelezés kódja/migrációja jelen van; részletek a [`DATABASE.md`](DATABASE.md) fájlban.
 - Az F9.32 helyi napi workflow riport felmérés → anyaglista → ajánlatpiszkozat → munkanapló kapcsolatokat validálta, a korábbi útvonalak korlátaival.
@@ -20,6 +21,7 @@ A repó működő, moduláris Next.js alkalmazást, lokális Supabase-adatmodell
 - F9.36.1 alátét mennyiségi alap: gable/shed/hip geometriai csíkozás és 1D vágási minimum **IMPLEMENTED**, de a vágási minimum nem beszerzési mennyiség. Többi geometria nem támogatott. Az F9.36.2 2D lemezkiosztás csak specifikáció, még nem implementáció.
 - F9.37.3 háttér és Safari `Script`-renderelési hiba: a dokumentált fókuszált ellenőrzések PASS; mobil/reduced-motion runtime teljes mátrix nincs.
 
+- F9.40.2 felmérés-szerkesztő: fotómentés igazolva (feltöltés → Mentés → újratöltés: hozzárendelés megmarad); `ensureSaved`/`saveForNavigation` figyeli a `photoAssociationPending`-et; másodlagos szakaszok csoportosítva (U6), fájlválasztó címke és 44 px célok (U11). Csak megjelenítés; célzott tesztek, typecheck, lint PASS.
 - F9.40.1 felmérés-szerkesztő UX: sticky mentési sáv (állapot + egyetlen „Mentés”), `MeasurementField` (címke fölül, egység-badge, „⋯” menü), ≥1024 px-en mezők + sticky rajz két oszlopban. Csak megjelenítés; célzott tesztek, typecheck, lint és böngészős save/reopen PASS; teljes `npm test`/build nem futott. Részletek: `PROGRESS.md` F9.40.1. A többi audit-pont (U3–U6, U9–U16) nyitott.
 
 A legfrissebb bizonyítékot mindig a [`PROGRESS.md`](PROGRESS.md) elejéről, a tesztadatot a [`TEST_MATRIX.md`](TEST_MATRIX.md) mérföldkő-szakaszaiból olvasd.

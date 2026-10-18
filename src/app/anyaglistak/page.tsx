@@ -11,11 +11,11 @@ export default async function MaterialListsPage({ searchParams }: Readonly<{ sea
   const selected = await getProjectOrganization((await searchParams).organization);
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
-  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt az anyaglistákhoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
+  if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt az anyaglistákhoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const organizationId = selected.organization.id;
   const [lists, plans] = await Promise.all([getWorkflowMaterialLists(organizationId), getExecutionPlanOptionsForOrganization(organizationId)]);
   const planNames = new Map(plans.map((plan) => [plan.id, plan.title]));
-  return <main className="dashboard-shell"><div className="dashboard-container workflow-material-lists-index">
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container workflow-material-lists-index">
     <Link className="back-link" href={`/?organization=${organizationId}`}>← Műhely áttekintése</Link>
     <GlassPageHeader title="Anyaglisták" context="Önállóan vagy munkanaplóhoz kapcsolva" actions={<><Link className="secondary-button" href={`/anyagok?organization=${organizationId}`}>Anyagkezelő</Link><Link className="primary-button" href={`/anyaglistak/uj?organization=${organizationId}`}><Plus aria-hidden="true" className="size-4" /> Új anyaglista</Link></>} />
     {lists.length ? <div className="workflow-material-list-cards">{lists.map((list) => {

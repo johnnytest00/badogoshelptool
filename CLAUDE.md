@@ -12,7 +12,20 @@ Ez a fájl a Claude Code állandó projektmemóriája. A forráskód, a tényleg
 - Üzleti vagy számítási változtatásnál ellenőrizd a vonatkozó specifikációt, domain-szerződést, aktuális kódot és adatbázis-migrációt. A tervekből ne következtess működésre.
 - Ne implementálj nem kért funkciót, ne változtass üzleti vagy szakmai szabályt jóváhagyás és ellenőrzött forrás nélkül.
 - Ne olvass be vagy írj dokumentációba `.env.local`-t, titkot, jelszót, kulcsot vagy személyes adatot. Változónevet dokumentálhatsz, értéket soha.
+EXECUTION EFFICIENCY
 
+Minimize token usage without sacrificing correctness.
+
+- Read only relevant files and code sections.
+- Use RTK where appropriate.
+- Avoid redundant tool calls and screenshots.
+- Use at most one relevant skill unless justified.
+- Batch independent inspections where practical.
+- Implement before performing browser verification.
+- Test only affected components and critical workflows.
+- Run full regression/build only when risk justifies it.
+- Keep documentation and final reports concise.
+- Do not repeat completed audits or project onboarding.
 ## A tényleges rendszer röviden
 
 - Next.js App Router, React és TypeScript; a kód a `src/` alatt van.

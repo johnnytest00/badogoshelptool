@@ -1,5 +1,16 @@
 # Tesztmátrix
 
+## F9.40.3 — Tipográfia és akadálymentesség — 2026-10-18
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Vitest | PASS | Teljes `npm test`: 141 fájl, 725 passed, 27 skipped; új skip-link statikus teszt (`layout.test.tsx`). |
+| Typecheck / lint | PASS | Build nem futott. |
+| Skip-link (böngésző, `/demo/meretezes`) | PASS | Első Tab: „Ugrás a tartalomra” a viewport tetején; Enter → `#main-content`, fókusz a `main` elemen. |
+| Címsorok (demo) | PASS | H1 → H2 sorrend, méretek tokenekből (h2 20,8 px/700). |
+| Mobil sötét (375) | PASS (szemrevételezés) | Fejléc és szöveg olvasható. |
+| Nem futott | — | Bejelentkezést igénylő oldalak (felmérés-szerkesztő) böngészős újramérése, világos mobil, képernyőolvasó, Safari, tabulátor-bejárás teljes oldalon. |
+
 ## F9.40.1 — Felmérés-szerkesztő UX — 2026-10-18
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

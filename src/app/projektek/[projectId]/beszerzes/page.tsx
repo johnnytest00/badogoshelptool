@@ -17,11 +17,11 @@ export default async function MaterialPreparationPage({ params, searchParams }: 
   const selected = await getProjectOrganization(query.organization);
   if (!selected) redirect(`/bejelentkezes?returnTo=/projektek/${projectId}/beszerzes`);
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
-  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt a beszerzési listához.</h1></section></main>;
+  if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt a beszerzési listához.</h1></section></main>;
 
   const organizationId = selected.organization.id;
   const project = await getProjectForOrganization(organizationId, projectId);
-  if (!project) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1></section></main>;
+  if (!project) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1></section></main>;
 
   const takeoffRows = await getMaterialTakeoffs(organizationId, projectId);
   const takeoffs: MaterialSourceTakeoff[] = takeoffRows.map((takeoff) => ({
@@ -38,7 +38,7 @@ export default async function MaterialPreparationPage({ params, searchParams }: 
   const lists = await getMaterialPreparationLists(organizationId, projectId, currentSourceRevisions);
   const selectedListId = lists.some((list) => list.id === query.lista) ? query.lista ?? null : null;
 
-  return <main className="dashboard-shell"><div className="dashboard-container">
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
     <Link className="back-link no-print" href={`/projektek/${projectId}?organization=${organizationId}`}>← Vissza a projekthez</Link>
     <MaterialPreparationWorkspace key={`${selectedListId ?? "new"}:${lists.find((list) => list.id === selectedListId)?.currentRevisionId ?? ""}`} organizationId={organizationId} projectId={projectId} projectName={project.name} takeoffs={takeoffs} lists={lists} selectedListId={selectedListId} />
   </div></main>;

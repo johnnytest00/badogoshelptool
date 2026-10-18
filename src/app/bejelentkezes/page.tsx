@@ -11,7 +11,7 @@ export default async function LoginPage({ searchParams }: Readonly<{ searchParam
   if (auth) redirect(returnTo);
 
   return (
-    <main className="auth-page-shell">
+    <main id="main-content" tabIndex={-1} className="auth-page-shell">
       <section className="login-card" aria-labelledby="login-title">
         <div className="auth-brand"><Image className="brand-icon" src={brandIcon} alt="" sizes="(max-width: 380px) 38px, 41px" priority /><span>TETŐPRO</span></div>
         <p className="eyebrow">Bádogos HelpTool</p>

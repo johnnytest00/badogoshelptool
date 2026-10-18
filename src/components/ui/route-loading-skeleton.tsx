@@ -1,7 +1,7 @@
 type SkeletonKind = "dashboard" | "workspace" | "list" | "form";
 
 export function RouteLoadingSkeleton({ label = "Az oldal", kind = "workspace" }: Readonly<{ label?: string; kind?: SkeletonKind }>) {
-  return <main className="dashboard-shell glass-route-loading" aria-busy="true">
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell glass-route-loading" aria-busy="true">
     <div className="dashboard-container">
       <p className="sr-only" role="status" aria-live="polite">{label} betöltése folyamatban…</p>
       <div className="route-skeleton-heading" aria-hidden="true"><i /><i /><i /></div>

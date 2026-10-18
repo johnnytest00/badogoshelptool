@@ -1,5 +1,24 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## F9.40.3 — Globális tipográfia és akadálymentesség
+
+Státusz: **KÉSZ a célzott hatókörre (U4, U11 skip-link).** Csak megjelenítés/jelölés; üzleti logika, számítás, adatbázis, függőség nem változott.
+
+- **Tipográfiai tokenek** (`globals.css` vége): `--tp-fs-caption/label/body/h3/h2/h1`, `--tp-fw-*`, `--tp-lh-*`; mind `--tp-text-scale`-hez kötött, a felhasználói méretezés megmarad. Alkalmazva: oldalfejléc h1, szakaszfejléc h2, elsődleges/másodlagos gomb (14 px/700), felmérés mezőcímke (14 px/600), beírt érték (600, korábban 800), lenyíló összefoglaló, `small` (min. 13 px).
+- **Skip-link:** „Ugrás a tartalomra” a `<body>` első eleme (`layout.tsx`); 39 fájl minden `<main>`-je `id="main-content" tabIndex={-1}`.
+- **Címsorhierarchia:** az oldalak `GlassPageHeader` h1 → `GlassSectionHeader` h2 → h3 szerkezetűek; a natív `<details>` lenyílók gombként hirdetettek (összefoglaló = név, `aria-controls`), címsorrá nem alakíthatók érdemben.
+- **Ellenőrzés:** teljes `npm test` 725 PASS / 27 skipped; typecheck, lint PASS; böngészőben (demo oldal) Tab → skip-link látható, Enter → fókusz a `main`-re; mobil sötét nézet olvasható.
+
+## F9.40.2 — Felmérés-szerkesztő UX véglegesítés
+
+Státusz: **KÉSZ a célzott hatókörre (U6, U11 részben).** Csak megjelenítés; séma, Auth/RLS, számítás nem változott.
+
+- **Fotómentés:** a feltöltés azonnal tartós (API, új verzió); a szakaszhoz rendelés az egységes Mentéssel mentődik. Böngészőben igazolva: feltöltés → „Nem mentett módosítások” → Mentés → „Mentve · V3” → újratöltés után a jelölőnégyzet és a fotó megmaradt. Javítás: `ensureSaved`/`saveForNavigation` korábban kihagyta a mentést, ha csak a fotóhozzárendelés volt függőben.
+- **U6:** „További szakaszbeállítások” és „További műveletek” csoport „Opcionális” jelvénnyel; a mérések és a rajz elöl, minden funkció megmaradt.
+- **U11:** a fájlválasztónak `aria-label`; rajzvezérlők 44 px; jelölőnégyzet-címkék 44 px.
+- **Ellenőrzés:** `src/features/field-surveys`, `roof-models`, `components` 143 PASS / 15 skipped; typecheck és lint PASS; böngésző 1024 és 375 px (túlcsordulás nincs). Teljes `npm test`/build nem futott; 768/320 px és képernyőolvasó nem.
+- **Megjegyzés:** a böngészős teszt egy helyi felmérésre (f62a6eb0…) tesztfotót töltött fel (V3).
+
 ## F9.40.1 — Felmérés-szerkesztő UX (mentés, mérőmezők, rajz)
 
 Státusz: **KÉSZ a célzott hatókörre (U1, U2, U7 részben); csak megjelenítés/elrendezés.** Számítás, séma, Auth/RLS, üzleti szabály, revíziós logika nem változott.

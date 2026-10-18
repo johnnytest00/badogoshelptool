@@ -36,14 +36,14 @@ Legtöbb oldalon kompakt pirula (`.back-navigation`), az új ajánlatnál 1152 p
 Javaslat: egy `BackNavigation` komponens, szabályos felirat-minta: „← {szülő neve}”.
 
 **U4. Tipográfiai skála nem tokenizált [M].**
-Mért értékek: az ajánlat „Ártételek” h2 32 px/400-as súllyal, máshol a címsorok 700-as súlyúak; a beviteli mezők szövege 800-as súllyal (a beírt érték vizuálisan egyforma a címkével); gombok 13,1 px, `small` 12 px, a mezőcímkék a képernyőképeken ~11–12 px. Mobilon a mezők 16 px-esek (jó), asztalon ugyanez a méret és a 13 px-es gombok aránytalanok.
+_🟡 **RÉSZBEN (F9.40.3):** `--tp-fs-*`/`--tp-fw-*`/`--tp-lh-*` tokenek a `globals.css` végén; közös fejlécek, gombok, mezőcímkék, lenyílók és `small` átállítva. A modul-specifikus, kézzel írt méretek (~200 szabály) fokozatosan migrálandók._Mért értékek: az ajánlat „Ártételek” h2 32 px/400-as súllyal, máshol a címsorok 700-as súlyúak; a beviteli mezők szövege 800-as súllyal (a beírt érték vizuálisan egyforma a címkével); gombok 13,1 px, `small` 12 px, a mezőcímkék a képernyőképeken ~11–12 px. Mobilon a mezők 16 px-esek (jó), asztalon ugyanez a méret és a 13 px-es gombok aránytalanok.
 Javaslat: típus-tokenek (display/h1/h2/h3/body/label/caption), beviteli érték 500–600-as súly, címke 600; minimum 13 px tartalmi szöveg.
 
 **U5. Ismétlődő és redundáns címsorok [M].**
 Munkanapló részlet: a „Napi bejegyzések” lenyíló címe és a belső címsor azonos. Új ajánlat: „Tételek” felirat alatt „Ártételek”. A felmérés-fejlécben a „V1” verzió a cím alatti apró szövegként él.
 Javaslat: egy szint egy címke; a verzió/állapot kerüljön jelvénybe a fejlécben.
 
-**U6. Túl sok, egyforma súlyú lenyíló sor [M].**
+**U6. Túl sok, egyforma súlyú lenyíló sor [M].** — 🟢 **KÉSZ a szerkesztőre (F9.40.2):** a Név/munkatípus/sorrend, Megjegyzés és Fotók-hozzárendelés egyetlen „További szakaszbeállítások · Opcionális” csoportba került (alcímekkel, nem beágyazott panelekkel); a Tetőmodellhez mentés és Korábbi projektkapcsolat a „További műveletek · Opcionális” csoportba. A mérések, a rajz és a Mentés változatlanul elöl.
 A felmérés-szerkesztőben egy szakaszon belül ≥ 8 `<details>` (Név/munkatípus/sorrend, Tetőforma, Szarufák, Tetőfedés, Megjegyzés, Fotók, Tetőmodellhez mentés, Fotók hozzáadása, Korábbi projektkapcsolat). Mind ugyanolyan kinézetű sáv, így a felhasználó nem tudja, mi kötelező és mi opcionális.
 Javaslat [J]: kötelező lépések kinyitva, opcionálisak egy „További beállítások” csoportban; opcionális jelzés egységes jelvénnyel; tabok vagy lépésjelző a szakaszokra.
 
@@ -63,7 +63,7 @@ Javaslat: üres opcionális szekciónál „Nincs megadva” semleges jelvény; 
 Az F9.39 óta kisebb és üveg-stílusú, de 320–390 px-en tartalom fölé kerül (szöveg alatt/mellett), és az akadályfelismerés csak beviteli elemekre/gombokra figyel.
 Javaslat: a gomb költözzön a fejléc beállításai közé mobilon (ott már van méretezési csoport), vagy kerüljön a lap alján fix, helyet foglaló sávba.
 
-**U11. Akadálymentesség [M].**
+**U11. Akadálymentesség [M].** — 🟡 **RÉSZBEN (F9.40.2):** a felirat nélküli elem a rejtett fájlválasztó volt (`aria-label` + `tabIndex=-1` kapott); rajzvezérlők 44×44 px; jelölőnégyzetek 44 px magas címkében, 20 px-es dobozzal. Skip-link ✅ (F9.40.3: `Ugrás a tartalomra`, minden `main#main-content`). Lenyílók: natív `details/summary`, címsorszintet nem kapnak (gomb-szemantika).
 - Nincs „Ugrás a tartalomra” hivatkozás.
 - A felmérés-szerkesztőn 1 felirat nélküli beviteli elem.
 - Rajz-vezérlők (nagyítás, illesztés, visszaállítás) 42×38 px, a ~44 px cél alatt.

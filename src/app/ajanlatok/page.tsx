@@ -9,7 +9,7 @@ export default async function QuotationsIndexPage({ searchParams }: Readonly<{ s
   const selected = await getProjectOrganization((await searchParams).organization);
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
-  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Árajánlatok</p><h1>Válassz műhelyt a folytatáshoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
+  if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Árajánlatok</p><h1>Válassz műhelyt a folytatáshoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const organizationId = selected.organization.id;
   let projectItems: Awaited<ReturnType<typeof getGlobalProjectQuotations>>["items"] = [];
   let projectHasMore = false;
@@ -18,5 +18,5 @@ export default async function QuotationsIndexPage({ searchParams }: Readonly<{ s
     const result = await getGlobalProjectQuotations(organizationId);
     projectItems = result.items; projectHasMore = result.hasMore;
   } catch (error) { projectError = error instanceof Error ? error.message : "A projektajánlatok listája nem tölthető be."; }
-  return <main className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/?organization=${organizationId}`}>← Műhely áttekintése</Link><QuotationOverview organizationId={organizationId} projectItems={projectItems} projectHasMore={projectHasMore} projectError={projectError} /></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><Link className="back-link" href={`/?organization=${organizationId}`}>← Műhely áttekintése</Link><QuotationOverview organizationId={organizationId} projectItems={projectItems} projectHasMore={projectHasMore} projectError={projectError} /></div></main>;
 }

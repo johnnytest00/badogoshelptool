@@ -12,10 +12,10 @@ export default async function FieldSurveysPage({ searchParams }: Readonly<{ sear
   const selected = await getProjectOrganization((await searchParams).organization);
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
-  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt a felmérésekhez.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
+  if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt a felmérésekhez.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const organizationId = selected.organization.id;
   const surveys = await getFieldSurveys(organizationId);
-  return <main className="dashboard-shell"><div className="dashboard-container">
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
     <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
     <GlassPageHeader title="Felmérések" actions={<Link className="primary-button" href={`/felmeresek/uj?organization=${organizationId}`}><Plus aria-hidden="true" className="size-4" /> Új felmérés</Link>} />
     {surveys.length ? <div className="field-survey-list">{surveys.map((survey) => <Link className="field-survey-list-card" key={survey.id} href={`/felmeresek/${survey.id}?organization=${organizationId}`}>

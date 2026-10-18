@@ -44,7 +44,7 @@ export function Dashboard({ displayName, email, organizationName, organizationId
   }, [settingsOpen]);
 
   return (
-    <main className="dashboard-shell">
+    <main id="main-content" tabIndex={-1} className="dashboard-shell">
       <div className="dashboard-container">
         <div className="dashboard-navigation-wrap" ref={navigationRef}>
           <DashboardHeader displayName={displayName} email={email} organizationName={organizationName} settingsOpen={settingsOpen} onToggleSettings={() => setSettingsOpen((current) => !current)} />

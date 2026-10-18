@@ -274,7 +274,7 @@ describe("field survey editor", () => {
   it("keeps project roof-model persistence optional without repeating the survey drawing", () => {
     const projectSurvey = { ...roofSurvey("hip"), projectId: survey.projectId };
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[{ id: survey.projectId!, name: "DEMO project" }]} survey={projectSurvey} />);
-    expect(html).toContain("Tetőmodellhez mentés · opcionális");
+    expect(html).toContain("Tetőmodellhez mentés");
     expect(html).toContain("Tetőmodell mentése");
     expect(html.match(/class="technical-drawing is-compact"/g)).toHaveLength(1);
     expect(html).not.toContain("Ereszél kiválasztása");

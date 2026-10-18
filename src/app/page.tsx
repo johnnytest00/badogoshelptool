@@ -17,7 +17,7 @@ export default async function Home({ searchParams }: Readonly<{ searchParams: Pr
 
   if (!selectedOrganization) {
     return (
-      <main className="auth-state-shell">
+      <main id="main-content" tabIndex={-1} className="auth-state-shell">
         <section className="auth-state-card">
           <p className="eyebrow">Több szervezet</p>
           <h1>Válassz műhelyt a folytatáshoz.</h1>

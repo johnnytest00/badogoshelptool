@@ -23,10 +23,10 @@ export default async function MaterialTakeoffPage({ params, searchParams }: Read
   const selected = await getProjectOrganization(query.organization);
   if (!selected) redirect(`/bejelentkezes?returnTo=/projektek/${projectId}/anyagkimutatas`);
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
-  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt a kimutatáshoz.</h1></section></main>;
+  if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt a kimutatáshoz.</h1></section></main>;
   const organizationId = selected.organization.id;
   const project = await getProjectForOrganization(organizationId, projectId);
-  if (!project) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1></section></main>;
+  if (!project) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1></section></main>;
   const [calculations, takeoffs, variants, quotationWorkspace] = await Promise.all([getSavedGableCalculations(organizationId, projectId), getMaterialTakeoffs(organizationId, projectId), getTakeoffVariants(organizationId), getQuotationWorkspace(organizationId, projectId)]);
   const preparationSources: MaterialSourceTakeoff[] = takeoffs.map((takeoff) => ({
     id: takeoff.id, name: takeoff.name, status: takeoff.status, version: takeoff.version,
@@ -37,7 +37,7 @@ export default async function MaterialTakeoffPage({ params, searchParams }: Read
   const currentSourceRevisions = new Map(preparationSources.map((takeoff) => [takeoff.id, takeoff.sourceCurrentRevisionId]));
   const preparationLists = await getMaterialPreparationLists(organizationId, projectId, currentSourceRevisions);
   const draftQuotations = quotationWorkspace.quotations.filter((quote) => quote.status === "draft").map(({ id, name, version }) => ({ id, name, version }));
-  return <main className="dashboard-shell"><div className="dashboard-container">
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
     <Link className="back-link" href={`/projektek/${projectId}?organization=${organizationId}`}>← Vissza a projekthez</Link>
     <section className="project-detail-header"><div><p className="section-eyebrow">Anyagkimutatás</p><h1>{project.name}</h1><p>Mentett, a rendszer által ellenőrzött számítás alapján; a mennyiségek szakmai jóváhagyása külön feladat.</p></div></section>
     <MaterialPreparationWorkspace organizationId={organizationId} projectId={projectId} projectName={project.name} takeoffs={preparationSources} lists={preparationLists} selectedListId={null} draftQuotations={draftQuotations} />

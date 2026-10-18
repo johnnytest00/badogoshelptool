@@ -10,10 +10,10 @@ export default async function StandaloneMetalTilePage({ searchParams }: Readonly
   const selected = await getProjectOrganization(query.organization);
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
-  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt a folytatáshoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
+  if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt a folytatáshoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const saved = query.calculation ? await getGableMetalTileCovering(selected.organization.id, query.calculation) : null;
-  if (query.calculation && (!saved || saved.projectId)) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A mentett cserepeslemez-számítás nem érhető el.</h1></section></main>;
+  if (query.calculation && (!saved || saved.projectId)) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>A mentett cserepeslemez-számítás nem érhető el.</h1></section></main>;
   const requestedRevision = query.revision ? Number(query.revision) : undefined;
   const revisionNumber = Number.isInteger(requestedRevision) && requestedRevision! > 0 ? requestedRevision : undefined;
-  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/kalkulatorok?organization=${selected.organization.id}`} label="Vissza a kalkulátorokhoz" /><StandaloneGableMetalTilePreview organizationId={selected.organization.id} saved={saved} initialRevisionNumber={revisionNumber} /></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/kalkulatorok?organization=${selected.organization.id}`} label="Vissza a kalkulátorokhoz" /><StandaloneGableMetalTilePreview organizationId={selected.organization.id} saved={saved} initialRevisionNumber={revisionNumber} /></div></main>;
 }

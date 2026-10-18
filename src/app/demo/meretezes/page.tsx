@@ -13,7 +13,7 @@ export default async function ScalingDemoPage() {
   if (auth.organizations.length === 0) return <NoOrganizationAccess />;
 
   return (
-    <main className="demo-page-shell">
+    <main id="main-content" tabIndex={-1} className="demo-page-shell">
       <div className="demo-page-container">
         <Link className="back-link" href="/"><ArrowLeft aria-hidden="true" className="size-4" /> Vissza a műhelyhez</Link>
         <header className="demo-page-header"><div><p className="eyebrow">DEMO · felületméretezés</p><h1 className="demo-page-title">Méretezési műhely</h1><p className="demo-page-lead">Három független beállítással ellenőrizheted, hogyan alkalmazkodik a felület a munkamódszeredhez.</p></div><span className="demo-page-icon"><Ruler aria-hidden="true" className="size-6" /></span></header>

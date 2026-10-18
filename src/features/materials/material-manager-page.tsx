@@ -8,7 +8,7 @@ export async function MaterialManagerPage({ searchParams }: Readonly<{ searchPar
   const selected = await getProjectOrganization((await searchParams).organization);
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
-  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt az anyagkezelőhöz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
+  if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt az anyagkezelőhöz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
 
   const organizationId = selected.organization.id;
   const [products, categories, manufacturers] = await Promise.all([

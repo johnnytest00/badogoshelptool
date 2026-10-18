@@ -62,7 +62,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           dangerouslySetInnerHTML={{ __html: appearanceBootstrap }}
         />
       </head>
-      <body><PremiumGlassBackground /><ThemeProvider><LiquidGlassProvider><ScalingProvider><AppInteractionProvider>{children}<MobileFocusSupport /><ScalingBubble /></AppInteractionProvider></ScalingProvider></LiquidGlassProvider></ThemeProvider></body>
+      <body><a className="skip-link" href="#main-content">Ugrás a tartalomra</a><PremiumGlassBackground /><ThemeProvider><LiquidGlassProvider><ScalingProvider><AppInteractionProvider>{children}<MobileFocusSupport /><ScalingBubble /></AppInteractionProvider></ScalingProvider></LiquidGlassProvider></ThemeProvider></body>
     </html>
   );
 }

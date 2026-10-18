@@ -12,9 +12,9 @@ export default async function NewRoofModelPage({ params, searchParams }: Readonl
   const selected = await getProjectOrganization((await searchParams).organization);
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
-  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt a tetőmodellhez.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
+  if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt a tetőmodellhez.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const project = await getProjectForOrganization(selected.organization.id, projectId);
-  if (!project) return <main className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1><Link className="login-secondary-link" href={`/?organization=${selected.organization.id}`}>Vissza a műhelyhez</Link></section></main>;
+  if (!project) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>A projekt nem található.</h1><Link className="login-secondary-link" href={`/?organization=${selected.organization.id}`}>Vissza a műhelyhez</Link></section></main>;
   const sheetLayoutMaterials = await getSheetLayoutMaterials(selected.organization.id);
-  return <main className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${selected.organization.id}`} label="Vissza a projekthez" /><RoofCreation organizationId={selected.organization.id} projectId={projectId} sheetLayoutMaterials={sheetLayoutMaterials} /></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/projektek/${projectId}?organization=${selected.organization.id}`} label="Vissza a projekthez" /><RoofCreation organizationId={selected.organization.id} projectId={projectId} sheetLayoutMaterials={sheetLayoutMaterials} /></div></main>;
 }

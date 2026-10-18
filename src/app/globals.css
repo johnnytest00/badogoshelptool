@@ -4519,3 +4519,54 @@ html:has(.survey-savebar) { scroll-padding-top: 5rem; }
 .survey-workflow-tiles { grid-template-columns: minmax(0, 1fr); }
 .anchored-popover-content > .field-survey-measurement-tools.field-survey-measurement-tools { grid-template-columns: minmax(0, 1fr); }
 .anchored-popover-content > .field-survey-measurement-tools > .field-survey-remove { grid-column: 1; grid-row: auto; order: 99; margin-top: .25rem; }
+
+/* F9.40.2: másodlagos szakaszbeállítások egy csoportban, egységes „Opcionális” jelvény. */
+.survey-section-more > summary { display: flex; align-items: center; gap: .6rem; min-height: var(--tp-control-min, 44px); font-weight: 700; cursor: pointer; }
+.survey-optional-badge { padding: .1rem .5rem; border: 1px solid var(--tp-hairline, var(--border)); border-radius: 999px; color: var(--muted-foreground, inherit); font-size: .75rem; font-weight: 600; }
+.survey-section-more-block { display: grid; gap: var(--tp-stack-tight, .5rem); padding-block: var(--tp-stack, .85rem); }
+.survey-section-more-block + .survey-section-more-block { border-top: 1px solid var(--tp-hairline, var(--border)); }
+.survey-section-more-block h3 { margin: 0; font-size: .95rem; font-weight: 700; }
+.survey-section-more .survey-photo-choice { min-height: var(--tp-control-min, 44px); display: flex; align-items: center; gap: .6rem; }
+.survey-section-more .survey-photo-choice input { width: 1.25rem; height: 1.25rem; }
+.field-survey-editor-workspace .drawing-toolbar .drawing-toolbar-group button { min-width: 44px; min-height: 44px; }
+.field-survey-editor-workspace input[type="checkbox"] { width: 1.25rem; height: 1.25rem; }
+.field-survey-editor-workspace label:has(> input[type="checkbox"]) { min-height: 44px; display: flex; align-items: center; gap: .6rem; }
+.survey-optional-badge { flex: none; white-space: nowrap; margin-left: auto; }
+.survey-section-more > summary::after, .survey-section-more > summary::marker { flex: none; }
+
+/* F9.40.3 — typography tokens (U4) and skip link (U11). Sizes scale with the user-controlled --tp-text-scale. */
+:root {
+  --tp-fs-caption: calc(.8125rem * var(--tp-text-scale));
+  --tp-fs-label: calc(.875rem * var(--tp-text-scale));
+  --tp-fs-body: calc(1rem * var(--tp-text-scale));
+  --tp-fs-h3: calc(1.0625rem * var(--tp-text-scale));
+  --tp-fs-h2: calc(1.25rem * var(--tp-text-scale));
+  --tp-fs-h1: clamp(calc(1.5rem * var(--tp-text-scale)), calc(3vw * var(--tp-text-scale)), calc(2.125rem * var(--tp-text-scale)));
+  --tp-fw-body: 400;
+  --tp-fw-value: 600;
+  --tp-fw-label: 600;
+  --tp-fw-button: 700;
+  --tp-fw-heading: 700;
+  --tp-lh-tight: 1.2;
+  --tp-lh-body: 1.5;
+}
+:where(h1, h2, h3, h4) { font-weight: var(--tp-fw-heading); line-height: var(--tp-lh-tight); text-wrap: balance; }
+:where(small) { font-size: max(var(--tp-fs-caption), .8125rem); }
+.glass-page-header h1 { font-size: var(--tp-fs-h1); font-weight: var(--tp-fw-heading); }
+.glass-page-header-context { font-size: var(--tp-fs-caption); line-height: var(--tp-lh-body); }
+.glass-section-header h2 { font-size: var(--tp-fs-h2); font-weight: var(--tp-fw-heading); }
+.primary-button, .secondary-button { font-size: var(--tp-fs-label); font-weight: var(--tp-fw-button); line-height: 1.25; }
+.field-survey-field { font-size: var(--tp-fs-label); font-weight: var(--tp-fw-label); line-height: 1.3; }
+.field-survey-field small { font-size: var(--tp-fs-caption); }
+.field-survey-field input, .field-survey-field select, .field-survey-field textarea { font-weight: var(--tp-fw-value); }
+.glass-disclosure > summary { font-size: var(--tp-fs-label); font-weight: var(--tp-fw-button); line-height: 1.3; }
+
+.skip-link {
+  position: fixed; top: .5rem; left: .5rem; z-index: 1000; transform: translateY(-200%);
+  border: 2px solid var(--brand); border-radius: var(--radius-control); background: var(--surface-popover);
+  color: var(--foreground); padding: .7rem 1rem; min-height: 2.75rem; display: inline-flex; align-items: center;
+  font-size: var(--tp-fs-label); font-weight: var(--tp-fw-button); text-decoration: none;
+}
+.skip-link:focus, .skip-link:focus-visible { transform: none; outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+main[id="main-content"]:focus { outline: none; }
+@media (prefers-reduced-motion: reduce) { .skip-link { transition: none; } }

@@ -16,7 +16,7 @@ export default async function ExecutionPlanPage({ params, searchParams }: Readon
   const selected = await getProjectOrganization(query.organization);
   if (!selected) return null;
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
-  if (!selected.organization) return <main className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt a folytatáshoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
+  if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt a folytatáshoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const organizationId = selected.organization.id;
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(planId)) return <NotFound organizationId={organizationId} />;
   const planOption = await getExecutionPlanForOrganization(organizationId, planId);
@@ -30,7 +30,7 @@ export default async function ExecutionPlanPage({ params, searchParams }: Readon
   const plan = workspace.plans[0];
   if (!plan) return <NotFound organizationId={organizationId} />;
   const planMaterialLists = materialLists.filter((list) => list.executionPlanId === plan.id);
-  return <main className="dashboard-shell"><div className="dashboard-container">
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
     <Link className="back-link" href={`/kivitelezes?organization=${organizationId}`}>← Munkanaplók</Link>
     <GlassPageHeader title={plan.title} context="Munkanapló" />
     <ExecutionPlanning organizationId={organizationId} projectId={planOption.projectId} projectName={project?.name ?? ""} clientName={project?.clientName ?? null} location={project?.location ?? null} plans={workspace.plans} acceptedQuotations={workspace.acceptedQuotations} timelineByPlan={workspace.timelineByPlan} initialPlanId={plan.id} showHeading={false} showDescription={false} showPlanTabs={false} />
@@ -44,5 +44,5 @@ export default async function ExecutionPlanPage({ params, searchParams }: Readon
 }
 
 function NotFound({ organizationId }: Readonly<{ organizationId: string }>) {
-  return <main className="dashboard-shell"><div className="dashboard-container"><section className="empty-state"><div><h1>A munkanapló nem található</h1><p>Nincs hozzáférhető munkanapló ezzel az azonosítóval.</p><Link className="primary-button" href={`/kivitelezes?organization=${organizationId}`}>Vissza a munkanaplókhoz</Link></div></section></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><section className="empty-state"><div><h1>A munkanapló nem található</h1><p>Nincs hozzáférhető munkanapló ezzel az azonosítóval.</p><Link className="primary-button" href={`/kivitelezes?organization=${organizationId}`}>Vissza a munkanaplókhoz</Link></div></section></div></main>;
 }
