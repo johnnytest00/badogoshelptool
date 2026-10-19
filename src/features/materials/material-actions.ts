@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
-import { materialCategoryNameSchema, materialManagerProductInputSchema, materialManufacturerInputSchema, materialPriceInputSchema, materialProductInputSchema, materialVariantInputSchema, parseOptionalNumber } from "@/domain/materials/contracts";
+import { materialPriceOptionInputSchema, materialPriceOptionUpdateSchema, materialCategoryNameSchema, materialManagerProductInputSchema, materialManufacturerInputSchema, materialPriceInputSchema, materialProductInputSchema, materialVariantInputSchema, parseOptionalNumber } from "@/domain/materials/contracts";
+import { validatePriceUnit } from "@/domain/pricing";
 import { decimalToScaled, scaledToDecimal } from "@/domain/quotations/money";
 
 export type MaterialActionResult = { ok: boolean; error?: string; fieldErrors?: Record<string, string>; productId?: string; manufacturerId?: string; variantId?: string; categoryId?: string; reused?: boolean };
@@ -143,7 +144,7 @@ export async function updateMaterialVariantAction(formData: FormData): Promise<M
   if (error || !data) return { ok: false, error: "A variáns nem található vagy nem módosítható." }; refreshCatalog(data.product_id); return { ok: true, variantId: data.id, productId: data.product_id };
 }
 
-function pricePayload(formData: FormData) { const amountRaw = text(formData, "amount").replace(",", "."); return { variantId: text(formData, "variantId"), amount: amountRaw ? Number(amountRaw) : Number.NaN, purchasingUnit: text(formData, "purchasingUnit"), priceKind: text(formData, "priceKind"), priceSource: text(formData, "priceSource"), effectiveDate: text(formData, "effectiveDate"), dataProvenance: text(formData, "dataProvenance") || "user_provided", sourceName: text(formData, "sourceName"), sourceUrl: text(formData, "sourceUrl"), sourceDate: text(formData, "sourceDate"), sourceNotes: text(formData, "sourceNotes") }; }
+function pricePayload(formData: FormData) { const amountRaw = text(formData, "amount").replace(",", "."); return { variantId: text(formData, "variantId"), optionId: text(formData, "optionId") || null, amount: amountRaw ? Number(amountRaw) : Number.NaN, purchasingUnit: text(formData, "purchasingUnit"), priceKind: text(formData, "priceKind"), priceSource: text(formData, "priceSource"), effectiveDate: text(formData, "effectiveDate"), dataProvenance: text(formData, "dataProvenance") || "user_provided", sourceName: text(formData, "sourceName"), sourceUrl: text(formData, "sourceUrl"), sourceDate: text(formData, "sourceDate"), sourceNotes: text(formData, "sourceNotes") }; }
 
 export async function createMaterialPriceAction(formData: FormData): Promise<MaterialActionResult> {
   const organizationId = text(formData, "organizationId"); const access = await authorizeOrganization(organizationId); if ("error" in access) return { ok: false, error: access.error };
@@ -153,8 +154,39 @@ export async function createMaterialPriceAction(formData: FormData): Promise<Mat
   catch { return { ok: false, error: "Adj meg érvényes, legfeljebb két tizedesjegyű árat." }; }
   const supabase = await createClient(); const { data: variant } = await supabase.from("material_variants").select("id, purchasing_unit").eq("id", parsed.data.variantId).eq("organization_id", organizationId).maybeSingle();
   if (!variant) return { ok: false, error: "A variáns nem található ebben a műhelyben." };
-  if (variant.purchasing_unit !== parsed.data.purchasingUnit) return { ok: false, error: `Az ár egysége egyezzen a termék egységével (${variant.purchasing_unit}).` };
+  const unitError = validatePriceUnit(parsed.data.purchasingUnit, variant.purchasing_unit); if (unitError) return { ok: false, error: unitError };
   const priceDb = supabase as unknown as { from: (table: "material_prices") => { insert: (value: Record<string, unknown>) => { select: (columns: string) => { single: () => Promise<{ data: { id: string } | null; error: { code?: string; message?: string } | null }> } } } };
-  const { data, error } = await priceDb.from("material_prices").insert({ organization_id: organizationId, variant_id: parsed.data.variantId, amount: amountExact, currency: "HUF", purchasing_unit: parsed.data.purchasingUnit, price_kind: parsed.data.priceKind, price_source: parsed.data.priceSource || null, effective_date: parsed.data.effectiveDate, data_provenance: parsed.data.dataProvenance, source_name: parsed.data.sourceName || null, source_url: parsed.data.sourceUrl || null, source_date: dateOrNull(parsed.data.sourceDate), source_notes: parsed.data.sourceNotes || null, created_by: access.auth.userId }).select("id").single();
+  const { data, error } = await priceDb.from("material_prices").insert({ organization_id: organizationId, variant_id: parsed.data.variantId, option_id: parsed.data.optionId, amount: amountExact, currency: "HUF", purchasing_unit: parsed.data.purchasingUnit, price_kind: parsed.data.priceKind, price_source: parsed.data.priceSource || null, effective_date: parsed.data.effectiveDate, data_provenance: parsed.data.dataProvenance, source_name: parsed.data.sourceName || null, source_url: parsed.data.sourceUrl || null, source_date: dateOrNull(parsed.data.sourceDate), source_notes: parsed.data.sourceNotes || null, created_by: access.auth.userId }).select("id").single();
+  if (error?.code === "23514") return { ok: false, error: "Az ár nem menthető: az áropció archivált, másik termékhez tartozik, vagy az egység nem egyezik." };
   if (error || !data) return { ok: false, error: "Az árverzió mentése nem sikerült." }; refreshCatalog(); return { ok: true };
+}
+
+/** New named supplier line with its first price; the label is unique per variant (case-insensitive). */
+export async function createMaterialPriceOptionAction(formData: FormData): Promise<MaterialActionResult> {
+  const organizationId = text(formData, "organizationId"); const access = await authorizeOrganization(organizationId); if ("error" in access) return { ok: false, error: access.error };
+  const parsed = materialPriceOptionInputSchema.safeParse({ variantId: text(formData, "variantId"), label: text(formData, "label"), amount: text(formData, "amount"), priceKind: text(formData, "priceKind"), effectiveDate: text(formData, "effectiveDate") });
+  if (!parsed.success) return validationError(parsed.error);
+  let amountExact: string;
+  try { amountExact = scaledToDecimal(decimalToScaled(parsed.data.amount.replace(",", "."), 2), 2); }
+  catch { return { ok: false, error: "Adj meg érvényes, legfeljebb két tizedesjegyű árat." }; }
+  const supabase = await createClient(); const { data: variant } = await supabase.from("material_variants").select("id, purchasing_unit").eq("id", parsed.data.variantId).eq("organization_id", organizationId).maybeSingle();
+  if (!variant) return { ok: false, error: "A variáns nem található ebben a műhelyben." };
+  const { data: option, error: optionError } = await supabase.from("material_price_options").insert({ organization_id: organizationId, variant_id: variant.id, label: parsed.data.label, created_by: access.auth.userId }).select("id").single();
+  if (optionError?.code === "23505") return { ok: false, error: "Ilyen nevű beszállítói ár már van ennél a termékváltozatnál.", fieldErrors: { label: "Ez a név már foglalt." } };
+  if (optionError || !option) return { ok: false, error: "A beszállítói ár mentése nem sikerült." };
+  const { error } = await supabase.from("material_prices").insert({ organization_id: organizationId, variant_id: variant.id, option_id: option.id, amount: Number(amountExact), currency: "HUF", purchasing_unit: variant.purchasing_unit, price_kind: parsed.data.priceKind, effective_date: parsed.data.effectiveDate, data_provenance: "user_provided", created_by: access.auth.userId });
+  if (error) return { ok: false, error: "A beszállítói ár létrejött, de az összeg mentése nem sikerült. Add meg újra az árat." };
+  refreshCatalog(); return { ok: true, variantId: variant.id };
+}
+
+/** Rename or archive/restore a supplier line; stored price rows and old snapshots keep the label they were saved with. */
+export async function updateMaterialPriceOptionAction(formData: FormData): Promise<MaterialActionResult> {
+  const organizationId = text(formData, "organizationId"); const access = await authorizeOrganization(organizationId); if ("error" in access) return { ok: false, error: access.error };
+  const parsed = materialPriceOptionUpdateSchema.safeParse({ optionId: text(formData, "optionId"), label: text(formData, "label") || undefined, status: text(formData, "status") || undefined });
+  if (!parsed.success) return validationError(parsed.error);
+  const patch: { label?: string; status?: "active" | "archived" } = {}; if (parsed.data.label) patch.label = parsed.data.label; if (parsed.data.status) patch.status = parsed.data.status;
+  const supabase = await createClient(); const { data, error } = await supabase.from("material_price_options").update(patch).eq("id", parsed.data.optionId).eq("organization_id", organizationId).select("id").maybeSingle();
+  if (error?.code === "23505") return { ok: false, error: "Ilyen nevű beszállítói ár már van ennél a termékváltozatnál.", fieldErrors: { label: "Ez a név már foglalt." } };
+  if (error || !data) return { ok: false, error: "A beszállítói ár nem található vagy nem módosítható." };
+  refreshCatalog(); return { ok: true };
 }

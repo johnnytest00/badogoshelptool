@@ -4,7 +4,7 @@ export type ViewportBounds = Readonly<{ minX: number; minY: number; maxX: number
 export type ViewportRect = Readonly<{ left: number; top: number; width: number; height: number }>;
 export type PanGesture = Readonly<{ startPoint: ViewportPoint; startPan: ViewportPan; startZoom: number }>;
 
-export const drawingZoomBounds = { min: 0.65, max: 3 } as const;
+export const drawingZoomBounds = { min: 0.4, max: 3 } as const;
 export const drawingViewBox = { width: 1000, height: 560 } as const;
 export const drawingInitialViewport = { zoom: 1, pan: { x: 0, y: 0 } } as const;
 
@@ -62,13 +62,15 @@ export function fitDrawingViewport(bounds: ViewportBounds, viewport: Readonly<{ 
   const height = Math.max(bounds.maxY - bounds.minY, 1);
   const ratio = viewport.width / Math.max(viewport.height, 1);
   const viewBoxRatio = drawingViewBox.width / drawingViewBox.height;
-  const visibleWidth = ratio < viewBoxRatio ? drawingViewBox.height * ratio : drawingViewBox.width;
-  const visibleHeight = ratio < viewBoxRatio ? drawingViewBox.height : drawingViewBox.width / Math.max(ratio, 0.01);
+  // preserveAspectRatio "meet": the whole viewBox is always visible, and the element shows extra viewBox-space along its longer axis.
+  const visibleWidth = ratio < viewBoxRatio ? drawingViewBox.width : drawingViewBox.height * ratio;
+  const visibleHeight = ratio < viewBoxRatio ? drawingViewBox.width / Math.max(ratio, 0.01) : drawingViewBox.height;
   const safePadding = Math.max(padding, 0);
   const availableWidth = Math.max(visibleWidth - safePadding * 2, 1);
   const availableHeight = Math.max(visibleHeight - safePadding * 2, 1);
   const zoom = clampDrawingZoom(Math.min(availableWidth / width, availableHeight / height));
   const center = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
-  const pan = { x: drawingViewBox.width / 2 - center.x, y: drawingViewBox.height / 2 - center.y };
+  // The drawing transform is translate(pan) · scale(zoom) around the viewBox centre, so the centring shift is applied in scaled units.
+  const pan = { x: (drawingViewBox.width / 2 - center.x) * zoom, y: (drawingViewBox.height / 2 - center.y) * zoom };
   return Number.isFinite(zoom) && Number.isFinite(pan.x) && Number.isFinite(pan.y) ? { zoom, pan } : drawingInitialViewport;
 }

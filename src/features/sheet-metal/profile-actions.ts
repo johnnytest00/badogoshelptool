@@ -6,7 +6,7 @@ import { sheetMetalProfileCalculator, sheetMetalProfileInputSchema } from "@/dom
 import { matchProfileMaterial } from "@/domain/calculations/profile-material-compatibility";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
-import type { Json } from "@/infrastructure/supabase/database.types";
+import type { Json } from "@/infrastructure/supabase/database";
 
 export type ProfileSaveResult = { ok: boolean; error?: string; calculationId?: string; revisionId?: string; revisionNumber?: number };
 export type ProfileTransferResult = { ok: boolean; error?: string; takeoffId?: string };
@@ -59,22 +59,24 @@ export async function saveSheetMetalProfileAction(data: FormData): Promise<Profi
 }
 
 export async function createProfileTakeoffDraftAction(data: FormData): Promise<ProfileTransferResult> {
-  const organizationId = read(data, "organizationId"), projectId = read(data, "projectId");
+  const organizationId = read(data, "organizationId"), projectId = read(data, "projectId") || null;
   const calculationId = read(data, "calculationId"), revisionId = read(data, "revisionId");
   const variantId = read(data, "variantId"), requestKey = read(data, "requestKey");
   const name = read(data, "name");
-  if (![organizationId, projectId, calculationId, revisionId, variantId, requestKey].every(isUuid))
+  if (![organizationId, calculationId, revisionId, variantId, requestKey].every(isUuid) || (projectId !== null && !isUuid(projectId)))
     return { ok: false, error: "Érvénytelen projekt-, profil-, revízió-, variáns- vagy kérésazonosító." };
   if (!name || name.length > 200) return { ok: false, error: "Adj meg érvényes piszkozatnevet." };
   const auth = await getAuthContext();
   if (!auth?.organizations.some((organization) => organization.id === organizationId))
     return { ok: false, error: "Ehhez a műhelyhez nincs hozzáférésed." };
   const supabase = await createClient();
+  // projectId null = independent profile owned by the caller (no Project, no Work Log required).
+  const sourceQuery = supabase.from("calculations").select("id, current_revision_id").eq("id", calculationId)
+    .eq("organization_id", organizationId).eq("calculator_type", sheetMetalProfileCalculator.id).is("roof_model_id", null);
   const [{ data: project }, { data: source }] = await Promise.all([
-    supabase.from("projects").select("id").eq("id", projectId).eq("organization_id", organizationId).maybeSingle(),
-    supabase.from("calculations").select("id, current_revision_id").eq("id", calculationId)
-      .eq("organization_id", organizationId).eq("project_id", projectId)
-      .eq("calculator_type", sheetMetalProfileCalculator.id).is("roof_model_id", null).maybeSingle(),
+    projectId ? supabase.from("projects").select("id").eq("id", projectId).eq("organization_id", organizationId).maybeSingle() : Promise.resolve({ data: { id: null } }),
+    projectId ? sourceQuery.eq("project_id", projectId).maybeSingle()
+      : sourceQuery.is("project_id", null).eq("ownership_scope", "standalone").eq("created_by", auth.userId).maybeSingle(),
   ]);
   if (!project || source?.current_revision_id !== revisionId)
     return { ok: false, error: "A projekt vagy az aktuális mentett profilrevízió nem érhető el." };
@@ -98,16 +100,16 @@ export async function createProfileTakeoffDraftAction(data: FormData): Promise<P
     || Math.abs(area - calculated.output.materialRequirement.totalNetBlankAreaSqM) > 1e-9)
     return { ok: false, error: "A mentett profil eredménye eltér az újraszámolt értéktől." };
   const { data: result, error } = await supabase.rpc("create_profile_takeoff_draft", {
-    p_organization_id: organizationId, p_project_id: projectId, p_calculation_id: calculationId,
+    p_organization_id: organizationId, p_project_id: projectId as string, p_calculation_id: calculationId,
     p_revision_id: revisionId, p_variant_id: variantId, p_name: name, p_request_key: requestKey,
   });
   if (error || !result?.[0]) return { ok: false, error: error?.code === "42501"
-    ? "A profilhoz, projekthez vagy katalógusvariánshoz nincs hozzáférésed."
-    : error?.code === "P0002" ? "A mentett profilrevízió már nem aktuális vagy nem ehhez a projekthez tartozik."
+    ? "A profilhoz, a célhoz vagy katalógusvariánshoz nincs hozzáférésed."
+    : error?.code === "P0002" ? "A mentett profilrevízió már nem aktuális, nem átadható státuszú (pl. DEMO adatforrás) vagy nem érhető el."
     : error?.message?.includes("BA/K") || error?.message?.includes("blankterület") || error?.message?.includes("terítékszélesség")
       ? error.message : error?.message?.includes("request key") ? "A kéréskulcsot más adatokkal már felhasználták."
         : "Az átadás nem sikerült. Ellenőrizd az aktuális revíziót, a területet és a katalóguskapcsolatot." };
-  revalidatePath(`/projektek/${projectId}/anyagkimutatas`);
+  revalidatePath(projectId ? `/projektek/${projectId}/anyagkimutatas` : "/anyagkimutatasok");
   return { ok: true, takeoffId: result[0].takeoff_id };
 }
 

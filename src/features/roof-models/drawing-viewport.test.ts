@@ -3,7 +3,7 @@ import { clampDrawingZoom, clientPointToViewBox, drawingViewBox, fitDrawingViewp
 
 describe("drawing viewport", () => {
   it("keeps zoom within the approved range", () => {
-    expect(clampDrawingZoom(0)).toBe(0.65);
+    expect(clampDrawingZoom(0)).toBe(0.4);
     expect(clampDrawingZoom(1.234)).toBe(1.23);
     expect(clampDrawingZoom(9)).toBe(3);
     expect(clampDrawingZoom(Number.NaN)).toBe(1);
@@ -18,13 +18,15 @@ describe("drawing viewport", () => {
 
   it("fits a narrow viewport without distorting the drawing", () => {
     const result = fitDrawingViewport({ minX: 80, minY: 80, maxX: 920, maxY: 480 }, { width: 320, height: 700 });
-    expect(result.zoom).toBeLessThan(1);
+    // The whole viewBox stays visible on a narrow element (meet), so an 840-wide drawing fits the 1000-wide viewBox minus padding.
+    expect(result.zoom).toBeCloseTo((1000 - 64) / 840, 2);
     expect(result.pan).toEqual({ x: 0, y: 0 });
   });
 
   it("keeps fit and reset as different documented viewport states", () => {
     const fit = fitDrawingViewport({ minX: 200, minY: 120, maxX: 700, maxY: 420 }, { width: 1440, height: 900 });
-    expect(fit.pan).toEqual({ x: 50, y: 10 });
+    expect(fit.pan.x).toBeCloseTo(50 * fit.zoom, 5);
+    expect(fit.pan.y).toBeCloseTo(10 * fit.zoom, 5);
     expect(fit.zoom).toBeGreaterThan(1);
   });
 

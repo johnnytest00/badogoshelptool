@@ -1,4 +1,3 @@
-import type { GutterMaterialInput } from "@/domain/calculations/gutter-material";
 import type { FieldSurveyMeasurement, FieldSurveyWorkType } from "./contracts";
 
 export type SurveyHandoffSource = Readonly<{ surveyId: string; revisionId: string; version: number }>;
@@ -10,9 +9,7 @@ export type RoofPrefill = Readonly<{
 export type FlashingPrefill = Readonly<{ sectionLengthMm?: number; overlapMm?: number; runs: readonly Readonly<{ id: string; name: string; lengthMm: number }>[] }>;
 
 export type SurveyCalculatorHandoff =
-  | Readonly<{ ok: true; calculator: "gutter"; source: SurveyHandoffSource; input: GutterMaterialInput; missing: readonly string[] }>
   | Readonly<{ ok: true; calculator: "roof"; source: SurveyHandoffSource; input: RoofPrefill; missing: readonly string[] }>
-  | Readonly<{ ok: true; calculator: "flashing"; source: SurveyHandoffSource; input: FlashingPrefill; missing: readonly string[] }>
   | Readonly<{ ok: false; error: string }>;
 
 const lengthToMm = (measurement: FieldSurveyMeasurement): number | null => {
@@ -67,28 +64,6 @@ export function mapFieldSurveyToCalculator(input: Readonly<{
     return { ok: true, calculator: "roof", source, input: values, missing };
   }
 
-  if (input.workType === "flashing") {
-    const runMeasurements = input.measurements.filter((item) => item.semanticType === "flashing_run_length");
-    if (runMeasurements.some((item) => lengthToMm(item) === null)) return { ok: false, error: "A szegélyszakasz mérése csak mm vagy m egységben adható át." };
-    const sectionLengthMm = readLength(input.measurements, "flashing_section_length");
-    const overlapMm = readLength(input.measurements, "flashing_overlap");
-    if (sectionLengthMm === null || overlapMm === null) return { ok: false, error: "A szegélyszálhossz vagy átfedés szerep többször szerepel, vagy mértékegysége nem megfelelő." };
-    const runs = runMeasurements.map((item) => ({ id: item.id, name: item.label, lengthMm: lengthToMm(item)! }));
-    if (!runs.length) runs.push({ id: "survey-flashing-missing", name: "Új szegélyszakasz", lengthMm: 0 });
-    const missing = [sectionLengthMm === undefined || sectionLengthMm <= 0 ? "A kiválasztott kereskedelmi szálhossz" : null, ...(!runMeasurements.length || runMeasurements.some((item) => item.value <= 0) ? ["Pozitív szegélyszakasz-hossz"] : [])].filter((item): item is string => Boolean(item));
-    return { ok: true, calculator: "flashing", source, input: { sectionLengthMm, overlapMm, runs }, missing };
-  }
-
-  const runMeasurements = input.measurements.filter((item) => item.semanticType === "gutter_run_length");
-  const runs: GutterMaterialInput["runs"][number][] = runMeasurements.length ? runMeasurements.map((item, index) => {
-    const length = lengthToMm(item);
-    return { id: item.id, name: item.label || `Ereszszakasz ${index + 1}`, lengthMm: length ?? 0, description: "", measurementSource: "site_measurement" as const, roofEdge: null, bracketSpacingMm: null };
-  }) : [{ id: "survey-run-missing", name: "Új ereszszakasz", lengthMm: 0, description: "", measurementSource: "site_measurement" as const, roofEdge: null, bracketSpacingMm: null }];
-  if (runMeasurements.some((item) => lengthToMm(item) === null)) return { ok: false, error: "Az ereszszakasz mérése csak mm vagy m egységben adható át." };
-  const stockLength = readLength(input.measurements, "gutter_stock_length");
-  const bracketSpacing = readLength(input.measurements, "gutter_bracket_spacing");
-  if (stockLength === null || bracketSpacing === null) return { ok: false, error: "A szálhossz vagy konzoltávolság szerep többször szerepel, vagy mértékegysége nem megfelelő." };
-  if (bracketSpacing !== undefined) runs.forEach((run) => { run.bracketSpacingMm = bracketSpacing; });
-  const missing = [stockLength === undefined || stockLength <= 0 ? "A kiválasztott ereszcsatorna-szál hossza" : null, ...(!runMeasurements.length || runMeasurements.some((item) => item.value <= 0) ? ["Pozitív ereszszakasz-hossz"] : [])].filter((item): item is string => Boolean(item));
-  return { ok: true, calculator: "gutter", source, input: { gutterStockLengthMm: stockLength ?? 0, runs, downpipes: [], manualComponents: [] }, missing };
+  // Régi ereszcsatorna/szegély szakaszok olvashatók maradnak, de kalkulátorra nem adhatók át.
+  return { ok: false, error: "Ehhez a munkatípushoz nincs önálló kalkulátor a felmérésből." };
 }

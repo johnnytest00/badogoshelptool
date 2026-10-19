@@ -23,8 +23,3 @@ export function gableSegments(output: GableRoofOutput): GableSegment[] {
     { id: "right-rear-gable", kind: "rake", label: "Jobb hátsó ferde oromél", lengthMm: output.lengths.eachSlopingGableEdgeMm, areaMm2: null, unit: "mm" },
   ];
 }
-
-export function selectedGableLength(segments: readonly GableSegment[], ids: readonly string[], kind: "eave" | "ridge" | "rake"): number {
-  const selected = new Set(ids);
-  return segments.reduce((sum, segment) => sum + (segment.kind === kind && selected.has(segment.id) ? segment.lengthMm ?? 0 : 0), 0);
-}

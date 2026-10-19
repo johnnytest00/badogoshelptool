@@ -14,7 +14,7 @@ const variant = (purchasingUnit: MaterialVariantRecord["purchasingUnit"]): Mater
   id: purchasingUnit, productId: "product", name: `DEMO ${purchasingUnit}`, sku: null, purchasingUnit,
   nominalWidthMm: null, effectiveWidthMm: null, thicknessMm: null, lengthMm: null, packagingQuantity: null,
   technicalSpecs: {}, provenance: "demo", sourceName: null, sourceUrl: null, sourceDate: null, sourceNotes: null,
-  prices: [], latestPrice: null,
+  prices: [], priceOptions: [], latestPrice: null,
 });
 
 describe("anyagkimutatás-tétel felülete", () => {

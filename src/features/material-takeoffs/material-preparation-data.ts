@@ -1,5 +1,5 @@
 import { createClient } from "@/infrastructure/supabase/server";
-import type { Json } from "@/infrastructure/supabase/database.types";
+import type { Json } from "@/infrastructure/supabase/database";
 import type { MaterialPreparationItem, PreparationSourceSnapshot } from "@/domain/material-preparations/contracts";
 import type { SurveyMaterialProvenanceItem } from "@/domain/material-takeoffs/survey-material-suggestions";
 import { fieldSurveyWorkTypeLabels, type FieldSurveyWorkType } from "@/domain/field-surveys/contracts";

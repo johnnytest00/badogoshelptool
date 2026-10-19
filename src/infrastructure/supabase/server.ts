@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/infrastructure/supabase/database.types";
+import type { Database } from "@/infrastructure/supabase/database";
 import { getSupabasePublicEnv } from "@/infrastructure/supabase/env";
 
 export async function createClient(): Promise<SupabaseClient<Database>> {

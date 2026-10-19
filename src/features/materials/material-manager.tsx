@@ -19,8 +19,10 @@ function priceText(product: MaterialProductRecord, variantIndex: number) {
   const variant = product.variants[variantIndex];
   const price = variant?.latestPrice;
   if (!variant) return "Egység nincs megadva";
+  const supplierPrices = variant.priceOptions.filter((option) => option.status === "active" && option.current).length;
+  if (!price && supplierPrices > 1) return `${supplierPrices} beszállítói ár · ${materialPurchasingUnitLabels[variant.purchasingUnit]}`;
   if (!price) return `Ár nincs megadva · ${materialPurchasingUnitLabels[variant.purchasingUnit]}`;
-  return `${price.amount.toLocaleString("hu-HU")} Ft/${materialPurchasingUnitLabels[price.purchasingUnit]} · ${materialPriceKindLabels[price.priceKind].toLowerCase()}`;
+  return `${price.amount.toLocaleString("hu-HU")} Ft/${materialPurchasingUnitLabels[price.purchasingUnit]} · ${materialPriceKindLabels[price.priceKind].toLowerCase()}${price.optionId && price.sourceName ? ` · ${price.sourceName}` : ""}`;
 }
 
 export function MaterialManager({
@@ -143,7 +145,7 @@ export function MaterialManager({
               <th scope="row"><Link className="material-manager-product-link" href={`/anyagok/${product.id}?organization=${organizationId}`}><span>{product.name}</span>{product.variants.length > 1 && <small>{product.variants.length} egységváltozat</small>}{product.productCode && <small>{product.productCode}</small>}</Link></th>
               <td><span className="material-category-pill">{product.categoryName}</span>{!product.categoryActive && <small className="material-manager-inactive-note">inaktív kategória</small>}</td>
               <td>{product.variants.length ? product.variants.map((variant) => materialPurchasingUnitLabels[variant.purchasingUnit]).join(", ") : "Nincs megadva"}</td>
-              <td>{product.variants.length ? product.variants.map((variant) => <span className="material-manager-table-price" key={variant.id}>{variant.name !== "Alap egység" && <small>{variant.name}: </small>}{variant.latestPrice ? priceText({ ...product, variants: [variant] }, 0) : `Ár nincs megadva · ${materialPurchasingUnitLabels[variant.purchasingUnit]}`}</span>) : "Egység nincs megadva"}</td>
+              <td>{product.variants.length ? product.variants.map((variant) => <span className="material-manager-table-price" key={variant.id}>{variant.name !== "Alap egység" && <small>{variant.name}: </small>}{priceText({ ...product, variants: [variant] }, 0)}</span>) : "Egység nincs megadva"}</td>
               <td className="material-manager-row-actions"><Link className="material-manager-edit" href={`/anyagok/${product.id}?organization=${organizationId}`} aria-label={`${product.name} szerkesztése`} title="Szerkesztés"><Pencil aria-hidden="true" /></Link><ProductStatusForm organizationId={organizationId} product={product} /></td>
             </tr>)}</tbody>
           </table>

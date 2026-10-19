@@ -15,7 +15,7 @@ const source: SurveyMaterialSource = {
   surveyId: "00000000-0000-4000-8000-000000000301", surveyRevisionId: "00000000-0000-4000-8000-000000000302", surveyName: "DEMO eresz",
   surveyVersion: 2, currentSurveyVersion: 2, stale: false,
   suggestions: [{ key: "k", sectionId: "s", description: "DEMO eresz · mért hossza", quantity: "12.5", unit: "linear_meter", materialCategory: "gutter", sourceLabel: "Ereszszakasz · V2 · mért adat", quantityKind: "measured", sourceRef: { type: "measurement", sectionId: "s", measurementId: "m" } }],
-  geometryPending: false, unavailable: ["DEMO tető: nincs ellenőrzött nyeregtető-geometriai számítás."],
+  geometryPending: false, suspectedDuplicates: {}, unavailable: ["DEMO tető: nincs ellenőrzött nyeregtető-geometriai számítás."],
 };
 const render = (overrides: Partial<Parameters<typeof SurveyMaterialListPanel>[0]> = {}) => renderToStaticMarkup(
   <SurveyMaterialListPanel ref={createRef()} organizationId={org} savedVersion={2} source={source} linkedLists={[]} unsaved={false} preparing={false} onClose={() => undefined} {...overrides} />,

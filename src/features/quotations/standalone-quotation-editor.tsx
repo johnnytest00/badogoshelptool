@@ -14,6 +14,7 @@ import { getStandaloneSaveOperation, isHistoricalStandaloneRevision, standaloneM
 import { quotationRecoveryKey, readQuotationRecovery, writeQuotationRecovery, isQuotationRecoveryCurrent, clearOtherQuotationRecoveryOwners, type QuotationRecovery, type QuotationDraftValues } from "./quotation-draft-recovery";
 import { resolveStandaloneQuotationCatalogItemAction, saveStandaloneQuotationDraftAction, updateStandaloneIssuerProfileAction, validateStandaloneQuotationDocumentAction, type StandaloneDocumentSources, type StandaloneQuotationResult } from "./standalone-quotation-actions";
 import type { MaterialProductRecord } from "@/features/materials/material-data";
+import { defaultPrice, priceChoices, priceChoiceLabel, selectablePrices, supplierLabel } from "@/domain/pricing";
 import type { MaterialCategoryRecord } from "@/features/materials/material-data";
 import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "@/features/material-takeoffs/workflow-material-product-picker";
 import { catalogReplacementNeedsConfirmation, changeQuotationMaterialCategory, quotationMaterialLinkState, quotationPricesEqual, quotationPurchasingUnitLabel, quotationPurchasingUnitsMatch } from "./quotation-material-state";
@@ -210,7 +211,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     const compatiblePrices = selected.variant.prices.filter((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === selected.variant.purchasingUnit);
     const selectedPriceId = requestedPriceId
       || (useDefaultPrice && previous.variantId === variantId ? previous.priceId : "")
-      || (useDefaultPrice && !previous.unitPrice.trim() ? compatiblePrices[0]?.id ?? "" : "");
+      || (useDefaultPrice && !previous.unitPrice.trim() ? (defaultPrice(selected.variant.priceOptions, selected.variant.purchasingUnit)?.priceKind === "net" ? defaultPrice(selected.variant.priceOptions, selected.variant.purchasingUnit)?.id ?? "" : "") : "");
     const localPrice = compatiblePrices.find((price) => price.id === selectedPriceId);
     const preserveOldSnapshotPrice = !selectedPriceId && previous.unitPrice.trim()
       && previous.variantId !== variantId
@@ -331,7 +332,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     <div className="section-heading standalone-quotation-header glass-bubble"><div className="standalone-quotation-title"><ClipboardList aria-hidden="true" className="standalone-quotation-icon" /><div><p className="section-eyebrow">Önálló ajánlat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2><p className="standalone-quotation-subtitle">HUF · Menthető piszkozat</p></div></div><span className="status-pill status-draft">Piszkozat</span></div>
     <p className="standalone-quotation-note">A véglegesítés, az ÁFA-kezelés és a hivatalos PDF még nem támogatott.</p>
     {materialSource && <section className="glass-bubble quotation-material-source" aria-label="Anyaglista forrás"><strong>Anyaglista-forrás · <Link href={`/anyaglistak/${materialSource.materialListId}?organization=${organizationId}`}>{materialSource.listName}</Link></strong><span>V{materialSource.revisionNumber} revízió · {materialSource.sourceLineMap.length} forrástétel</span>{materialSource.currentRevisionId && materialSource.currentRevisionId !== materialSource.materialRevisionId && <p role="status">A lista azóta V{materialSource.currentVersion} verzióra változott. Az ajánlat a kiválasztott, változtathatatlan V{materialSource.revisionNumber} forrásból indul.</p>}</section>}
-    {!historical && materialSource && <LaborRatePanel organizationId={organizationId} rates={laborRates} bases={laborBases} quotationClass={lines[0]?.priceClass ?? null} appliedKeys={appliedLaborKeys(lines)} source={materialSource} onApply={addPrebuiltLine} />}
+    {!historical && materialSource && <LaborRatePanel organizationId={organizationId} canEditRates={documentSources.canEditIssuer} rates={laborRates} bases={laborBases} quotationClass={lines[0]?.priceClass ?? null} appliedKeys={appliedLaborKeys(lines)} source={materialSource} onApply={addPrebuiltLine} />}
     <div className="standalone-quotation-toolbar">
     <div className="standalone-revision-bar" aria-label="Ajánlati revíziók">
       {revisions.map((revision) => <Link key={revision.id} className={`secondary-button ${revision.id === (selectedRevisionId ?? currentRevisionId) ? "is-current" : ""}`} href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`} aria-current={revision.id === (selectedRevisionId ?? currentRevisionId) ? "page" : undefined}>v{revision.revisionNumber} · {money(revision.subtotal)}</Link>)}
@@ -397,8 +398,8 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
           const category = categories.find((candidate) => candidate.id === categoryId);
           const categoryProducts = products.filter((product) => product.categoryId === categoryId && product.categoryActive && product.status === "active");
           const productOptions: WorkflowMaterialProductOption[] = categoryProducts.flatMap((product) => product.variants.map((variant) => {
-            const knownPrice = variant.prices.find((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === variant.purchasingUnit);
-            const priceDetail = knownPrice ? `${knownPrice.amount.toLocaleString("hu-HU")} Ft/${materialPurchasingUnitLabels[knownPrice.purchasingUnit]} · ${provenanceLabel(knownPrice.provenance)} · ${knownPrice.effectiveDate}` : "Ár nincs megadva";
+            const knownPrice = variant.latestPrice?.priceKind === "net" ? variant.latestPrice : null; const supplierCount = selectablePrices(variant.priceOptions, variant.purchasingUnit).length;
+            const priceDetail = knownPrice ? `${knownPrice.amount.toLocaleString("hu-HU")} Ft/${materialPurchasingUnitLabels[knownPrice.purchasingUnit]} · ${provenanceLabel(knownPrice.provenance)} · ${knownPrice.effectiveDate}${supplierLabel(knownPrice) ? ` · ${supplierLabel(knownPrice)}` : ""}` : supplierCount > 1 ? `${supplierCount} beszállítói ár · válassz` : "Ár nincs megadva";
             return {
               id: variant.id,
               name: `${product.name} · ${variant.name}`,
@@ -407,13 +408,13 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
             };
           }));
           const currentPrice = selected?.variant.prices.find((price) => price.id === line.priceId);
-          const latestKnownPrice = selected?.variant.prices.find((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === selected.variant.purchasingUnit);
+          const knownPrices = selected ? selectablePrices(selected.variant.priceOptions, selected.variant.purchasingUnit).filter((price) => price.priceKind === "net") : [];
           const linkState = quotationMaterialLinkState(line);
           const linkLabel = linkState === "catalog_linked"
             ? selected ? "Katalógushoz kapcsolva" : "Katalóguskapcsolat nem található"
             : linkState === "source_unmapped" ? "Anyaglista-forrás · nincs katalógustermék" : "Kézi anyag · nincs katalógustermék";
           const priceOrigin = line.priceId
-            ? currentPrice ? `Katalógusár · ${provenanceLabel(currentPrice.provenance)} · ${currentPrice.effectiveDate}` : "Mentett katalógusár; az aktuális katalógusárforrás nem érhető el"
+            ? currentPrice ? `Katalógusár · ${supplierLabel(currentPrice) ? `${supplierLabel(currentPrice)} · ` : ""}${provenanceLabel(currentPrice.provenance)} · ${currentPrice.effectiveDate}` : "Mentett katalógusár; az aktuális katalógusárforrás nem érhető el"
             : line.priceProvenance === "catalog_snapshot" ? "Korábbi katalógusár-pillanatkép, kézi ajánlati árként megőrizve"
               : line.priceProvenance === "takeoff_snapshot" ? "Korábbi anyagkimutatás-ár-pillanatkép"
                 : line.priceProvenance === "user_entered" ? "Kézi ajánlati ár"
@@ -449,8 +450,8 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
                 <label htmlFor={`${line.localId}-description`}>Megnevezés<input id={`${line.localId}-description`} maxLength={240} value={line.description} onChange={(event) => update(index, { description: event.target.value })} /></label>
                 <label htmlFor={`${line.localId}-unit`}>Egység<input id={`${line.localId}-unit`} maxLength={40} value={line.variantId ? unitLabel : line.unit} readOnly={Boolean(line.variantId)} aria-describedby={`${line.localId}-unit-help`} onChange={(event) => update(index, { unit: event.target.value, priceId: "", priceProvenance: line.priceId ? "catalog_snapshot" : line.priceProvenance })} /></label>
                 <small id={`${line.localId}-unit-help`}>{line.variantId ? "Az egységet a katalógusváltozat határozza meg." : "Kézi tételnél az egység szerkeszthető."}</small>
-                {line.type === "MATERIAL" && selected && <label htmlFor={`${line.localId}-price-source`}>Ajánlati árforrás<select id={`${line.localId}-price-source`} value={line.priceId} onChange={(event) => { void resolvePrice(index, line.variantId, event.target.value); }}><option value="">Kézi ajánlati ár</option>{selected.variant.prices.filter((price) => price.currency === "HUF" && price.priceKind === "net" && price.purchasingUnit === selected.variant.purchasingUnit).map((price) => <option key={price.id} value={price.id}>{price.amount.toLocaleString("hu-HU")} Ft/{materialPurchasingUnitLabels[price.purchasingUnit]} · {price.effectiveDate}</option>)}</select></label>}
-                <div className="quotation-price-provenance"><strong>{priceOrigin}</strong>{selected && <small>A katalógusváltozat eredete: {provenanceLabel(selected.variant.provenance)}.</small>}{latestKnownPrice && <small>Elérhető nettó katalógusár: {latestKnownPrice.amount.toLocaleString("hu-HU")} Ft/{materialPurchasingUnitLabels[latestKnownPrice.purchasingUnit]} · {provenanceLabel(latestKnownPrice.provenance)} · {latestKnownPrice.effectiveDate}.</small>}</div>
+                {line.type === "MATERIAL" && selected && <label htmlFor={`${line.localId}-price-source`}>Ajánlati árforrás<select id={`${line.localId}-price-source`} value={line.priceId} onChange={(event) => { void resolvePrice(index, line.variantId, event.target.value); }}><option value="">Kézi ajánlati ár</option>{priceChoices(selected.variant.priceOptions, selected.variant.purchasingUnit, line.priceId).map((price) => <option key={price.id} value={price.id} disabled={price.priceKind !== "net"}>{priceChoiceLabel(price)}{price.priceKind !== "net" ? " (itt nem használható)" : ""}{price.id === line.priceId && !selectablePrices(selected.variant.priceOptions, selected.variant.purchasingUnit).some((c) => c.id === price.id) ? " · korábbi" : ""}</option>)}</select></label>}
+                <div className="quotation-price-provenance"><strong>{priceOrigin}</strong>{selected && <small>A katalógusváltozat eredete: {provenanceLabel(selected.variant.provenance)}.</small>}{knownPrices.length === 1 && !line.priceId && <small>Elérhető nettó katalógusár: {priceChoiceLabel(knownPrices[0]!)} · {knownPrices[0]!.effectiveDate}.</small>}{knownPrices.length > 1 && !line.priceId && <small>{knownPrices.length} beszállítói ár érhető el; válaszd ki az árforrást (nincs automatikus választás).</small>}</div>
                 <label className="quotation-notes-field" htmlFor={`${line.localId}-notes`}>Megjegyzés<textarea id={`${line.localId}-notes`} maxLength={500} rows={2} value={line.notes} onChange={(event) => update(index, { notes: event.target.value })} /></label>
               </div>
               {line.laborSource && <div className="quotation-source-line quotation-labor-source"><strong>Munkadíj-szabály forrása</strong>{line.laborSource.rateSnapshot ? <small>{line.laborSource.rateSnapshot.name} · {line.laborSource.rateSnapshot.rateAmount} Ft/{line.laborSource.sourceUnit} · {line.laborSource.rateSnapshot.priceClass === "net" ? "nettó" : "bruttó"} · forrás: {line.laborSource.sourceLabel}, {line.laborSource.sourceQuantity} {line.laborSource.sourceUnit} (felmérés V{line.laborSource.surveyVersion})</small> : <small>Mentés után jelenik meg a rögzített szabály- és forráspillanatkép.</small>}{line.laborSource.rateSnapshot && (!sameQuantity(line.quantity, quantityAtSix(line.laborSource.sourceQuantity ?? line.quantity)) || line.unitPrice !== line.laborSource.rateSnapshot.rateAmount) && <small className="quotation-labor-edited">A mennyiség vagy az ár a szabálytól kézzel eltér; a forrás megmarad.</small>}</div>}

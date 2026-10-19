@@ -10,6 +10,8 @@ export const fieldSurveySemanticTypeSchema = z.enum([
   "custom", "roof_building_length", "roof_building_width", "roof_rise", "roof_pitch",
   "roof_eave_overhang", "roof_front_gable_overhang", "roof_rear_gable_overhang",
   "roof_outer_length", "roof_outer_width", "roof_outer_side", "roof_hip_eave_height", "roof_wing_width", "roof_wing_projection",
+  "roof_eave_run", "roof_plane_slope_a", "roof_plane_slope_b",
+  "roof_ridge_length", "roof_eave_a", "roof_eave_b", "roof_verge_a_left", "roof_verge_a_right", "roof_verge_b_left", "roof_verge_b_right",
   "gutter_run_length", "gutter_stock_length", "gutter_bracket_spacing",
   "flashing_run_length", "flashing_section_length", "flashing_overlap",
 ]);
@@ -26,6 +28,9 @@ export const fieldSurveySemanticTypeLabels: Record<FieldSurveySemanticType, stri
   roof_rear_gable_overhang: "Nyeregtető · hátsó oromtúlnyúlás",
   roof_outer_length: "Tető külső hossza", roof_outer_width: "Tető külső szélessége", roof_outer_side: "Sátortető külső oldalhossza",
   roof_hip_eave_height: "Félkonty alsó élének magassága", roof_wing_width: "Csatlakozó szárny szélessége", roof_wing_projection: "Szárny kinyúlása",
+  roof_eave_run: "Nyeregtető · tetőhossz az eresz irányában", roof_plane_slope_a: "Nyeregtető · A sík lejtő menti hossza", roof_plane_slope_b: "Nyeregtető · B sík lejtő menti hossza",
+  roof_ridge_length: "Nyeregtető · gerinc hossza", roof_eave_a: "Nyeregtető · A sík eresz hossza", roof_eave_b: "Nyeregtető · B sík eresz hossza",
+  roof_verge_a_left: "Nyeregtető · A sík bal széle", roof_verge_a_right: "Nyeregtető · A sík jobb széle", roof_verge_b_left: "Nyeregtető · B sík bal széle", roof_verge_b_right: "Nyeregtető · B sík jobb széle",
   gutter_run_length: "Ereszcsatorna · szakaszhossz",
   gutter_stock_length: "Ereszcsatorna · kiválasztott szálhossz",
   gutter_bracket_spacing: "Ereszcsatorna · konzoltávolság",
@@ -49,7 +54,7 @@ export const fieldSurveyMeasurementSchema = z.object({
   if (measurement.unit === "degree" && measurement.value > 360) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "A szög legfeljebb 360° lehet." });
   }
-  const lengthTypes: FieldSurveySemanticType[] = ["roof_building_length", "roof_building_width", "roof_rise", "roof_eave_overhang", "roof_front_gable_overhang", "roof_rear_gable_overhang", "roof_outer_length", "roof_outer_width", "roof_outer_side", "roof_hip_eave_height", "roof_wing_width", "roof_wing_projection", "gutter_run_length", "gutter_stock_length", "gutter_bracket_spacing", "flashing_run_length", "flashing_section_length", "flashing_overlap"];
+  const lengthTypes: FieldSurveySemanticType[] = ["roof_building_length", "roof_building_width", "roof_rise", "roof_eave_overhang", "roof_front_gable_overhang", "roof_rear_gable_overhang", "roof_outer_length", "roof_outer_width", "roof_outer_side", "roof_hip_eave_height", "roof_wing_width", "roof_wing_projection", "roof_eave_run", "roof_plane_slope_a", "roof_plane_slope_b", "roof_ridge_length", "roof_eave_a", "roof_eave_b", "roof_verge_a_left", "roof_verge_a_right", "roof_verge_b_left", "roof_verge_b_right", "gutter_run_length", "gutter_stock_length", "gutter_bracket_spacing", "flashing_run_length", "flashing_section_length", "flashing_overlap"];
   if (lengthTypes.includes(measurement.semanticType) && !["mm", "m"].includes(measurement.unit)) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["unit"], message: "Ehhez a mérési szerephez mm vagy m egység szükséges." });
   }
@@ -78,18 +83,39 @@ export const fieldSurveyTemplates: Record<FieldSurveyWorkType, readonly FieldSur
     { label: "Első oromtúlnyúlás", unit: "mm", semanticType: "roof_front_gable_overhang" },
     { label: "Hátsó oromtúlnyúlás", unit: "mm", semanticType: "roof_rear_gable_overhang" },
   ],
-  gutter: [
-    { label: "Ereszszakasz hossza", unit: "m", semanticType: "gutter_run_length" },
-    { label: "Kiválasztott ereszcsatorna-szálhossz", unit: "mm", semanticType: "gutter_stock_length" },
-    { label: "Konzolok távolsága", unit: "mm", semanticType: "gutter_bracket_spacing" },
-  ],
-  flashing: [
-    { label: "Szegélyszakasz hossza", unit: "m", semanticType: "flashing_run_length" },
-    { label: "Kiterített szélesség", unit: "mm", semanticType: "custom" },
-    { label: "Kiválasztott szegélyszál hossza", unit: "mm", semanticType: "flashing_section_length" },
-    { label: "Toldásonkénti átfedés", unit: "mm", semanticType: "flashing_overlap" },
-  ],
+  // Régi ereszcsatorna/szegély szakaszok olvashatók maradnak, de új mérésük csak általános lehet.
+  gutter: [{ label: "Egyedi mérés", unit: "mm", semanticType: "custom" }],
+  flashing: [{ label: "Egyedi mérés", unit: "mm", semanticType: "custom" }],
   other: [{ label: "Egyedi mérés", unit: "mm", semanticType: "custom" }],
+};
+
+/** F9.44.1 gyors mérés: közvetlenül mért, eresz-irányú tetőhossz és síkonkénti lejtő menti hossz. */
+export const quickGableTemplates: readonly FieldSurveyTemplate[] = [
+  { label: "Tetőhossz az eresz irányában", unit: "m", semanticType: "roof_eave_run" },
+  { label: "A sík lejtő menti hossza", unit: "m", semanticType: "roof_plane_slope_a" },
+  { label: "B sík lejtő menti hossza", unit: "m", semanticType: "roof_plane_slope_b" },
+];
+
+/** F9.45.1 félnyeregtető gyors mérés: eresz menti hossz és a lejtő menti hossz (egyetlen sík). */
+export const quickShedTemplates: readonly FieldSurveyTemplate[] = [
+  { label: "Tetőhossz az eresz mentén", unit: "m", semanticType: "roof_eave_run" },
+  { label: "Lejtő menti hossz", unit: "m", semanticType: "roof_plane_slope_a" },
+];
+
+/** F9.44.5 részletes mérés: gerinc, síkonkénti eresz és lejtő menti hossz; a hajlásszög csak rögzítésre kerül. */
+export const detailedGableTemplates: readonly FieldSurveyTemplate[] = [
+  { label: "Gerinc hossza", unit: "m", semanticType: "roof_ridge_length" },
+  { label: "A sík eresz hossza", unit: "m", semanticType: "roof_eave_a" },
+  { label: "A sík lejtő menti hossza", unit: "m", semanticType: "roof_plane_slope_a" },
+  { label: "B sík eresz hossza", unit: "m", semanticType: "roof_eave_b" },
+  { label: "B sík lejtő menti hossza", unit: "m", semanticType: "roof_plane_slope_b" },
+  { label: "Hajlásszög", unit: "degree", semanticType: "roof_pitch" },
+];
+export const detailedVergeTemplates: Readonly<Record<"roof_verge_a_left" | "roof_verge_a_right" | "roof_verge_b_left" | "roof_verge_b_right", FieldSurveyTemplate>> = {
+  roof_verge_a_left: { label: "A sík bal széle", unit: "m", semanticType: "roof_verge_a_left" },
+  roof_verge_a_right: { label: "A sík jobb széle", unit: "m", semanticType: "roof_verge_a_right" },
+  roof_verge_b_left: { label: "B sík bal széle", unit: "m", semanticType: "roof_verge_b_left" },
+  roof_verge_b_right: { label: "B sík jobb széle", unit: "m", semanticType: "roof_verge_b_right" },
 };
 
 export const fieldSurveyWorkTypeLabels: Record<FieldSurveyWorkType, string> = {

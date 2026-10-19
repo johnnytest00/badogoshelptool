@@ -6,7 +6,7 @@ import { surveySectionsSchema } from "@/domain/field-surveys/workspace";
 import { fieldSurveyInputSchema, fieldSurveyMeasurementSchema } from "@/domain/field-surveys/contracts";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
-import type { Json } from "@/infrastructure/supabase/database.types";
+import type { Json } from "@/infrastructure/supabase/database";
 import { getFieldSurveyRevision } from "./field-survey-data";
 import { recordSurveyRoofGeometrySources } from "./survey-geometry-source";
 

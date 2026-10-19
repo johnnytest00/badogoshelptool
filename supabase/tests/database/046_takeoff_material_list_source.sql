@@ -1,0 +1,27 @@
+begin;
+select plan(12);
+set local role postgres;
+insert into public.organization_members(organization_id,user_id,role) values('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000002','member') on conflict do nothing;
+insert into public.material_products(id,organization_id,category,name,status,data_provenance) values('00000000-0000-4000-8000-000000000a52','00000000-0000-4000-8000-000000000010','sheet_metal','DEMO önálló lemez','active','demo');
+insert into public.material_variants(id,organization_id,product_id,name,purchasing_unit,thickness_mm,technical_specs,source_name,data_provenance)
+ values('00000000-0000-4000-8000-000000000a53','00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000a52','DEMO m² lemez','square_meter',1,'{"profileMaterialSpec":"DEMO-A"}','DEMO paraméter','demo');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
+select lives_ok($$select * from public.save_standalone_profile_calculation('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000a51','DEMO önálló profil','{"schemaVersion":"1.0.0","profileId":"00000000-0000-4000-8000-000000000a51","profileType":"l","label":"DEMO önálló profil","coordinateConvention":"x-right-y-up","dimensionConvention":"finished_tangent","thicknessMm":1,"straights":[{"id":"s1","tangentLengthMm":60},{"id":"s2","tangentLengthMm":40}],"bends":[{"id":"b1","signedTurnDeg":90,"insideRadiusMm":2,"allowance":{"mode":"explicit_ba","baMm":3,"source":{"kind":"user_provided","label":"DEMO BA"}}}],"formedRunLengthMm":2000,"pieceCount":3,"material":{"catalogVariantId":"00000000-0000-4000-8000-000000000a53","materialSpec":"DEMO-A","provenance":{"kind":"catalog_snapshot","label":"DEMO"}}}','{"schemaVersion":"1.0.0","bends":[{"id":"b1","allowanceMm":3}],"flatPattern":{"widthMm":103},"materialRequirement":{"totalNetBlankAreaSqM":0.618}}',0)$$,'independent profile revision saved without project');
+select lives_ok($$select * from public.create_profile_takeoff_draft('00000000-0000-4000-8000-000000000010',null,'00000000-0000-4000-8000-000000000a51',(select current_revision_id from public.calculations where id='00000000-0000-4000-8000-000000000a51'),'00000000-0000-4000-8000-000000000a53','DEMO önálló piszkozat','00000000-0000-4000-8000-000000000a54')$$,'project-less takeoff draft is created');
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
+select throws_ok($$select * from public.save_workflow_material_list_from_takeoff('00000000-0000-4000-8000-000000000010',(select id from public.material_takeoffs where transfer_request_key='00000000-0000-4000-8000-000000000a54'),'DEMO lista','00000000-0000-4000-8000-000000000a60')$$,'22023',null,'draft takeoff cannot become a list');
+select lives_ok($$select * from public.approve_material_takeoff('00000000-0000-4000-8000-000000000010',(select id from public.material_takeoffs where transfer_request_key='00000000-0000-4000-8000-000000000a54'),(select version from public.material_takeoffs where transfer_request_key='00000000-0000-4000-8000-000000000a54'))$$,'owner approves the takeoff');
+select lives_ok($$select * from public.save_workflow_material_list_from_takeoff('00000000-0000-4000-8000-000000000010',(select id from public.material_takeoffs where transfer_request_key='00000000-0000-4000-8000-000000000a54'),'DEMO lista','00000000-0000-4000-8000-000000000a60')$$,'approved takeoff becomes a project-less list');
+select is((select count(*)::int from public.material_preparation_takeoff_sources),1,'exact source link recorded');
+select is((select (items_snapshot->0->>'quantity')::numeric from public.material_preparation_revisions order by created_at desc limit 1),0.618::numeric,'validated quantity transferred unchanged');
+select is((select list_created from public.save_workflow_material_list_from_takeoff('00000000-0000-4000-8000-000000000010',(select id from public.material_takeoffs where transfer_request_key='00000000-0000-4000-8000-000000000a54'),'Más név','00000000-0000-4000-8000-000000000a61')),false,'second conversion returns the existing list');
+select is((select count(*)::int from public.material_preparation_lists where project_id is null),1,'no duplicate list');
+select throws_ok($$update public.material_preparation_takeoff_sources set takeoff_version=9$$,'42501',null,'source link is immutable');
+create temp table tk as select id from public.material_takeoffs limit 1;
+grant select on tk to authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',true);
+select is((select count(*)::int from public.material_preparation_takeoff_sources),0,'other member cannot read the link');
+select throws_ok($$select * from public.save_workflow_material_list_from_takeoff('00000000-0000-4000-8000-000000000010',(select id from tk),'x','00000000-0000-4000-8000-000000000a62')$$,'42501',null,'other member cannot convert');
+select * from finish();
+rollback;

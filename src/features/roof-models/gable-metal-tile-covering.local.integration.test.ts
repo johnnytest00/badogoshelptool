@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import type { Database, Json } from "@/infrastructure/supabase/database.types";
+import type { Database, Json } from "@/infrastructure/supabase/database";
 import { calculateGableRoof } from "@/domain/calculations/gable-roof";
 import type { GableMetalTileCoveringInput } from "@/domain/calculations/gable-metal-tile-covering";
 import { calculateMetalTileSnapshot } from "./gable-metal-tile-covering-persistence";

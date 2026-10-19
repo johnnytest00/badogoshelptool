@@ -12,7 +12,7 @@ import type { MetalSheetLayoutOutput } from "@/domain/calculations/metal-sheet-l
 import { createGableDrawingModel, drawingLayers, drawingViews, filterDrawingModel, type DrawingLayerId, type DrawingPoint, type DrawingView, type GableDrawingModel } from "@/domain/drawings/gable-drawing";
 import { createRoofDrawingModel } from "@/domain/drawings/roof-drawing";
 import { clampDrawingZoom, clientPointToViewBox, drawingInitialViewport, fitDrawingViewport, panViewport, pinchViewport, rebasePanGesture, type ViewportBounds, type ViewportPoint } from "./drawing-viewport";
-import { angleScreenGeometry, dimensionScreenGeometry, resolveAnnotationLabelPositions, technicalAnnotationRules } from "@/domain/drawings/annotation-layout";
+import { angleScreenGeometry, placeDimensions, resolveAnnotationLabelPositions, technicalAnnotationRules } from "@/domain/drawings/annotation-layout";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 
@@ -21,22 +21,33 @@ const SVG_HEIGHT = 560;
 type VisibleLayers = Record<DrawingLayerId, boolean>;
 const initialLayers = Object.fromEntries(drawingLayers.map((layer) => [layer.id, layer.defaultVisible])) as VisibleLayers;
 
+/** Model coordinates already use a downward y axis (invertY), so they map straight onto screen y. */
 function mapPoint(point: DrawingPoint, model: GableDrawingModel): DrawingPoint {
   const rangeX = model.bounds.maxX - model.bounds.minX || 1;
   const rangeY = model.bounds.maxY - model.bounds.minY || 1;
-  const padding = 80;
+  const padding = 56;
   const scale = Math.min((SVG_WIDTH - padding * 2) / rangeX, (SVG_HEIGHT - padding * 2) / rangeY);
-  return { x: padding + (point.x - model.bounds.minX) * scale + ((SVG_WIDTH - padding * 2) - rangeX * scale) / 2, y: padding + (model.bounds.maxY - point.y) * scale + ((SVG_HEIGHT - padding * 2) - rangeY * scale) / 2 };
+  return { x: padding + (point.x - model.bounds.minX) * scale + ((SVG_WIDTH - padding * 2) - rangeX * scale) / 2, y: padding + (point.y - model.bounds.minY) * scale + ((SVG_HEIGHT - padding * 2) - rangeY * scale) / 2 };
 }
 
 function pointsString(points: readonly DrawingPoint[], model: GableDrawingModel) { return points.map((item) => { const mapped = mapPoint(item, model); return `${mapped.x},${mapped.y}`; }).join(" "); }
 
+/** Screen-space layout of every dimension, placed outside the drawn geometry and stacked per side. */
+function dimensionLayouts(model: GableDrawingModel) {
+  const xs: number[] = []; const ys: number[] = [];
+  const add = (point: DrawingPoint) => { const mapped = mapPoint(point, model); xs.push(mapped.x); ys.push(mapped.y); };
+  model.polygons.forEach((item) => item.points.forEach(add));
+  model.segments.filter((item) => !item.hidden).forEach((item) => { add(item.start); add(item.end); });
+  model.sheetStrips.forEach((item) => item.points.forEach(add));
+  const box = xs.length ? { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) } : { minX: 0, maxX: SVG_WIDTH, minY: 0, maxY: SVG_HEIGHT };
+  return placeDimensions(model.dimensions.map((item) => ({ kind: item.kind, start: mapPoint(item.start, model), end: mapPoint(item.end, model), offset: item.offset, label: item.label })), box);
+}
+
 function annotationLabelPositions(model: GableDrawingModel) {
+  const layouts = dimensionLayouts(model);
   const candidates = [
     ...model.dimensions.map((item, index) => {
-      const start = mapPoint(item.start, model);
-      const end = mapPoint(item.end, model);
-      const layout = dimensionScreenGeometry(item.kind, start, end, item.offset);
+      const layout = layouts[index]!;
       return { id: `dimension:${index}`, text: item.label, point: layout.label, anchor: layout.labelAnchor, move: layout.normal };
     }),
     ...model.angles.map((item, index) => {
@@ -53,8 +64,8 @@ function getDrawingBounds(model: GableDrawingModel): ViewportBounds {
   const add = (point: DrawingPoint) => points.push(mapPoint(point, model));
   const addPair = (start: DrawingPoint, end: DrawingPoint) => { add(start); add(end); };
   const addLabel = (point: DrawingPoint, label: string, anchor: "middle" | "start" | "end" = "middle") => {
-    const center = mapPoint(point, model);
-    const width = Math.max(30, label.length * 20);
+    const center = point; // annotation positions are already screen coordinates
+    const width = Math.max(30, label.length * 16);
     const left = anchor === "middle" ? center.x - width / 2 : anchor === "start" ? center.x : center.x - width;
     points.push({ x: left, y: center.y - 24 }, { x: left + width, y: center.y + 24 });
   };
@@ -62,7 +73,8 @@ function getDrawingBounds(model: GableDrawingModel): ViewportBounds {
   model.segments.filter((item) => !item.hidden).forEach((item) => addPair(item.start, item.end));
   model.guides.filter((item) => !item.hidden).forEach((item) => addPair(item.start, item.end));
   const labelPositions = annotationLabelPositions(model);
-  model.dimensions.forEach((item, index) => { const layout = dimensionScreenGeometry(item.kind, mapPoint(item.start, model), mapPoint(item.end, model), item.offset); points.push(layout.start, layout.end, layout.extensionStart, layout.extensionEnd); addLabel(labelPositions.get(`dimension:${index}`) ?? layout.label, item.label, layout.labelAnchor); });
+  const layouts = dimensionLayouts(model);
+  model.dimensions.forEach((item, index) => { const layout = layouts[index]!; points.push(layout.start, layout.end, layout.extensionStart, layout.extensionEnd); addLabel(labelPositions.get(`dimension:${index}`) ?? layout.label, item.label, layout.labelAnchor); });
   model.angles.forEach((item, index) => { const layout = angleScreenGeometry(mapPoint(item.vertex, model), mapPoint(item.start, model), mapPoint(item.end, model)); points.push(layout.start, layout.end); addLabel(labelPositions.get(`angle:${index}`) ?? layout.label, item.label); });
   model.sheetStrips.forEach((item) => item.points.forEach(add));
   if (!points.length || points.some((point) => !Number.isFinite(point.x) || !Number.isFinite(point.y))) {
@@ -88,10 +100,7 @@ function dimensionArrowPath(tip: DrawingPoint, toward: DrawingPoint) {
   return ["M", tip.x, tip.y, "L", first.x, first.y, "L", second.x, second.y, "Z"].join(" ");
 }
 
-function DimensionLine({ model, item, labelPosition, activeDimension, onDimensionSelect }: Readonly<{ model: GableDrawingModel; item: GableDrawingModel["dimensions"][number]; labelPosition?: DrawingPoint; activeDimension?: string | null; onDimensionSelect?: (key: string) => void }>) {
-  const start = mapPoint(item.start, model);
-  const end = mapPoint(item.end, model);
-  const layout = dimensionScreenGeometry(item.kind, start, end, item.offset);
+function DimensionLine({ item, layout, labelPosition, activeDimension, onDimensionSelect }: Readonly<{ item: GableDrawingModel["dimensions"][number]; layout: ReturnType<typeof placeDimensions>[number]; labelPosition?: DrawingPoint; activeDimension?: string | null; onDimensionSelect?: (key: string) => void }>) {
   const active = Boolean(item.sourceKey && item.sourceKey === activeDimension);
   const selectable = Boolean(item.sourceKey && onDimensionSelect);
   const select = () => { if (item.sourceKey) onDimensionSelect?.(item.sourceKey); };
@@ -130,7 +139,7 @@ function TechnicalSvg({ model, layers, title, zoom, pan, svgRef, onPointerDown, 
       {filtered.polygons.filter((polygon) => polygon.id).map((polygon, index) => <polygon key={`${polygon.id}-select-${index}`} points={pointsString(polygon.points, model)} className={selectedSegmentIds?.includes(polygon.id!) ? "is-selected" : ""} role="button" tabIndex={0} aria-label={`${polygon.label} kiválasztása`} aria-pressed={selectedSegmentIds?.includes(polygon.id!)} onPointerDown={(event) => event.stopPropagation()} onClick={() => onSegmentToggle(polygon.id!)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSegmentToggle(polygon.id!); } }} />)}
       {filtered.segments.filter((segment) => segment.id).map((segment) => <line key={segment.id} x1={mapPoint(segment.start, model).x} y1={mapPoint(segment.start, model).y} x2={mapPoint(segment.end, model).x} y2={mapPoint(segment.end, model).y} className={selectedSegmentIds?.includes(segment.id!) ? "is-selected" : ""} role="button" tabIndex={0} aria-label={`${segment.label} kiválasztása`} aria-pressed={selectedSegmentIds?.includes(segment.id!)} onPointerDown={(event) => event.stopPropagation()} onClick={() => onSegmentToggle(segment.id!)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSegmentToggle(segment.id!); } }} />)}
     </g>}
-    {filtered.dimensions.map((item, index) => <DimensionLine key={`${item.label}-${index}`} model={model} item={item} labelPosition={labelPositions.get(`dimension:${index}`)} activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />)}
+    {filtered.dimensions.map((item, index) => <DimensionLine key={`${item.label}-${index}`} item={item} layout={dimensionLayouts(model)[index]!} labelPosition={labelPositions.get(`dimension:${index}`)} activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />)}
     {filtered.angles.map((angle, index) => { const vertex = mapPoint(angle.vertex, model); const start = mapPoint(angle.start, model); const end = mapPoint(angle.end, model); const layout = angleScreenGeometry(vertex, start, end); const labelPosition = labelPositions.get(`angle:${index}`) ?? layout.label; const active = Boolean(angle.sourceKey && angle.sourceKey === activeDimension); const selectable = Boolean(angle.sourceKey && onDimensionSelect); const select = () => { if (angle.sourceKey) onDimensionSelect?.(angle.sourceKey); }; return <g key={angle.label} className={`technical-angle ${active ? "is-active" : ""} ${selectable ? "is-selectable" : ""}`} data-dimension-key={angle.sourceKey} aria-label={angle.description ?? angle.label} role={selectable ? "button" : undefined} tabIndex={selectable ? 0 : undefined} aria-pressed={selectable ? active : undefined} onPointerDown={selectable ? (event) => { event.preventDefault(); event.stopPropagation(); select(); } : undefined} onPointerUp={selectable ? (event) => event.stopPropagation() : undefined} onClick={selectable ? select : undefined} onKeyDown={selectable ? (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); select(); } } : undefined}><path d={`M ${layout.start.x} ${layout.start.y} A ${technicalAnnotationRules.angleRadius} ${technicalAnnotationRules.angleRadius} 0 0 1 ${layout.end.x} ${layout.end.y}`} /><text x={labelPosition.x} y={labelPosition.y} textAnchor="middle" dominantBaseline="middle">{angle.label}</text></g>; })}
     </g>
   </svg>;

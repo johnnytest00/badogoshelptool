@@ -39,7 +39,7 @@ describe("deriveSurveyMaterialSuggestions", () => {
     const result = deriveSurveyMaterialSuggestions(source(), [roofCalculation()]);
     expect(result.suggestions.map(({ description, quantity, unit, quantityKind }) => ({ description, quantity, unit, quantityKind }))).toEqual([
       { description: "DEMO tető · ellenőrzött tetőfelület", quantity: "84.852814", unit: "square_meter", quantityKind: "calculated" },
-      { description: "DEMO eresz · ereszcsatorna-szakasz mért hossza", quantity: "8.25", unit: "linear_meter", quantityKind: "measured" },
+      { description: "DEMO eresz · ereszcsatorna-szakasz hossza", quantity: "8.25", unit: "linear_meter", quantityKind: "measured" },
     ]);
     expect(result.suggestions[0].sourceRef).toMatchObject({ type: "calculation", calculationRevisionId: roofCalculation().revisionId });
     expect(result.suggestions[1].sourceRef).toMatchObject({ type: "measurement", measurementId });

@@ -11,7 +11,6 @@ vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("@/features/field-surveys/field-survey-actions", () => ({ saveFieldSurveyAction: vi.fn() }));
 
 vi.mock("./workspace-actions", () => ({
-  loadSurveyCalculator: vi.fn(),
   createSurveyFollowups: vi.fn(),
   createExecutionPlanFromSurvey: vi.fn(),
   linkSurveyToExecutionPlan: vi.fn(),
@@ -75,8 +74,9 @@ describe("field survey editor", () => {
     expect(html).toContain("Mit szeretnél felmérni?");
     expect(html).toContain('aria-label="Munkatípus kiválasztása"');
     expect(html).toContain("Tető");
-    expect(html).toContain("Ereszcsatorna");
-    expect(html).toContain("Bádogos szegély");
+    expect(html).toContain("Egyéb munka");
+    expect(html).not.toContain("Ereszcsatorna");
+    expect(html).not.toContain("Bádogos szegély");
     expect(html).not.toContain('<span class="survey-section-tab-name">Tető</span>');
     expect(html).not.toContain('aria-label="0 kitöltött mérés"');
     expect(html).not.toContain("field-survey-active-section-title");
@@ -96,7 +96,7 @@ describe("field survey editor", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={survey} />);
     expect(html).toContain(">Ereszszakasz</label>");
     expect(html).toContain('<span class="field-survey-measurement-unit-badge" aria-hidden="true">m</span>');
-    expect(html).toContain('value="8.5"');
+    expect(html).toContain('value="8,5"');
     expect(html).toContain('aria-label="Beállítások: Ereszszakasz"');
     expect(html).toContain("survey-savebar is-new");
     expect(html).toContain("Mentés szükséges · V2");
@@ -104,15 +104,15 @@ describe("field survey editor", () => {
     expect(html.match(/>Mentés<\/button>/g)).toHaveLength(1);
   });
 
-  it("keeps only roof and other in the primary section toolbar while retaining specialized work types", () => {
+  it("offers only roof and other for new sections while still opening legacy gutter sections", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={survey} />);
 
     expect(html.match(/>Új (?:tetőszakasz|egyéb szakasz)<\/button>/g)).toHaveLength(2);
     expect(html).not.toContain("Új ereszcsatorna-szakasz");
     expect(html).not.toContain("Új szegélyszakasz");
     expect(html).toMatch(/<option value="gutter"(?: selected="")?>Ereszcsatorna<\/option>/);
-    expect(html).toContain('<option value="flashing">Bádogos szegély</option>');
-    expect(html).toContain('value="8.5"');
+    expect(html).not.toContain('<option value="flashing">');
+    expect(html).toContain('value="8,5"');
   });
 
   it("restores the active work section after the first save changes the URL", () => {
@@ -135,7 +135,7 @@ describe("field survey editor", () => {
     expect(html).toContain("Felmérés szerkesztése");
     expect(html).toContain("V2");
     expect(html).toContain("Ereszszakasz");
-    expect(html).toContain("value=\"8.5\"");
+    expect(html).toContain("value=\"8,5\"");
     expect(html).toContain("DEMO nehezen hozzáférhető");
     expect(html).toContain("Korábbi projektkapcsolat");
     expect(html).toContain("DEMO linked project");
@@ -191,6 +191,26 @@ describe("field survey editor", () => {
     expect(html.slice(stripStart, drawingStart)).not.toContain("roof-workspace-context");
     expect(html).toContain("Tetőemelkedés");
     expect(html).toContain("Interaktív műszaki rajz");
+  });
+
+  it("reopens a quick-measurement gable section with its area, mode and hidden building values", () => {
+    const quickSurvey: FieldSurveyRecord = {
+      ...survey, workType: "roof", projectId: null,
+      sections: [{
+        id: "123e4567-e89b-42d3-a456-426614174040", name: "Nyeregtető", workType: "roof", roofType: "gable", roofMeasurementMode: "quick", quickPlanesMatch: true, notes: "", photoIds: [],
+        measurements: [
+          { id: "123e4567-e89b-42d3-a456-426614174041", label: "Tetőhossz az eresz irányában", value: 10.5, unit: "m", semanticType: "roof_eave_run" },
+          { id: "123e4567-e89b-42d3-a456-426614174042", label: "A sík lejtő menti hossza", value: 4.2, unit: "m", semanticType: "roof_plane_slope_a" },
+          { id: "123e4567-e89b-42d3-a456-426614174043", label: "Épület hossza", value: 10, unit: "m", semanticType: "roof_building_length" },
+        ],
+      }],
+    };
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={quickSurvey} />);
+    expect(html).toContain("88,20 m²");
+    expect(html).toContain("Gyors mérés");
+    expect(html).toContain("Tetőhossz az eresz irányában");
+    expect(html).not.toContain("technical-drawing is-compact");
+    expect(html).not.toContain("Épület hossza");
   });
 
   it("preserves the reported rise and pitch but explains their conflict instead of drawing", () => {
@@ -293,7 +313,7 @@ describe("field survey editor", () => {
   it.each(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"] as const)("preserves incomplete %s dimensions without drawing substitute geometry", (type) => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofSurvey(type, "incomplete")} />);
     expect(html).not.toContain('class="technical-drawing is-compact"');
-    expect(html).toContain(type === "gable" ? "A nyeregtető rajzához még szükséges:" : "A rajz a tetőforma minden szükséges, érvényes méretének megadása után jelenik meg.");
+    expect(html).toContain(type === "gable" ? "Még hiányzik:" : "A rajz a tetőforma minden szükséges, érvényes méretének megadása után jelenik meg.");
     expect(["value=\"10\"", "value=\"10000\"", "value=\"6000\""].some((value) => html.includes(value))).toBe(true);
   });
 

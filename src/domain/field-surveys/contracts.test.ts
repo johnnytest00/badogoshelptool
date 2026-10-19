@@ -32,8 +32,7 @@ describe("field survey contracts", () => {
 
   it("allows notes and project association to stay absent and exposes practical editable templates", () => {
     expect(fieldSurveyInputSchema.safeParse({ ...valid, projectId: null, notes: null }).success).toBe(true);
-    expect(fieldSurveyTemplates.gutter.map(({ label }) => label)).toContain("Ereszszakasz hossza");
-    expect(fieldSurveyTemplates.flashing.map(({ label }) => label)).toContain("Kiterített szélesség");
-    expect(fieldSurveyTemplates.flashing[0].semanticType).toBe("flashing_run_length");
+    expect(fieldSurveyTemplates.gutter.map(({ semanticType }) => semanticType)).toEqual(["custom"]);
+    expect(fieldSurveyTemplates.flashing.map(({ semanticType }) => semanticType)).toEqual(["custom"]);
   });
 });

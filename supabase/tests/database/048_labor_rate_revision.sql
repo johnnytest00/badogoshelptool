@@ -1,0 +1,17 @@
+begin;
+select plan(7);
+set local role postgres;
+insert into public.organization_members(organization_id,user_id,role) values('00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000000002','member') on conflict do nothing;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
+select set_config('test.rate', (select rate_id::text from public.create_organization_labor_rate('00000000-0000-4000-8000-000000000010','DEMO tető','roof_area_m2',1500,'net','00000000-0000-4000-8000-000000984801')), true);
+select lives_ok($$select * from public.revise_organization_labor_rate('00000000-0000-4000-8000-000000000010', current_setting('test.rate')::uuid, 'DEMO tető', 'roof_area_m2', 1700, 'net', '00000000-0000-4000-8000-000000984802')$$,'admin revises a rate');
+select is((select archived_at is not null from public.organization_labor_rates where id=current_setting('test.rate')::uuid),true,'old rate archived');
+select is((select rate_amount from public.organization_labor_rates where archived_at is null and name='DEMO tető'),1700.00::numeric,'new rate is the active one');
+select is((select rate_amount from public.organization_labor_rates where id=current_setting('test.rate')::uuid),1500.00::numeric,'old rate row keeps its amount');
+select is((select created from public.revise_organization_labor_rate('00000000-0000-4000-8000-000000000010', current_setting('test.rate')::uuid, 'DEMO tető', 'roof_area_m2', 1700, 'net', '00000000-0000-4000-8000-000000984802')),false,'same request key is idempotent');
+select is((select count(*)::int from public.organization_labor_rates where name='DEMO tető'),2,'no duplicate rows');
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',true);
+select throws_ok($$select * from public.revise_organization_labor_rate('00000000-0000-4000-8000-000000000010', (select id from public.organization_labor_rates where archived_at is null limit 1), 'x', 'roof_area_m2', 1, 'net', '00000000-0000-4000-8000-000000984803')$$,'42501',null,'plain member cannot revise');
+select * from finish();
+rollback;

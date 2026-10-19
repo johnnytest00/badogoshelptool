@@ -1,6 +1,7 @@
 begin;
 
 select plan(10);
+\ir _demo_workflow_fixture.inc
 select ok(exists(select 1 from information_schema.columns where table_schema = 'public' and table_name = 'execution_photos' and column_name = 'category'), 'photo category column exists');
 select ok(exists(select 1 from pg_constraint where conname = 'execution_photos_category_ck'), 'photo category check exists');
 select ok(exists(select 1 from pg_proc where proname = 'set_execution_photo_category'), 'category update RPC exists');

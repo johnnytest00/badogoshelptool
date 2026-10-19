@@ -1,5 +1,6 @@
 begin;
 select plan(21);
+\ir _demo_workflow_fixture.inc
 
 select has_function('public', 'save_gutter_material_calculation', 'gutter calculation save RPC exists');
 select has_index('public', 'calculations', 'calculations_one_gutter_estimate_per_project', 'one project has one gutter calculation record');

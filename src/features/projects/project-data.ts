@@ -1,5 +1,5 @@
 import { createClient } from "@/infrastructure/supabase/server";
-import type { Database } from "@/infrastructure/supabase/database.types";
+import type { Database } from "@/infrastructure/supabase/database";
 import { projectFilterSchema, type ProjectStatus, type ProjectType } from "@/domain/projects/contracts";
 
 export type ProjectRecord = {
@@ -85,16 +85,4 @@ export async function getProjectForOrganization(organizationId: string, projectI
     : { data: null, error: null };
   if (client.error) throw new Error("Az ügyféladatok betöltése nem sikerült.");
   return mapProject(row, client.data ? new Map([[client.data.id, client.data]]) : new Map());
-}
-
-export async function getClientsForOrganization(organizationId: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("clients")
-    .select("id, organization_id, name, email, phone, billing_address, notes, created_at, updated_at")
-    .eq("organization_id", organizationId)
-    .order("name", { ascending: true })
-    .limit(100);
-  if (error) throw new Error("Az ügyfelek betöltése nem sikerült.");
-  return data ?? [];
 }

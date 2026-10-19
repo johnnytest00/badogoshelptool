@@ -395,6 +395,12 @@ visszaállítás használható. Az árrekordok append-only történetet alkotnak
 majd `recorded_at DESC`, majd `id DESC`. A `20261012040100_material_price_immutability.sql`
 trigger privilegizált SQL útvonalon is tiltja az ár UPDATE/DELETE műveletét.
 
+**F9.43 beszállítói áropciók:** `material_price_options` (`variant_id`, `label` ≤60, `status` active/archived,
+egyedi `(variant_id, lower(btrim(label)))`) és `material_prices.option_id` (nullable; null = régi „Alap ár”).
+Az opció egy beszállítói sor; ára az `option_id`-jú immutable sorok legfrissebbje. A beszúró trigger
+ellenőrzi az azonos variánst, az aktív opciót és az egységet, és a címkét a sor `source_name`-jébe másolja.
+Nincs automatikus (legolcsóbb) kiválasztás. `revise_organization_labor_rate`: atomi, idempotens munkadíj-csere.
+
 A provenance értékek `verified`, `user_provided`, `estimated`, `demo`, `missing`;
 a felhasználó által bevitt adat nem lesz automatikusan verified. F7.1 nem tartalmaz
 gyártói importot, scrapinget, mennyiségszámítást, automatikus vásárlási listát,

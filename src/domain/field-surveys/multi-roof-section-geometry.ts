@@ -10,5 +10,7 @@ import type { RoofGeometryInput } from "@/domain/calculations/roof-geometry";
  */
 export function multiRoofGeometryFromSurveySection(section: SurveySection): RoofGeometryInput | null {
   if (!section.roofType || section.roofType === "gable") return null;
+  // Gyors módban az épületméretek rejtve megőrzött értékek: belőlük nem készül ellenőrzött geometria.
+  if (section.roofType === "shed" && section.roofMeasurementMode === "quick") return null;
   return geometryFromSurveyMeasurements(section.roofType, completeSectionMeasurements(section));
 }

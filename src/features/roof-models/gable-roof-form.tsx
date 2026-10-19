@@ -18,11 +18,9 @@ import { initialMetalSheetLayoutValues, MetalSheetLayoutPanel, type MetalSheetLa
 import type { SavedSheetLayout, SavedSheetLayoutRevision, SheetLayoutMaterialOption } from "./sheet-layout-data";
 import type { SavedMetalTileCovering } from "./gable-metal-tile-covering-data";
 import { createSheetLayoutTakeoffAction, saveSheetLayoutAction } from "./sheet-layout-actions";
-import { gableSegments, selectedGableLength } from "@/domain/calculations/gable-segments";
 import { isMeasurementGuidanceFocusTarget, MeasurementGuidance, measurementGuideFor } from "./measurement-guidance";
 import { RoofWorkspace } from "./roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
-import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
@@ -89,7 +87,6 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
   const [isSaving, setIsSaving] = useState(false);
   const dirty = JSON.stringify(values) !== JSON.stringify(baselineValues) || name !== baselineName;
   const [coveringDirty, setCoveringDirty] = useState(false);
-  const [selectedSegmentIds, setSelectedSegmentIds] = useState<string[]>([]);
   const currentSavedRevision = savedSheetLayout?.revisions.find((revision) => revision.current);
   const [sheetLayoutValues, setSheetLayoutValues] = useState<MetalSheetLayoutFormValues>(() => valuesFromRevision(currentSavedRevision, sheetLayoutMaterials));
   const [viewedRevision, setViewedRevision] = useState<SavedSheetLayoutRevision | null>(currentSavedRevision ?? null);
@@ -101,9 +98,6 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
   const inputValidation = useMemo(() => gableRoofInputSchema.safeParse(rawInput(values)), [values]);
   const inputError = (key: string) => fieldErrors[key] ?? (values[key]?.trim() ? (inputValidation.success ? undefined : inputValidation.error.issues.find((issue) => issue.path.includes(key))?.message) : undefined);
   const output = useMemo(() => input ? calculateGableRoof(input) : null, [input]);
-  const selectedSegments = output ? gableSegments(output) : [];
-  const selectedEaves = selectedSegmentIds.filter((id) => selectedSegments.some((segment) => segment.id === id && segment.kind === "eave"));
-  const selectedFlashings = selectedSegmentIds.filter((id) => selectedSegments.some((segment) => segment.id === id && (segment.kind === "rake" || segment.kind === "ridge")));
   const sheetLayoutCalculation = useMemo(() => {
     const selected = sheetLayoutMaterials.find((item) => item.variantId === sheetLayoutValues.variantId);
     if (!output || !selected) return null;
@@ -187,11 +181,10 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
               </div>
             </section>
           }
-          drawing={output && <TechnicalDrawing output={output} compact isSaved={Boolean(model && !dirty)} activeDimension={focusedField} activeDimensionDescription={measurementGuideFor("gable", focusedField ?? "")?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} sheetLayout={model && !dirty && !viewedRevision?.geometryStale ? sheetLayout : null} sheetLayoutIsSaved={Boolean(viewedRevision)} selectedSegmentIds={selectedSegmentIds} onSegmentToggle={(id) => setSelectedSegmentIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])} />}
+          drawing={output && <TechnicalDrawing output={output} compact isSaved={Boolean(model && !dirty)} activeDimension={focusedField} activeDimensionDescription={measurementGuideFor("gable", focusedField ?? "")?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} sheetLayout={model && !dirty && !viewedRevision?.geometryStale ? sheetLayout : null} sheetLayoutIsSaved={Boolean(viewedRevision)} />}
           results={
             <>
               {output ? <Results output={output} /> : <section className="roof-results roof-empty-result"><h2>Az eredmények a teljes geometria megadásakor jelennek meg.</h2><p>A köztesen üres mezők szerkesztés közben megengedettek.</p></section>}
-              {model && !dirty && model.currentRevisionId && <div className="roof-segment-actions"><p>Az átadás csak a kijelölt éleket használja, az ellenőrzött mentett V{model.currentRevisionNumber} tetőrevízióból.</p>{selectedEaves.length > 0 && <Link className="primary-button" href={`/projektek/${projectId}/ereszcsatorna?organization=${organizationId}&roof=${model.id}&edges=${selectedEaves.join(",")}`}>Felhasználás ereszcsatornához · {(selectedGableLength(selectedSegments, selectedEaves, "eave") / 1000).toLocaleString("hu-HU")} m</Link>}{selectedFlashings.length > 0 && <Link className="secondary-button" href={`/projektek/${projectId}/szegelyek?organization=${organizationId}&roof=${model.id}&edges=${selectedFlashings.join(",")}`}>Felhasználás szegélyhez · {selectedFlashings.length} él</Link>}</div>}
             </>
           }
           actions={

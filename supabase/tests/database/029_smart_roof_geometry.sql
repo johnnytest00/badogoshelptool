@@ -1,5 +1,6 @@
 begin;
 select plan(9);
+\ir _demo_workflow_fixture.inc
 select ok(has_function_privilege('authenticated','public.link_field_survey_calculation(uuid,uuid,uuid,uuid,uuid)','EXECUTE'),'survey links use the restricted writer');
 select ok(not has_table_privilege('authenticated','public.field_survey_calculation_links','INSERT'),'survey link table cannot be written directly');
 set local role postgres;

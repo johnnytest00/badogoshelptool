@@ -6,8 +6,10 @@ import { PackageOpen, Plus, Trash2 } from "lucide-react";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
+import { priceChoices, selectablePrices } from "@/domain/pricing";
+import { UnitPriceField, type UnitPriceOrigin } from "./unit-price-field";
 import { materialCategories, materialCategoryLabels, materialPriceKindLabels, materialPurchasingUnitLabels, materialPurchasingUnits, type MaterialCategory, type MaterialPriceKind, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
-import type { SurveyMaterialProvenanceItem, SurveyMaterialSourceRef, SurveyMaterialSuggestion } from "@/domain/material-takeoffs/survey-material-suggestions";
+import type { QuantityKind, SurveyMaterialProvenanceItem, SurveyMaterialSourceRef, SurveyMaterialSuggestion } from "@/domain/material-takeoffs/survey-material-suggestions";
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import type { ExecutionPlanOption } from "@/features/execution/execution-data";
 import type { MaterialCategoryRecord, MaterialProductRecord } from "@/features/materials/material-data";
@@ -38,7 +40,7 @@ type WorkflowLine = {
   sourceLabel?: string;
   sourceUnit?: MaterialPurchasingUnit;
   sourceValue?: string;
-  quantityKind?: "measured" | "calculated";
+  quantityKind?: QuantityKind;
   quantityManuallyEdited?: boolean;
 };
 
@@ -67,7 +69,10 @@ function verifiedPrice(variant: MaterialProductRecord["variants"][number]) {
 }
 
 function provenanceLabel(source: SurveyMaterialProvenanceItem, version: number) {
-  const quality = source.quantityKind === "measured" ? "mért adat" : "ellenőrzött számítás";
+  const calculatedMm = source.origin?.calculatedValueMm;
+  const quality = source.quantityKind === "measured" ? "mért adat"
+    : source.quantityKind === "overridden" ? `kézzel felülírt érték${typeof calculatedMm === "number" ? `, a számított érték ${(calculatedMm / 1000).toLocaleString("hu-HU", { maximumFractionDigits: 3 })} m volt` : ", a tetőforrás nem ellenőrizhető"}`
+    : source.origin ? "tetőgeometriából számított (ellenőrzött forrás)" : "ellenőrzött számítás";
   const calculationVersion = source.sourceKind === "calculation" && typeof source.calculationRevisionNumber === "number"
     ? ` · számítás V${source.calculationRevisionNumber}` : "";
   const sourceValue = Number(source.sourceValue);
@@ -144,7 +149,7 @@ function priceLabel(amount: string | number, unit: MaterialPurchasingUnit, kind:
 type DisplayUnitPrice = Readonly<{ amount: number; kind: MaterialPriceKind | null }>;
 
 function lineUnitPrice(line: WorkflowLine, products: readonly MaterialProductRecord[], surveyMode: boolean): DisplayUnitPrice | null {
-  if (line.kind === "manual" && line.manualPriceAmount && line.manualPriceKind) {
+  if (line.manualPriceAmount && line.manualPriceKind) {
     const amount = Number(line.manualPriceAmount.replace(",", "."));
     return Number.isFinite(amount) && amount >= 0 ? { amount, kind: line.manualPriceKind } : null;
   }
@@ -181,7 +186,7 @@ function formatHuf(amount: number) {
   return `${amount.toLocaleString("hu-HU", { maximumFractionDigits: 2 })} Ft`;
 }
 
-export function WorkflowMaterialListEditor({ organizationId, products, plans, categories, list, requestedPlanId = "", surveySource = null, defaultName = "", quotations = [], planLinks = [] }: Readonly<{
+export function WorkflowMaterialListEditor({ organizationId, products, plans, categories, list, requestedPlanId = "", surveySource = null, defaultName = "", quotations = [], planLinks = [], takeoffSource = null }: Readonly<{
   organizationId: string;
   products: readonly MaterialProductRecord[];
   plans: readonly ExecutionPlanOption[];
@@ -192,6 +197,7 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
   defaultName?: string;
   quotations?: readonly LinkedQuotationDraft[];
   planLinks?: readonly DocumentPlanLink[];
+  takeoffSource?: { takeoffId: string; takeoffName: string; takeoffVersion: number } | null;
 }>) {
   const router = useRouter();
   const { notify, requestConfirmation } = useAppInteraction();
@@ -230,7 +236,7 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
   const productPickerOptions = useMemo<WorkflowMaterialProductOption[]>(() => categoryVariants.map(({ product, variant }) => ({
     id: variant.id,
     name: variant.name === "Alap egység" ? product.name : `${product.name} · ${variant.name}`,
-    detail: `${product.categoryName} · ${materialPurchasingUnitLabels[variant.purchasingUnit]}${(surveyMode ? verifiedPrice(variant) : variant.latestPrice) ? ` · ${priceLabel((surveyMode ? verifiedPrice(variant) : variant.latestPrice)!.amount, variant.purchasingUnit, (surveyMode ? verifiedPrice(variant) : variant.latestPrice)!.priceKind)}` : " · Ár nincs megadva"}`,
+    detail: `${product.categoryName} · ${materialPurchasingUnitLabels[variant.purchasingUnit]}${(surveyMode ? verifiedPrice(variant) : variant.latestPrice) ? ` · ${priceLabel((surveyMode ? verifiedPrice(variant) : variant.latestPrice)!.amount, variant.purchasingUnit, (surveyMode ? verifiedPrice(variant) : variant.latestPrice)!.priceKind)}` : selectablePrices(variant.priceOptions, variant.purchasingUnit).length > 1 ? ` · ${selectablePrices(variant.priceOptions, variant.purchasingUnit).length} beszállítói ár` : " · Ár nincs megadva"}`,
     searchText: `${product.name} ${variant.name} ${variant.sku ?? ""}`,
   })), [categoryVariants, surveyMode]);
   useUnsavedChangeGuard({ dirty, pending });
@@ -342,6 +348,10 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
         <Link className="text-action" href={`/felmeresek/${savedSurveySource.surveyId}?organization=${organizationId}${savedSurveySource.stale ? `&version=${savedSurveySource.surveyVersion}` : ""}`}>Forrásfelmérés megnyitása</Link>
         <details className="workflow-source-disclosure"><summary>Forrásazonosítók</summary><p>Felmérés: {savedSurveySource.surveyId}</p><p>Revízió: {savedSurveySource.surveyRevisionId}</p></details>
       </aside>}
+      {takeoffSource && <aside className="glass-bubble survey-material-source-card" aria-label="Kapcsolt anyagkimutatás">
+        <div className="workflow-source-heading"><span className="workflow-source-mark" aria-hidden="true"><PackageOpen size={17} /></span><div><strong>{takeoffSource.takeoffName} · V{takeoffSource.takeoffVersion}</strong><p>Jóváhagyott, változtathatatlan anyagkimutatás</p></div></div>
+        <Link className="text-action" href={`/anyagkimutatasok/${takeoffSource.takeoffId}?organization=${organizationId}`}>Forrás-anyagkimutatás megnyitása</Link>
+      </aside>}
       {list?.currentRevision && <div className="glass-bubble material-quotation-card"><MaterialListQuotationButton organizationId={organizationId} listId={list.id} listVersion={list.currentRevision.revisionNumber} itemCount={list.currentRevision.items.length} quotations={quotations} disabled={dirty} /></div>}
       {list && <div className="glass-bubble material-quotation-card"><ExecutionPlanLinkControl organizationId={organizationId} kind="material_list" documentId={list.id} links={planLinks} plans={plans} /></div>}
       <section className="glass-bubble workflow-material-meta" aria-label="Lista beállításai">
@@ -357,6 +367,10 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
           const product = products.find((entry) => entry.variants.some((variant) => variant.id === line.variantId));
           const variant = product?.variants.find((entry) => entry.id === line.variantId) ?? null;
           const linePrice = lineUnitPrice(line, products, surveyMode);
+          const selectedPriceRow = line.priceId ? variant?.prices.find((item) => item.id === line.priceId) : null;
+          const hasManualPrice = Boolean(line.manualPriceAmount);
+          const priceOrigin: UnitPriceOrigin = hasManualPrice ? (line.kind === "catalog" ? "override" : "manual") : line.priceId && selectedPriceRow ? "catalog" : linePrice ? (line.kind === "manual" ? "manual" : "snapshot") : line.kind === "manual" ? "manual" : "missing";
+          const priceAmountText = hasManualPrice ? line.manualPriceAmount : linePrice ? String(linePrice.amount) : "";
           const lineTotal = linePrice ? calculateMaterialLineTotal(line.quantity, linePrice.amount) : null;
           const selectableCategory = categories.find((category) => category.id === line.categoryId);
           const sourceProductOptions: WorkflowMaterialProductOption[] = line.sourceRef ? products
@@ -380,9 +394,11 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
               {line.kind === "manual" && !line.sourceRef
                 ? <label className="workflow-material-field workflow-material-unit-field"><span>Egység</span><select aria-label={`${line.description || "Kézi tétel"} egysége`} value={line.unit} onChange={(event) => updateLine(line.id, { unit: event.target.value as MaterialPurchasingUnit })}>{materialPurchasingUnits.map((unit) => <option key={unit} value={unit}>{materialPurchasingUnitLabels[unit]}</option>)}</select></label>
                 : <div className="workflow-material-value-field"><span>Egység</span><strong>{materialPurchasingUnitLabels[line.unit]}</strong></div>}
-              {line.kind === "manual"
-                ? <div className="workflow-material-price-editor"><label className="workflow-material-field"><span>Egységár <small>HUF · opcionális</small></span><input aria-label={`${line.description || "Tétel"} egységára HUF-ban`} inputMode="decimal" value={line.manualPriceAmount} onChange={(event) => updateLine(line.id, { manualPriceAmount: event.target.value, priceSnapshot: null })} placeholder="Nincs megadva" /></label>{line.manualPriceAmount && <label className="workflow-material-field"><span>Ár típusa</span><select aria-label={`${line.description || "Tétel"} árának típusa`} value={line.manualPriceKind ?? ""} onChange={(event) => updateLine(line.id, { manualPriceKind: event.target.value === "net" || event.target.value === "gross" ? event.target.value : null })}><option value="">Válassz…</option><option value="net">Nettó</option><option value="gross">Bruttó</option></select></label>}</div>
-                : <div className="workflow-material-price-editor workflow-material-catalog-price"><div className="workflow-material-value-field"><span>Egységár</span><strong>{linePrice ? priceLabel(linePrice.amount, line.unit, linePrice.kind) : "Ár nincs megadva"}</strong></div>{variant && <label className="workflow-material-field"><span>Árrevízió</span><select aria-label={`${line.description} rögzített ára`} value={line.priceId ?? ""} onChange={(event) => updateLine(line.id, { priceId: event.target.value || null, priceSnapshot: null })}><option value="">Ár nélkül</option>{variant.prices.filter((item) => item.purchasingUnit === line.unit && (!surveyMode || (item.provenance === "verified" && item.currency === "HUF"))).map((item) => <option key={item.id} value={item.id}>{priceLabel(item.amount, item.purchasingUnit, item.priceKind)} · {item.effectiveDate}</option>)}</select></label>}</div>}
+              <UnitPriceField label={line.description || "Tétel"} unit={line.unit} amount={priceAmountText} kind={linePrice?.kind ?? null} origin={priceOrigin} priceId={line.priceId}
+                hasCatalog={line.kind === "catalog" && Boolean(variant)} selected={selectedPriceRow ?? null}
+                choices={variant ? priceChoices(variant.priceOptions, line.unit, line.priceId).filter((item) => item.purchasingUnit === line.unit && (!surveyMode || (item.provenance === "verified" && item.currency === "HUF"))) : []}
+                onSelect={(priceId) => updateLine(line.id, { priceId, priceSnapshot: null, manualPriceAmount: "", manualPriceKind: null })}
+                onManual={(amount, kind) => updateLine(line.id, { priceId: null, priceSnapshot: null, manualPriceAmount: amount.replace(",", "."), manualPriceKind: amount.trim() ? kind : null })} />
               <div className="workflow-material-line-total"><span>Részösszeg</span><strong>{lineTotal === null ? (linePrice ? "Mennyiség ellenőrzendő" : "Ár nincs megadva") : formatHuf(lineTotal)}</strong>{lineTotal !== null && linePrice?.kind && <small>{materialPriceKindLabels[linePrice.kind].toLowerCase()}</small>}</div>
             </div>
             {line.sourceRef && <div className="workflow-material-row-source-product"><div role="group" aria-label="Katalógustermék · az egység nem változik"><span>Katalógustermék · az egység nem változik</span><WorkflowMaterialProductPicker options={sourceProductOptions} value={line.variantId ?? ""} disabled={!sourceProductOptions.length} idPrefix={`survey-material-${line.id}`} label="Katalógustermék" onSelect={(id) => selectSurveyLineVariant(line, id)} /></div>{line.variantId && <button type="button" className="text-action" onClick={() => selectSurveyLineVariant(line, "")}>Katalóguskapcsolat törlése</button>}{!sourceProductOptions.length && <small>Nincs ilyen egységű katalógustermék. A mért mennyiséget nem alakítjuk át darabra.</small>}</div>}

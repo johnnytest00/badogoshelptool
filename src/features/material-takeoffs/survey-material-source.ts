@@ -1,4 +1,8 @@
 import { gableGeometryFromSurveySection } from "@/domain/field-surveys/gable-section-geometry";
+import { detailedGableInputFromSurveySection } from "@/domain/field-surveys/detailed-gable-section";
+import { quickGableInputFromSurveySection } from "@/domain/field-surveys/quick-gable-section";
+import { quickShedInputFromSurveySection } from "@/domain/field-surveys/quick-shed-section";
+import { suspectedDuplicates } from "@/domain/field-surveys/work-elements";
 import { multiRoofGeometryFromSurveySection } from "@/domain/field-surveys/multi-roof-section-geometry";
 import { surveySections, type SurveyCalculationLink, type SurveyRoofGeometrySource } from "@/domain/field-surveys/workspace";
 import { deriveSurveyMaterialSuggestions, type SurveyMaterialSuggestion } from "@/domain/material-takeoffs/survey-material-suggestions";
@@ -16,6 +20,8 @@ export type SurveyMaterialSource = Readonly<{
   unavailable: readonly string[];
   /** Roof sections with complete valid geometry (any supported roof type) whose verified area is not yet recorded for this revision. */
   geometryPending: boolean;
+  /** Section id → names of likely duplicate work elements (warn-only). */
+  suspectedDuplicates: Readonly<Record<string, readonly string[]>>;
 }>;
 
 export function buildSurveyMaterialSource(
@@ -35,7 +41,10 @@ export function buildSurveyMaterialSource(
   }, calculations.filter((link) => link.surveyRevisionId === revision.id), geometrySources.filter((item) => item.surveyRevisionId === revision.id));
   const covered = new Set(derived.suggestions.filter((item) => item.materialCategory === "roof_covering").map((item) => item.sectionId));
   const geometryPending = sections.some((section) => section.workType === "roof" && !covered.has(section.id)
-    && (gableGeometryFromSurveySection({ surveyId: revision.surveyId, id: revision.id, version: revision.version }, section) !== null
+    && (quickGableInputFromSurveySection(section) !== null
+      || quickShedInputFromSurveySection(section) !== null
+      || detailedGableInputFromSurveySection(section) !== null
+      || gableGeometryFromSurveySection({ surveyId: revision.surveyId, id: revision.id, version: revision.version }, section) !== null
       || multiRoofGeometryFromSurveySection(section) !== null));
   return {
     surveyId: survey.id,
@@ -47,6 +56,7 @@ export function buildSurveyMaterialSource(
     suggestions: derived.suggestions,
     unavailable: derived.unavailable,
     geometryPending,
+    suspectedDuplicates: Object.fromEntries(suspectedDuplicates(sections.filter((section) => section.elementKind))),
   };
 }
 

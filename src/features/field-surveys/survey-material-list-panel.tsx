@@ -2,6 +2,7 @@
 
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAppInteraction } from "@/components/feedback/app-interaction-provider";
 import { PackageOpen } from "lucide-react";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { materialPurchasingUnitLabels } from "@/domain/materials/contracts";
@@ -36,6 +37,7 @@ export const SurveyMaterialListPanel = forwardRef<HTMLElement, Readonly<{
   const [key] = useState(() => createIdempotencyKey());
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const { requestConfirmation } = useAppInteraction();
   const [created, setCreated] = useState<CreatedList | null>(null);
   const [addAnother, setAddAnother] = useState(false);
   const lock = useRef(false);
@@ -73,6 +75,11 @@ export const SurveyMaterialListPanel = forwardRef<HTMLElement, Readonly<{
 
   async function create() {
     if (lock.current || !canCreate || !source) return;
+    const duplicated = included.filter((suggestion) => source.suspectedDuplicates[suggestion.sectionId]);
+    if (duplicated.length > 0) {
+      const accepted = await requestConfirmation({ title: "Valószínű duplikált elemek", message: `${duplicated.map((suggestion) => suggestion.description).join("; ")} — azonos típusú és méretű elem több helyen szerepel. Ha mindkettő valódi munka, folytathatod; különben vedd ki az egyiket a listából.`, cancelLabel: "Visszalépek", actions: [{ label: "Mindkettő valódi, folytatom", tone: "primary", run: () => undefined }] });
+      if (!accepted) return;
+    }
     lock.current = true; setPending(true); setError("");
     const items = included.map((suggestion) => ({
       id: generateSecureUuid(), kind: "manual", description: suggestion.description, materialCategory: suggestion.materialCategory,
@@ -120,7 +127,7 @@ export const SurveyMaterialListPanel = forwardRef<HTMLElement, Readonly<{
         <h3>Átvehető, ellenőrzött mennyiségek</h3>
         {source.suggestions.length === 0
           ? <p className="workflow-source-warning" role="status">Ebből a felmérésváltozatból most nincs biztonságosan átvehető mennyiség. Kézi tételekkel kitöltve az anyaglista-szerkesztőben folytathatod.</p>
-          : <ul>{source.suggestions.map((suggestion) => <li key={suggestion.key}><label><input type="checkbox" checked={!excluded.has(suggestion.key)} onChange={(event) => toggle(suggestion.key, event.target.checked)} /><span><strong>{suggestion.description}</strong><small>{Number(suggestion.quantity).toLocaleString("hu-HU", { maximumFractionDigits: 6 })} {materialPurchasingUnitLabels[suggestion.unit]} · {suggestion.quantityKind === "measured" ? "mért adat" : "ellenőrzött számítás"} · {suggestion.sourceLabel}</small></span></label></li>)}</ul>}
+          : <ul>{source.suggestions.map((suggestion) => <li key={suggestion.key}><label><input type="checkbox" checked={!excluded.has(suggestion.key)} onChange={(event) => toggle(suggestion.key, event.target.checked)} /><span><strong>{suggestion.description}</strong><small>{Number(suggestion.quantity).toLocaleString("hu-HU", { maximumFractionDigits: 6 })} {materialPurchasingUnitLabels[suggestion.unit]} · <span className={`quick-gable-tag${suggestion.quantityKind === "measured" ? " is-measured" : ""}`}>{suggestion.quantityKind === "measured" ? "mért" : suggestion.quantityKind === "overridden" ? "kézzel felülírt" : "számított"}</span> {suggestion.sourceLabel}</small>{source.suspectedDuplicates[suggestion.sectionId] && <small className="work-element-warning">Valószínű duplikátum: {source.suspectedDuplicates[suggestion.sectionId].join(", ")}</small>}</span></label></li>)}</ul>}
         <p className="survey-material-panel-note">Csak mért szakaszhossz és ellenőrzött tetőfelület kerül át. Szálhossz, toldás, átfedés, veszteség és darabszám nem becsült; azt az anyaglistában, termékkel és kézzel adhatod meg.</p>
         {source.geometryPending && !geometryError && <p className="survey-material-panel-note" role="status">A tetőfelület ellenőrzése a mentett felmérésváltozatból…</p>}
         {geometryError && <p className="form-message is-error" role="alert">{geometryError}</p>}

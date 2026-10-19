@@ -12,7 +12,6 @@ import type { StandaloneRoofRecord } from "./standalone-roof-data";
 import { MeasurementGuidance, measurementGuideFor } from "./measurement-guidance";
 import { RoofWorkspace } from "./roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
-import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
@@ -42,7 +41,6 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((field) => [field.key, savedInput && field.key in savedInput ? String(savedInput[field.key as keyof typeof savedInput]) : ""])));
   const [name, setName] = useState(model?.name ?? standalone?.name ?? `Új ${names[type].toLowerCase()}`);
   const interactionBaseline = useRef({ values, name });
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [viewedHistoryId, setViewedHistoryId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -60,8 +58,6 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
   useEffect(() => { onWorkspaceState?.({ dirty: interactionDirty, pending }); }, [interactionDirty, onWorkspaceState, pending]);
   useUnsavedChangeGuard({ dirty: interactionDirty, pending, discard: () => { setValues(interactionBaseline.current.values); setName(interactionBaseline.current.name); } });
   const geometry = useMemo(() => parsed.success ? !dirty && (model?.currentMultiRoofOutput || standalone?.output) ? (model?.currentMultiRoofOutput ?? standalone?.output)! : calculateRoofGeometry(parsed.data) : null, [parsed, dirty, model, standalone]);
-  const selectedEaves = geometry?.edges.filter((edge) => edge.kind === "eave" && selectedIds.includes(edge.id)) ?? [];
-  const selectedFlashings = geometry?.edges.filter((edge) => edge.kind !== "upper" && selectedIds.includes(edge.id)) ?? [];
   const history = model ? model.revisions.flatMap((revision) => revision.input && "type" in revision.input && revision.input.type === type
     ? [{ id: revision.id, revisionNumber: revision.revisionNumber, input: revision.input, createdAt: revision.createdAt }] : []) : standalone?.revisions ?? [];
   const viewedHistory = history.find((revision) => revision.id === viewedHistoryId);
@@ -71,7 +67,7 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
     : type === "pyramid"
       ? "A modell négyzetes ereszkontúrt és mind a négy oldalon azonos méretet feltételez."
       : "A megadott méretek a tető külső kontúrját jelölik; a modell eltérő túlnyúlást nem számít hozzá.";
-  const update = (key: string, value: string) => { setValues((current) => ({ ...current, [key]: value })); setSelectedIds([]); setMessage(""); };
+  const update = (key: string, value: string) => { setValues((current) => ({ ...current, [key]: value })); setMessage(""); };
   const save = () => {
     if (!organizationId || !parsed.success) return;
     startTransition(async () => {
@@ -92,10 +88,8 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
     <RoofWorkspace
       context={<div className="roof-workspace-context"><div className="roof-guidance-slot"><MeasurementGuidance compact guide={measurementGuideFor(type, focusedField ?? "")} /></div></div>}
       measurements={<section className="roof-surface roof-measurement-inputs"><p className="roof-technical-note">{geometryAssumption}</p><div className="roof-form-grid roof-form-grid-compact">{fields.map((field) => <label key={field.key} className="roof-field"><span>{field.label} <small>{field.unit}</small></span><input id={field.key} inputMode="decimal" value={values[field.key] ?? ""} onFocus={() => setFocusedField(field.key)} onBlur={() => setFocusedField(null)} onChange={(event) => update(field.key, event.target.value)} aria-invalid={Boolean(fieldError(field.key))} aria-label={`${field.label} (${field.unit})`} />{fieldError(field.key) && <b className="roof-field-error">{fieldError(field.key)}</b>}</label>)}</div>{validationMessage && <p className="missing-data" role="status">{validationMessage}</p>}</section>}
-      drawing={geometry && <TechnicalDrawing geometry={geometry} compact isSaved={Boolean((model || standalone) && !dirty)} activeDimension={focusedField} activeDimensionDescription={measurementGuideFor(type, focusedField ?? "")?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} selectedSegmentIds={selectedIds} onSegmentToggle={(id) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])} />}
+      drawing={geometry && <TechnicalDrawing geometry={geometry} compact isSaved={Boolean((model || standalone) && !dirty)} activeDimension={focusedField} activeDimensionDescription={measurementGuideFor(type, focusedField ?? "")?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />}
       results={geometry && <><section className="roof-results" aria-live="polite"><div className="roof-section-heading"><div><p className="section-eyebrow">Eredmények</p><h2>Geometriai összesítő</h2></div></div><div className="roof-result-highlight"><span>Teljes tetőfelület</span><strong>{display(geometry.totalAreaMm2 / 1e6, "m²")}</strong><small>Vízszintes vetület: {display(geometry.projectedAreaMm2 / 1e6, "m²")}</small></div><div className="roof-result-grid"><div className="roof-result-metric"><small>Tetősík-részek</small><strong>{geometry.planes.length}</strong></div><div className="roof-result-metric"><small>Vápavonalak</small><strong>{geometry.edges.filter((edge) => edge.kind === "valley").length}</strong></div><div className="roof-result-metric"><small>Legmagasabb geometriai pont</small><strong>{display(Math.max(...geometry.planes.flatMap((plane) => plane.vertices.map((point) => point.zMm))) / 1000, "m")}</strong></div></div><p className="roof-disclaimer">A felület és a vetület a kiválasztott geometriai modellből számítva; a magasság a modell referencia-szintjéhez viszonyított geometriai érték.</p>
-        {model && !dirty && selectedEaves.length > 0 && <div className="roof-segment-actions"><p>Csak a kijelölt, mentett V{model.currentRevisionNumber} ereszélek kerülnek át. A csatornarendszer és lefolyók adatait külön add meg.</p><Link className="primary-button" href={`/projektek/${projectId}/ereszcsatorna?organization=${organizationId}&roof=${model.id}&edges=${encodeURIComponent(JSON.stringify(selectedEaves.map((edge) => edge.id)))}`}>Felhasználás ereszcsatornához · {display(selectedEaves.reduce((sum, edge) => sum + edge.lengthMm, 0) / 1000, "m")}</Link></div>}
-        {model && !dirty && selectedFlashings.length > 0 && <div className="roof-segment-actions"><p>A kijelölt, mentett élek külön szegélykategóriával kerülnek át. A profilt és szálkapcsolatot külön add meg.</p><Link className="secondary-button" href={`/projektek/${projectId}/szegelyek?organization=${organizationId}&roof=${model.id}&edges=${encodeURIComponent(JSON.stringify(selectedFlashings.map((edge) => edge.id)))}`}>Felhasználás bádogos szegélyhez · {selectedFlashings.length} él</Link></div>}
         <p className="roof-disclaimer">A nem nyeregtetős fedési kiosztás még nem érhető el; ehhez nem készül kitalált lemezmennyiség.</p></section></>}
       actions={<section className="roof-surface roof-measurement-actions"><label className="roof-field roof-name-field"><span>Tetőmodell neve</span><input value={name} maxLength={200} onChange={(event) => { setName(event.target.value); setMessage(""); }} /></label>{organizationId && <div className="roof-toolbar-actions"><button className="primary-button" type="button" disabled={!geometry || !name.trim() || pending || !dirty} onClick={save}>{pending ? "Mentés…" : model || standalone ? "Új tetőrevízió mentése" : "Tetőgeometria mentése"}</button></div>}{!projectId && <p className="roof-help-note">Projekt nélküli, saját számítás. Mentés után ugyanerről az oldalról újranyitható.</p>}{message && <p role="status" className={`form-message ${message.includes("mentve") ? "is-success" : "is-error"}`}>{message}</p>}</section>}
     />

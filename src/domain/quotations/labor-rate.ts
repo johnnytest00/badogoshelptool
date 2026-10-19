@@ -42,13 +42,18 @@ export function offerLaborRates(rates: readonly LaborRate[], bases: readonly Lab
 }
 
 /** Explicit, traceable labor line: quantity is the verified source quantity, price is the stored rate; nothing is estimated. */
-export function buildLaborLine(rate: LaborRate, base: LaborBase, source: Readonly<{ materialListId: string; materialRevisionId: string }>, billingQuantity?: string) {
+export const isUnitPrice = (value: string) => /^\d+(?:\.\d{1,2})?$/.test(value);
+
+/** `unitPrice` is an explicit quotation-level override of the stored rate; the rate itself (and its snapshot) stays unchanged. */
+export function buildLaborLine(rate: LaborRate, base: LaborBase, source: Readonly<{ materialListId: string; materialRevisionId: string }>, billingQuantity?: string, unitPrice?: string) {
   const quantity = billingQuantity === undefined ? base.quantity : billingQuantity;
   const deviates = !sameQuantity(quantity, base.quantity);
-  const note = `Munkadíj-szabály: ${rate.name} · ${rate.rateAmount} Ft/${base.unit} · forrás: ${base.label}, ${base.quantity} ${base.unit}${deviates ? ` · elszámolt mennyiség kézzel módosítva: ${quantity} ${base.unit}` : ""}`;
+  const price = unitPrice === undefined ? rate.rateAmount : unitPrice;
+  const priceOverridden = Number(price) !== Number(rate.rateAmount);
+  const note = `Munkadíj-szabály: ${rate.name} · ${rate.rateAmount} Ft/${base.unit} · forrás: ${base.label}, ${base.quantity} ${base.unit}${deviates ? ` · elszámolt mennyiség kézzel módosítva: ${quantity} ${base.unit}` : ""}${priceOverridden ? ` · ajánlati egységár kézzel felülírva: ${price} Ft/${base.unit}` : ""}`;
   return {
     type: "LABOR" as const, description: `Munkadíj · ${rate.name} · ${base.label}`.slice(0, 240), quantity, unit: base.unit,
-    unitPrice: rate.rateAmount, priceClass: rate.priceClass, variantId: "", categoryId: "", priceId: "", takeoffItemId: "", sourceMaterialItemId: "", takeoffSourceItemIds: [] as string[],
+    unitPrice: price, priceClass: rate.priceClass, variantId: "", categoryId: "", priceId: "", takeoffItemId: "", sourceMaterialItemId: "", takeoffSourceItemIds: [] as string[],
     laborSource: { rateId: rate.id, materialListId: source.materialListId, materialRevisionId: source.materialRevisionId, materialItemId: base.itemId } as LaborSourceRef, priceProvenance: "user_entered" as const, notes: note.slice(0, 500),
   };
 }

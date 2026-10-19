@@ -1,6 +1,7 @@
 begin;
 
 select plan(178);
+\ir _demo_workflow_fixture.inc
 
 select has_table('public', 'profiles', 'profiles exists');
 select has_table('public', 'organizations', 'organizations exists');

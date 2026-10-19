@@ -1,6 +1,4 @@
 import { executeCalculator } from "@/domain/calculations/engine";
-import { flashingMaterialCalculator, flashingMaterialInputSchema, type FlashingMaterialOutput } from "@/domain/calculations/flashing-material";
-import { gutterMaterialCalculator, gutterMaterialInputSchema } from "@/domain/calculations/gutter-material";
 import { sheetMetalProfileCalculator, sheetMetalProfileInputSchema, type SheetMetalProfileOutput } from "@/domain/calculations/sheet-metal-profile";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { persistedResultMatches } from "@/features/sheet-metal/profile-data";
@@ -30,9 +28,6 @@ export type StandaloneCalculationRevision = Readonly<{
   createdAt: string;
 }>;
 export type StandaloneCalculationRecord = StandaloneCalculationSummary & Readonly<{ revisions: readonly StandaloneCalculationRevision[] }>;
-
-const stableJson = (value: unknown): string => JSON.stringify(value, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item)
-  ? Object.fromEntries(Object.entries(item as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : item);
 
 async function assertOrganizationMember(organizationId: string) {
   const auth = await getAuthContext();
@@ -85,22 +80,6 @@ export async function getStandaloneCalculation(organizationId: string, calculati
   const revisions: StandaloneCalculationRevision[] = [];
   for (const row of rows ?? []) {
     if (row.input_schema_version !== "1.0.0" || row.calculator_implementation_version !== "1.0.0") continue;
-    if (calculation.calculator_type === gutterMaterialCalculator.id) {
-      const parsed = gutterMaterialInputSchema.safeParse(row.input_snapshot);
-      const calculated = parsed.success ? executeCalculator(gutterMaterialCalculator, parsed.data) : null;
-      const saved = gutterMaterialCalculator.outputSchema.safeParse(row.output_snapshot);
-      if (!calculated?.ok || !saved.success || stableJson(calculated.output) !== stableJson(saved.data)) continue;
-      revisions.push({ revisionId: row.id, revisionNumber: row.revision_number, input: parsed.data, output: calculated.output, dataProvenance: row.data_provenance, validationStatus: row.validation_status, createdAt: row.created_at });
-      continue;
-    }
-    if (calculation.calculator_type === flashingMaterialCalculator.id) {
-      const parsed = flashingMaterialInputSchema.safeParse(row.input_snapshot);
-      const calculated = parsed.success ? executeCalculator(flashingMaterialCalculator, parsed.data) : null;
-      const saved = flashingMaterialCalculator.outputSchema.safeParse(row.output_snapshot);
-      if (!calculated?.ok || !saved.success || stableJson(calculated.output) !== stableJson(saved.data)) continue;
-      revisions.push({ revisionId: row.id, revisionNumber: row.revision_number, input: parsed.data, output: calculated.output as FlashingMaterialOutput, dataProvenance: row.data_provenance, validationStatus: row.validation_status, createdAt: row.created_at });
-      continue;
-    }
     const parsed = sheetMetalProfileInputSchema.safeParse(row.input_snapshot);
     const calculated = parsed.success && parsed.data.profileId === calculationId ? executeCalculator(sheetMetalProfileCalculator, parsed.data) : null;
     if (!calculated?.ok || !persistedResultMatches(row.output_snapshot, calculated.output)) continue;

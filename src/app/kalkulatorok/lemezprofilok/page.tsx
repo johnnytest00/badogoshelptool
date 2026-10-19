@@ -4,6 +4,7 @@ import { BackNavigation } from "@/components/navigation/back-navigation";
 import { getProfileCatalogCandidates } from "@/features/sheet-metal/profile-data";
 import { ProfileEditor } from "@/features/sheet-metal/profile-editor";
 import { getProjectOrganization } from "@/features/projects/organization";
+import { getStandaloneTakeoffs } from "@/features/material-takeoffs/takeoff-data";
 import { getStandaloneCalculation } from "@/features/calculations/standalone-data";
 import type { SavedProfile } from "@/features/sheet-metal/profile-data";
 import { sheetMetalProfileCalculator } from "@/domain/calculations/sheet-metal-profile";
@@ -17,6 +18,7 @@ export default async function StandaloneProfilePage({ searchParams }: Readonly<{
   const catalogCandidates = await getProfileCatalogCandidates(selected.organization.id);
   const candidate = params.calculation ? await getStandaloneCalculation(selected.organization.id, params.calculation) : null;
   const record = candidate?.calculatorType === sheetMetalProfileCalculator.id ? candidate : null;
+  const takeoffs = record ? (await getStandaloneTakeoffs(selected.organization.id, { calculationId: record.calculationId })).map(({ id, name, status }) => ({ id, name, status })) : [];
   const profiles = record ? [{ calculationId: record.calculationId, displayName: record.displayName, currentRevisionNumber: record.currentRevisionNumber, revisions: record.revisions.map((revision) => ({ revisionId: revision.revisionId, revisionNumber: revision.revisionNumber, createdAt: revision.createdAt, input: revision.input, output: revision.output })) }] as unknown as SavedProfile[] : [];
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/kalkulatorok?organization=${selected.organization.id}`} label="Vissza a kalkulátorokhoz" /><ProfileEditor organizationId={selected.organization.id} profiles={profiles} catalogCandidates={catalogCandidates} /></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/kalkulatorok?organization=${selected.organization.id}`} label="Vissza a kalkulátorokhoz" /><ProfileEditor organizationId={selected.organization.id} profiles={profiles} catalogCandidates={catalogCandidates} takeoffs={takeoffs} /></div></main>;
 }

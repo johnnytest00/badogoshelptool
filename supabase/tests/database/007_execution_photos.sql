@@ -1,5 +1,6 @@
 begin;
 select plan(27);
+\ir _demo_workflow_fixture.inc
 select ok(exists(select 1 from storage.buckets where id = 'execution-photos' and public = false), 'photo bucket is private');
 select is((select file_size_limit from storage.buckets where id = 'execution-photos'), 10485760::bigint, 'photo bucket has 10 MB limit');
 select ok(to_regclass('public.execution_photos') is not null, 'photo metadata table exists');

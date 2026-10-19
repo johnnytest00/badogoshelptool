@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { completeSectionMeasurements, savedQuantitySummary, surveySections, surveySectionsSchema } from "./workspace";
-import { mapFieldSurveyToCalculator } from "./calculator-handoff";
 const id = "00000000-0000-4000-8000-000000000001";
 const measurement = { id, label: "DEMO eresz", value: 8.5, unit: "m" as const, semanticType: "gutter_run_length" as const };
 const section = { id, name: "DEMO eresz", workType: "gutter" as const, notes: "", photoIds: [], measurements: [measurement] };
@@ -8,8 +7,7 @@ describe("unified survey contracts", () => {
   it("preserves incomplete values and excludes them from calculator prefill", () => {
     const parsed = surveySectionsSchema.parse([{ ...section, measurements: [{ ...measurement, value: null }] }]);
     expect(parsed[0].measurements[0].value).toBeNull();
-    const handoff = mapFieldSurveyToCalculator({ surveyId: id, revisionId: id, version: 1, workType: "gutter", measurements: completeSectionMeasurements(parsed[0]) });
-    expect(handoff.ok && handoff.missing).toContain("Pozitív ereszszakasz-hossz");
+    expect(completeSectionMeasurements(parsed[0])).toEqual([]);
   });
   it("keeps independent sections, validates units, duplicates and total measurement bounds", () => {
     expect(surveySectionsSchema.safeParse([section, section]).success).toBe(false);

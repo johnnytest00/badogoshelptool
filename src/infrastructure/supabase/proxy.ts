@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import type { Database } from "@/infrastructure/supabase/database.types";
+import type { Database } from "@/infrastructure/supabase/database";
 import { getSupabasePublicEnv, SupabaseConfigurationError } from "@/infrastructure/supabase/env";
 
 const protectedPaths = ["/", "/demo"];

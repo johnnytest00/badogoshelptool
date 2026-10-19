@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createClient } from "@/infrastructure/supabase/server";
-import { getGutterGeometrySuggestions } from "@/features/gutters/gutter-data";
-import { getFlashingGeometrySuggestions } from "@/features/flashings/flashing-data";
 import { getSheetMetalProfiles } from "@/features/sheet-metal/profile-data";
 
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: vi.fn() }));
@@ -22,15 +20,11 @@ describe("calculator data loading states", () => {
 
   it("keeps successful empty source data distinct from query failures", async () => {
     configureQuery({ data: [], error: null });
-    await expect(getGutterGeometrySuggestions("org", "project")).resolves.toEqual([]);
-    await expect(getFlashingGeometrySuggestions("org", "project")).resolves.toEqual([]);
     await expect(getSheetMetalProfiles("org", "project")).resolves.toEqual([]);
   });
 
   it("surfaces failures from the first query instead of reporting empty data", async () => {
     configureQuery({ data: null, error: { message: "private database detail" } });
-    await expect(getGutterGeometrySuggestions("org", "project")).rejects.toMatchObject({ message: "A tetőmodellek betöltése nem sikerült." });
-    await expect(getFlashingGeometrySuggestions("org", "project")).rejects.toMatchObject({ message: "A tetőmodellek betöltése nem sikerült." });
     await expect(getSheetMetalProfiles("org", "project")).rejects.toMatchObject({ message: "A mentett profilok betöltése nem sikerült." });
   });
 });

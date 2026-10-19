@@ -47,6 +47,13 @@ describe("workflow material list contract", () => {
     expect(input({ manualPriceAmount: "0", manualPriceKind: null }).success).toBe(false);
   });
 
+  it("lets a catalog row carry either a catalog price or a manual override, never both", () => {
+    const base = { kind: "catalog", categoryId: ids.categoryId, variantId: ids.variantId };
+    expect(input({ ...base, manualPriceAmount: "2500", manualPriceKind: "net" }).success).toBe(true);
+    expect(input({ ...base, priceId: "00000000-0000-4000-8000-0000000000aa", manualPriceAmount: "2500", manualPriceKind: "net" }).success).toBe(false);
+    expect(input({ ...base, manualPriceKind: "net" }).success).toBe(false);
+  });
+
   it("requires an organization category and variant for catalog rows", () => {
     expect(input({ kind: "catalog", categoryId: ids.categoryId, variantId: ids.variantId }).success).toBe(true);
     expect(input({ kind: "catalog", variantId: ids.variantId }).success).toBe(false);

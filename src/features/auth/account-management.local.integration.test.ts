@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createClient as createSupabaseClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { Database } from "@/infrastructure/supabase/database.types";
+import type { Database } from "@/infrastructure/supabase/database";
 
 const runLocal = process.env.RUN_LOCAL_AUTH_ACCOUNT_TESTS === "1";
 const password = `Local-${randomUUID()}-Aa1`;

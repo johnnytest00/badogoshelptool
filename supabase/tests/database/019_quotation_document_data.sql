@@ -1,5 +1,6 @@
 begin;
 select plan(29);
+\ir _demo_workflow_fixture.inc
 
 select has_column('public','organizations','business_name','issuer business name is stored per organization');
 select has_column('public','organizations','business_address','issuer address is stored per organization');

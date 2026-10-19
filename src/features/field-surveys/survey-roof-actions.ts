@@ -8,7 +8,6 @@ import { completeSectionMeasurements, surveySections } from "@/domain/field-surv
 import { getAuthContext } from "@/features/auth/auth.server";
 import { getFieldSurvey, getFieldSurveyRevision } from "./field-survey-data";
 import { getRoofModelsForProject } from "@/features/roof-models/roof-model-data";
-import { getFlashingGeometrySuggestions } from "@/features/flashings/flashing-data";
 import { createClient } from "@/infrastructure/supabase/server";
 import { persistGableRoof } from "@/infrastructure/supabase/gable-roof-writer";
 import { calculateRoofGeometry, type RoofGeometry, type RoofGeometryInput } from "@/domain/calculations/roof-geometry";
@@ -61,18 +60,22 @@ export async function listVerifiedSurveyRoofs(raw: z.infer<typeof sourceSchema>)
   const input = sourceSchema.parse(raw);
   const { projectId, revision, section } = await exactSurveySource(input);
   const currentSurveyInput = geometryFromSection(revision, section);
-  const [models, edges] = await Promise.all([
-    getRoofModelsForProject(input.organizationId, projectId),
-    getFlashingGeometrySuggestions(input.organizationId, projectId),
-  ]);
-  return models.flatMap((model) => {
+  const models = await getRoofModelsForProject(input.organizationId, projectId);
+  const client = await createClient();
+  return (await Promise.all(models.map(async (model) => {
     if (model.roofType !== "gable" || !model.currentRevisionId || !model.currentInput || !model.currentCalculationId || !model.currentCalculationRevisionId) return [];
-    const linked = edges.filter((edge) => edge.reference.roofModelId === model.id && edge.reference.roofModelRevisionId === model.currentRevisionId && edge.reference.calculationId === model.currentCalculationId && edge.reference.calculationRevisionId === model.currentCalculationRevisionId);
-    if (linked.length !== 7) return [];
+    // Ellenőrzött forrás: verified tetőmodell-revízió, verified számításrevízió, köztük tárolt függőség, és a tárolt eredmény megegyezik a motor eredményével.
+    const [{ data: modelRevision }, { data: result }, { data: dependency }] = await Promise.all([
+      client.from("roof_model_revisions").select("id").eq("organization_id", input.organizationId).eq("id", model.currentRevisionId).eq("roof_model_id", model.id).eq("validation_status", "verified").maybeSingle(),
+      client.from("calculation_revisions").select("id, output_snapshot").eq("organization_id", input.organizationId).eq("id", model.currentCalculationRevisionId).eq("calculation_id", model.currentCalculationId).eq("validation_status", "verified").maybeSingle(),
+      client.from("calculation_dependencies").select("id").eq("downstream_calculation_revision_id", model.currentCalculationRevisionId).eq("upstream_roof_model_revision_id", model.currentRevisionId).maybeSingle(),
+    ]);
+    if (!modelRevision || !result || !dependency) return [];
     const output = calculateGableRoof(model.currentInput);
-    if (linked.some((edge) => edge.reference.suggestedLengthMm !== (edge.category === "verge" ? output.lengths.eachSlopingGableEdgeMm : edge.category === "ridge" ? output.lengths.ridgeLineMm : output.lengths.eachEaveEdgeMm))) return [];
+    const stored = result.output_snapshot as { lengths?: Record<string, unknown> } | null;
+    if (stored?.lengths?.eachEaveEdgeMm !== output.lengths.eachEaveEdgeMm || stored.lengths.ridgeLineMm !== output.lengths.ridgeLineMm || stored.lengths.eachSlopingGableEdgeMm !== output.lengths.eachSlopingGableEdgeMm) return [];
     return [{ roofModelId: model.id, roofModelRevisionId: model.currentRevisionId, roofModelRevisionNumber: model.currentRevisionNumber, calculationId: model.currentCalculationId, calculationRevisionId: model.currentCalculationRevisionId, name: model.name, input: model.currentInput, output, matchesCurrentSurvey: Boolean(currentSurveyInput && JSON.stringify(currentSurveyInput) === JSON.stringify(model.currentInput)) }];
-  });
+  }))).flat();
 }
 
 export async function saveSurveyRoofGeometry(raw: z.infer<typeof saveSchema>): Promise<{ ok: true; source: VerifiedSurveyRoof; linked: boolean; linkError?: string } | { ok: false; error: string }> {

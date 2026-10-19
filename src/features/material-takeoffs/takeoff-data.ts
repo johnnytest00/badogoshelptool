@@ -11,7 +11,7 @@ export type GableCoveringTakeoffOption = Readonly<{
   technicalSpecs?: Readonly<Record<string, string>>;
   provenance: string; sourceName: string | null; latestPrice: Pick<MaterialPriceRecord, "amount" | "currency" | "purchasingUnit" | "priceKind" | "effectiveDate" | "sourceName"> | null;
 }>;
-export type TakeoffRecord = { id: string; projectId: string; name: string; status: "draft" | "approved"; version: number; sourceCalculationId: string; sourceRevisionId: string; sourceDisplayName: string; sourceCurrentRevisionId: string | null; sourceRoofModelId: string | null; sourceRoofRevisionId: string | null; staleRoofSource: boolean; items: Array<{ id: string; variantId: string; materialSnapshot: Record<string, unknown>; priceSnapshot: Record<string, unknown> | null; quantityExact: string; quantityUnit: string; variantName: string; sku: string | null; productName: string | null; productCategory: string | null; provenance: string; technicalDetails: string | null; priceDetails: string | null; quantity: number; unit: string; method: string; source: string; warning: string | null }> };
+export type TakeoffRecord = { id: string; projectId: string | null; name: string; status: "draft" | "approved"; version: number; sourceCalculationId: string; sourceRevisionId: string; sourceDisplayName: string; sourceCurrentRevisionId: string | null; sourceRoofModelId: string | null; sourceRoofRevisionId: string | null; staleRoofSource: boolean; items: Array<{ id: string; variantId: string; materialSnapshot: Record<string, unknown>; priceSnapshot: Record<string, unknown> | null; quantityExact: string; quantityUnit: string; variantName: string; sku: string | null; productName: string | null; productCategory: string | null; provenance: string; technicalDetails: string | null; priceDetails: string | null; quantity: number; unit: string; method: string; source: string; warning: string | null }> };
 
 const profileStateLabels: Record<string, string> = {
   INCOMPLETE: "Hiányos terítékadat", PARAMETER_BASED_ESTIMATE: "Paraméteralapú becslés", GEOMETRICALLY_DETERMINED: "Geometriai eredmény", UNSUPPORTED: "Nem támogatott",
@@ -114,8 +114,21 @@ export async function getGableCoveringTakeoffOptions(organizationId: string): Pr
 }
 
 export async function getMaterialTakeoffs(organizationId: string, projectId: string): Promise<TakeoffRecord[]> {
+  return loadTakeoffs(organizationId, { projectId });
+}
+
+/** Independent (project-less) drafts; RLS limits them to their creator. */
+export async function getStandaloneTakeoffs(organizationId: string, filter: { takeoffId?: string; calculationId?: string } = {}): Promise<TakeoffRecord[]> {
+  return loadTakeoffs(organizationId, { projectId: null, ...filter });
+}
+
+async function loadTakeoffs(organizationId: string, scope: { projectId: string | null; takeoffId?: string; calculationId?: string }): Promise<TakeoffRecord[]> {
   const supabase = await createClient();
-  const { data: takeoffs, error } = await supabase.from("material_takeoffs").select("id, project_id, name, status, version, source_calculation_id, source_calculation_revision_id, source_roof_model_id, source_roof_model_revision_id").eq("organization_id", organizationId).eq("project_id", projectId).order("updated_at", { ascending: false });
+  let query = supabase.from("material_takeoffs").select("id, project_id, name, status, version, source_calculation_id, source_calculation_revision_id, source_roof_model_id, source_roof_model_revision_id").eq("organization_id", organizationId);
+  query = scope.projectId === null ? query.is("project_id", null) : query.eq("project_id", scope.projectId);
+  if (scope.takeoffId) query = query.eq("id", scope.takeoffId);
+  if (scope.calculationId) query = query.eq("source_calculation_id", scope.calculationId);
+  const { data: takeoffs, error } = await query.order("updated_at", { ascending: false });
   if (error) throw new Error("Az anyagkimutatások betöltése nem sikerült.");
   if (!takeoffs?.length) return [];
   const calcIds = takeoffs.map((item) => item.source_calculation_id);

@@ -1,5 +1,6 @@
 begin;
 select plan(29);
+\ir _demo_workflow_fixture.inc
 
 select has_function('public', 'save_standalone_gutter_calculation', 'standalone gutter save RPC exists');
 select has_function('public', 'save_standalone_flashing_calculation', 'standalone flashing save RPC exists');

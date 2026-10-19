@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { fieldSurveyMeasurementSchema, fieldSurveyWorkTypeSchema, fieldSurveyWorkTypeLabels, fieldSurveySemanticTypeSchema, fieldSurveyUnitSchema, type FieldSurveyMeasurement, type FieldSurveyWorkType } from "./contracts";
 import { roofGeometryTypeSchema } from "@/domain/calculations/roof-geometry";
+import { lengthSourceSchema, workElementDefs, workElementKindSchema, type RoofEdgeRole } from "./work-elements";
 import { roofTimberParametersSchema } from "@/domain/calculations/roof-timber-layout";
 import { roofUnderlayParametersSchema } from "@/domain/calculations/roof-underlay";
 
@@ -19,10 +20,21 @@ export const surveySectionSchema = z.object({
   id: z.string().uuid(), name: z.string().trim().min(1, "A munkaszakasz neve kötelező.").max(120),
   workType: fieldSurveyWorkTypeSchema, measurements: z.array(surveySectionMeasurementSchema).max(100),
   roofType: roofGeometryTypeSchema.optional(),
+  /** Hiányzó érték = korábbi „épületméretek” mód. Nyeregtetőnél quick/building/detailed, félnyeregtetőnél quick/building. */
+  roofMeasurementMode: z.enum(["quick", "building", "detailed"]).optional(),
+  /** Kifejezett megerősítés, hogy a két tetősík egyforma; hiányzó érték = nincs megerősítve. */
+  quickPlanesMatch: z.boolean().optional(),
+  /** Bádogos munkaelem típusa; hiányzó érték = hagyományos munkaszakasz. */
+  elementKind: workElementKindSchema.optional(),
+  lengthSource: lengthSourceSchema.optional(),
   roofTimberParameters: roofTimberParametersSchema.optional(),
   roofUnderlayParameters: roofUnderlayParametersSchema.optional(),
   notes: z.string().max(2000), photoIds: z.array(z.string().uuid()).max(100),
 }).strict().superRefine((section, context) => {
+  if (section.elementKind && workElementDefs[section.elementKind].workType !== section.workType) context.addIssue({ code: "custom", path: ["elementKind"], message: "A munkaelem típusa nem egyezik a munkatípussal." });
+  if (section.lengthSource && (!section.elementKind || workElementDefs[section.elementKind].roofRole !== section.lengthSource.role)) context.addIssue({ code: "custom", path: ["lengthSource"], message: "A tetőgeometria-forrás ehhez a munkaelemhez nem értelmezett." });
+  if (section.roofMeasurementMode && (section.workType !== "roof" || (section.roofType !== "gable" && section.roofType !== "shed") || (section.roofType === "shed" && section.roofMeasurementMode === "detailed"))) context.addIssue({ code: "custom", path: ["roofMeasurementMode"], message: "A mérési mód csak nyeregtető (gyors/épületméret/részletes) vagy félnyeregtető (gyors/épületméret) munkaszakaszhoz menthető." });
+  if (section.quickPlanesMatch !== undefined && section.roofType !== "gable") context.addIssue({ code: "custom", path: ["quickPlanesMatch"], message: "A síkegyezés megerősítése csak nyeregtetőnél értelmezett." });
   if (section.roofTimberParameters && section.workType !== "roof") context.addIssue({ code: "custom", path: ["roofTimberParameters"], message: "Tetőfaanyag-kiosztás csak tető munkaszakaszhoz menthető." });
   if (section.roofUnderlayParameters && section.workType !== "roof") context.addIssue({ code: "custom", path: ["roofUnderlayParameters"], message: "Alátétfólia-paraméter csak tető munkaszakaszhoz menthető." });
 });
@@ -40,7 +52,8 @@ export type SurveyCalculationLink = SavedSurveyCalculation & {
   name: string; output: unknown; warnings: unknown; provenance: unknown; validationStatus: string;
 };
 /** Immutable, server-verified roof area derived from one exact survey revision section (no project/roof model needed). */
-export type SurveyRoofGeometrySource = { id: string; sectionId: string; surveyRevisionId: string; combinedRoofM2: number };
+/** `edges` (mm) come from the recorded source output; absent when the source type does not record them. */
+export type SurveyRoofGeometrySource = { id: string; sectionId: string; surveyRevisionId: string; combinedRoofM2: number; edges?: Partial<Record<RoofEdgeRole, number>> };
 export type SurveyFollowup = { id: string; kind: "project" | "quotation"; projectId: string | null; quotationId: string | null; quotationRevisionId: string | null; surveyRevisionId: string };
 export type SurveyExecutionPlanLink = { id: string; executionPlanId: string; surveyRevisionId: string; surveyVersion: number; planTitle: string };
 

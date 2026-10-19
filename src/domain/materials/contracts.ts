@@ -67,8 +67,17 @@ export const materialVariantInputSchema = z.object({
   }).default({}), dataProvenance: z.enum(materialProvenances), sourceName: optionalText(200), sourceUrl: optionalUrl, sourceDate: z.string().trim().refine((value) => !value || !Number.isNaN(Date.parse(value)), "Érvényes dátum szükséges.").optional().default(""), sourceNotes: optionalText(5000),
 });
 
+export const materialPriceOptionInputSchema = z.object({
+  variantId: uuid, label: z.string().trim().min(1, "A beszállító vagy forrás megnevezése kötelező.").max(60, "Legfeljebb 60 karakter lehet."),
+  amount: z.string().trim().regex(/^\d{1,12}(?:[.,]\d{1,2})?$/, "Adj meg nem negatív, legfeljebb két tizedesjegyű HUF árat."),
+  priceKind: z.enum(materialPriceKinds, { message: "Válaszd ki, hogy az ár nettó vagy bruttó." }),
+  effectiveDate: z.string().trim().refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)), "Adj meg érvényes dátumot az árhoz."),
+});
+export const materialPriceOptionUpdateSchema = z.object({ optionId: uuid, label: z.string().trim().min(1, "A megnevezés kötelező.").max(60, "Legfeljebb 60 karakter lehet.").optional(), status: z.enum(["active", "archived"]).optional() })
+  .refine((value) => value.label !== undefined || value.status !== undefined, "Nincs módosítandó adat.");
+
 const priceAmount = z.number().finite().nonnegative().refine((value) => Number(value.toFixed(2)) === value, "Legfeljebb két tizedes szükséges.");
-export const materialPriceInputSchema = z.object({ variantId: uuid, amount: priceAmount, purchasingUnit: z.enum(materialPurchasingUnits), priceKind: z.enum(materialPriceKinds), priceSource: optionalText(200), effectiveDate: z.string().trim().refine((value) => !Number.isNaN(Date.parse(value)), "Érvényes dátum szükséges."), dataProvenance: z.enum(materialProvenances), sourceName: optionalText(200), sourceUrl: optionalUrl, sourceDate: z.string().trim().refine((value) => !value || !Number.isNaN(Date.parse(value)), "Érvényes dátum szükséges.").optional().default(""), sourceNotes: optionalText(5000) });
+export const materialPriceInputSchema = z.object({ variantId: uuid, optionId: uuid.nullable().default(null), amount: priceAmount, purchasingUnit: z.enum(materialPurchasingUnits), priceKind: z.enum(materialPriceKinds), priceSource: optionalText(200), effectiveDate: z.string().trim().refine((value) => !Number.isNaN(Date.parse(value)), "Érvényes dátum szükséges."), dataProvenance: z.enum(materialProvenances), sourceName: optionalText(200), sourceUrl: optionalUrl, sourceDate: z.string().trim().refine((value) => !value || !Number.isNaN(Date.parse(value)), "Érvényes dátum szükséges.").optional().default(""), sourceNotes: optionalText(5000) });
 
 export const materialFilterSchema = z.object({ search: z.string().trim().max(100).default(""), category: z.enum(materialCategories).optional(), categoryId: uuid.optional(), manufacturerId: uuid.optional(), includeArchived: z.boolean().default(false) });
 

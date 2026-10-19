@@ -5,14 +5,10 @@ import { ExecutionSection, ExecutionSubsection, closeNestedExecutionDisclosures 
 import { ProjectCalculatorLinks } from "./project-calculator-links";
 
 describe("project overview navigation and execution disclosures", () => {
-  it("links all three calculators with the current project and organization", () => {
+  it("links the profile calculator with the current project and organization", () => {
     const html = renderToStaticMarkup(createElement(ProjectCalculatorLinks, { projectId: "project-1", organizationId: "shop-2" }));
 
-    expect(html).toContain("/projektek/project-1/ereszcsatorna?organization=shop-2");
-    expect(html).toContain("/projektek/project-1/szegelyek?organization=shop-2");
     expect(html).toContain("/projektek/project-1/lemezprofilok?organization=shop-2");
-    expect(html).toContain("Ereszcsatorna-kalkulátor");
-    expect(html).toContain("Bádogos szegélyek kalkulátora");
     expect(html).toContain("Lemezprofilok és hajtások");
   });
 

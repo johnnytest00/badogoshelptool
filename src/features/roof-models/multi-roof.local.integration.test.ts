@@ -2,13 +2,10 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { describe, expect, it, vi } from "vitest";
 import { calculateRoofGeometry, type RoofGeometryInput } from "@/domain/calculations/roof-geometry";
-import { calculateGutterMaterial, type GutterMaterialInput } from "@/domain/calculations/gutter-material";
-import { calculateFlashingMaterial, type FlashingMaterialInput } from "@/domain/calculations/flashing-material";
 import { calculateGableRoof, type GableRoofInput } from "@/domain/calculations/gable-roof";
 
 vi.mock("server-only", () => ({}));
 import { persistRoofGeometry, persistStandaloneRoofGeometry, registerSurveyMultiRoofSource } from "@/infrastructure/supabase/roof-geometry-writer";
-import { persistMultiRoofFlashing } from "@/infrastructure/supabase/multi-roof-flashing-writer";
 import { persistGableRoof } from "@/infrastructure/supabase/gable-roof-writer";
 
 const localDescribe = process.env.RUN_LOCAL_MULTI_ROOF_TESTS === "1" ? describe : describe.skip;
@@ -16,23 +13,6 @@ const organizationId = "00000000-0000-4000-8000-000000000010";
 const actorId = "00000000-0000-4000-8000-000000000001";
 const adminConfig = { host: "127.0.0.1", port: 54322, user: "postgres", password: "postgres", database: "postgres" };
 const input = (pitchDegrees: number): RoofGeometryInput => ({ type: "hip", lengthMm: 10000, widthMm: 6000, pitchDegrees });
-
-async function saveGutterAsActor(projectId: string, geometryRevisionId: string, gutterInput: GutterMaterialInput, expected: number) {
-  const client = new Client(adminConfig);
-  await client.connect();
-  try {
-    await client.query("begin");
-    await client.query("set local role authenticated");
-    await client.query("select set_config('request.jwt.claim.sub',$1,true)", [actorId]);
-    const visible = await client.query("select auth.uid() as actor, count(*)::integer as roofs from public.roof_models where id=$1", [gutterInput.runs[0].roofEdge?.roofModelId]);
-    if (visible.rows[0].actor !== actorId || visible.rows[0].roofs !== 1) throw new Error(`Authenticated roof visibility: ${JSON.stringify(visible.rows[0])}`);
-    const saved = await client.query("select * from public.save_gutter_material_calculation($1::uuid,$2::uuid,$3::text,$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,$8::uuid,$9::integer)",
-      [organizationId, projectId, "DEMO konty eresz", JSON.stringify(gutterInput), JSON.stringify(calculateGutterMaterial(gutterInput)), JSON.stringify({ source: "geometry" }), JSON.stringify([]), geometryRevisionId, expected]);
-    await client.query("commit");
-    return saved.rows[0] as { calculation_id: string; calculation_revision_id: string; revision_number: number };
-  } catch (error) { await client.query("rollback"); throw error; }
-  finally { await client.end(); }
-}
 
 localDescribe("F9.10 local roof geometry persistence", () => {
   it("closes the legacy gable RPC and keeps server-recomputed revision writes exact", async () => {
@@ -77,72 +57,6 @@ localDescribe("F9.10 local roof geometry persistence", () => {
       expect(opened.rows[0].input_data).toEqual(input(45));
       expect(opened.rows[0].calculator_type).toBe("roof.geometry.hip");
       expect(opened.rows[0].output_snapshot.totalAreaMm2).toBeCloseTo(60e6 * Math.SQRT2, 3);
-
-      const eave = calculateRoofGeometry(input(45)).edges.find((edge) => edge.kind === "eave")!;
-      const gutterInput: GutterMaterialInput = { gutterStockLengthMm: 4000, runs: [{ id: randomUUID(), name: "DEMO kiválasztott eresz", lengthMm: eave.lengthMm, description: "DEMO", measurementSource: "drawing", bracketSpacingMm: null, roofEdge: { revisionId: first.roof_model_revision_id, roofModelId, calculationId: first.calculation_id, calculationRevisionId: first.calculation_revision_id, edgeId: eave.id, suggestedLengthMm: eave.lengthMm, lengthOverridden: false } }], downpipes: [], manualComponents: [] };
-      const gutter = await saveGutterAsActor(projectId, first.roof_model_revision_id, gutterInput, 0);
-      expect(gutter.revision_number).toBe(1);
-      await expect(saveGutterAsActor(projectId, first.roof_model_revision_id, { ...gutterInput, runs: [{ ...gutterInput.runs[0], roofEdge: { ...gutterInput.runs[0].roofEdge!, suggestedLengthMm: eave.lengthMm + 1 } }] }, 1)).rejects.toMatchObject({ code: "22023" });
-      const hip = calculateRoofGeometry(input(45)).edges.find((edge) => edge.kind === "hip")!;
-      await expect(saveGutterAsActor(projectId, first.roof_model_revision_id, { ...gutterInput, runs: [{ ...gutterInput.runs[0], roofEdge: { ...gutterInput.runs[0].roofEdge!, edgeId: hip.id, suggestedLengthMm: hip.lengthMm } }] }, 1)).rejects.toMatchObject({ code: "22023" });
-
-      const demoSource = { kind: "demo" as const, label: "DEMO szálparaméter", sourceUrl: null, sourceDate: null, catalogVariantId: null, manuallyOverridden: false };
-      const flashingInput: FlashingMaterialInput = {
-        sectionSpec: { nominalLengthMm: 6000, nominalLengthSource: demoSource, connection: { mode: "unknown" } },
-        runs: [{ id: randomUUID(), category: "hip", name: "DEMO kontyél", lengthMm: Math.ceil(hip.lengthMm), lengthSource: "geometry",
-          roofEdgeReference: { roofModelId, roofModelRevisionId: first.roof_model_revision_id, calculationId: first.calculation_id,
-            calculationRevisionId: first.calculation_revision_id, edgeId: hip.id, outputField: "edges", suggestedLengthMm: hip.lengthMm, lengthOverridden: false },
-          startExtensionMm: 0, endExtensionMm: 0, reserveMm: 0, installationNotes: [] }], manualComponents: [],
-      };
-      const flashingOperation = randomUUID();
-      const flashingRequest = { organizationId, projectId, name: "DEMO kontyszegély", input: flashingInput, output: calculateFlashingMaterial(flashingInput), expectedRevisionNumber: 0, operationId: flashingOperation, actorId };
-      const flashing = await persistMultiRoofFlashing(flashingRequest);
-      expect(flashing.revision_number).toBe(1);
-      expect((await persistMultiRoofFlashing(flashingRequest)).reused).toBe(true);
-      const flashingSaved = await admin.query("select r.input_snapshot,r.output_snapshot from public.calculation_revisions r where r.id=$1", [flashing.calculation_revision_id]);
-      expect(flashingSaved.rows[0].input_snapshot.runs[0].roofEdgeReference.edgeId).toBe(hip.id);
-      expect(flashingSaved.rows[0].output_snapshot.runs[0].category).toBe("hip");
-      await expect(persistMultiRoofFlashing({ ...flashingRequest, operationId: randomUUID(), expectedRevisionNumber: 1,
-        input: { ...flashingInput, runs: [{ ...flashingInput.runs[0], category: "valley" }] } })).rejects.toMatchObject({ code: "22023" });
-
-      const gableRoofModelId = randomUUID();
-      const gableInput: GableRoofInput = { inputMode: "height", buildingLengthMm: 10000, buildingWidthMm: 6000,
-        roofRiseMm: 4000, eaveOverhangMm: 0, frontGableOverhangMm: 0, rearGableOverhangMm: 0 };
-      const gableRequest = { organizationId, projectId, roofModelId: gableRoofModelId, operationId: randomUUID(),
-        expectedRevisionNumber: 0, name: "DEMO nyeregtető szegélyhez", input: gableInput,
-        output: calculateGableRoof(gableInput), provenance: { input: "user_provided", output: "server_recomputed" }, actorId };
-      const gableRoof = await persistGableRoof(gableRequest);
-      const gableEdgeLength = gableRequest.output.lengths.eachSlopingGableEdgeMm;
-      const gableFlashingInput: FlashingMaterialInput = {
-        sectionSpec: flashingInput.sectionSpec,
-        runs: [{ id: randomUUID(), category: "verge", name: "DEMO nyeregtető oromszegély", lengthMm: Math.ceil(gableEdgeLength), lengthSource: "geometry",
-          roofEdgeReference: { roofModelId: gableRoofModelId, roofModelRevisionId: gableRoof.roof_model_revision_id,
-            calculationId: gableRoof.calculation_id, calculationRevisionId: gableRoof.calculation_revision_id,
-            edgeId: "left-front-gable", outputField: "lengths.eachSlopingGableEdgeMm", suggestedLengthMm: gableEdgeLength, lengthOverridden: false },
-          startExtensionMm: 0, endExtensionMm: 0, reserveMm: 0, installationNotes: [] }], manualComponents: [],
-      };
-      const gableFlashingRequest = { organizationId, projectId, name: "DEMO nyeregtető oromszegély", input: gableFlashingInput,
-        output: calculateFlashingMaterial(gableFlashingInput), expectedRevisionNumber: 1, operationId: randomUUID(), actorId };
-      const gableFlashing = await persistMultiRoofFlashing(gableFlashingRequest);
-      expect(gableFlashing.revision_number).toBe(2);
-      expect((await persistMultiRoofFlashing(gableFlashingRequest)).reused).toBe(true);
-      const gableFlashingSaved = await admin.query("select r.input_snapshot,d.upstream_roof_model_revision_id from public.calculation_revisions r join public.calculation_dependencies d on d.downstream_calculation_revision_id=r.id where r.id=$1", [gableFlashing.calculation_revision_id]);
-      expect(gableFlashingSaved.rows[0].input_snapshot.runs[0].roofEdgeReference.outputField).toBe("lengths.eachSlopingGableEdgeMm");
-      expect(gableFlashingSaved.rows[0].upstream_roof_model_revision_id).toBe(gableRoof.roof_model_revision_id);
-
-      const concurrentFlashing = (pitch: number) => {
-        const changedInput = { ...gableFlashingInput, runs: [{ ...gableFlashingInput.runs[0], reserveMm: pitch }] };
-        return persistMultiRoofFlashing({ ...gableFlashingRequest, operationId: randomUUID(), expectedRevisionNumber: 2,
-          input: changedInput, output: calculateFlashingMaterial(changedInput) });
-      };
-      const flashingChanges = await Promise.allSettled([concurrentFlashing(25), concurrentFlashing(50)]);
-      expect(flashingChanges.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-      expect(flashingChanges.filter((result) => result.status === "rejected").map((result) => (result as PromiseRejectedResult).reason.code)).toEqual(["40001"]);
-      const flashingHistory = await admin.query("select revision_number,input_snapshot from public.calculation_revisions where calculation_id=$1 order by revision_number", [gableFlashing.calculation_id]);
-      expect(flashingHistory.rows).toHaveLength(3);
-      expect(flashingHistory.rows[1].input_snapshot.runs[0].roofEdgeReference.roofModelRevisionId).toBe(gableRoof.roof_model_revision_id);
-      const flashingPrivilege = await admin.query("select has_function_privilege('authenticated','public.save_multi_roof_flashing_calculation(uuid,uuid,text,jsonb,jsonb,jsonb,jsonb,integer,uuid,uuid)','EXECUTE') as can_execute");
-      expect(flashingPrivilege.rows[0].can_execute).toBe(false);
 
       const denied = await admin.query("select has_function_privilege('authenticated','public.save_roof_geometry_calculation(uuid,uuid,uuid,uuid,integer,text,jsonb,jsonb,uuid)','EXECUTE') as can_execute");
       expect(denied.rows[0].can_execute).toBe(false);

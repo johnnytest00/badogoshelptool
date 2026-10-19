@@ -1,18 +1,14 @@
 import { executeCalculator } from "@/domain/calculations/engine";
-import { gutterMaterialCalculator, type GutterMaterialInput } from "@/domain/calculations/gutter-material";
-import { flashingMaterialCalculator, type FlashingMaterialInput } from "@/domain/calculations/flashing-material";
 import { sheetMetalProfileCalculator, type SheetMetalProfileInput } from "@/domain/calculations/sheet-metal-profile";
 
 export const standaloneCalculatorTypes = [
-  gutterMaterialCalculator.id,
-  flashingMaterialCalculator.id,
   sheetMetalProfileCalculator.id,
 ] as const;
 export type StandaloneCalculatorType = (typeof standaloneCalculatorTypes)[number];
 
 export type PreparedStandaloneRevision = Readonly<{
   calculatorType: StandaloneCalculatorType;
-  input: GutterMaterialInput | FlashingMaterialInput | SheetMetalProfileInput;
+  input: SheetMetalProfileInput;
   output: unknown;
   inputSchemaVersion: string;
   implementationVersion: string;
@@ -22,8 +18,6 @@ export type PreparedStandaloneRevision = Readonly<{
 export type PreparationResult = { ok: true; value: PreparedStandaloneRevision } | { ok: false; error: string };
 
 function executeStandalone(type: string, input: unknown) {
-  if (type === gutterMaterialCalculator.id) return executeCalculator(gutterMaterialCalculator, input);
-  if (type === flashingMaterialCalculator.id) return executeCalculator(flashingMaterialCalculator, input);
   if (type === sheetMetalProfileCalculator.id) return executeCalculator(sheetMetalProfileCalculator, input);
   return null;
 }
@@ -51,14 +45,6 @@ export function prepareStandaloneRevision(type: string, rawInput: unknown, calcu
   if (!result) return { ok: false, error: "Ez a kalkulátortípus nem támogat standalone mentést." };
   if (!result.ok) return { ok: false, error: result.errors[0]?.message ?? "A bemenet nem számítható ki." };
 
-  if (type === gutterMaterialCalculator.id) {
-    const input = result.input as GutterMaterialInput;
-    if (input.runs.some((run) => run.roofEdge !== null)) return { ok: false, error: "Az önálló ereszszámítás nem hivatkozhat projekt tetőgeometriára." };
-  }
-  if (type === flashingMaterialCalculator.id) {
-    const input = result.input as FlashingMaterialInput;
-    if (input.runs.some((run) => run.roofEdgeReference !== null || run.lengthSource === "geometry")) return { ok: false, error: "Az önálló szegélyszámítás nem hivatkozhat projekt tetőgeometriára." };
-  }
   if (type === sheetMetalProfileCalculator.id) {
     const input = result.input as SheetMetalProfileInput;
     if (input.label !== displayName) return { ok: false, error: "A profil megnevezése egyezzen a bemenetben rögzített névvel." };

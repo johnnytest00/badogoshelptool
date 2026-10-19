@@ -27,8 +27,8 @@ const itemSchema = z.object({
   if (item.sourceRef?.type === "measurement" && item.unit !== "linear_meter") context.addIssue({ code: "custom", path: ["unit"], message: "A szakaszhossz mértékegysége méter; darabra nem váltható." });
   if ((item.sourceRef?.type === "calculation" || item.sourceRef?.type === "surveyGeometry") && item.unit !== "square_meter") context.addIssue({ code: "custom", path: ["unit"], message: "A számított tetőfelület m²; más egységre nem váltható." });
   if (item.priceId && item.kind !== "catalog") context.addIssue({ code: "custom", path: ["priceId"], message: "Árat csak katalógustételhez lehet kapcsolni." });
-  if (item.kind === "catalog" && (item.manualPriceAmount || item.manualPriceKind)) context.addIssue({ code: "custom", path: ["manualPriceAmount"], message: "Katalógustételhez a rögzített katalógusár használható." });
-  if (item.kind === "manual" && Boolean(item.manualPriceAmount) !== Boolean(item.manualPriceKind)) context.addIssue({ code: "custom", path: ["manualPriceAmount"], message: "Ár megadásakor válaszd ki, hogy nettó vagy bruttó." });
+  if (item.kind === "catalog" && item.priceId && item.manualPriceAmount) context.addIssue({ code: "custom", path: ["manualPriceAmount"], message: "A tételnek vagy katalógusára, vagy kézi ára lehet." });
+  if (Boolean(item.manualPriceAmount) !== Boolean(item.manualPriceKind)) context.addIssue({ code: "custom", path: ["manualPriceAmount"], message: "Ár megadásakor válaszd ki, hogy nettó vagy bruttó." });
 });
 
 export const workflowMaterialListInputSchema = z.object({

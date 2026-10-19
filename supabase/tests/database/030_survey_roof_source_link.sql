@@ -1,5 +1,6 @@
 begin;
 select plan(8);
+\ir _demo_workflow_fixture.inc
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',true);
 select set_config('test.f99_sections','[{"id":"00000000-0000-4000-8000-000000030001","name":"DEMO tető","workType":"roof","notes":"","photoIds":[],"measurements":[{"id":"00000000-0000-4000-8000-000000030011","label":"DEMO hossz","value":10,"unit":"m","semanticType":"roof_building_length"},{"id":"00000000-0000-4000-8000-000000030012","label":"DEMO szélesség","value":6,"unit":"m","semanticType":"roof_building_width"},{"id":"00000000-0000-4000-8000-000000030013","label":"DEMO emelkedés","value":4,"unit":"m","semanticType":"roof_rise"},{"id":"00000000-0000-4000-8000-000000030014","label":"DEMO eresztúlnyúlás","value":0,"unit":"mm","semanticType":"roof_eave_overhang"},{"id":"00000000-0000-4000-8000-000000030015","label":"DEMO első oromtúlnyúlás","value":0,"unit":"mm","semanticType":"roof_front_gable_overhang"},{"id":"00000000-0000-4000-8000-000000030016","label":"DEMO hátsó oromtúlnyúlás","value":0,"unit":"mm","semanticType":"roof_rear_gable_overhang"},{"id":"00000000-0000-4000-8000-000000030017","label":"DEMO alternatív hajlásszög","value":null,"unit":"degree","semanticType":"roof_pitch"}]}]',true);

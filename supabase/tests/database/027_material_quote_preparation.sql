@@ -1,5 +1,6 @@
 begin;
 select plan(15);
+\ir _demo_workflow_fixture.inc
 
 select has_column('public', 'quotations', 'creation_operation_id', 'project quotation draft stores a first-save retry key');
 select has_index('public', 'quotations', 'quotations_creation_operation_idx', 'retry key is unique per organization');

@@ -1,7 +1,10 @@
 import { gableRoofCalculator } from "@/domain/calculations/gable-roof";
 import { surveySections, type SurveyCalculationLink, type SurveyRoofGeometrySource, type SurveySection } from "@/domain/field-surveys/workspace";
+import { roofEdgeRoleLabels, type RoofEdgeRole } from "@/domain/field-surveys/work-elements";
 import type { FieldSurveyMeasurement, FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
 
+/** measured = directly measured; calculated = verified roof geometry (still unchanged); overridden = taken from the roof geometry, then edited by hand. */
+export type QuantityKind = "measured" | "calculated" | "overridden";
 export type SurveyMaterialSourceRef = Readonly<
   | { type: "measurement"; sectionId: string; measurementId: string }
   | { type: "calculation"; sectionId: string; calculationId: string; calculationRevisionId: string }
@@ -16,7 +19,7 @@ export type SurveyMaterialSuggestion = Readonly<{
   unit: "linear_meter" | "square_meter";
   materialCategory: "gutter" | "flashing" | "roof_covering";
   sourceLabel: string;
-  quantityKind: "measured" | "calculated";
+  quantityKind: QuantityKind;
   sourceRef: SurveyMaterialSourceRef;
 }>;
 
@@ -28,7 +31,8 @@ export type SurveyMaterialProvenanceItem = Readonly<{
   sourceLabel: string;
   sourceValue: string;
   sourceUnit: "m" | "m²";
-  quantityKind: "measured" | "calculated";
+  quantityKind: QuantityKind;
+  origin?: Readonly<{ kind: "verifiedRoofEdge"; roofSectionId: string; role: RoofEdgeRole; geometrySourceId: string | null; calculatedValueMm: number | null }>;
   calculationRevisionNumber?: number;
 }>;
 
@@ -62,6 +66,15 @@ function isEmptyWarnings(value: unknown): boolean {
   return Array.isArray(value) && value.length === 0;
 }
 
+/** Mirrors the database rule (save_workflow_material_list_from_survey_revision): "calculated" only while the value equals the recorded, verified roof edge. */
+export function measurementOrigin(section: SurveySection, value: number | null, geometrySources: readonly SurveyRoofGeometrySource[], revisionId: string): { quantityKind: QuantityKind; originLabel: string } {
+  const link = section.lengthSource;
+  if (!link) return { quantityKind: "measured", originLabel: "mért adat" };
+  const edge = geometrySources.find((item) => item.sectionId === link.roofSectionId && item.surveyRevisionId === revisionId)?.edges?.[link.role];
+  if (edge !== undefined && value !== null && Math.abs(value * 1000 - edge) <= 0.5) return { quantityKind: "calculated", originLabel: `tetőgeometriából számított (${roofEdgeRoleLabels[link.role]})` };
+  return { quantityKind: "overridden", originLabel: edge === undefined ? "kézi érték (a tetőforrás nem ellenőrizhető)" : "kézzel felülírva a tetőgeometriához képest" };
+}
+
 export function deriveSurveyMaterialSuggestions(
   source: SurveySource,
   calculations: readonly SurveyCalculationLink[],
@@ -85,15 +98,16 @@ export function deriveSurveyMaterialSuggestions(
       const measurement = section.measurements.find((candidate) => candidate.semanticType === semanticType);
       const quantity = measurement?.unit === "m" && measurement.value !== null ? exactQuantity(measurement.value) : null;
       if (measurement && quantity) {
+        const { quantityKind, originLabel } = measurementOrigin(section, measurement.value, geometrySources, source.revisionId);
         suggestions.push({
           key: `${section.id}:${measurement.id}`,
           sectionId: section.id,
-          description: `${section.name} · ${displayKind} mért hossza`,
+          description: `${section.name} · ${displayKind} hossza`,
           quantity,
           unit: "linear_meter",
           materialCategory: section.workType === "gutter" ? "gutter" : "flashing",
-          sourceLabel: `${measurement.label} · V${source.version} · mért adat`,
-          quantityKind: "measured",
+          sourceLabel: `${measurement.label} · V${source.version} · ${originLabel}`,
+          quantityKind,
           sourceRef: { type: "measurement", sectionId: section.id, measurementId: measurement.id },
         });
       } else {

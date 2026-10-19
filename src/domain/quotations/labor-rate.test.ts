@@ -46,3 +46,17 @@ describe("buildLaborLine", () => {
     expect(appliedLaborKeys([{ laborSource: { rateId: "r1", materialItemId: "i1" } }, { notes: `x ${laborMarker("r2", "i2")}` }, { notes: "szabad" }])).toEqual(["r1:i1", "r2:i2"]);
   });
 });
+
+describe("quotation-level unit price override", () => {
+  const rate = { id: "r", name: "DEMO", basis: "roof_area_m2" as const, rateAmount: "1500.00", priceClass: "net" as const };
+  const base = { itemId: "i", label: "Tető", quantity: "10", unit: "m²" as const };
+  const src = { materialListId: "l", materialRevisionId: "v" };
+  it("keeps the stored rate by default and records an explicit override without touching the rate", () => {
+    expect(buildLaborLine(rate, base, src).unitPrice).toBe("1500.00");
+    const line = buildLaborLine(rate, base, src, "10", "1700");
+    expect(line.unitPrice).toBe("1700");
+    expect(line.notes).toContain("felülírva");
+    expect(line.laborSource.rateId).toBe("r");
+    expect(rate.rateAmount).toBe("1500.00");
+  });
+});

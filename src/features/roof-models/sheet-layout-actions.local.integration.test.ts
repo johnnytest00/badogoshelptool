@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { Client } from "pg";
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import type { Database } from "@/infrastructure/supabase/database.types";
+import type { Database } from "@/infrastructure/supabase/database";
 
 const state = vi.hoisted(() => ({ client: null as unknown, auth: null as unknown }));
 vi.mock("server-only", () => ({}));

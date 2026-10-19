@@ -1,21 +1,17 @@
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
-import { CalendarDays, ClipboardList, FolderOpen, MapPin, PackageOpen, PencilLine, UserRound } from "lucide-react";
+import { CalendarDays, ClipboardList, FolderOpen, MapPin, PackageOpen, UserRound } from "lucide-react";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { projectStatusLabels, projectTypeLabels } from "@/domain/projects/contracts";
 import { getProjectOrganization } from "@/features/projects/organization";
-import { getClientsForOrganization, getProjectForOrganization } from "@/features/projects/project-data";
-import { ProjectEditForm } from "@/features/projects/project-forms";
-import { ProjectActionsMenu } from "@/features/projects/project-lifecycle";
+import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getRoofModelsForProject } from "@/features/roof-models/roof-model-data";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 import { getExecutionPlanningWorkspace } from "@/features/execution/execution-data";
 import { ExecutionPlanning } from "@/features/execution/execution-planning";
 import { ExecutionSection } from "@/features/execution/execution-section";
 import { ProjectCalculatorLinks } from "@/features/projects/project-calculator-links";
-import { getProjectWorkflowRecords, projectWorkflowRows, ProjectWorkflowOverview } from "@/features/projects/project-workflow-overview";
 import { ProjectRoofDrawings } from "@/features/roof-models/project-roof-drawings";
-import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 
 export default async function ProjectDetailPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string }>; searchParams: Promise<{ organization?: string; sourceQuotation?: string; execution?: string }> }>) {
@@ -27,11 +23,8 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
   if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt a projekthez.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const project = await getProjectForOrganization(selected.organization.id, projectId);
   if (!project) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Projekt</p><h1>A projekt nem található.</h1><p>Azonosító alapján nincs elérhető projekt ebben a műhelyben.</p><Link className="login-secondary-link" href={`/?organization=${selected.organization.id}`}>Vissza a műhelyhez</Link></section></main>;
-  const clients = await getClientsForOrganization(selected.organization.id);
   const roofModels = await getRoofModelsForProject(selected.organization.id, projectId);
   const execution = await getExecutionPlanningWorkspace(selected.organization.id, projectId);
-  const workflow = await getProjectWorkflowRecords(selected.organization.id, projectId);
-  const workflowRows = projectWorkflowRows({ projectId, organizationId: selected.organization.id, roofCount: roofModels.length, ...workflow, planCount: execution.plans.length, journalCount: execution.plans.reduce((n: number, plan: { id: string; photos: unknown[] }) => n + (execution.timelineByPlan.get(plan.id)?.filter((item) => item.type === "journal").length ?? 0), 0), photoCount: execution.plans.reduce((n: number, plan: { id: string; photos: unknown[] }) => n + plan.photos.length, 0) });
   const organizationId = selected.organization.id;
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container project-workspace">
     <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
@@ -41,8 +34,8 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
           <span className={`status-pill status-${project.status}`}>{projectStatusLabels[project.status]}</span>
           <span className="project-version-label">v{project.version}</span>
         </div>
-      } actions={<ProjectActionsMenu organizationId={organizationId} project={project} />} />
-    <ProjectWorkflowOverview rows={workflowRows} />
+      } />
+    <p className="detail-description">Korábbi projekt: új projekt már nem hozható létre. A rekord a meglévő adatok eléréséhez marad meg.</p>
     <div className="project-detail-grid project-detail-grid-single">
       <section className="project-facts-section">
         <h2>Alapadatok</h2>
@@ -53,9 +46,6 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
           <Fact icon={<CalendarDays className="size-4" />} label="Módosítva" value={new Date(project.updatedAt).toLocaleDateString("hu-HU")} />
         </div>
         {project.description && <p className="detail-description">{project.description}</p>}
-        <GlassDisclosure className="project-edit-disclosure" summary={<><span><PencilLine aria-hidden="true" className="size-4" /><span><strong>Projektadatok szerkesztése</strong><small>Név, ügyfél, helyszín és leírás</small></span></span><span className="project-edit-disclosure-action">Megnyitás</span></>}>
-          <div className="project-edit-content"><ProjectEditForm organizationId={organizationId} project={project} clients={clients.map((client) => ({ id: client.id, name: client.name }))} /></div>
-        </GlassDisclosure>
       </section>
     </div>
     <ExecutionSection defaultOpen={pageQuery.execution === "1"}><ExecutionPlanning organizationId={organizationId} projectId={projectId} projectName={project.name} clientName={project.clientName} location={project.location} plans={execution.plans} acceptedQuotations={execution.acceptedQuotations} timelineByPlan={execution.timelineByPlan} preselectedQuotationId={pageQuery.sourceQuotation} /></ExecutionSection>

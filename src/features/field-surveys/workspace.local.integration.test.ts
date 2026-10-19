@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import type { Database } from "@/infrastructure/supabase/database.types";
+import type { Database } from "@/infrastructure/supabase/database";
 import { savedQuantitySummary, type SurveySection } from "@/domain/field-surveys/workspace";
 const state = vi.hoisted(() => ({ client: null as unknown, auth: null as unknown }));
 vi.mock("server-only", () => ({}));
@@ -13,7 +13,7 @@ vi.mock("@/infrastructure/supabase/server", () => ({ createClient: async () => s
 vi.mock("@/features/auth/auth.server", () => ({ getAuthContext: async () => state.auth }));
 import { saveFieldSurveyAction } from "./field-survey-actions";
 import { getFieldSurvey, getFieldSurveyRevision } from "./field-survey-data";
-import { createSurveyFollowups, linkSurveyCalculation, loadSurveyCalculator } from "./workspace-actions";
+import { createSurveyFollowups, linkSurveyCalculation } from "./workspace-actions";
 import { getSurveyRelationships } from "./workspace-data";
 import { saveStandaloneCalculationAction } from "@/features/calculations/standalone-actions";
 import { getStandaloneQuotationHeaderAction, readStandaloneQuotationAction } from "@/features/quotations/standalone-quotation-actions";
@@ -67,9 +67,9 @@ run("F9.7.9 real local Auth/RLS complete application workflows", () => {
     const attached = await attachFieldSurveyPhoto({ surveyId: saved.surveyId!, organizationId: org, photoId, expectedVersion: 1, actorId: owner.id }); expect(attached.version).toBe(2);
     sections[0].photoIds = [photoId]; expect((await save(sections, saved.surveyId, 2)).ok).toBe(true);
     const reopened = await getFieldSurvey(org, saved.surveyId!); expect(reopened?.sections?.[0].photoIds).toEqual([photoId]);
-    const context = await loadSurveyCalculator({ organizationId: org, surveyId: saved.surveyId!, version: 3, sectionId: sections[0].id }); expect(context.handoff.calculator).toBe("gutter");
-    if (context.handoff.calculator !== "gutter") throw new Error("wrong handoff");
-    const data = new FormData(); Object.entries({ organizationId: org, calculationId: randomUUID(), calculatorType: "gutters.material-estimate", name: "DEMO F9.7.9 eresz", input: JSON.stringify(context.handoff.input), expectedRevisionNumber: "0" }).forEach(([key, value]) => data.set(key, value));
+    // Régi (ereszcsatorna) szakasz: a kalkulátorra nem adható át, a számítás külön mentett, majd kapcsolható.
+    const gutterInput = { gutterStockLengthMm: 4000, runs: [{ id: randomUUID(), name: "DEMO eresz", lengthMm: 8500, description: "", measurementSource: "site_measurement" as const, roofEdge: null, bracketSpacingMm: null }], downpipes: [], manualComponents: [] };
+    const data = new FormData(); Object.entries({ organizationId: org, calculationId: randomUUID(), calculatorType: "gutters.material-estimate", name: "DEMO F9.7.9 eresz", input: JSON.stringify(gutterInput), expectedRevisionNumber: "0" }).forEach(([key, value]) => data.set(key, value));
     const calculation = await saveStandaloneCalculationAction(data); expect(calculation.ok).toBe(true); if (!calculation.ok) throw new Error(calculation.error);
     expect(await linkSurveyCalculation({ organizationId: org, surveyId: saved.surveyId!, version: 3, sectionId: sections[0].id, saved: calculation })).toEqual({ ok: true });
     const relationships = await getSurveyRelationships(org, saved.surveyId!); expect(relationships.calculations[0]).toMatchObject({ revisionId: calculation.revisionId, surveyVersion: 3 });
@@ -96,7 +96,6 @@ run("F9.7.9 real local Auth/RLS complete application workflows", () => {
     act(owner);
     const sections = [section("roof", [{ semanticType: "roof_building_length", value: 10, unit: "m" }, { semanticType: "roof_building_width", value: 6, unit: "m" }, { semanticType: "roof_rise", value: 4, unit: "m" }]), gutter(), section("flashing", [{ semanticType: "flashing_run_length", value: 10, unit: "m" }])];
     const saved = await save(sections); expect(saved.ok).toBe(true);
-    for (const item of sections) { const context = await loadSurveyCalculator({ organizationId: org, surveyId: saved.surveyId!, version: 1, sectionId: item.id }); expect(context.handoff.calculator).toBe(item.workType); }
     const geometryInput = { inputMode: "height" as const, buildingLengthMm: 10000, buildingWidthMm: 6000, roofRiseMm: 4000, eaveOverhangMm: 0, frontGableOverhangMm: 0, rearGableOverhangMm: 0 };
     const covering = await saveGableTrapezoidalCovering({ organizationId: org, calculationId: randomUUID(), operationId: randomUUID(), expectedRevisionNumber: 0, name: "DEMO survey trapéz", scope: { kind: "standalone" }, geometryInput, coveringInput: { nominalSheetWidthMm: 1100, effectiveCoveringWidthMm: 1000, selectedSheetLengthMm: 5000, minimumSheetLengthMm: null, maximumSheetLengthMm: null, endAllowanceMm: null, longitudinalOverlapMm: null, lapCompatibilityConfirmed: false } });
     expect(covering.ok, covering.error).toBe(true);

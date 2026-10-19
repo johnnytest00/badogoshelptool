@@ -1,6 +1,6 @@
 import type { SurveySection } from "@/domain/field-surveys/workspace";
 import { createClient } from "@/infrastructure/supabase/server";
-import type { Database } from "@/infrastructure/supabase/database.types";
+import type { Database } from "@/infrastructure/supabase/database";
 import type { FieldSurveyMeasurement, FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
 
 export type FieldSurveyRecord = {

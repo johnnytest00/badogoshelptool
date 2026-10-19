@@ -16,7 +16,12 @@ Regenerálás lokális Supabase futtatás után:
 supabase gen types typescript --local > src/infrastructure/supabase/database.types.ts
 ```
 
-Ezt a fájlt nem kézzel kell karbantartani. Service-role vagy más titkos kulcs nem
+Ezt a fájlt nem kézzel kell karbantartani (`npm run db:types`; migráció után mindig újra kell generálni).
+A generátor minden RPC-argumentumot nem-nullnak jelöl; azokat, amelyeket az SQL-függvény szándékosan
+elfogad `null`-ként, a `database.ts` egyetlen `NullableRpcArgs` listája deklarálja. Az alkalmazás a
+`@/infrastructure/supabase/database` típust használja, soha nem a `database.types`-t közvetlenül.
+Séma-/migrációeltérés ellenőrzése eldobható shadow DB-n: `supabase db diff --local --schema public,private`
+(a migrációkat újrajátssza, és a futó helyi DB-vel veti össze; nem módosítja azt). Service-role vagy más titkos kulcs nem
 kerülhet böngésző-kódba.
 
 Helyi Auth bootstrap:

@@ -10,6 +10,8 @@ export function gableGeometryFromSurveySection(
   revision: Readonly<{ surveyId: string; id: string; version: number }>,
   section: SurveySection,
 ): GableRoofInput | null {
+  // Gyors/részletes módban az épületméretek nem hitelesített forrás: a rejtve megőrzött értékekből nem készül ellenőrzött geometria.
+  if (section.roofMeasurementMode === "quick" || section.roofMeasurementMode === "detailed") return null;
   const handoff = mapFieldSurveyToCalculator({ surveyId: revision.surveyId, revisionId: revision.id, version: revision.version, workType: "roof", measurements: completeSectionMeasurements(section) });
   if (!handoff.ok || handoff.calculator !== "roof" || handoff.missing.length) return null;
   const raw = handoff.input;

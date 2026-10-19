@@ -7,6 +7,7 @@ import { getExecutionPlanOptionsForOrganization } from "@/features/execution/exe
 import { getWorkflowMaterialLists } from "@/features/material-takeoffs/material-preparation-data";
 import { getQuotationsForMaterialLists } from "@/features/material-takeoffs/material-list-links";
 import { getPlanLinksForDocument } from "@/features/execution/execution-document-links";
+import { getListTakeoffSource } from "@/features/material-takeoffs/takeoff-list-link";
 import { WorkflowMaterialListEditor } from "@/features/material-takeoffs/workflow-material-list-editor";
 
 export default async function MaterialListPage({ params, searchParams }: Readonly<{ params: Promise<{ listId: string }>; searchParams: Promise<{ organization?: string }> }>) {
@@ -22,5 +23,6 @@ export default async function MaterialListPage({ params, searchParams }: Readonl
   if (!list) notFound();
   const quotations = (await getQuotationsForMaterialLists(organizationId, [list.id])).get(list.id) ?? [];
   const planLinks = await getPlanLinksForDocument(organizationId, "material_list", list.id, list.executionPlanId);
-  return <WorkflowMaterialListEditor key={`${list.id}:${list.currentRevisionId ?? "new"}`} organizationId={organizationId} products={products} plans={plans} categories={categories} list={list} quotations={quotations} planLinks={planLinks} />;
+  const takeoffSource = await getListTakeoffSource(organizationId, list.id);
+  return <WorkflowMaterialListEditor key={`${list.id}:${list.currentRevisionId ?? "new"}`} organizationId={organizationId} products={products} plans={plans} categories={categories} list={list} quotations={quotations} planLinks={planLinks} takeoffSource={takeoffSource} />;
 }

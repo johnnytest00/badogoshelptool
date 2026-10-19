@@ -112,9 +112,9 @@ export function buildGableSurveyPreview(drafts: readonly SurveyMeasurementDraft[
     return issue("invalid", mapped.ok ? "A tetőelőnézet bemenete nem értelmezhető." : mapped.error, relevant.map((measurement) => ({ id: measurement.id, message: "Ellenőrizd ezt a tetőméretet." })));
   }
   if (mapped.missing.length) {
-    const message = `A nyeregtető rajzához még szükséges: ${mapped.missing.join(", ")}.`;
+    const message = `Még hiányzik: ${mapped.missing.join(", ")}.`;
     const missingSemantics = new Set(mapped.missing.map((label) => semanticByMissingLabel[label]).filter((value): value is FieldSurveySemanticType => Boolean(value)));
-    const fields = drafts.filter((draft) => missingSemantics.has(draft.semanticType)).map((draft) => ({ id: draft.id, message: "A rajzhoz add meg ezt az értéket." }));
+    const fields = drafts.filter((draft) => missingSemantics.has(draft.semanticType)).map((draft) => ({ id: draft.id, message: "Add meg ezt az értéket." }));
     return issue("incomplete", message, fields);
   }
 

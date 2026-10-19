@@ -26,14 +26,20 @@ function add(point: AnnotationPoint, vector: AnnotationPoint, scale = 1): Annota
 function subtract(first: AnnotationPoint, second: AnnotationPoint): AnnotationPoint { return { x: first.x - second.x, y: first.y - second.y }; }
 function length(point: AnnotationPoint): number { return Math.hypot(point.x, point.y) || 1; }
 
-export function dimensionScreenGeometry(kind: AnnotationDimensionKind, sourceStart: AnnotationPoint, sourceEnd: AnnotationPoint, offset: number): DimensionScreenGeometry {
+export type DimensionPlacement = Readonly<{ distance?: number; baseline?: number }>;
+
+export function dimensionScreenGeometry(kind: AnnotationDimensionKind, sourceStart: AnnotationPoint, sourceEnd: AnnotationPoint, offset: number, placement: DimensionPlacement = {}): DimensionScreenGeometry {
   const direction = subtract(sourceEnd, sourceStart);
   const normal = kind === "horizontal" ? { x: 0, y: offset >= 0 ? 1 : -1 } : kind === "vertical" ? { x: offset >= 0 ? 1 : -1, y: 0 } : (() => {
     const perpendicular = { x: -direction.y / length(direction), y: direction.x / length(direction) };
     return { x: perpendicular.x * (offset >= 0 ? 1 : -1), y: perpendicular.y * (offset >= 0 ? 1 : -1) };
   })();
-  const start = add(sourceStart, normal, technicalAnnotationRules.dimensionOffset);
-  const end = add(sourceEnd, normal, technicalAnnotationRules.dimensionOffset);
+  const distance = placement.distance ?? technicalAnnotationRules.dimensionOffset;
+  // A baseline moves the dimension line outside the drawing (screen x for vertical, screen y for horizontal); the extension lines reach it from the source points.
+  const anchor = (source: AnnotationPoint): AnnotationPoint => placement.baseline === undefined || kind === "aligned" ? source
+    : kind === "horizontal" ? { x: source.x, y: placement.baseline } : { x: placement.baseline, y: source.y };
+  const start = add(anchor(sourceStart), normal, distance);
+  const end = add(anchor(sourceEnd), normal, distance);
   const extensionStart = add(sourceStart, normal, technicalAnnotationRules.geometryGap);
   const extensionEnd = add(sourceEnd, normal, technicalAnnotationRules.geometryGap);
   const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
@@ -83,4 +89,30 @@ export function resolveAnnotationLabelPositions(labels: readonly AnnotationLabel
     result.set(label.id, selected.point);
   }
   return result;
+}
+
+export type ScreenBox = Readonly<{ minX: number; maxX: number; minY: number; maxY: number }>;
+export type DimensionInput = Readonly<{ kind: AnnotationDimensionKind; start: AnnotationPoint; end: AnnotationPoint; offset: number; label: string }>;
+
+/**
+ * Places all dimensions of one drawing: lines sit outside the drawing box on the side given by the offset sign, and dimensions
+ * sharing a side are stacked in tiers (smaller data offset = closer) so lines and labels never share the same screen position.
+ */
+export function placeDimensions(items: readonly DimensionInput[], box: ScreenBox, fontSize = 30): DimensionScreenGeometry[] {
+  const side = (item: DimensionInput) => `${item.kind}:${item.offset >= 0 ? "+" : "-"}`;
+  const groups = new Map<string, number[]>();
+  items.forEach((item, index) => groups.set(side(item), [...(groups.get(side(item)) ?? []), index]));
+  const distances = new Array<number>(items.length).fill(technicalAnnotationRules.dimensionOffset);
+  for (const indexes of groups.values()) {
+    const ordered = [...indexes].sort((a, b) => Math.abs(items[a]!.offset) - Math.abs(items[b]!.offset) || a - b);
+    const widest = Math.max(...ordered.map((index) => items[index]!.label.length * fontSize * .62));
+    const gap = items[ordered[0]!]!.kind === "vertical" ? Math.max(48, widest + 28) : 48;
+    let distance = technicalAnnotationRules.dimensionOffset;
+    ordered.forEach((index) => { distances[index] = distance; distance += gap; });
+  }
+  return items.map((item, index) => {
+    const positive = item.offset >= 0;
+    const baseline = item.kind === "horizontal" ? (positive ? box.maxY : box.minY) : item.kind === "vertical" ? (positive ? box.maxX : box.minX) : undefined;
+    return dimensionScreenGeometry(item.kind, item.start, item.end, item.offset, { distance: distances[index], baseline });
+  });
 }

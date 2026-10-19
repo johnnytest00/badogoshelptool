@@ -14,6 +14,7 @@ const createInput = z.object({
   basis: z.enum(["roof_area_m2", "run_length_m"]), priceClass: z.enum(["net", "gross"]),
   rateAmount: z.string().trim().regex(/^\d{1,12}(?:[.,]\d{1,2})?$/, "A díj HUF-ban, legfeljebb két tizedesjeggyel adható meg.").transform((v) => v.replace(",", ".")),
 });
+const reviseInput = createInput.extend({ rateId: uuid });
 const archiveInput = z.object({ organizationId: uuid, rateId: uuid });
 
 async function allowed(organizationId: string) {
@@ -41,6 +42,19 @@ export async function archiveLaborRateAction(raw: z.input<typeof archiveInput>):
   if (!await allowed(parsed.data.organizationId)) return { ok: false, error: "Munkadíj-szabályt csak tulajdonos vagy adminisztrátor kezelhet." };
   const db = await createClient() as unknown as Rpc;
   const { data, error } = await db.rpc("archive_organization_labor_rate", { p_organization_id: parsed.data.organizationId, p_rate_id: parsed.data.rateId });
+  if (error || !data?.[0]) return { ok: false, error: fail(error) };
+  revalidatePath("/beallitasok/munkadij"); revalidatePath("/ajanlatok");
+  return { ok: true };
+}
+
+/** "Editing" a rate = atomic, idempotent replacement: a new immutable rate, the old one archived. Applied quotation lines keep their stored rate snapshot. */
+export async function reviseLaborRateAction(raw: z.input<typeof reviseInput>): Promise<LaborRateResult> {
+  const parsed = reviseInput.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ellenőrizd a szabály adatait." };
+  const i = parsed.data;
+  if (!await allowed(i.organizationId)) return { ok: false, error: "Munkadíj-szabályt csak tulajdonos vagy adminisztrátor kezelhet." };
+  const db = await createClient() as unknown as Rpc;
+  const { data, error } = await db.rpc("revise_organization_labor_rate", { p_organization_id: i.organizationId, p_rate_id: i.rateId, p_name: i.name, p_basis: i.basis, p_rate_amount: i.rateAmount, p_price_class: i.priceClass, p_request_key: i.requestKey });
   if (error || !data?.[0]) return { ok: false, error: fail(error) };
   revalidatePath("/beallitasok/munkadij"); revalidatePath("/ajanlatok");
   return { ok: true };
