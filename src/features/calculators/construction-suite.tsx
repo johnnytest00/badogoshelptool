@@ -9,13 +9,14 @@ import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
 import { MeasurementGuidance, measurementGuideFor } from "@/features/roof-models/measurement-guidance";
 import { constructionCalculatorCatalog, type ConstructionCalculatorCategory, type ConstructionReference } from "@/domain/calculations/construction/catalog";
 import { calculateConcreteMix, calculateConcreteRing, calculateCylindricalPiles, calculateFoundationSlab, calculatePavingMaterials, calculateRectangularBlindArea, calculateReinforcementBars, calculateReinforcementMesh, calculateRightAngleDiagonal, calculateStripFoundation } from "@/domain/calculations/construction/concrete";
-import { calculateExistingRoofGeometry, calculateMansardGeometry, calculateRafterGeometry, calculateTriangularTrussGeometry } from "@/domain/calculations/construction/roofs";
+import { calculateExistingRoofGeometry, calculateRafterGeometry, calculateTriangularTrussGeometry } from "@/domain/calculations/construction/roofs";
 import { calculateBeveledRiserGeometry, calculateConcreteStairGeometry, calculateLandingStairGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry } from "@/domain/calculations/construction/stairs";
 import { calculateWinderStairGeometry } from "@/domain/calculations/construction/winder-stairs";
 import { mm2ToM2, mmToM } from "@/domain/calculations/construction/numeric";
-import { calculateGableRoof } from "@/domain/calculations/gable-roof";
-import { calculateGableMetalTileCovering } from "@/domain/calculations/gable-metal-tile-covering";
-import type { RoofGeometry, RoofGeometryType } from "@/domain/calculations/roof-geometry";
+import { calculateRoofCoveringLayout } from "@/domain/calculations/roof-covering-layout";
+import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoff, type RoofMaterialTakeoffStatus } from "@/domain/calculations/roof-material-takeoff";
+import type { RoofCoveringProductParameters } from "@/domain/calculations/roof-covering-parameters";
+import type { RoofGeometry, RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/roof-geometry";
 import { calculateRoofTimberLayout, roofTimberInputFromParameters, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
 import type { RoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
 import { calculateRoofUnderlayLayout, type RoofUnderlayParameters } from "@/domain/calculations/roof-underlay";
@@ -25,7 +26,7 @@ import { RoofTimberQuantityPanel } from "@/features/roof-models/roof-timber-quan
 import { RoofUnderlayQuantityPanel } from "@/features/roof-models/roof-underlay-quantity-panel";
 import { ConstructionCalculatorThumbnail, ConstructionMaterialDrawing, ConstructionStairDrawing } from "./construction-visuals";
 
-type Field = { key: string; label: string; unit: string; initial?: string; integer?: boolean; advanced?: boolean; kind?: "text" | "checkbox" | "select"; options?: readonly { value: string; label: string }[] };
+type Field = { key: string; label: string; unit: string; initial?: string; integer?: boolean; advanced?: boolean; kind?: "text" | "checkbox" | "select"; options?: readonly { value: string; label: string }[]; shapes?: readonly string[] };
 type ResultLine = { label: string; value: number | string; unit: string };
 type CalculatorDefinition = { reference: ConstructionReference; fields: readonly Field[]; draw: "roof" | "rafter" | "truss" | "stairs" | "spiral" | "bevel" | "rectangle" | "ring" | "mesh" | "diagonal"; note: string; advancedHelp?: string; calculate: (input: Record<string, unknown>) => ResultLine[] };
 
@@ -38,57 +39,103 @@ const mm = (value: Record<string, unknown>, key: string) => Number(value[key]);
 const nullableMm = (value: Record<string, unknown>, key: string) => value[key] === undefined || value[key] === null || value[key] === "" ? null : Number(value[key]);
 const formatHuNumber = (value: number) => new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 1 }).format(value);
 
+const reference = (id: string) => constructionCalculatorCatalog.find((item) => item.id === id)!;
+
+const ROOF_SHAPE_OPTIONS = [
+  { value: "gable", label: "Nyeregtető" }, { value: "shed", label: "Félnyeregtető" }, { value: "hip", label: "Kontytető" }, { value: "pyramid", label: "Sátortető" },
+  { value: "halfHip", label: "Félkontytető" }, { value: "lShape", label: "L alaprajzú tető" }, { value: "tShape", label: "T alaprajzú tető" }, { value: "mansard", label: "Manzárdtető" },
+] as const;
+const RECTANGULAR_SHAPES = ["gable", "shed", "hip", "halfHip", "lShape", "tShape", "mansard"] as const;
+
+/** Shape is an input, so the dimension fields follow the selected shape instead of the calculator. */
+const roofShapeFields: readonly Field[] = [
+  { key: "roofShape", label: "Tetőforma", unit: "", initial: "gable", kind: "select", options: ROOF_SHAPE_OPTIONS },
+  { key: "sideMm", label: "Négyzet oldalhossza", unit: "mm", integer: true, shapes: ["pyramid"] },
+  { key: "lengthMm", label: "Tető hossza", unit: "mm", integer: true, shapes: RECTANGULAR_SHAPES },
+  { key: "widthMm", label: "Tető szélessége", unit: "mm", integer: true, shapes: RECTANGULAR_SHAPES },
+  { key: "pitchDegrees", label: "Tetőhajlás", unit: "°", shapes: ["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"] },
+  { key: "lowerRunMm", label: "Alsó szakasz vízszintes futása · oldalanként", unit: "mm", integer: true, shapes: ["mansard"] },
+  { key: "lowerRiseMm", label: "Alsó szakasz emelkedése", unit: "mm", integer: true, shapes: ["mansard"] },
+  { key: "upperRiseMm", label: "Felső szakasz emelkedése", unit: "mm", integer: true, shapes: ["mansard"] },
+  { key: "eaveOverhangMm", label: "Ereszkiülés a lejtés irányában", unit: "mm", initial: "0", integer: true, shapes: ["gable", "shed"] },
+  { key: "hipEaveHeightMm", label: "Félkonty ereszmagassága", unit: "mm", integer: true, shapes: ["halfHip"] },
+  { key: "wingWidthMm", label: "Szárny szélessége", unit: "mm", integer: true, shapes: ["lShape", "tShape"] },
+  { key: "wingProjectionMm", label: "Szárny kiülése", unit: "mm", integer: true, shapes: ["lShape", "tShape"] },
+];
+
+const coveringProductFields: readonly Field[] = [
+  { key: "nominalWidthMm", label: "Tábla névleges szélessége", unit: "mm", advanced: true },
+  { key: "effectiveCoveringWidthMm", label: "Tábla hasznos fedési szélessége", unit: "mm", advanced: true },
+  { key: "physicalLengthMm", label: "Tábla fizikai hossza", unit: "mm", advanced: true },
+  { key: "usableCoveringLengthMm", label: "Tábla használható fedési hossza", unit: "mm", advanced: true },
+  { key: "manufacturerConstraintReference", label: "A termékadat forrása", unit: "szöveg", advanced: true, kind: "text" },
+];
+
+export const roofShapeOf = (values: Record<string, unknown>): RoofGeometryType => {
+  const shape = String(values.roofShape ?? "gable");
+  return (ROOF_SHAPE_OPTIONS.some((option) => option.value === shape) ? shape : "gable") as RoofGeometryType;
+};
+
+/** Builds the shared geometry input; invalid dimensions surface as the engine's own validation error. */
+function roofGeometryInputFor(values: Record<string, unknown>): RoofGeometryInput {
+  const shape = roofShapeOf(values);
+  const pitchDegrees = mm(values, "pitchDegrees");
+  if (shape === "gable") return { type: "gable", geometry: { inputMode: "angle", buildingLengthMm: mm(values, "lengthMm"), buildingWidthMm: mm(values, "widthMm"), roofPitchDegrees: pitchDegrees, eaveOverhangMm: mm(values, "eaveOverhangMm"), frontGableOverhangMm: 0, rearGableOverhangMm: 0 } };
+  if (shape === "mansard") return { type: "mansard", lengthMm: mm(values, "lengthMm"), widthMm: mm(values, "widthMm"), lowerRunMm: mm(values, "lowerRunMm"), lowerRiseMm: mm(values, "lowerRiseMm"), upperRiseMm: mm(values, "upperRiseMm") };
+  if (shape === "pyramid") return { type: "pyramid", sideMm: mm(values, "sideMm"), pitchDegrees };
+  if (shape === "halfHip") return { type: "halfHip", lengthMm: mm(values, "lengthMm"), widthMm: mm(values, "widthMm"), pitchDegrees, hipEaveHeightMm: mm(values, "hipEaveHeightMm") };
+  if (shape === "lShape" || shape === "tShape") return { type: shape, lengthMm: mm(values, "lengthMm"), widthMm: mm(values, "widthMm"), pitchDegrees, wingWidthMm: mm(values, "wingWidthMm"), wingProjectionMm: mm(values, "wingProjectionMm") };
+  if (shape === "shed") return { type: "shed", lengthMm: mm(values, "lengthMm"), widthMm: mm(values, "widthMm"), pitchDegrees, eaveOverhangMm: mm(values, "eaveOverhangMm") };
+  return { type: "hip", lengthMm: mm(values, "lengthMm"), widthMm: mm(values, "widthMm"), pitchDegrees };
+}
+
+function coveringProductInputFor(input: Record<string, unknown>): RoofCoveringProductParameters {
+  const text = typeof input.manufacturerConstraintReference === "string" ? input.manufacturerConstraintReference.trim() : "";
+  const optional = (key: string) => nullableMm(input, key) ?? undefined;
+  return {
+    form: "sheet",
+    nominalWidthMm: optional("nominalWidthMm"), effectiveCoveringWidthMm: optional("effectiveCoveringWidthMm"),
+    physicalLengthMm: optional("physicalLengthMm"), usableCoveringLengthMm: optional("usableCoveringLengthMm"),
+    manufacturerConstraintReference: text === "" ? undefined : text,
+  };
+}
+
+/** Sheet counts need confirmed manufacturer data, so they stay opt-in for every shape. */
+function coveringRows(input: Record<string, unknown>): ResultLine[] {
+  const geometry = calculateExistingRoofGeometry(roofGeometryInputFor(input));
+  const numeric = ["nominalWidthMm", "effectiveCoveringWidthMm", "physicalLengthMm", "usableCoveringLengthMm"];
+  const coveringInput = coveringProductInputFor(input);
+  if (!numeric.some((key) => nullableMm(input, key) !== null) && coveringInput.manufacturerConstraintReference === undefined) return [];
+  const covering = calculateRoofCoveringLayout(geometry, coveringInput);
+  if (covering.status !== "VALID") return [{ label: "Fedésbecslés státusza", value: covering.status, unit: "" }, ...covering.reasons.map((reason, index) => ({ label: `Fedésbecslés · ${index + 1}`, value: reason, unit: "" }))];
+  return [
+    { label: "Fedőtábla darabszám", value: covering.totalSheetCount!, unit: "db" },
+    { label: "Táblaoszlopok száma", value: covering.columnCount!, unit: "db" },
+    { label: "Névleges megvásárolt táblafelület", value: mm2ToM2(covering.totalNominalSheetAreaMm2!), unit: "m²" },
+  ];
+}
+
 const definitions: Record<string, CalculatorDefinition> = {
-  "roof.rafter": {
-    reference: constructionCalculatorCatalog.find((item) => item.id === "roof.rafter")!, draw: "rafter", note: "Geometriai hossz és vágásszögek. Nem tartalmaz felfekvési vagy keresztmetszeti levonást.",
-    fields: [{ key: "horizontalHalfSpanMm", label: "Fél fesztáv", unit: "mm" }, { key: "riseMm", label: "Gerincemelkedés", unit: "mm" }, { key: "eaveProjectionMm", label: "Vízszintes ereszkiülés", unit: "mm", initial: "0" }],
-    calculate: (input) => { const result = calculateRafterGeometry({ horizontalHalfSpanMm: mm(input, "horizontalHalfSpanMm"), riseMm: mm(input, "riseMm"), eaveProjectionMm: mm(input, "eaveProjectionMm") }); return [{ label: "Ferde vetületi hossz", value: result.slopeLengthMm, unit: "mm" }, { label: "Tetőhajlás", value: result.pitchDegrees, unit: "°" }, { label: "Függőleges vágás a deszkatengelyhez", value: result.plumbCutToBoardAxisDegrees, unit: "°" }]; },
-  },
-  "roof.gable": {
-    reference: constructionCalculatorCatalog.find((item) => item.id === "roof.gable")!, draw: "roof", note: "A TetőPro meglévő tetőgeometria-motorját használja. A terület geometriai, anyagdarabszámot nem ad.",
-    fields: [
-      { key: "buildingLengthMm", label: "Épület hossza", unit: "mm", integer: true }, { key: "buildingWidthMm", label: "Épület szélessége", unit: "mm", integer: true }, { key: "roofRiseMm", label: "Gerincemelkedés", unit: "mm", integer: true }, { key: "eaveOverhangMm", label: "Ereszkiülés", unit: "mm", initial: "0", integer: true },
-      { key: "nominalSheetWidthMm", label: "Lemez névleges szélessége", unit: "mm", advanced: true }, { key: "effectiveCoveringWidthMm", label: "Lemez hasznos fedési szélessége", unit: "mm", advanced: true }, { key: "physicalSheetLengthMm", label: "Lemez fizikai hossza", unit: "mm", advanced: true }, { key: "effectiveCoveringLengthMm", label: "Lemez tényleges fedési hossza", unit: "mm", advanced: true }, { key: "eaveEndAllowanceMm", label: "Ereszvégi ráhagyás", unit: "mm", initial: "0", advanced: true }, { key: "ridgeEndAllowanceMm", label: "Gerincvégi ráhagyás", unit: "mm", initial: "0", advanced: true }, { key: "longitudinalOverlapMm", label: "Hosszirányú átlapolás", unit: "mm", initial: "0", advanced: true }, { key: "lengthCompatibilityConfirmed", label: "A hosszadat gyártói termékadattal egyeztetve", unit: "", initial: "false", advanced: true, kind: "checkbox" }, { key: "lengthDataSource", label: "A termékadat forrása", unit: "szöveg", advanced: true, kind: "text" },
-    ],
+  "roof.rafter-cut": {
+    reference: reference("roof.rafter-cut"), draw: "rafter", note: "Egyetlen szarufa kiszabása. A hosszak a szarufa felső éle mentén értendők; a madárszáj vízszintes vágása ezt az élt süllyeszti a falnál.",
+    fields: [{ key: "horizontalHalfSpanMm", label: "Fél fesztáv", unit: "mm" }, { key: "riseMm", label: "Gerincemelkedés", unit: "mm" }, { key: "eaveProjectionMm", label: "Vízszintes ereszkiülés", unit: "mm", initial: "0" }, { key: "seatCutHeightMm", label: "Madárszáj vízszintes vágásának magassága", unit: "mm", initial: "0" }],
     calculate: (input) => {
-      const geometryInput = { inputMode: "height" as const, buildingLengthMm: mm(input, "buildingLengthMm"), buildingWidthMm: mm(input, "buildingWidthMm"), roofRiseMm: mm(input, "roofRiseMm"), eaveOverhangMm: mm(input, "eaveOverhangMm"), frontGableOverhangMm: 0, rearGableOverhangMm: 0 };
-      calculateExistingRoofGeometry({ type: "gable", geometry: geometryInput });
-      const rows: ResultLine[] = [];
-      const productValues = ["nominalSheetWidthMm", "effectiveCoveringWidthMm", "physicalSheetLengthMm", "effectiveCoveringLengthMm"];
-      const requestingCovering = productValues.some((key) => nullableMm(input, key) !== null) || input.lengthDataSource !== undefined && input.lengthDataSource !== "" || input.lengthCompatibilityConfirmed === true;
-      if (requestingCovering) {
-        const gable = calculateGableRoof(geometryInput);
-        const covering = calculateGableMetalTileCovering(gable, {
-          nominalSheetWidthMm: nullableMm(input, "nominalSheetWidthMm"), effectiveCoveringWidthMm: nullableMm(input, "effectiveCoveringWidthMm"), physicalSheetLengthMm: nullableMm(input, "physicalSheetLengthMm"), effectiveCoveringLengthMm: nullableMm(input, "effectiveCoveringLengthMm"), minimumPhysicalLengthMm: null, maximumPhysicalLengthMm: null,
-          eaveEndAllowanceMm: nullableMm(input, "eaveEndAllowanceMm"), ridgeEndAllowanceMm: nullableMm(input, "ridgeEndAllowanceMm"), longitudinalOverlapMm: nullableMm(input, "longitudinalOverlapMm"), lengthCompatibilityConfirmed: input.lengthCompatibilityConfirmed === true, lengthDataSource: typeof input.lengthDataSource === "string" ? input.lengthDataSource : null,
-          isModular: false, moduleBaseLengthMm: null, modulePitchMm: null, moduleCount: null,
-        });
-        if (covering.status === "VALID" && covering.totalSheetCount !== null && covering.totalNominalSheetAreaMm2 !== null) {
-          rows.push({ label: "Cserepeslemez geometriai darabszám", value: covering.totalSheetCount, unit: "db" }, { label: "Névleges megvásárolt lemezfelület", value: mm2ToM2(covering.totalNominalSheetAreaMm2), unit: "m²" });
-        } else {
-          rows.push({ label: "Lemezbecslés státusza", value: covering.status, unit: "" }, ...covering.reasons.map((reason, index) => ({ label: `Lemezbecslés · ${index + 1}`, value: reason, unit: "" })));
-        }
-      }
-      return rows;
+      const result = calculateRafterGeometry({ horizontalHalfSpanMm: mm(input, "horizontalHalfSpanMm"), riseMm: mm(input, "riseMm"), eaveProjectionMm: mm(input, "eaveProjectionMm"), seatCutHeightMm: mm(input, "seatCutHeightMm") });
+      return [{ label: "Gerendahossz az ereszig", value: result.bodyLengthMm, unit: "mm" }, { label: "Eresz hossza a gerendán", value: result.eaveLengthMm, unit: "mm" }, { label: "Szarufa teljes hossza", value: result.slopeLengthMm, unit: "mm" }, { label: "Tetőhajlás", value: result.pitchDegrees, unit: "°" }, { label: "Bevágás szöge", value: result.plumbCutToBoardAxisDegrees, unit: "°" }];
     },
   },
-  "roof.shed": {
-    reference: constructionCalculatorCatalog.find((item) => item.id === "roof.shed")!, draw: "roof", note: "A meglévő TetőPro tetőgeometria-motor számítja a felületet. Anyagkiosztást nem készít.",
-    fields: [{ key: "lengthMm", label: "Tető hossza", unit: "mm" }, { key: "widthMm", label: "Vízszintes fesztáv", unit: "mm" }, { key: "pitchDegrees", label: "Tetőhajlás", unit: "°" }],
-    calculate: (input) => { calculateExistingRoofGeometry({ type: "shed", lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), pitchDegrees: mm(input, "pitchDegrees") }); return []; },
+  "roof.material-takeoff": {
+    reference: reference("roof.material-takeoff"), draw: "roof", note: "Válaszd ki a tetőformát, add meg a méreteket, majd az alatta lévő szakaszokban a szarufa-, léc- és alátétparamétereket. Minden anyagcsoport egy lapon jelenik meg.",
+    fields: [...roofShapeFields, ...coveringProductFields],
+    calculate: (input) => coveringRows(input),
   },
-  "roof.mansard": {
-    reference: constructionCalculatorCatalog.find((item) => item.id === "roof.mansard")!, draw: "roof", note: "Szimmetrikus, két szakaszból álló keresztmetszet. A két vízszintes félfutást és emelkedést külön kell megadni.",
-    fields: [{ key: "buildingLengthMm", label: "Tető hossza", unit: "mm" }, { key: "lowerRunMm", label: "Alsó szakasz vízszintes futása · oldalanként", unit: "mm" }, { key: "lowerRiseMm", label: "Alsó szakasz emelkedése", unit: "mm" }, { key: "upperRunMm", label: "Felső szakasz vízszintes futása · oldalanként", unit: "mm" }, { key: "upperRiseMm", label: "Felső szakasz emelkedése", unit: "mm" }],
-    calculate: (input) => { const result = calculateMansardGeometry({ buildingLengthMm: mm(input, "buildingLengthMm"), lowerRunMm: mm(input, "lowerRunMm"), upperRunMm: mm(input, "upperRunMm"), lowerRiseMm: mm(input, "lowerRiseMm"), upperRiseMm: mm(input, "upperRiseMm") }); return [{ label: "Alsó szakasz hossza", value: result.lowerSlopeMm, unit: "mm" }, { label: "Felső szakasz hossza", value: result.upperSlopeMm, unit: "mm" }, { label: "Vetületi teljes szélesség", value: result.totalRoofWidthMm, unit: "mm" }, { label: "Teljes geometriai tetőfelület", value: result.totalAreaM2, unit: "m²" }]; },
+  "roof.timber-cutlist": {
+    reference: reference("roof.timber-cutlist"), draw: "roof", note: "Szarufa- és léckiosztás elemenkénti vágáslistával. A hosszak névleges geometriai hosszak, vágási ráhagyás nélkül.",
+    fields: roofShapeFields,
+    calculate: () => [],
   },
-  "roof.hip": {
-    reference: constructionCalculatorCatalog.find((item) => item.id === "roof.hip")!, draw: "roof", note: "A meglévő TetőPro szimmetrikus kontytető-motorját használja; a hossz legyen nagyobb a szélességnél.",
-    fields: [{ key: "lengthMm", label: "Tető hossza", unit: "mm" }, { key: "widthMm", label: "Tető szélessége", unit: "mm" }, { key: "pitchDegrees", label: "Tetőhajlás", unit: "°" }],
-    calculate: (input) => { calculateExistingRoofGeometry({ type: "hip", lengthMm: mm(input, "lengthMm"), widthMm: mm(input, "widthMm"), pitchDegrees: mm(input, "pitchDegrees") }); return []; },
-  },
-  "roof.truss": {
-    reference: constructionCalculatorCatalog.find((item) => item.id === "roof.truss")!, draw: "truss", note: "Csak az egyszerű háromszög burkológeometriáját mutatja. A belső rácsozatot és teherbírást nem tervezi.",
+  "roof.truss-members": {
+    reference: reference("roof.truss-members"), draw: "truss", note: "Az egyszerű háromszög burkológeometriája és csomóponti osztása. A belső rácsozatot és a teherbírást nem tervezi.",
     fields: [{ key: "spanMm", label: "Fesztáv", unit: "mm" }, { key: "riseMm", label: "Szerkezeti magasság", unit: "mm" }, { key: "panelCountPerHalf", label: "Fél fesztáv osztásainak száma", unit: "db", integer: true }],
     calculate: (input) => { const result = calculateTriangularTrussGeometry({ spanMm: mm(input, "spanMm"), riseMm: mm(input, "riseMm"), panelCountPerHalf: mm(input, "panelCountPerHalf") }); return [{ label: "Felső öv egyik fele", value: result.halfRafterMm, unit: "mm" }, { label: "Talpszög", value: result.baseAngleDegrees, unit: "°" }, { label: "Fél fesztáv osztása", value: result.panelWidthMm, unit: "mm" }]; },
   },
@@ -332,41 +379,69 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value);
 }
 
-function roofGeometryTypeForDefinition(definition: CalculatorDefinition): RoofGeometryType | null {
-  if (definition.reference.id === "roof.gable") return "gable";
-  if (definition.reference.id === "roof.shed") return "shed";
-  if (definition.reference.id === "roof.hip") return "hip";
-  return null;
+const usesRoofShape = (definition: CalculatorDefinition) => definition.fields.some((field) => field.key === "roofShape");
+
+function roofGeometryTypeForDefinition(definition: CalculatorDefinition, values: Record<string, string>): RoofGeometryType | null {
+  return usesRoofShape(definition) ? roofShapeOf(values) : null;
 }
 
-function roofDrawingDimensionKey(definition: CalculatorDefinition, fieldKey: string): string {
-  if (definition.reference.id === "roof.gable" && fieldKey === "buildingLengthMm") return "lengthMm";
-  if (definition.reference.id === "roof.gable" && fieldKey === "buildingWidthMm") return "widthMm";
-  return fieldKey;
-}
-
-function roofFieldKeyForDrawingDimension(definition: CalculatorDefinition, dimensionKey: string): string {
-  if (definition.reference.id === "roof.gable" && dimensionKey === "lengthMm") return "buildingLengthMm";
-  if (definition.reference.id === "roof.gable" && dimensionKey === "widthMm") return "buildingWidthMm";
-  return dimensionKey;
-}
+const isFieldVisible = (field: Field, values: Record<string, string>) => !field.shapes || field.shapes.includes(roofShapeOf(values));
 
 function reusableRoofGeometry(definition: CalculatorDefinition, values: Record<string, string>): RoofGeometry | null {
-  const dimension = (key: string) => Number(values[key]?.replace(",", ".")) || 0;
+  if (!usesRoofShape(definition)) return null;
   try {
-    if (definition.reference.id === "roof.gable") return calculateExistingRoofGeometry({ type: "gable", geometry: { inputMode: "height", buildingLengthMm: dimension("buildingLengthMm"), buildingWidthMm: dimension("buildingWidthMm"), roofRiseMm: dimension("roofRiseMm"), eaveOverhangMm: dimension("eaveOverhangMm"), frontGableOverhangMm: 0, rearGableOverhangMm: 0 } });
-    if (definition.reference.id === "roof.shed") return calculateExistingRoofGeometry({ type: "shed", lengthMm: dimension("lengthMm"), widthMm: dimension("widthMm"), pitchDegrees: dimension("pitchDegrees") });
-    if (definition.reference.id === "roof.hip") return calculateExistingRoofGeometry({ type: "hip", lengthMm: dimension("lengthMm"), widthMm: dimension("widthMm"), pitchDegrees: dimension("pitchDegrees") });
+    return calculateExistingRoofGeometry(roofGeometryInputFor(values));
   } catch {
     return null;
   }
-  return null;
+}
+
+/** Equal nominal lengths become one cut-list row, longest first. */
+function cutListRows(segments: readonly { lengthMm: number }[]): readonly { lengthMm: number; count: number }[] {
+  const grouped = new Map<number, number>();
+  for (const segment of segments) {
+    const lengthMm = Math.round(segment.lengthMm);
+    grouped.set(lengthMm, (grouped.get(lengthMm) ?? 0) + 1);
+  }
+  return [...grouped].map(([lengthMm, count]) => ({ lengthMm, count })).sort((a, b) => b.lengthMm - a.lengthMm);
+}
+
+function takeoffStatusLabel(status: RoofMaterialTakeoffStatus): string {
+  if (status === "VALID") return "Megadott adatokkal számítható";
+  if (status === "INCOMPLETE") return "További paraméter szükséges";
+  if (status === "INVALID") return "Érvénytelen bemenet";
+  return "A kiválasztott rész nem támogatott";
+}
+
+function RoofMaterialTakeoffSummary({ takeoff }: Readonly<{ takeoff: RoofMaterialTakeoff }>) {
+  const timber = takeoff.timber.status === "available" ? [
+    takeoff.timber.rafters ? `szarufa ${takeoff.timber.rafters.count} db · ${formatNumber(takeoff.timber.rafters.totalLengthM)} m` : null,
+    takeoff.timber.battens ? `léc ${takeoff.timber.battens.count} db · ${formatNumber(takeoff.timber.battens.totalLengthM)} m` : null,
+  ].filter((value): value is string => value !== null).join("; ") || "A megadott kiosztás nem adott elemet."
+    : takeoff.timber.reason;
+  const underlay = takeoff.underlay.courseCount === null
+    ? takeoff.underlay.reasons.join(" ")
+    : `${takeoff.underlay.courseCount} csík · ${formatNumber((takeoff.underlay.calculatedStripLengthMm ?? 0) / 1000)} m vágott hossz${takeoff.underlay.rollCount === null ? "" : ` · ${takeoff.underlay.rollCount} tekercs`}`;
+  const covering = takeoff.covering.totalSheetCount === null
+    ? takeoff.covering.reasons.join(" ")
+    : `${takeoff.covering.totalSheetCount} tábla · ${takeoff.covering.columnCount} oszlop · ${formatNumber((takeoff.covering.totalNominalSheetAreaMm2 ?? 0) / 1_000_000)} m² névleges terület`;
+  return <section className="construction-suite-results construction-suite-material-summary" aria-live="polite">
+    <h3>Összesített anyagkimutatás</h3>
+    <p className="construction-suite-advisory">{takeoffStatusLabel(takeoff.status)}</p>
+    <dl>
+      <div><dt>Szarufa és léc</dt><dd>{timber}</dd></div>
+      <div><dt>Alátétfólia</dt><dd>{underlay}</dd></div>
+      <div><dt>Fedőtáblák</dt><dd>{covering}</dd></div>
+    </dl>
+    {takeoff.status !== "VALID" && takeoff.reasons.length > 0 && <ul className="construction-suite-limit">{takeoff.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
+    <p className="construction-suite-limit">A mennyiségek a megadott tetősík-geometriából számított, ellenőrzött geometriai kimutatások. Nem helyettesítik a fizikai darabolási tervet, a gyártói alkalmasságvizsgálatot vagy a statikai tervet.</p>
+  </section>;
 }
 
 function ConstructionDrawing({ definition, values, roofGeometry, timberLayout, underlayLayout, focusedDimension, activeDimensionDescription, onDimensionSelect }: { definition: CalculatorDefinition; values: Record<string, string>; roofGeometry: RoofGeometry | null; timberLayout?: RoofTimberLayout | null; underlayLayout?: RoofUnderlayLayout | null; focusedDimension?: string | null; activeDimensionDescription?: string; onDimensionSelect?: (key: string) => void }) {
   const dims = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, Number(value.replace(",", ".")) || 0]));
   const title = `${definition.reference.title} sematikus rajza`;
-  if (roofGeometry) return <TechnicalDrawing geometry={roofGeometry} timberLayout={timberLayout} underlayLayout={underlayLayout} isSaved={false} compact heading={title} headingId="construction-roof-drawing-heading" activeDimension={focusedDimension ? roofDrawingDimensionKey(definition, focusedDimension) : null} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect ? (key) => onDimensionSelect(roofFieldKeyForDrawingDimension(definition, key)) : undefined} />;
+  if (roofGeometry) return <TechnicalDrawing geometry={roofGeometry} timberLayout={timberLayout} underlayLayout={underlayLayout} isSaved={false} compact heading={title} headingId="construction-roof-drawing-heading" activeDimension={focusedDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} />;
   const lines = (points: string, key = "main") => <polyline key={key} points={points} fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />;
   let geometry;
   if (definition.reference.id === "roof.mansard") {
@@ -390,27 +465,27 @@ function ConstructionDrawing({ definition, values, roofGeometry, timberLayout, u
   } else {
     geometry = <><rect x="90" y="60" width="320" height="110" fill="none" stroke="currentColor" strokeWidth="3" /><rect x="130" y="35" width="240" height="135" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="5 4" /></>;
   }
-  const dimensionText = definition.draw === "rectangle" && dims.lengthMm > 0 ? `${formatNumber(mmToM(dims.lengthMm))} m` : definition.draw === "rafter" ? "L = √(run² + rise²)" : definition.draw === "diagonal" ? "d = √(a² + b²)" : definition.draw === "ring" ? "V = πh(R² − r²)" : definition.draw === "roof" && definition.reference.id === "roof.gable" ? "Szimmetrikus nyeregtető · keresztmetszet" : "Geometriai vázlat";
+  const dimensionText = definition.draw === "rectangle" && dims.lengthMm > 0 ? `${formatNumber(mmToM(dims.lengthMm))} m` : definition.draw === "rafter" ? "Hosszak a szarufa felső éle mentén" : definition.draw === "diagonal" ? "d = √(a² + b²)" : definition.draw === "ring" ? "V = πh(R² − r²)" : definition.draw === "roof" ? "Tetőgeometria · keresztmetszet" : "Geometriai vázlat";
   return <figure className="construction-calculator-drawing"><svg viewBox="0 0 500 210" role="img" aria-label={title} className="construction-drawing-svg"><title>{title}</title>{geometry}<text x="250" y="202" textAnchor="middle" fill="currentColor" fontSize="14">{dimensionText}</text></svg><figcaption>{title}</figcaption></figure>;
 }
 
-export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter" }: Readonly<{ initialCalculatorId?: string }>) {
-  const initialDefinition = definitions[initialCalculatorId] ?? definitions["roof.rafter"];
+export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter-cut" }: Readonly<{ initialCalculatorId?: string }>) {
+  const initialDefinition = definitions[initialCalculatorId] ?? definitions["roof.rafter-cut"];
   const [category, setCategory] = useState<ConstructionCalculatorCategory>(() => initialDefinition.reference.category === "auxiliary" ? "concrete" : initialDefinition.reference.category);
-  const [selectedId, setSelectedId] = useState(() => definitions[initialCalculatorId] ? initialCalculatorId : "roof.rafter");
+  const [selectedId, setSelectedId] = useState(() => definitions[initialCalculatorId] ? initialCalculatorId : "roof.rafter-cut");
   const [search, setSearch] = useState("");
   const [mobileSelectionOpen, setMobileSelectionOpen] = useState(false);
-  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries((definitions[initialCalculatorId] ?? definitions["roof.rafter"]).fields.map((field) => [field.key, field.initial ?? ""])));
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries((definitions[initialCalculatorId] ?? definitions["roof.rafter-cut"]).fields.map((field) => [field.key, field.initial ?? ""])));
   const [focusedDimension, setFocusedDimension] = useState<string | null>(null);
   const [roofTimberByCalculator, setRoofTimberByCalculator] = useState<Record<string, RoofTimberParameters>>({});
   const [roofUnderlayByCalculator, setRoofUnderlayByCalculator] = useState<Record<string, RoofUnderlayParameters>>({});
   const definition = definitions[selectedId];
-  const roofGeometryType = roofGeometryTypeForDefinition(definition);
+  const roofGeometryType = roofGeometryTypeForDefinition(definition, values);
   const activeGuide = roofGeometryType ? measurementGuideFor(roofGeometryType, focusedDimension ?? "") : null;
   const candidates = constructionCalculatorCatalog.filter((item) => item.category === category || (category === "concrete" && item.category === "auxiliary"));
   const filtered = candidates.filter((item) => item.title.toLocaleLowerCase("hu-HU").includes(search.trim().toLocaleLowerCase("hu-HU")));
   const raw = useMemo(() => inputRecord(definition.fields, values), [definition.fields, values]);
-  const requiredFields = definition.fields.filter((field) => !field.advanced && field.initial === undefined && field.kind !== "checkbox");
+  const requiredFields = definition.fields.filter((field) => !field.advanced && field.initial === undefined && field.kind !== "checkbox" && isFieldVisible(field, values));
   const inputsReady = requiredFields.every((field) => (values[field.key] ?? "").trim() !== "");
   const calculation = useMemo(() => {
     if (!inputsReady) return { rows: [] as ResultLine[], error: null as string | null, geometry: null as RoofGeometry | null };
@@ -428,6 +503,9 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const timberLayout = calculation.geometry && timberInput ? calculateRoofTimberLayout(calculation.geometry, timberInput) : null;
   const underlayParameters = roofUnderlayByCalculator[selectedId] ?? {};
   const underlayLayout = calculation.geometry ? calculateRoofUnderlayLayout(calculation.geometry, underlayParameters) : null;
+  const materialTakeoff = definition.reference.id === "roof.material-takeoff" && calculation.geometry
+    ? calculateRoofMaterialTakeoff(calculation.geometry, { timber: timberInput ?? undefined, underlay: underlayParameters, covering: coveringProductInputFor(raw) })
+    : null;
   const selectCalculator = (item: ConstructionReference) => {
     const next = definitions[item.id];
     if (!next || item.status !== "verified") return;
@@ -437,8 +515,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     setMobileSelectionOpen(false);
   };
   const updateValue = (key: string, value: string) => setValues((current) => ({ ...current, [key]: value }));
-  const basicFields = definition.fields.filter((field) => !field.advanced);
-  const advancedFields = definition.fields.filter((field) => field.advanced);
+  const basicFields = definition.fields.filter((field) => !field.advanced && isFieldVisible(field, values));
+  const advancedFields = definition.fields.filter((field) => field.advanced && isFieldVisible(field, values));
   const renderField = (field: Field) => {
     const isRequired = !field.advanced && field.initial === undefined && field.kind !== "checkbox";
     return <label className={`construction-suite-field${field.kind === "checkbox" ? " is-checkbox" : ""}`} key={field.key}>
@@ -450,16 +528,25 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const noteContent = <><p className="construction-suite-note">{definition.note}</p>{activeGuide && <MeasurementGuidance compact guide={activeGuide} />}</>;
   const fieldsContent = <>
     <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>
-    {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="Részletes számítás · opcionális">{definition.advancedHelp && <p className="construction-suite-note">{definition.advancedHelp}</p>}{definition.reference.id === "roof.gable" && <p className="construction-suite-note">A cserepeslemez-darabszámhoz gyártói termékadat, igazolt hasznos szélesség és toldás nélküli fedési hossz szükséges. Hiányos vagy nem támogatott adatoknál darabszám nem jelenik meg.</p>}{!definition.advancedHelp && definition.reference.id !== "roof.gable" && <p className="construction-suite-note">Ezek az adatok további mennyiségi eredményt vagy ellenőrzést kapcsolnak be. Az alapgeometriai számításhoz nem szükségesek.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}
+    {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="Részletes számítás · opcionális">{definition.advancedHelp && <p className="construction-suite-note">{definition.advancedHelp}</p>}{usesRoofShape(definition) && <p className="construction-suite-note">A fedőtábla-darabszámhoz gyártói termékadat és annak forrása szükséges; hiányos adatnál darabszám nem jelenik meg. A kiosztás teljes szélességű, a tetősík mért lejtőhosszára vágott oszlopokkal számol.</p>}{!definition.advancedHelp && !usesRoofShape(definition) && <p className="construction-suite-note">Ezek az adatok további mennyiségi eredményt vagy ellenőrzést kapcsolnak be. Az alapgeometriai számításhoz nem szükségesek.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}
   </>;
   const primaryRows = calculation.rows.slice(0, 6);
   const detailRows = calculation.rows.slice(6);
   const stepRuleLine = calculation.rows.find((line) => line.label.startsWith("2 × fellépő"));
   const stepRuleValue = typeof stepRuleLine?.value === "number" ? stepRuleLine.value : null;
+  const echoedInputs = definition.fields.filter((field) => isFieldVisible(field, values) && (values[field.key] ?? "").trim() !== "" && field.kind !== "checkbox");
+  const cutList = definition.reference.id === "roof.timber-cutlist" && timberLayout?.status === "available"
+    ? { rafters: cutListRows(timberLayout.rafters?.segments ?? []), battens: cutListRows(timberLayout.battens?.segments ?? []) }
+    : null;
+  const cutListSection = (title: string, rows: readonly { lengthMm: number; count: number }[]) => rows.length === 0 ? null
+    : <div key={title}><h4>{title}</h4><ol className="construction-suite-cut-list">{rows.map((row, index) => <li key={row.lengthMm}><span>{index + 1}.</span><strong>{formatNumber(row.lengthMm)} mm</strong><span>{row.count} db</span></li>)}</ol></div>;
   const resultsContent = <>
     {inputsReady && calculation.error && <p className="form-message is-error" role="alert">{calculation.error}</p>}
-    {calculation.geometry && <><RoofGeometryResults geometry={calculation.geometry} heading="Geometriai eredmények" provenanceLabel="Kézi bemenetek · számított geometriai eredmények." /><RoofTimberQuantityPanel geometry={calculation.geometry} value={timberParameters} onChange={(next) => setRoofTimberByCalculator((current) => ({ ...current, [selectedId]: next }))} /><RoofUnderlayQuantityPanel geometry={calculation.geometry} value={underlayParameters} onChange={(next) => setRoofUnderlayByCalculator((current) => ({ ...current, [selectedId]: next }))} /></>}
+    {inputsReady && echoedInputs.length > 0 && <section className="construction-suite-echo"><h3>Kiindulási adatok</h3><dl>{echoedInputs.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.kind === "select" ? field.options?.find((option) => option.value === values[field.key])?.label ?? values[field.key] : values[field.key]} {field.unit && <span>{field.unit}</span>}</dd></div>)}</dl></section>}
+    {calculation.geometry && <><RoofGeometryResults geometry={calculation.geometry} heading="Geometriai eredmények" provenanceLabel="Kézi bemenetek · számított geometriai eredmények." />{materialTakeoff && <RoofMaterialTakeoffSummary takeoff={materialTakeoff} />}<RoofTimberQuantityPanel geometry={calculation.geometry} value={timberParameters} onChange={(next) => setRoofTimberByCalculator((current) => ({ ...current, [selectedId]: next }))} /><RoofUnderlayQuantityPanel geometry={calculation.geometry} value={underlayParameters} onChange={(next) => setRoofUnderlayByCalculator((current) => ({ ...current, [selectedId]: next }))} /></>}
     {primaryRows.length > 0 && <section className="construction-suite-results" aria-live="polite"><h3>Fő eredmények</h3><dl>{primaryRows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl>{stepRuleValue !== null && <p className="construction-suite-advisory">A számított 2R+G érték {formatHuNumber(stepRuleValue)} mm, {stepRuleValue < 600 || stepRuleValue > 660 ? "a közölt 600–660 mm-es referencia-tartományon kívül esik" : "a közölt 600–660 mm-es referencia-tartományon belül van"}. Ez csak számtani összevetés; nem ergonómiai minősítés és nem szabványi megfelelőség.</p>}<p className="construction-suite-limit">{definition.reference.limitation}</p></section>}
+    {cutList && (cutList.rafters.length > 0 || cutList.battens.length > 0) && <section className="construction-suite-results construction-suite-cut-lists"><h3>Vágáslista</h3>{cutListSection("Szarufák", cutList.rafters)}{cutListSection("Lécek", cutList.battens)}<p className="construction-suite-limit">Névleges geometriai hosszak, vágási ráhagyás és toldás nélkül.</p></section>}
+    {primaryRows.length === 0 && calculation.geometry !== null && <p className="construction-suite-limit">{definition.reference.limitation}</p>}
     {detailRows.length > 0 && <GlassDisclosure className="construction-suite-result-details" summary={`Részletes eredmények · ${detailRows.length}`}><dl>{detailRows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl></GlassDisclosure>}
   </>;
   const drawingContent = calculation.geometry !== null || calculation.rows.length > 0
@@ -467,7 +554,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
       ? <ConstructionStairDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
       : definition.reference.category === "concrete" || definition.reference.category === "auxiliary"
         ? <ConstructionMaterialDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
-      : <ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
+      : <ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={materialTakeoff?.timber.status === "available" ? materialTakeoff.timber : timberLayout?.status === "available" ? timberLayout : null} underlayLayout={materialTakeoff?.underlay ?? underlayLayout} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
     : undefined;
   const independentContent = <p className="construction-suite-independent">Az eredmény helyi előnézet. Nem mentődik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>;
   const workspace = roofGeometryType

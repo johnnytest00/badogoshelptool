@@ -27,9 +27,10 @@ type Props = Readonly<{
 }>;
 
 export function SurveyRoofWorkspace(props: Props) {
-  return props.roofType === "gable"
-    ? <GableSurveyRoofWorkspace {...props} />
-    : <MultiSurveyRoofWorkspace {...props} roofType={props.roofType} />;
+  if (props.roofType === "gable") return <GableSurveyRoofWorkspace {...props} />;
+  // The survey persists calculator_type per roof type, and mansard has no stored type yet.
+  if (props.roofType === "mansard") return <p className="form-message is-error" role="alert">A manzárdtető felmérésből még nem menthető; használd a tetőkalkulátort.</p>;
+  return <MultiSurveyRoofWorkspace {...props} roofType={props.roofType} />;
 }
 
 function GableSurveyRoofWorkspace({ organizationId, surveyId, version, sectionId, sectionName, links, ensureSaved, onLinked }: Props) {
@@ -103,7 +104,7 @@ function GableSurveyRoofWorkspace({ organizationId, surveyId, version, sectionId
   </section>;
 }
 
-function MultiSurveyRoofWorkspace({ organizationId, surveyId, version, sectionId, sectionName, roofType, links, ensureSaved, onLinked }: Props & { roofType: Exclude<RoofGeometryType, "gable"> }) {
+function MultiSurveyRoofWorkspace({ organizationId, surveyId, version, sectionId, sectionName, roofType, links, ensureSaved, onLinked }: Props & { roofType: Exclude<RoofGeometryType, "gable" | "mansard"> }) {
   const [sources, setSources] = useState<VerifiedSurveyMultiRoof[]>([]);
   const [selectedModelId, setSelectedModelId] = useState("");
   const [newModelId] = useState(() => generateSecureUuid());

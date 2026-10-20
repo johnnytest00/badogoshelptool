@@ -11,7 +11,7 @@ A felhasználó kifejezett utasítására a kalkulátorainknak **funkciójukban 
 | „Nem követelmény a teljes Zhitov-paritás." | ROOF_CALCULATION_SPECIFICATION.md § Zhitov referencia-felderítés | A funkcionális paritás mostantól követelmény. A képleteket továbbra sem másoljuk: a §5 tételesen felsorolja, hol és miért térünk el. |
 | „A standalone suite nem tartalmaz általános tetőforma-választót… nem keletkezett új vagy duplikált kalkulátor-bejegyzés." | ROOF_CALCULATION_SPECIFICATION.md § F9.34 | A katalógus kulcsa feladat lesz, a tetőforma bemenetté válik. Lásd §4. |
 
-Ez a dokumentum tervet rögzít, nem megvalósult állapotot. Implementáció még nem történt.
+Az első ütem megvalósult: lásd [PROGRESS.md § F9.47](PROGRESS.md). Megvalósult a feladat-alapú katalógus, a tetőforma-választó, a „Kiindulási adatok" visszaolvasás, a vágáslista és a szarufahossz-javítás. A §2 többi sora terv marad; a §7 „nem implementált" listáját a PROGRESS-bejegyzés tartalmazza.
 
 ## 1. Az elvi különbség
 
@@ -48,9 +48,9 @@ Minden sor megfigyelés, nem feltételezés. A §3 jelöli, melyiket mi igazoltu
 |---|---|---|---|
 | B1 | Minden méret mm-ben, egyszer kiírva a panel tetején | vegyesen mm / fok / m² | Átvesszük: mm mindenhol, a panel tetején egyszer kiírva |
 | B2 | Betűkódos mezők (X, Y, C, B, S1–S4, O1/O2/R, L1–L3), a rajzon ugyanaz a betű | nincs betűkód; van viszont kattintható mező↔rajz kiemelés | Betűkód hozzáadása; a kiemelést megtartjuk (ez több, mint náluk) |
-| B3 | Önálló „**Tető anyagok**" szekció a fő űrlapon | ugyanezek a mezők `advanced: true`, lenyitható | Felhozzuk a fő űrlapra, saját szekciócímmel |
+| B3 | Önálló „**Tető anyagok**" szekció a fő űrlapon | a szarufa-, léc- és alátétparaméterek saját, lenyitható panelben vannak az eredmények alatt (`RoofTimberQuantityPanel`, `RoofUnderlayQuantityPanel`); csak a fedési termékadat van `advanced: true` alatt | Nyitva marad: a panelek a fő űrlapra kerüljenek |
 | B4 | Minden mezőnek van alapértéke, az űrlap sosem üres | több mező üres, eredmény nélkül | Alapérték minden **geometriai és kiosztási** mezőre. Gyártói termékadatra nem (§5) |
-| B5 | A „Számítás" mindig ad eredményt | `roof.shed` és `roof.hip` `calculate`-je `return []` | Minden kalkulátor ad számokat |
+| B5 | A „Számítás" mindig ad eredményt | `roof.shed` és `roof.hip` `calculate`-je `return []`, de a geometria megléte esetén a felület így is rendereli a geometriai, szarufa- és alátétpanelt — tehát **nem** volt üres eredmény | **Kész.** A vállalt korlát most akkor is látszik, ha nincs „Fő eredmények" sor |
 | B6 | Méretarány-választó (1:1 … 1:10) a rajzhoz | zoom / fit / reset | Megtartjuk a sajátunkat, egyenértékű |
 | B7 | Színes / fekete-fehér rajz kapcsoló (nyomtatáshoz) | nincs | Átvesszük a nyomtatási nézetben |
 | B8 | „számítás új ablakban" | nincs | Megfelelője: nyomtatható eredménylap (C1) |
@@ -143,6 +143,8 @@ A hat zhitov tetőoldal négy különböző kérdésre válaszol, nem hat formá
 |---|---|---|---|
 | **Szarufa kiszabása** | Hogyan szabom ki az egy szarufát? | `roof` | `roofs.ts` (javítás után, §6) |
 | **Tetőanyag-kimutatás** | Mit kell megvennem erre a tetőre? | `roof2`, `roof3`, `roof4` és azon túl sátor / félkonty / L / T | `roof-geometry` + `roof-timber-layout` + `roof-underlay` + fedésmotorok |
+
+**F9.48:** a manzárd bekerült a közös geometria-motorba, ezért az önálló manzárd-bejegyzés megszűnt, és a formaválasztó nyolc formát kínál. A fedés továbbra is nyeregtető-specifikus.
 | **Tetőszerkezet faanyag és vágáslista** | Milyen hosszú elemeket vágjak? | `hip_roof` | `roof-timber-layout` (`segments`) |
 | **Rácsos tartó** | Milyen elemekből áll a tartó? | `wooden_truss` | `roofs.ts` + új rácsozat |
 
@@ -152,7 +154,7 @@ A „Tetőanyag-kimutatás" egy lapon adja a négy anyagcsoportot (szarufa, léc
 
 ## 5. Amit szándékosan nem veszünk át
 
-1. **Fedés- és alátétdarabszám területosztással** — §3 bizonyítja, hogy az átfedést elhagyja. Ez nálunk visszalépés lenne.
+1. **Fedés- és alátétdarabszám területosztással** — §3 bizonyítja, hogy az átfedést elhagyja. Ez nálunk visszalépés lenne. **F9.49:** helyette a `roof-covering-layout.ts` minden tetőformára síkonkénti oszlopkiosztást ad, ahol minden oszlop a tetősík polygonjába vágva kapja meg a saját hosszát.
 2. **A `hip_roof` eresz- és gerinckezelése** — §3 szerint belső ellentmondásos.
 3. **A „11 (22)" kettős számkonvenció** — helyette síkonkénti bontás.
 4. **Léctérfogat / darabszám eltérő sorszámból** — egy futtatásban a térfogat 43, a darabszám 44 sorral számolt. Nálunk egy forrásból jön mindkettő.

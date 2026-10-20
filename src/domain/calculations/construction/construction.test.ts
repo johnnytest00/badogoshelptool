@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateConcreteMix, calculateConcreteRing, calculateCylindricalPiles, calculateFoundationSlab, calculatePavingMaterials, calculateRectangularBlindArea, calculateReinforcementBars, calculateReinforcementMesh, calculateRightAngleDiagonal, calculateStripFoundation, concreteRingInputSchema, reinforcementMeshInputSchema } from "./concrete";
-import { calculateMansardGeometry, calculateRafterGeometry, calculateTriangularTrussGeometry } from "./roofs";
+import { calculateRafterGeometry, calculateTriangularTrussGeometry } from "./roofs";
 import { calculateBeveledRiserGeometry, calculateConcreteStairGeometry, calculateLandingStairGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry, spiralStairGeometryInputSchema } from "./stairs";
 import { calculateGableRoof } from "../gable-roof";
 import { calculateGableMetalTileCovering } from "../gable-metal-tile-covering";
@@ -16,11 +16,25 @@ describe("independent construction calculations", () => {
     expect(rafter.pitchDegrees + rafter.plumbCutToBoardAxisDegrees).toBeCloseTo(90, 10);
   });
 
-  it("calculates broken-pitch and triangular truss envelope lengths", () => {
-    const mansard = calculateMansardGeometry({ buildingLengthMm: 10 * m, lowerRunMm: 2 * m, upperRunMm: 1 * m, lowerRiseMm: 2 * m, upperRiseMm: 2 * m });
-    expect(mansard.lowerSlopeMm).toBeCloseTo(Math.hypot(2, 2) * m, 6);
-    expect(mansard.totalRoofWidthMm).toBe(6 * m);
-    expect(mansard.totalAreaM2).toBeCloseTo(2 * 10 * (Math.hypot(2, 2) + Math.hypot(1, 2)), 8);
+  it("keeps the eave on the rafter slope instead of flattening the pitch", () => {
+    // The eave extends the same inclined line, so it may not be folded into one hypotenuse
+    // with the unchanged rise: that would understate the rafter.
+    const rafter = calculateRafterGeometry({ horizontalHalfSpanMm: 3 * m, riseMm: 2 * m, eaveProjectionMm: 500 });
+    const pitchRadians = Math.atan2(2 * m, 3 * m);
+    expect(rafter.bodyLengthMm).toBeCloseTo(Math.hypot(3 * m, 2 * m), 9);
+    expect(rafter.eaveLengthMm).toBeCloseTo(500 / Math.cos(pitchRadians), 9);
+    expect(rafter.slopeLengthMm).toBeCloseTo(3_500 / Math.cos(pitchRadians), 9);
+    expect(rafter.slopeLengthMm).toBeGreaterThan(Math.hypot(3_500, 2 * m));
+  });
+
+  it("lowers the rafter's upper edge by the seat cut height", () => {
+    const rafter = calculateRafterGeometry({ horizontalHalfSpanMm: 3 * m, riseMm: 2 * m, eaveProjectionMm: 500, seatCutHeightMm: 200 });
+    expect(rafter.bodyLengthMm).toBeCloseTo(Math.hypot(3 * m, 1_800), 9);
+    expect(rafter.pitchDegrees).toBeCloseTo(Math.atan2(1_800, 3 * m) * 180 / Math.PI, 9);
+    expect(() => calculateRafterGeometry({ horizontalHalfSpanMm: 3 * m, riseMm: 2 * m, eaveProjectionMm: 0, seatCutHeightMm: 2 * m })).toThrow();
+  });
+
+  it("calculates triangular truss envelope lengths", () => {
     const truss = calculateTriangularTrussGeometry({ spanMm: 8 * m, riseMm: 3 * m, panelCountPerHalf: 4 });
     expect(truss.halfRafterMm).toBeCloseTo(5 * m, 8);
     expect(truss.nodes).toHaveLength(5);

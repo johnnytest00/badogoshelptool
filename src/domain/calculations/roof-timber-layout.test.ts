@@ -79,6 +79,17 @@ describe("roof rafter and batten geometric layout", () => {
     expect(result.battens?.segments[0].lengthMm).toBeCloseTo(10_000, 6);
   });
 
+  it("lays rafters on both mansard pitches", () => {
+    const geometry = calculateRoofGeometry({ type: "mansard", lengthMm: 10 * DEMO_M, widthMm: 6 * DEMO_M, lowerRunMm: 1_500, lowerRiseMm: 2_800, upperRiseMm: 700 });
+    const layout = calculateRoofTimberLayout(geometry, { rafter: { maxSpacingMm: 1_000, startInsetMm: 0, endInsetMm: 0, sectionWidthMm: 50, sectionHeightMm: 150 } });
+    expect(layout.status).toBe("available");
+    if (layout.status !== "available") return;
+    // Four plane groups, each spanning the full 10 m length at 1 m spacing: 11 rafter lines per group.
+    expect(layout.rafters?.count).toBe(44);
+    const expected = 2 * 11 * (Math.hypot(1_500, 2_800) + Math.hypot(1_500, 700));
+    expect(layout.rafters?.totalLengthMm).toBeCloseTo(expected, 6);
+  });
+
   it("independently verifies hip and pyramid rafter boundary clipping", () => {
     const hip = calculateRoofTimberLayout(calculateRoofGeometry(DEMO_ROOFS[2]), { rafter });
     expect(hip.status).toBe("available");

@@ -1,5 +1,45 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## F9.50 — Nyereg- és félnyeregtető anyag-kimutatás lezárása
+
+Státusz: **COMPLETE a helyi domain/UI hatókörre** (a `roof.material-takeoff` feladat gable/shed útvonala; adatbázis, séma, migráció, hosted/Auth és downstream írás nem változott; nincs commit).
+
+- **Közös pipeline:** a validált roof geometry, geometriai szarufa-/léc-kiosztás, alátétcsík-kiosztás és táblás fedés ugyanabból az összesített `calculateRoofMaterialTakeoff` eredményből jelenik meg. A státusz `VALID` / `INCOMPLETE` / `INVALID` / `UNSUPPORTED`; hiányzó paraméterből nincs kitalált mennyiség. A részletes panelek továbbra is megőrzik a paraméterek szerkesztését és a geometriához kötött rajzot.
+- **Gable/shed bemenet:** a formaválasztó mindkét alakhoz explicit ereszkiülést fogad; nyeregnél a meglévő gable geometry, félnyeregnél az alsó ereszhez kötött, csak megadott kiülésű síkmodell maradt az alap. A korábbi ereszhossz-/hajlás-javítás nem lett megkerülve.
+- **Korlátok:** a faanyag-kimenet igazolt geometriai tengely/vonalhossz, az alátét vágási minimum, a fedés geometriai táblaoszlop-kimutatás; ezek nem fizikai stock-, gyártói vagy statikai beszerzési tervek. A termék- és tekercsadatok hiánya `INCOMPLETE`.
+- **Ellenőrzés:** célzott roof domain/UI tesztek 7 fájl / 67 PASS; teljes Vitest 145 fájl / 806 PASS / 8 skip (19 skip); `npm run typecheck` PASS; `npm run lint` PASS; `npm run build` PASS (Next 16.4 webpack). Élő böngészős smoke-kísérletet a lokális oldalon elindítottam, de hitelesített felület nélkül a route nem renderelt kalkulátor UI-t; ezért browser acceptance evidence nincs és nem állítok UI-szintű PASS-t.
+
+## F9.49 — Általános tetőfedés-kiosztás minden tetőformára
+
+Státusz: **COMPLETE a helyi, mért hatókörre** (domain + UI; DB, séma, migráció, szerveroldali validáció nem változott; nincs commit).
+
+- **Új motor:** `roof-covering-layout.ts`. A fedőtáblákat síkonként, az eresz mentén futó teljes szélességű **oszlopokban** osztja ki; minden oszlop a tetősík polygonjába vágva kapja meg a saját lejtőirányú hosszát, így a trapéz és háromszög alakú síkok (konty, sátor, félkonty, L/T szárnyak) nem területosztást, hanem tényleges kiosztást kapnak. Bemenet a meglévő `roofCoveringProductParametersSchema` (`form: "sheet"`); gyártói termékadat és annak forrása nélkül `INCOMPLETE` a státusz, darabszám nem jelenik meg.
+- **Közös síkgeometria:** a sík-lokális (u, v) keretszámítás, konvexitás-ellenőrzés, sávvágás és tartomány kikerült `roof-plane-geometry.ts`-be. A fedés és az alátét ugyanannak a sávkiosztásnak a két merőleges tengelye; a `roof-underlay` innen importál, viselkedése változatlan (12 teszt PASS).
+- **Felület:** a `roof.material-takeoff` fedési mezői minden tetőformán elérhetők (névleges/hasznos szélesség, fizikai/használható hossz, termékadat forrása). A gyártóspecifikus cserepeslemez- és trapézlemez-motor a saját dedikált kalkulátorában marad.
+- **Ellenőrzés:** `npm run typecheck`, `npm run lint` (No issues found), `npm test` 143 fájl / 803 PASS. Kézzel levezetett tesztek: nyeregtető 10×6 m 45° / 1 m hasznos szélesség / 2 m hasznos hossz → 20 oszlop, 60 tábla; **kontytető ugyanezzel → 32 oszlop, 72 tábla** (fő trapézonként 1+2+3+3+3+3+3+3+2+1 = 24, kontyháromszögenként 1+2+3+3+2+1 = 12); hiányzó termékadatra `INCOMPLETE`, ellentmondó szélességre `INVALID`. Böngésző: ugyanez a kontytető a felületen 72 db / 32 oszlop / 166,32 m² — a kézi levezetéssel egyezik. `npm run build` nem futott.
+- **Korlát:** a kiosztás teljes szélességű oszlopokkal számol, szabásmaradékot nem használ újra; gyártói alkalmasságot, felhajtást, áttörést, hulladékot és kivitelezési tervet nem modellez.
+
+## F9.48 — Manzárdtető a közös tetőgeometria-motorban
+
+Státusz: **COMPLETE a helyi, mért hatókörre** (domain + UI; DB, séma, migráció, szerveroldali validáció nem változott; nincs commit).
+
+- **Modell:** a manzárd a meredek alsó szoknya és a lapos felső sík **alsó burkolójaként** épül fel (`rule: "min"`, négy sík), ugyanazzal a partícionáló géppel, mint a többi forma. Bemenet: `lengthMm`, `widthMm`, `lowerRunMm`, `lowerRiseMm`, `upperRiseMm`; a séma elutasítja, ha az alsó szakasz nem meredekebb a felsőnél, vagy ha a futás nem fér a fél szélességbe.
+- **Motorbővítés:** a tetőhajlás síkonkéntivé vált — `pitch = atan(|∇h|)`, terület = vetület × `hypot(1, |∇h|)` — a korábbi globális `input.pitchDegrees` helyett. Egy hajlású tetőkre azonos eredményt ad, és ez teszi lehetővé a vegyes hajlást. Új élfajta: `break` („Törésvonal”).
+- **Anyagkiosztás:** a `roof-timber-layout` változtatás nélkül működik manzárdon. A `roof-underlay` engedélylistája `gable/shed/hip` → `+mansard` bővült; az algoritmus eleve síkonként dolgozik, a manzárd négy síkja konvex téglalap, azaz egyszerűbb az engedélyezett kontynál. A fedés továbbra is nyeregtető-specifikus (gyártói termékadatot igénylő motor).
+- **Felület:** a manzárd a `roof.material-takeoff` és a `roof.timber-cutlist` formaválasztójának nyolcadik eleme lett, saját szakaszmezőkkel (a tetőhajlás mező ilyenkor eltűnik). Az önálló `roof.mansard-section` bejegyzés és a feleslegessé vált `calculateMansardGeometry` törölve; a katalógus 32 → 31 bejegyzés. A felmérés nem kínál manzárdot: ott a `calculator_type` perzisztált érték, és ehhez nincs tárolt típus.
+- **Ellenőrzés:** `npm run typecheck`, `npm run lint` (No issues found), `npm test` 143 fájl / 800 PASS. Új, kézzel levezetett domain tesztek: geometria (4 sík, 2 hajlás, 2 törésvonal, terület `2·L·(hypot(1500,2800)+hypot(1500,700))`), szarufakiosztás (44 db, pontos összhossz), alátét (mind a négy síkon csík, bruttó ≥ nettó). Böngésző: 10×6 m, 1500/2800/700 mm manzárdra 96,635 m², gerinc 10 m, törésvonal 20 m, alátét 10 csík / 100 m / 150 m² / 2 tekercs — a kézi ellenőrzéssel egyezik. `npm run build` nem futott.
+
+## F9.47 — Tetőkalkulátorok feladat-alapú átalakítása (zhitov-elv)
+
+Státusz: **COMPLETE a helyi, mért hatókörre** (katalógus + UI + egy domain-hibajavítás; DB, séma, migráció, szerveroldali validáció nem változott; nincs commit).
+
+- **Elvi váltás:** a kalkulátor neve mostantól a kimenetet nevezi meg, nem a tetőformát; a tetőforma bemenet lett. A hat forma-alapú tetőbejegyzés (`roof.rafter|gable|shed|mansard|hip|truss`) helyére öt feladat-alapú lépett: `roof.rafter-cut`, `roof.material-takeoff`, `roof.timber-cutlist`, `roof.mansard-section`, `roof.truss-members`. A katalógus 33 → 32 bejegyzés. Szerződés: [ZHITOV_PARITY_REDESIGN.md](ZHITOV_PARITY_REDESIGN.md); az ott felülírt korábbi döntéseket a [ROOF_CALCULATION_SPECIFICATION.md](ROOF_CALCULATION_SPECIFICATION.md) § Zhitov referencia-felderítés jelöli.
+- **Javított hiba:** `calculateRafterGeometry` a ferde hosszat `hypot(félfesztáv + eresz, emelkedés)` alakban számolta, miközben a hajlást a félfesztávból vette — az eresz így ellaposította a tetőt. Helyes alak: a hosszak a szarufa felső éle mentén, `(félfesztáv + eresz) / cos(hajlás)`. A példaadatokon 4031 helyett 4207 mm. A függvény új `seatCutHeightMm` (madárszáj vízszintes vágásának magassága) bemenetet kapott, és `bodyLengthMm` / `eaveLengthMm` bontást ad. A régi teszt csak eresz nélkül vizsgálta, ezért nem bukott el.
+- **Új a felületen:** hét tetőformát kínáló formaválasztó (nyereg, félnyereg, konty, sátor, félkonty, L, T) formafüggő mezőkkel; „Kiindulási adatok" visszaolvasás minden kalkulátoron; elemenkénti vágáslista (azonos hosszak összevonva, hossz + db) a faanyag-kalkulátoron; a vállalt korlát akkor is látszik, ha nincs „Fő eredmények" sor.
+- **Nem változott:** a `GABLE_CALCULATOR_ID = "roof.gable"` perzisztált `calculator_type` érték és a mentett számítások — az építési katalógus nem perzisztál, ezért az átnevezés adatmigrációt nem igényel, és megszüntet egy névütközést.
+- **Ellenőrzés:** `npm run typecheck`, `npm run lint` (No issues found), `npm test` 143 fájl / 796 PASS, 8 fájl / 19 kihagyva. Böngésző: a szarufa-kalkulátor 3000/2000/500/100 mm-re 3551,056 / 591,843 / 4142,899 mm és 57,653° értéket ad (a referenciaoldal kerekített 3551 / 592 / 4143 / 58° adataival egyezik); kontytetőre 10×6 m, 45° mellett a vágáslista 8 hosszcsoportot ad (4243 mm × 14 db …). `npm run build` nem futott.
+- **Nem implementált a specből:** betűkódos mezőjelölés és rajzlegenda (§2 B2), nyomtatási nézet és fekete-fehér rajz (B7, C1), méretszám és alkatrész-számozás a rajzon (C5, C6), alternatív kiszerelés (C8), bővített súgóblokk (D1–D8), manzárd a közös geometria-motorban. A manzárd ezért továbbra sem kap anyagkiosztást.
+
 ## F9.46.1 — „Bádogos elemek hozzáadása” eltávolítása
 
 Státusz: **COMPLETE a helyi, mért hatókörre** (csak frontend; DB, séma, migráció, szerveroldali validáció nem változott; nincs commit).

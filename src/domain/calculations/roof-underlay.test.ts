@@ -5,6 +5,23 @@ import { calculateRoofUnderlayLayout, roofUnderlayParametersSchema } from "./roo
 const gable = calculateRoofGeometry({ type: "gable", geometry: { inputMode: "height", buildingLengthMm: 10_000, buildingWidthMm: 6_000, roofRiseMm: 4_000, eaveOverhangMm: 0, frontGableOverhangMm: 0, rearGableOverhangMm: 0 } });
 const base = { rollWidthMm: 2500, rollLengthMm: 50_000, sideOverlapMm: 100, endOverlapMm: 0, installationDirection: "eave-to-ridge" as const };
 
+const mansard = calculateRoofGeometry({ type: "mansard", lengthMm: 10_000, widthMm: 6_000, lowerRunMm: 1_500, lowerRiseMm: 2_800, upperRiseMm: 700 });
+
+describe("mansard underlay courses", () => {
+  it("lays courses on each of the four planes and never covers less than the roof area", () => {
+    const result = calculateRoofUnderlayLayout(mansard, base);
+    expect(result.status).toBe("VALID");
+    // Every plane of the mansard is a convex rectangle, so each one must receive its own courses.
+    expect(new Set(result.courses.map((course) => course.planeId)).size).toBe(4);
+    expect(result.netRoofAreaMm2).toBeCloseTo(2 * 10_000 * (Math.hypot(1_500, 2_800) + Math.hypot(1_500, 700)), 3);
+    expect(result.grossRequiredUnderlayAreaMm2).toBeGreaterThanOrEqual(result.netRoofAreaMm2!);
+    expect(result.rollCount).toBeGreaterThan(0);
+    // The steep skirt is longer than the shallow top, so it needs at least as many courses.
+    const perPlane = (prefix: string) => result.courses.filter((course) => course.planeId.startsWith(prefix)).length;
+    expect(perPlane("lower-")).toBeGreaterThanOrEqual(perPlane("main-"));
+  });
+});
+
 describe("roof underlay quantity foundation", () => {
   it("independently checks gable net area, courses, cut lengths, overlap and exact roll packing", () => {
     const result = calculateRoofUnderlayLayout(gable, base);

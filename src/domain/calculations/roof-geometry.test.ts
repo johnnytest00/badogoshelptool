@@ -25,6 +25,44 @@ describe("parameterized roof geometry", () => {
     expect(calculateRoofGeometry(input).edges.map((edge) => edge.id)).toEqual(result.edges.map((edge) => edge.id));
   });
 
+  it("extends a shed only on its low eave when an overhang is provided", () => {
+    const result = calculateRoofGeometry({ type: "shed", ...common, eaveOverhangMm: 500 });
+    expect(result.projectedAreaMm2).toBeCloseTo(65e6, 3);
+    expect(result.totalAreaMm2).toBeCloseTo(65e6 * Math.SQRT2, 3);
+    expect(result.edges.filter((edge) => edge.kind === "eave")).toHaveLength(1);
+    expect(result.edges.filter((edge) => edge.kind === "upper")).toHaveLength(1);
+    expect(result.edges.find((edge) => edge.kind === "eave")?.lengthMm).toBe(10 * m);
+    expect(result.edges.find((edge) => edge.kind === "upper")?.lengthMm).toBe(10 * m);
+  });
+
+  it("builds the mansard from two pitches and reports the break lines", () => {
+    const input = { type: "mansard", lengthMm: 10 * m, widthMm: 6 * m, lowerRunMm: 1500, lowerRiseMm: 2800, upperRiseMm: 700 } as const;
+    const result = calculateRoofGeometry(input);
+    // Hand-derived: each side is a steep skirt plus a shallow top, both spanning the full roof length.
+    const lowerSlope = Math.hypot(1500, 2800), upperSlope = Math.hypot(1500, 700);
+    expect(result.projectedAreaMm2).toBeCloseTo(60e6, 3);
+    expect(result.totalAreaMm2).toBeCloseTo(2 * 10 * m * (lowerSlope + upperSlope), 3);
+    expect(result.planes).toHaveLength(4);
+
+    const pitches = [...new Set(result.planes.map((plane) => Number(plane.pitchDegrees.toFixed(6))))].sort((a, b) => a - b);
+    expect(pitches).toHaveLength(2);
+    expect(pitches[0]).toBeCloseTo(Math.atan2(700, 1500) * 180 / Math.PI, 6);
+    expect(pitches[1]).toBeCloseTo(Math.atan2(2800, 1500) * 180 / Math.PI, 6);
+
+    const breaks = result.edges.filter((edge) => edge.kind === "break");
+    expect(breaks).toHaveLength(2);
+    expect(breaks.every((edge) => edge.adjacentPlaneIds.length === 2 && edge.lengthMm === 10 * m && edge.start.zMm === 2800)).toBe(true);
+    expect(result.edges.filter((edge) => edge.kind === "ridge").reduce((sum, edge) => sum + edge.lengthMm, 0)).toBeCloseTo(10 * m, 3);
+    expect(Math.max(...result.planes.flatMap((plane) => plane.vertices.map((vertex) => vertex.zMm)))).toBeCloseTo(3500, 6);
+    expect(result.edges.filter((edge) => edge.kind === "eave").reduce((sum, edge) => sum + edge.lengthMm, 0)).toBeCloseTo(20 * m, 3);
+  });
+
+  it("rejects a mansard whose upper section is not shallower than its skirt", () => {
+    const base = { type: "mansard", lengthMm: 10 * m, widthMm: 6 * m, lowerRunMm: 1500 } as const;
+    expect(() => calculateRoofGeometry({ ...base, lowerRiseMm: 1000, upperRiseMm: 1000 })).toThrow();
+    expect(() => calculateRoofGeometry({ ...base, lowerRunMm: 3 * m, lowerRiseMm: 2800, upperRiseMm: 700 })).toThrow();
+  });
+
   it("preserves the verified gable geometry and legacy segment identities", () => {
     const result = calculateRoofGeometry({ type: "gable", geometry: { inputMode: "height", buildingLengthMm: 10 * m, buildingWidthMm: 6 * m, roofRiseMm: 4 * m, eaveOverhangMm: 0, frontGableOverhangMm: 0, rearGableOverhangMm: 0 } });
     expect(result.totalAreaMm2).toBe(100e6);

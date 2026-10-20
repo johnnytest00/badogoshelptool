@@ -201,29 +201,13 @@ function StraightStair({ closed = false, metal = false, zigzag = false, concrete
 }
 
 function roofIcon(id: string) {
-  if (id === "roof.gable") return <g data-roof-planes="2">
+  if (id === "roof.material-takeoff") return <g data-roof-planes="2">
     <path data-roof-plane="1" className="construction-icon-roof-plane construction-icon-roof-plane-a" d="M17 12 L43 20 L33 39 L7 31 Z" />
     <path data-roof-plane="2" className="construction-icon-roof-plane construction-icon-roof-plane-b" d="M17 12 L43 20 L51 40 L25 32 Z" />
     <path className="construction-icon-roof-edge" d="M7 31 L17 12 L43 20 L51 40 L25 32 Z M7 31 L33 39 M25 32 L51 40" />
     <path className="construction-icon-roof-ridge" d="M17 12 L43 20" />
   </g>;
-  if (id === "roof.shed") return <g data-roof-planes="1">
-    <path className="construction-icon-roof-plane construction-icon-roof-plane-a" d="M7 29 L43 15 L55 23 L19 37 Z" />
-    <path className="construction-icon-roof-edge" d="M7 29 L43 15 L55 23 L19 37 Z M7 29 L7 44 L19 51 L19 37 M43 15 L43 27 M55 23 L55 35" />
-    <path className="construction-icon-roof-ridge" d="M43 15 L55 23" />
-  </g>;
-  if (id === "roof.mansard") return <>
-    <g data-roof-planes="4">
-      <path className="construction-icon-roof-plane construction-icon-mansard-low" d="M8 40 L17 25 L24 20 L15 36 Z" />
-      <path className="construction-icon-roof-plane construction-icon-mansard-high" d="M17 25 L30 18 L37 13 L24 20 Z" />
-      <path className="construction-icon-roof-plane construction-icon-mansard-high" d="M30 18 L43 25 L50 20 L37 13 Z" />
-      <path className="construction-icon-roof-plane construction-icon-mansard-low" d="M43 25 L52 40 L59 36 L50 20 Z" />
-      <path className="construction-icon-roof-edge" d="M8 40 L17 25 L30 18 L43 25 L52 40 M15 36 L24 20 L37 13 L50 20 L59 36 M8 40 L15 36 M17 25 L24 20 M30 18 L37 13 M43 25 L50 20 M52 40 L59 36" />
-      <path className="construction-icon-mansard-break" d="M17 25 L24 20 M43 25 L50 20" />
-      <path className="construction-icon-roof-ridge" d="M30 18 L37 13" />
-    </g>
-  </>;
-  if (id === "roof.hip") return <g data-roof-planes="4">
+  if (id === "roof.timber-cutlist") return <g data-roof-planes="4">
     <path data-roof-plane="main-near" className="construction-icon-roof-plane construction-icon-roof-plane-a" d="M7 34 L34 24 L41 9 L14 19 Z" />
     <path data-roof-plane="main-far" className="construction-icon-roof-plane construction-icon-roof-plane-b" d="M20 43 L47 33 L41 9 L14 19 Z" />
     <path data-roof-plane="hip-near" className="construction-icon-roof-plane construction-icon-roof-plane-c" d="M7 34 L20 43 L14 19 Z" />
@@ -231,13 +215,13 @@ function roofIcon(id: string) {
     <path className="construction-icon-roof-edge" d="M7 34 L34 24 L47 33 L20 43 Z M7 34 L14 19 L41 9 L47 33 M20 43 L14 19 M34 24 L41 9" />
     <path className="construction-icon-roof-ridge" d="M14 19 L41 9" />
   </g>;
-  if (id === "roof.rafter") return <>
+  if (id === "roof.rafter-cut") return <>
     <path className="construction-icon-wood-beam" d="M10 43 L39 8 L46 13 L17 49 Z" />
     <path className="construction-icon-rafter-cut" d="M39 8 L46 13 M10 43 L17 49" />
     <path className="construction-icon-roof-edge" d="M7 49 H53" />
     <path className="construction-icon-angle" d="M17 49 A12 12 0 0 0 14.7 41.5 M17 49 V37" />
   </>;
-  if (id === "roof.truss") return <>
+  if (id === "roof.truss-members") return <>
     <path className="construction-icon-truss-depth" d="M9 44 L32 8 L36 8 L59 44 L55 46 L34 13 L13 46 Z M10 42 L12 40 M32 10 L34 8 M57 44 L59 42 M10 42 H58 L60 40 H12 Z" />
     <path className="construction-icon-truss-timber" d="M7 46 L30 10 L34 10 L57 46 L53 48 L32 15 L11 48 Z" />
     <path className="construction-icon-truss-timber" d="M8 44 H56 V48 H8 Z" />

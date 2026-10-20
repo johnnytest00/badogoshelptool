@@ -174,7 +174,7 @@ export function TechnicalDrawing({ output, geometry, isSaved, sheetLayout, sheet
       const detailLabel = detailCount > 1 ? ` · geometriai részlet ${geometryPlaneDetailNumber.get(plane.id) ?? 1}` : "";
       return { id: plane.id, label: `Tetősík ${groupNumber}${detailLabel}`, lengthMm: null as number | null, areaMm2: plane.areaMm2, kind: "plane" };
     }),
-    ...geometry.edges.map((edge, index) => ({ id: edge.id, label: `${{ eave: "Eresz", upper: "Felső él", ridge: "Gerinc", rake: "Oromél", hip: "Kontyél", valley: "Vápavonal" }[edge.kind]} ${index + 1}`, lengthMm: edge.lengthMm, areaMm2: null as number | null, kind: edge.kind })),
+    ...geometry.edges.map((edge, index) => ({ id: edge.id, label: `${{ eave: "Eresz", upper: "Felső él", ridge: "Gerinc", rake: "Oromél", hip: "Kontyél", valley: "Vápavonal", break: "Törésvonal" }[edge.kind]} ${index + 1}`, lengthMm: edge.lengthMm, areaMm2: null as number | null, kind: edge.kind })),
   ] : gableSegments(output!);
   const selectedLength = (kind: string) => selectable.reduce((sum, segment) => sum + (segment.kind === kind && selectedSegmentIds?.includes(segment.id) ? segment.lengthMm ?? 0 : 0), 0);
   const visibleModel = useMemo(() => filterDrawingModel(model, layers), [model, layers]);

@@ -22,6 +22,7 @@ const sample = {
   halfHip: { type: "halfHip", lengthMm: 10000, widthMm: 6000, pitchDegrees: 35, hipEaveHeightMm: 1000 },
   lShape: { type: "lShape", lengthMm: 10000, widthMm: 6000, pitchDegrees: 35, wingWidthMm: 4000, wingProjectionMm: 5000 },
   tShape: { type: "tShape", lengthMm: 10000, widthMm: 6000, pitchDegrees: 35, wingWidthMm: 4000, wingProjectionMm: 5000 },
+  mansard: { type: "mansard", lengthMm: 10000, widthMm: 6000, lowerRunMm: 2000, lowerRiseMm: 2200, upperRiseMm: 900 },
 } as const;
 
 function RoofTypeIllustration({ type }: { type: RoofGeometryType }) {

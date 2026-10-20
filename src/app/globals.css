@@ -3806,13 +3806,18 @@ html[data-glass-frame-free="true"] :is(
 .construction-suite :is(button, a, input, summary):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .construction-suite-advanced { margin-top: .15rem; }
 .construction-suite-advanced .glass-disclosure-content { padding-top: .75rem; }
-.construction-suite-results { display: grid; gap: .55rem; border: 1px solid var(--glass-border); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-glass) 62%, transparent); padding: .85rem; }
-.construction-suite-results h3 { margin: 0; color: var(--foreground); font-size: 1rem; }
-.construction-suite-results dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; margin: 0; }
-.construction-suite-results dl > div { display: grid; gap: .15rem; min-width: 0; border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-strong) 60%, transparent); padding: .6rem; }
-.construction-suite-results dt { color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); line-height: 1.4; }
-.construction-suite-results dd { margin: 0; color: var(--foreground); font-size: calc(1rem * var(--tp-text-scale)); font-variant-numeric: tabular-nums; font-weight: 800; overflow-wrap: anywhere; }
-.construction-suite-results dd span { color: var(--muted); font-size: .78em; font-weight: 650; }
+.construction-suite-results, .construction-suite-echo { display: grid; gap: .55rem; border: 1px solid var(--glass-border); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-glass) 62%, transparent); padding: .85rem; }
+.construction-suite-results h3, .construction-suite-echo h3 { margin: 0; color: var(--foreground); font-size: 1rem; }
+.construction-suite-results dl, .construction-suite-echo dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; margin: 0; }
+.construction-suite-results dl > div, .construction-suite-echo dl > div { display: grid; gap: .15rem; min-width: 0; border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-strong) 60%, transparent); padding: .6rem; }
+.construction-suite-results dt, .construction-suite-echo dt { color: var(--muted); font-size: calc(.72rem * var(--tp-text-scale)); line-height: 1.4; }
+.construction-suite-results dd, .construction-suite-echo dd { margin: 0; color: var(--foreground); font-size: calc(1rem * var(--tp-text-scale)); font-variant-numeric: tabular-nums; font-weight: 800; overflow-wrap: anywhere; }
+.construction-suite-cut-lists h4 { margin: .3rem 0 0; color: var(--foreground); font-size: calc(.85rem * var(--tp-text-scale)); }
+.construction-suite-cut-list { display: grid; gap: .25rem; margin: .35rem 0 0; padding: 0; list-style: none; }
+.construction-suite-cut-list li { display: grid; grid-template-columns: 2.2rem 1fr auto; align-items: baseline; gap: .5rem; border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-strong) 60%, transparent); padding: .35rem .6rem; font-variant-numeric: tabular-nums; }
+.construction-suite-cut-list li span { color: var(--muted); font-size: calc(.75rem * var(--tp-text-scale)); }
+.construction-suite-cut-list li strong { color: var(--foreground); font-size: calc(.9rem * var(--tp-text-scale)); }
+.construction-suite-results dd span, .construction-suite-echo dd span { color: var(--muted); font-size: .78em; font-weight: 650; }
 .construction-suite-advisory { margin: 0; border-left: 3px solid var(--brand); color: var(--muted); padding: .35rem .55rem; font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.5; }
 .construction-suite-result-details { margin-top: -.15rem; }
 .construction-suite-result-details .glass-disclosure-content dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; margin: 0; }
@@ -3833,7 +3838,7 @@ html[data-glass-frame-free="true"] :is(
 @media (max-width: 560px) {
   .construction-suite-category-tabs { grid-template-columns: minmax(0, 1fr); }
   .construction-suite-list, .construction-suite-workspace { border-radius: 1rem; padding: .75rem; }
-  .construction-suite-options, .construction-suite-form-grid, .construction-suite-results dl, .construction-suite-result-details .glass-disclosure-content dl { grid-template-columns: minmax(0, 1fr); }
+  .construction-suite-options, .construction-suite-form-grid, .construction-suite-results dl, .construction-suite-echo dl, .construction-suite-result-details .glass-disclosure-content dl { grid-template-columns: minmax(0, 1fr); }
   .construction-suite-options { max-height: 12rem; }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -2,33 +2,37 @@ import { z } from "zod";
 import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput } from "./gable-roof";
 
 const dimension = z.number().int().positive().max(100_000);
+const nonNegativeDimension = z.number().int().nonnegative().max(100_000);
 const pitch = z.number().finite().positive().lt(80);
 const rectangle = { lengthMm: dimension, widthMm: dimension, pitchDegrees: pitch };
-export const roofGeometryTypeSchema = z.enum(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"]);
+export const roofGeometryTypeSchema = z.enum(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape", "mansard"]);
 
 export const roofGeometryInputSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("gable"), geometry: gableRoofInputSchema }),
-  z.object({ type: z.literal("shed"), ...rectangle }),
+  z.object({ type: z.literal("shed"), ...rectangle, eaveOverhangMm: nonNegativeDimension.optional() }),
   z.object({ type: z.literal("hip"), ...rectangle }).refine((value) => value.lengthMm > value.widthMm, "A kontyolt tető hossza legyen nagyobb a szélességénél."),
   z.object({ type: z.literal("pyramid"), sideMm: dimension, pitchDegrees: pitch }),
   z.object({ type: z.literal("halfHip"), ...rectangle, hipEaveHeightMm: dimension }).refine((value) => value.lengthMm > value.widthMm && value.hipEaveHeightMm < value.widthMm / 2 * Math.tan(value.pitchDegrees * Math.PI / 180), "A félkonty nem fér el a megadott tetőn."),
   z.object({ type: z.literal("lShape"), ...rectangle, wingWidthMm: dimension, wingProjectionMm: dimension }).refine((value) => value.wingWidthMm < Math.min(value.lengthMm, value.widthMm), "A szárny szélessége legyen kisebb a főtető méreteinél."),
   z.object({ type: z.literal("tShape"), ...rectangle, wingWidthMm: dimension, wingProjectionMm: dimension }).refine((value) => value.wingWidthMm < Math.min(value.lengthMm, value.widthMm), "A szárny szélessége legyen kisebb a főtető méreteinél."),
+  z.object({ type: z.literal("mansard"), lengthMm: dimension, widthMm: dimension, lowerRunMm: dimension, lowerRiseMm: dimension, upperRiseMm: dimension })
+    .refine((value) => value.lowerRunMm * 2 < value.widthMm, "Az alsó szakasz vízszintes futása legyen kisebb a tető fél szélességénél.")
+    .refine((value) => value.lowerRiseMm / value.lowerRunMm > value.upperRiseMm / (value.widthMm / 2 - value.lowerRunMm), "A manzárd alsó szakasza legyen meredekebb a felsőnél."),
 ]);
 
 export type RoofGeometryInput = z.infer<typeof roofGeometryInputSchema>;
 export type RoofGeometryType = RoofGeometryInput["type"];
 export type RoofPoint = Readonly<{ xMm: number; yMm: number; zMm: number }>;
 export type RoofGeometryPlane = Readonly<{ id: string; areaMm2: number; projectedAreaMm2: number; vertices: readonly RoofPoint[]; pitchDegrees: number }>;
-export type RoofGeometryEdge = Readonly<{ id: string; kind: "eave" | "upper" | "ridge" | "rake" | "hip" | "valley"; start: RoofPoint; end: RoofPoint; lengthMm: number; adjacentPlaneIds: readonly string[] }>;
+export type RoofGeometryEdge = Readonly<{ id: string; kind: "eave" | "upper" | "ridge" | "rake" | "hip" | "valley" | "break"; start: RoofPoint; end: RoofPoint; lengthMm: number; adjacentPlaneIds: readonly string[] }>;
 export type RoofGeometry = Readonly<{ type: RoofGeometryType; modelVersion: "1.0.0"; planes: readonly RoofGeometryPlane[]; edges: readonly RoofGeometryEdge[]; totalAreaMm2: number; projectedAreaMm2: number }>;
 
 const pointSchema = z.object({ xMm: z.number().finite(), yMm: z.number().finite(), zMm: z.number().finite() });
 export const roofGeometryOutputSchema: z.ZodType<RoofGeometry> = z.object({
-  type: z.enum(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"]),
+  type: z.enum(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape", "mansard"]),
   modelVersion: z.literal("1.0.0"),
   planes: z.array(z.object({ id: z.string().min(1), areaMm2: z.number().finite().positive(), projectedAreaMm2: z.number().finite().positive(), pitchDegrees: z.number().finite(), vertices: z.array(pointSchema).min(3) })).min(1),
-  edges: z.array(z.object({ id: z.string().min(1), kind: z.enum(["eave", "upper", "ridge", "rake", "hip", "valley"]), start: pointSchema, end: pointSchema, lengthMm: z.number().finite().positive(), adjacentPlaneIds: z.array(z.string().min(1)).min(1).max(2) })),
+  edges: z.array(z.object({ id: z.string().min(1), kind: z.enum(["eave", "upper", "ridge", "rake", "hip", "valley", "break"]), start: pointSchema, end: pointSchema, lengthMm: z.number().finite().positive(), adjacentPlaneIds: z.array(z.string().min(1)).min(1).max(2) })),
   totalAreaMm2: z.number().finite().positive(), projectedAreaMm2: z.number().finite().positive(),
 });
 
@@ -89,11 +93,21 @@ function partition(surfaces: readonly Surface[], rule: "min" | "max"): Patch[] {
 }
 
 function surfacesFor(input: Exclude<RoofGeometryInput, { type: "gable" }>): { surfaces: Surface[]; rule: "min" | "max" } {
-  const m = Math.tan(input.pitchDegrees * Math.PI / 180);
+  const m = input.type === "mansard" ? 0 : Math.tan(input.pitchDegrees * Math.PI / 180);
   const length = input.type === "pyramid" ? input.sideMm : input.lengthMm;
   const width = input.type === "pyramid" ? input.sideMm : input.widthMm;
   const base = (id: string, ax: number, by: number, c: number, x0 = 0, x1 = length, y0 = 0, y1 = width): Surface => ({ id, ax, by, c, x0, x1, y0, y1 });
-  if (input.type === "shed") return { rule: "min", surfaces: [base("shed-plane", 0, m, 0)] };
+  if (input.type === "shed") return { rule: "min", surfaces: [base("shed-plane", 0, m, 0, 0, length, -(input.eaveOverhangMm ?? 0), width)] };
+  if (input.type === "mansard") {
+    const lower = input.lowerRiseMm / input.lowerRunMm;
+    const upper = input.upperRiseMm / (width / 2 - input.lowerRunMm);
+    const breakHeight = input.lowerRiseMm;
+    // The steep skirt and the shallow top are both full planes; their lower envelope is the mansard.
+    return { rule: "min", surfaces: [
+      base("lower-south", 0, lower, 0), base("lower-north", 0, -lower, lower * width),
+      base("main-south", 0, upper, breakHeight - upper * input.lowerRunMm), base("main-north", 0, -upper, breakHeight + upper * (width - input.lowerRunMm)),
+    ] };
+  }
   const main = [base("main-south", 0, m, 0), base("main-north", 0, -m, m * width)];
   if (input.type === "hip" || input.type === "pyramid") return { rule: "min", surfaces: [...main, base("west-hip", m, 0, 0), base("east-hip", -m, 0, m * length)] };
   if (input.type === "halfHip") return { rule: "min", surfaces: [...main, base("west-half-hip", m, 0, input.hipEaveHeightMm), base("east-half-hip", -m, 0, m * length + input.hipEaveHeightMm)] };
@@ -145,6 +159,7 @@ function edgesFromPatches(patches: readonly Patch[], rule: "min" | "max"): RoofG
     let kind: RoofGeometryEdge["kind"];
     if (surfaces.length === 1) kind = same(start.zMm, end.zMm) ? surfaces[0].id === "shed-plane" && start.zMm > EPS ? "upper" : "eave" : "rake";
     else if (rule === "max" && surfaces[0].id.split("-")[0] !== surfaces[1].id.split("-")[0]) kind = "valley";
+    else if (surfaces.some((surface) => surface.id.startsWith("lower-")) && surfaces.some((surface) => surface.id.startsWith("main-"))) kind = "break";
     else if ((surfaces[0].id === "main-south" && surfaces[1].id === "main-north") || (surfaces[1].id === "main-south" && surfaces[0].id === "main-north") || (surfaces[0].id.startsWith("wing-") && surfaces[1].id.startsWith("wing-"))) kind = "ridge";
     else kind = "hip";
     edges.push({ id: `${kind}:${key}`, kind, start, end, lengthMm: Math.hypot(end.xMm - start.xMm, end.yMm - start.yMm, end.zMm - start.zMm), adjacentPlaneIds: members.map(([id]) => id).sort() });
@@ -177,10 +192,11 @@ export function calculateRoofGeometry(raw: RoofGeometryInput): RoofGeometry {
   }
   const { surfaces, rule } = surfacesFor(input);
   const patches = partition(surfaces, rule);
-  const factor = 1 / Math.cos(input.pitchDegrees * Math.PI / 180);
   const planes = patches.map(({ surface, points }, index) => {
     const projectedAreaMm2 = Math.abs(signedArea(points));
-    return { id: `${surface.id}-${index}`, areaMm2: projectedAreaMm2 * factor, projectedAreaMm2, pitchDegrees: input.pitchDegrees, vertices: points.map((point) => ({ xMm: point.x, yMm: point.y, zMm: height(surface, point) })) };
+    // Each surface carries its own slope, so a roof may mix pitches (mansard).
+    const gradient = Math.hypot(surface.ax, surface.by);
+    return { id: `${surface.id}-${index}`, areaMm2: projectedAreaMm2 * Math.hypot(1, gradient), projectedAreaMm2, pitchDegrees: Math.atan(gradient) * 180 / Math.PI, vertices: points.map((point) => ({ xMm: point.x, yMm: point.y, zMm: height(surface, point) })) };
   });
   const edges = edgesFromPatches(patches, rule);
   const projectedAreaMm2 = planes.reduce((sum, plane) => sum + plane.projectedAreaMm2, 0);

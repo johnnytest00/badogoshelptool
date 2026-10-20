@@ -5,9 +5,9 @@ import { ConstructionStairDrawing, ConstructionCalculatorThumbnail } from "@/fea
 import { constructionCalculatorCatalog } from "./catalog";
 
 describe("construction calculator coverage and selection", () => {
-  it("accounts for all 33 requested references with explicit verification statuses", () => {
-    expect(constructionCalculatorCatalog).toHaveLength(33);
-    expect(constructionCalculatorCatalog.filter((item) => item.status === "verified")).toHaveLength(33);
+  it("accounts for all 31 requested references with explicit verification statuses", () => {
+    expect(constructionCalculatorCatalog).toHaveLength(31);
+    expect(constructionCalculatorCatalog.filter((item) => item.status === "verified")).toHaveLength(31);
     expect(constructionCalculatorCatalog.filter((item) => item.status === "not_implemented")).toHaveLength(0);
     expect(constructionCalculatorCatalog.every((item) => item.id && item.title && item.scope && item.limitation)).toBe(true);
   });

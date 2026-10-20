@@ -4,7 +4,7 @@ import { roofPlaneGroupId, summarizeRoofGeometry } from "@/domain/calculations/r
 import { formatDrawingMeasurement, type DrawingDimension, type DrawingUnderlayPolygon, type GableDrawingModel, type DrawingPoint } from "./gable-drawing";
 
 const xy = (point: { xMm: number; yMm: number }): DrawingPoint => ({ x: point.xMm, y: -point.yMm });
-const edgeNames = { eave: "Eresz", upper: "Felső él", ridge: "Gerinc", rake: "Oromél", hip: "Kontyél", valley: "Vápavonal" } as const;
+const edgeNames = { eave: "Eresz", upper: "Felső él", ridge: "Gerinc", rake: "Oromél", hip: "Kontyél", valley: "Vápavonal", break: "Törésvonal" } as const;
 
 export function createRoofDrawingModel(geometry: RoofGeometry, underlayLayout?: RoofUnderlayLayout | null): GableDrawingModel {
   const vertices = geometry.planes.flatMap((plane) => plane.vertices);

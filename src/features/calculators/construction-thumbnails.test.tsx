@@ -4,7 +4,7 @@ import { constructionCalculatorCatalog } from "@/domain/calculations/constructio
 import { ConstructionCalculatorThumbnail } from "./construction-visuals";
 
 const categories = [
-  ["roof", constructionCalculatorCatalog.filter((item) => item.category === "roof"), 6],
+  ["roof", constructionCalculatorCatalog.filter((item) => item.category === "roof"), 4],
   ["staircase", constructionCalculatorCatalog.filter((item) => item.category === "stair"), 17],
   ["concrete and foundation", constructionCalculatorCatalog.filter((item) => item.category === "concrete" || item.category === "auxiliary"), 10],
 ] as const;
@@ -29,7 +29,7 @@ describe("construction calculator selection thumbnails", () => {
     const roofMarkup = constructionCalculatorCatalog
       .filter((item) => item.category === "roof")
       .map((item) => renderToStaticMarkup(<ConstructionCalculatorThumbnail id={item.id} />));
-    expect(new Set(roofMarkup).size).toBe(6);
+    expect(new Set(roofMarkup).size).toBe(4);
 
     const stairMarkup = (id: string) => renderToStaticMarkup(<ConstructionCalculatorThumbnail id={id} />);
     for (const [landingId, winderId] of [
@@ -57,23 +57,18 @@ describe("construction calculator selection thumbnails", () => {
 
   it("shows the roof planes and defining ridge or break geometry", () => {
     const markup = (id: string) => renderToStaticMarkup(<ConstructionCalculatorThumbnail id={id} />);
-    const gable = markup("roof.gable");
-    const shed = markup("roof.shed");
-    const mansard = markup("roof.mansard");
-    const hip = markup("roof.hip");
+    const gable = markup("roof.material-takeoff");
+    const hip = markup("roof.timber-cutlist");
 
     expect((gable.match(/data-roof-plane=/g) ?? [])).toHaveLength(2);
     expect(gable).toContain("construction-icon-roof-ridge");
     expect(gable).not.toMatch(/construction-icon-(?:gable-face|wall-face)/);
-    expect((shed.match(/data-roof-planes="1"/g) ?? [])).toHaveLength(1);
-    expect((mansard.match(/class="construction-icon-roof-plane construction-icon-mansard-/g) ?? [])).toHaveLength(4);
-    expect(mansard).toContain("construction-icon-mansard-break");
     expect(hip).toContain('data-roof-plane="main-near"');
     expect(hip).toContain('data-roof-plane="main-far"');
     expect(hip).toContain('data-roof-plane="hip-near"');
     expect(hip).toContain('data-roof-plane="hip-far"');
     expect(hip).toContain("construction-icon-roof-ridge");
-    expect(markup("roof.truss")).toContain("construction-icon-truss-depth");
+    expect(markup("roof.truss-members")).toContain("construction-icon-truss-depth");
   });
 
   it("keeps three-flight layouts connected and landings distinct from wedge treads", () => {

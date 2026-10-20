@@ -30,7 +30,7 @@ export const ROOF_ENGINEERING_REFERENCES: readonly RoofEngineeringReference[] = 
     expectedProjectedAreaMm2: 60e6,
     expectedSurfaceAreaMm2: 60e6 * sqrt2,
     expectedPitchDegrees: 45,
-    expectedEdgeLengthMm: { eave: 10 * m, upper: 10 * m, ridge: 0, rake: 12 * m * sqrt2, hip: 0, valley: 0 },
+    expectedEdgeLengthMm: { eave: 10 * m, upper: 10 * m, ridge: 0, rake: 12 * m * sqrt2, hip: 0, valley: 0 , break: 0},
     derivation: "A = 10·6/cos45°; one 10 m eave, one 10 m upper edge and two 6·√2 m rakes.",
   },
   {
@@ -39,7 +39,7 @@ export const ROOF_ENGINEERING_REFERENCES: readonly RoofEngineeringReference[] = 
     expectedProjectedAreaMm2: 60e6,
     expectedSurfaceAreaMm2: 60e6 * sqrt2,
     expectedPitchDegrees: 45,
-    expectedEdgeLengthMm: { eave: 20 * m, upper: 0, ridge: 10 * m, rake: 12 * m * sqrt2, hip: 0, valley: 0 },
+    expectedEdgeLengthMm: { eave: 20 * m, upper: 0, ridge: 10 * m, rake: 12 * m * sqrt2, hip: 0, valley: 0 , break: 0},
     derivation: "Two 10 × 3√2 m planes; two 10 m eaves, one 10 m ridge and four 3√2 m rakes.",
   },
   {
@@ -48,7 +48,7 @@ export const ROOF_ENGINEERING_REFERENCES: readonly RoofEngineeringReference[] = 
     expectedProjectedAreaMm2: 60e6,
     expectedSurfaceAreaMm2: 60e6 * sqrt2,
     expectedPitchDegrees: 45,
-    expectedEdgeLengthMm: { eave: 32 * m, upper: 0, ridge: 4 * m, rake: 0, hip: 12 * m * sqrt3, valley: 0 },
+    expectedEdgeLengthMm: { eave: 32 * m, upper: 0, ridge: 4 * m, rake: 0, hip: 12 * m * sqrt3, valley: 0 , break: 0},
     derivation: "10 × 6 m footprint; ridge 10−6 = 4 m; four hips have vector (3,3,3) m.",
   },
   {
@@ -57,7 +57,7 @@ export const ROOF_ENGINEERING_REFERENCES: readonly RoofEngineeringReference[] = 
     expectedProjectedAreaMm2: 36e6,
     expectedSurfaceAreaMm2: 36e6 * sqrt2,
     expectedPitchDegrees: 45,
-    expectedEdgeLengthMm: { eave: 24 * m, upper: 0, ridge: 0, rake: 0, hip: 12 * m * sqrt3, valley: 0 },
+    expectedEdgeLengthMm: { eave: 24 * m, upper: 0, ridge: 0, rake: 0, hip: 12 * m * sqrt3, valley: 0 , break: 0},
     derivation: "Four projected 9 m² triangles; four hips have vector (3,3,3) m.",
   },
   {
@@ -66,7 +66,7 @@ export const ROOF_ENGINEERING_REFERENCES: readonly RoofEngineeringReference[] = 
     expectedProjectedAreaMm2: 60e6,
     expectedSurfaceAreaMm2: 60e6 * sqrt2,
     expectedPitchDegrees: 45,
-    expectedEdgeLengthMm: { eave: 28 * m, upper: 0, ridge: 6 * m, rake: 4 * m * sqrt2, hip: 8 * m * sqrt3, valley: 0 },
+    expectedEdgeLengthMm: { eave: 28 * m, upper: 0, ridge: 6 * m, rake: 4 * m * sqrt2, hip: 8 * m * sqrt3, valley: 0 , break: 0},
     derivation: "Each end cuts a 2 m ridge run; four hips have vector (2,2,2) m and four lower rake remnants have vector (0,1,1) m.",
   },
   {
@@ -75,7 +75,7 @@ export const ROOF_ENGINEERING_REFERENCES: readonly RoofEngineeringReference[] = 
     expectedProjectedAreaMm2: 80e6,
     expectedSurfaceAreaMm2: 80e6 * sqrt2,
     expectedPitchDegrees: 45,
-    expectedEdgeLengthMm: { eave: 26 * m, upper: 0, ridge: 17 * m, rake: 16 * m * sqrt2, hip: 0, valley: 4 * m * sqrt3 },
+    expectedEdgeLengthMm: { eave: 26 * m, upper: 0, ridge: 17 * m, rake: 16 * m * sqrt2, hip: 0, valley: 4 * m * sqrt3 , break: 0},
     derivation: "Union footprint 10·6 + 4·5 m²; ridges 10+7 m; two valleys have vector (2,2,2) m.",
   },
   {
@@ -84,7 +84,7 @@ export const ROOF_ENGINEERING_REFERENCES: readonly RoofEngineeringReference[] = 
     expectedProjectedAreaMm2: 80e6,
     expectedSurfaceAreaMm2: 80e6 * sqrt2,
     expectedPitchDegrees: 45,
-    expectedEdgeLengthMm: { eave: 26 * m, upper: 0, ridge: 17 * m, rake: 16 * m * sqrt2, hip: 0, valley: 4 * m * sqrt3 },
+    expectedEdgeLengthMm: { eave: 26 * m, upper: 0, ridge: 17 * m, rake: 16 * m * sqrt2, hip: 0, valley: 4 * m * sqrt3 , break: 0},
     derivation: "Centred union footprint 10·6 + 4·5 m²; ridges 10+7 m; two valleys have vector (2,2,2) m.",
   },
 ] as const;

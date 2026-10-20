@@ -47,6 +47,7 @@ const edgeLabels: Readonly<Record<RoofGeometryEdge["kind"], string>> = {
   rake: "Oromél",
   hip: "Kontyél",
   valley: "Vápavonal",
+  break: "Törésvonal",
 };
 
 export function roofPlaneGroupId(planeId: string): string {
@@ -151,6 +152,7 @@ export function summarizeRoofGeometry(geometry: RoofGeometry): RoofGeometrySumma
     ...(geometry.type === "hip" || geometry.type === "halfHip" ? ["ridgeLength", "hipLength"] : []),
     ...(geometry.type === "pyramid" ? ["hipLength"] : []),
     ...(geometry.type === "lShape" || geometry.type === "tShape" ? ["ridgeLength", "valleyLength"] : []),
+    ...(geometry.type === "mansard" ? ["ridgeLength", "breakLength"] : []),
   ];
   const byKey = new Map<string, RoofGeometryResult>([
     ["totalArea", areaResult("totalArea", "Teljes tetősík geometriai felülete", geometry.totalAreaMm2)],
