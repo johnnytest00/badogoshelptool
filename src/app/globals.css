@@ -3817,6 +3817,34 @@ html[data-glass-frame-free="true"] :is(
 .construction-suite-cut-list li { display: grid; grid-template-columns: 2.2rem 1fr auto; align-items: baseline; gap: .5rem; border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-strong) 60%, transparent); padding: .35rem .6rem; font-variant-numeric: tabular-nums; }
 .construction-suite-cut-list li span { color: var(--muted); font-size: calc(.75rem * var(--tp-text-scale)); }
 .construction-suite-cut-list li strong { color: var(--foreground); font-size: calc(.9rem * var(--tp-text-scale)); }
+.material-inputs { display: grid; gap: .65rem; }
+.material-spec, .material-spec-picker { display: grid; gap: .6rem; min-width: 0; margin: 0; border: 1px solid var(--glass-border); border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-strong) 45%, transparent); padding: .7rem .75rem; }
+.material-spec > legend, .material-spec-picker > legend { padding: 0 .35rem; color: var(--foreground); font-size: calc(.82rem * var(--tp-text-scale)); font-weight: 700; }
+.material-spec-picker { grid-auto-flow: column; justify-content: start; gap: .5rem 1rem; flex-wrap: wrap; }
+.material-spec-toggle { display: inline-flex; align-items: center; gap: .45rem; min-height: 2.75rem; color: var(--foreground); font-size: calc(.82rem * var(--tp-text-scale)); font-weight: 600; }
+.material-spec-toggle input { width: 1.15rem; height: 1.15rem; accent-color: var(--brand-ink); }
+.material-spec-modes { display: inline-grid; grid-template-columns: 1fr 1fr; gap: .25rem; width: fit-content; max-width: 100%; border-radius: var(--radius-control); background: var(--surface-glass); padding: .2rem; }
+.material-spec-modes button { min-height: 2.75rem; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--muted); padding: .3rem .9rem; font: inherit; font-size: calc(.8rem * var(--tp-text-scale)); font-weight: 700; cursor: pointer; }
+.material-spec-modes button[aria-pressed="true"] { background: var(--surface-strong); color: var(--brand-ink); }
+.material-spec-modes button:disabled { opacity: .5; cursor: not-allowed; }
+.material-spec-modes button:focus-visible, .material-spec-restore:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.material-spec-note, .material-spec-hint { margin: 0; color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.4; }
+.material-spec-note.is-demo { color: var(--foreground); font-weight: 700; }
+.material-spec-badge { border: 1px solid var(--glass-border); border-radius: 999px; padding: 0 .45rem; color: var(--muted); font-size: .72em; font-style: normal; font-weight: 700; }
+.material-spec-badge[data-source="override"] { color: var(--brand-ink); border-color: var(--brand-ink); }
+.material-spec-restore { min-height: 2rem; border: 0; background: transparent; color: var(--brand-ink); padding: 0 .3rem; font: inherit; font-size: .75em; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.material-spec-restore.is-block { justify-self: start; min-height: 2.75rem; }
+.material-takeoff-part { display: grid; gap: .3rem; border-top: 1px solid var(--glass-border); padding-top: .55rem; }
+.material-spec-hint.is-error { color: var(--danger); font-weight: 700; }
+.material-takeoff-incomplete { margin: 0; color: var(--foreground); font-size: calc(.78rem * var(--tp-text-scale)); }
+.material-takeoff-warnings { display: grid; gap: .15rem; margin: 0; padding: .45rem .7rem; list-style: none; border-left: 3px solid var(--brand-ink); border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-strong) 55%, transparent); color: var(--foreground); font-size: calc(.78rem * var(--tp-text-scale)); font-weight: 600; }
+.material-takeoff-incomplete.is-invalid { color: var(--danger); }
+.material-takeoff-limits { color: var(--muted); font-size: calc(.78rem * var(--tp-text-scale)); }
+.material-takeoff-limits summary { min-height: 2.75rem; display: flex; align-items: center; cursor: pointer; font-weight: 700; }
+.material-takeoff-limits h5 { margin: .4rem 0 .1rem; color: var(--foreground); font-size: 1em; }
+.material-takeoff-limits ul { margin: 0; padding-left: 1.1rem; }
+.material-takeoff-part h4 { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin: 0; color: var(--foreground); font-size: calc(.88rem * var(--tp-text-scale)); }
+.material-takeoff-part h4 small, .material-takeoff-part dt small { color: var(--muted); font-size: .78em; font-weight: 500; }
 .construction-suite-results dd span, .construction-suite-echo dd span { color: var(--muted); font-size: .78em; font-weight: 650; }
 .construction-suite-advisory { margin: 0; border-left: 3px solid var(--brand); color: var(--muted); padding: .35rem .55rem; font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.5; }
 .construction-suite-result-details { margin-top: -.15rem; }

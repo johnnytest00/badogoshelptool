@@ -4,6 +4,8 @@ import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { ConstructionCalculatorSuite } from "@/features/calculators/construction-suite";
+import { catalogProfilesFromProducts } from "@/domain/calculations/roof-material-catalog";
+import { getMaterialProductsForOrganization } from "@/features/materials/material-data";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 
 export default async function CalculatorsPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string; calculator?: string }> }>) {
@@ -14,9 +16,11 @@ export default async function CalculatorsPage({ searchParams }: Readonly<{ searc
   if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Kalkulátorok</p><h1>Válassz műhelyt a folytatáshoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
 
   const organizationId = selected.organization.id;
+  // Read-only, organization-scoped; a failure degrades to manual/DEMO mode instead of breaking the calculators.
+  const catalog = await getMaterialProductsForOrganization(organizationId).then((products) => ({ profiles: catalogProfilesFromProducts(products), error: false }), () => ({ profiles: [], error: true }));
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
     <BackNavigation href={`/?organization=${organizationId}`} label="Műhely áttekintése" />
     <GlassPageHeader title="Kalkulátorok" actions={<Link className="secondary-button" href={`/kalkulatorok/mentett?organization=${organizationId}`}>Mentett számításaim →</Link>} />
-    <ConstructionCalculatorSuite initialCalculatorId={query.calculator} />
+    <ConstructionCalculatorSuite initialCalculatorId={query.calculator} catalogProfiles={catalog.profiles} catalogError={catalog.error} />
   </div></main>;
 }

@@ -1,5 +1,43 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## F9.50.5 — Anyagkezelő ↔ tető-kalkulátor integráció
+
+Státusz: **COMPLETE a kód/Vitest/typecheck/lint/build hatókörre**; böngészős (hitelesített) és DB-integrációs ellenőrzés **nem futott** (nincs commit, nincs séma-/migrációváltozás).
+
+- `roof-material-catalog.ts`: aktív, aktív kategóriájú termék variánsa → `MaterialProfile` (id = variáns UUID, `catalog` identitás, gyengébb termék/variáns proveniencia); csak ténylegesen megadott, érvényes érték kerül át. Kategória: `roof_covering`→fedés, `insulation`→fólia, `timber`→szarufa/léc.
+- Új additív `technical_specs` kulcsok (`roofTechnicalSpecFields`, Zod-validált az Anyagkezelő variánsűrlapján): `usable_covering_length_mm`, `roll_width_mm`, `roll_length_mm`, `side_overlap_mm`, `end_overlap_mm`, `installation_direction`, `section_width_mm`, `section_height_mm`. Fedésnél a meglévő variánsoszlopok (névleges/hasznos szélesség, hossz) is használatosak.
+- `/kalkulatorok` szerveroldalon, szervezethez kötve tölti a katalógust; betöltési hiba esetén kézi/DEMO mód. Az értékek, felülírások és a snapshot továbbra is helyiek (`persisted: false`).
+
+## F9.50.4 — Faanyag-érvényesség és látható korlátok (F9.50.3 Codex-visszajelzés után)
+
+Státusz: **COMPLETE a helyi domain/UI hatókörre** (DB, séma, migráció nem változott; nincs commit).
+
+- **INVALID vs INCOMPLETE:** a keresztmetszet-ellenőrzés (`sectionIssues`) szétválasztja: mindkét méret hiánya = opcionális, nincs térfogat és nincs hiba; egy méret = `INCOMPLETE` térfogat; nulla/negatív/tört = `INVALID` (`invalidKeys`). Az érvénytelen pár nem jut a motorba, így a szarufa/léc darabszám és hossz megmarad, nulla térfogat soha nem jelenik meg; a rész `INVALID`, az összesített státusz is.
+- **Látható figyelmeztetések:** `roofTakeoffCriticalWarnings` rövid, mindig látható lista (nem beszerzési mennyiség; faanyag nem statika, csak ha faanyag kért; hiányos/érvénytelen adat), csak a kért részekhez; a részletes lista a meglévő „Korlátok és feltételezések” blokkban marad. A vágáslista-kalkulátoron is megjelenik.
+- **Ellenőrzés:** Vitest 146 fájl / 835 PASS (új: hiányzó/egyoldalú/nulla/negatív/tört méretek szarufára és lécre, független mennyiségek, figyelmeztetések relevanciája), `typecheck`, ESLint, `build` PASS. Böngésző (hitelesített helyi munkamenet): szarufa csak szélességgel → hiányos térfogat, 22 db / 93,338 m; léc magasság −5 → `INVALID`, 19 db / 190 m megmarad; szarufa szélesség 0 → mezőszintű hiba; tablet 768 px világos és mobil 375 px sötét: nincs vízszintes túlcsordulás. Shed termék, DEMO felülírás/visszaállítás kódja nem változott (F9.50.3-ban böngészőben igazolva), ebben a körben újra nem lett próbálva.
+
+## F9.50.3 — Kalkulátor-integritás javítások (F9.50.2 Codex FAIL után)
+
+Státusz: **COMPLETE a helyi domain/UI hatókörre** (DB, séma, migráció nem változott; nincs commit).
+
+- **Részleges keresztmetszet:** a beírt méret megmarad; a hiányzó párra mezőszintű magyar hiba (`ResolvedSpec.issues`), a szarufa/léc darabszám és hossz érvényes marad, a névleges térfogat a `parts[].incompleteQuantities`-ben „hiányos”.
+- **Visszaállítás:** `restoreProductValues(state, resolved, key?)` csak a ténylegesen felülírt termékmezőket törli; a kézi-only értékek (ahol a termék nem ad értéket) megmaradnak. Terméket váltva a forrás újraszámolódik, bejegyzés nem vész el.
+- **Teljes snapshot:** `roof-calculation-snapshot.ts` (`schemaVersion 1`, `persisted: false`): kalkulátor, tetőforma, mezők (explicit 0 megmarad), kért csoportok, faanyag-kiosztás, mind a négy specifikáció forrásokkal; `replayRoofCalculation` JSON-körút után azonos eredményt ad. A geometriai leképezés (`roofGeometryInputFromFields`) a UI-ból a domainbe került, képlet nem változott. A korábbi `RoofMaterialSpecSnapshot` szerződés változatlan.
+- **Korlátok:** az összesítés „Korlátok és feltételezések” lenyitható blokkban csoportosítva (Általános + részenként), duplikáció nélkül, egy üzenet sem vész el.
+- **Ellenőrzés:** Vitest 146 fájl / 829 PASS (6 új teszt), `tsc`, ESLint, `npm run build` PASS. Böngésző: szarufa 80 mm szélesség magasság nélkül → hiba a mezőnél, 22 db / 93,338 m érvényes, térfogat hiányos; hiányos DEMO fedés + kézi-only + felülírás → globális visszaállítás csak a felülírást állította vissza; termék→kézi átváltás; 768 és 375 px nincs vízszintes túlcsordulás.
+- **Korlát:** a világos téma emulációja ebben a körben nem váltott (a lap sötét maradt), ezért a világos téma ehhez a körhöz nem igazolt; a snapshot továbbra sem mentett.
+
+## F9.50.2 — Intelligens kalkulátor-bemenet (termék vagy kézi specifikáció)
+
+Státusz: **COMPLETE a helyi domain/UI hatókörre** (`roof.material-takeoff`, `roof.timber-cutlist`; DB, séma, migráció nem változott; nincs commit).
+
+- **Új típusos modell** (`roof-material-spec.ts`): `ResolvedSpec` mezőnként `product` / `override` / `manual` forrással, az eredeti termékértékek megőrzésével, visszaállítással és szerializálható, **nem perzisztált** `RoofMaterialSpecSnapshot`-tal. Kézi vagy felülírt érték soha nem kap gyártói provenanciát; kézi fedésnél a forrás „Felhasználó által megadott kézi adat (nem gyártói)”.
+- **Termékek:** nincs ellenőrzött műszaki termékkatalógus a repóban, ezért a profilok kizárólag feltűnően **DEMO**-jelölt példák (`DEMO_MATERIAL_PROFILES`, köztük egy szándékosan hiányos); a valós katalógus ugyanezen `MaterialProfile` szerződésen át köthető be. Hiányzó termékadat `INCOMPLETE` marad.
+- **Takeoff-szerződés:** `calculateRoofMaterialTakeoff` új `parts` (mennyiség + egység + `GEOMETRIC/LAYOUT/NOMINAL` jelentés + státusz + specifikáció + korlátok), `requested` (nem kért anyagcsoport nem rontja a státuszt; alapértelmezés a korábbi „mind kért”) és `specSnapshot`. `PROCUREMENT` jelentés fenntartott, sehol nem adódik.
+- **Javított szerződések:** nyeregtető homlokzati kiülése (elöl/hátul) kitölthető; üres = „nincs megadva” (0 mm, jelezve), a 0 kifejezett érték, negatív elutasított. A `roof.timber-cutlist` elsődleges eredménysorai a meglévő faanyag-motorból jönnek (`takeoffLines`), a korábbi üres `calculate` megszűnt. Fedés/alátét mező csak a kért anyagcsoportnál jelenik meg.
+- **Ellenőrzés:** új `roof-material-spec.test.tsx` 17 teszt (kézzel levezetett értékek: nyereg 10×6 m 45°, kiülés 0,5/0,3 m → 2·10,8·3√2 m²; 22/24 szarufa; 40 tábla / 20 oszlop; 80×200 térfogat); teljes Vitest 146 fájl / 823 PASS; `tsc`, ESLint, `npm run build` PASS. Böngésző (hitelesített helyi munkamenet): nyereg termékkel + kiülés 24 szarufa / 101,823 m / 1,629 m³, alátét 6 csík / 97,2 m²; féligényes tető DEMO fedéssel 20 tábla → felülírás 500 mm-re 40 tábla → visszaállítás 20 → kézi mód változatlan eredmény; vágáslista 22 db / 93,338 m; mobil 375 px és világos téma: nincs vízszintes túlcsordulás.
+- **Nem ellenőrzött / korlát:** félnyereg termékkel csak a fedésre volt böngészőben próbálva; tablet méret és dark/light minden állapota nem; a spec snapshot nincs mentve (perzisztencia új migrációt igényelne, nem készült); a faanyag-keresztmetszet egyik mérete önmagában némán kimarad a térfogatból.
+
 ## F9.50 — Nyereg- és félnyeregtető anyag-kimutatás lezárása
 
 Státusz: **COMPLETE a helyi domain/UI hatókörre** (a `roof.material-takeoff` feladat gable/shed útvonala; adatbázis, séma, migráció, hosted/Auth és downstream írás nem változott; nincs commit).

@@ -56,6 +56,28 @@ export const materialManagerProductInputSchema = z.object({
   }
 });
 
+/** Technical-spec keys read by the roof calculators (covering width/length also use the relational variant columns). Additive JSONB keys, no migration. */
+export const roofTechnicalSpecFields = [
+  { key: "usable_covering_length_mm", label: "Használható fedési hossz", unit: "mm", positive: true },
+  { key: "roll_width_mm", label: "Alátétfólia tekercs szélessége", unit: "mm", positive: true },
+  { key: "roll_length_mm", label: "Alátétfólia tekercs hossza", unit: "mm", positive: true },
+  { key: "side_overlap_mm", label: "Fólia oldalátfedés", unit: "mm", positive: false },
+  { key: "end_overlap_mm", label: "Fólia végtoldás átfedése", unit: "mm", positive: false },
+  { key: "installation_direction", label: "Fólia fektetési iránya", unit: "", options: [{ value: "eave-to-ridge", label: "Eresztől a gerinc felé" }, { value: "ridge-to-eave", label: "Gerinctől az eresz felé" }] },
+  { key: "section_width_mm", label: "Faanyag keresztmetszet szélessége", unit: "mm", positive: true },
+  { key: "section_height_mm", label: "Faanyag keresztmetszet magassága", unit: "mm", positive: true },
+] as const;
+
+/** Returns the Hungarian error for an invalid roof spec value, or null. Locale comma accepted. */
+export function roofTechnicalSpecError(key: string, raw: string): string | null {
+  const field = roofTechnicalSpecFields.find((item) => item.key === key);
+  if (!field) return null;
+  if ("options" in field) return field.options.some((option) => option.value === raw) ? null : `${field.label}: érvénytelen érték.`;
+  const value = Number(raw.trim().replace(",", "."));
+  if (raw.trim() === "" || !Number.isFinite(value) || value < 0 || (field.positive && value === 0)) return `${field.label}: ${field.positive ? "pozitív" : "nemnegatív"} szám kell (mm).`;
+  return null;
+}
+
 const optionalNonNegativeNumber = z.number().finite().nonnegative().nullable();
 export const materialVariantInputSchema = z.object({
   productId: uuid, name: z.string().trim().min(1, "A variáns neve kötelező.").max(200), sku: optionalText(120), purchasingUnit: z.enum(materialPurchasingUnits),
@@ -63,6 +85,10 @@ export const materialVariantInputSchema = z.object({
   technicalSpecs: z.record(z.string(), z.string()).superRefine((specs, context) => {
     if (specs.profileMaterialSpec !== undefined && (!specs.profileMaterialSpec.trim() || specs.profileMaterialSpec.length > 200)) {
       context.addIssue({ code: "custom", path: ["profileMaterialSpec"], message: "A profilanyag-azonosító 1–200 karakter lehet." });
+    }
+    for (const [key, raw] of Object.entries(specs)) {
+      const message = roofTechnicalSpecError(key, raw);
+      if (message) context.addIssue({ code: "custom", path: [key], message });
     }
   }).default({}), dataProvenance: z.enum(materialProvenances), sourceName: optionalText(200), sourceUrl: optionalUrl, sourceDate: z.string().trim().refine((value) => !value || !Number.isNaN(Date.parse(value)), "Érvényes dátum szükséges.").optional().default(""), sourceNotes: optionalText(5000),
 });
