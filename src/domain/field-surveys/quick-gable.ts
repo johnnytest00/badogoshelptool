@@ -17,7 +17,7 @@ export function quickLengthMm(draft: QuickGableDraft | undefined): Parsed {
   if (draft.unit !== "mm" && draft.unit !== "m") return { mm: null, error: "Hosszmérethez mm vagy m egység szükséges." };
   const mm = raw * (draft.unit === "m" ? 1000 : 1);
   const rounded = Math.round(mm);
-  if (Math.abs(mm - rounded) > 1e-6) return { mm: null, error: "Legfeljebb egész milliméter pontosságú érték adható meg." };
+  if (Math.abs(mm - rounded) > 1e-6) return { mm: null, error: draft.unit === "mm" ? "Milliméterben egész értéket adj meg. Ha méterben mérsz, válts m egységre." : "Legfeljebb egész milliméter pontosságú érték adható meg (pl. 8,125 m)." };
   if (rounded <= 0) return { mm: null, error: "A méret legyen nagyobb nullánál." };
   if (rounded > MAX_MM) return { mm: null, error: "A méret legfeljebb 200 m lehet." };
   return { mm: rounded };

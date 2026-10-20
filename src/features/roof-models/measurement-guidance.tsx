@@ -50,7 +50,8 @@ const surveyKeyMap: Partial<Record<FieldSurveySemanticType, string>> = {
 };
 
 export function measurementGuideForSurvey(type: RoofGeometryType, semanticType: FieldSurveySemanticType, inputUnit?: FieldSurveyUnit): MeasurementGuide | null {
-  const key = surveyKeyMap[semanticType];
+  const mapped = surveyKeyMap[semanticType];
+  const key = type !== "gable" && mapped === "roofPitchDegrees" ? "pitchDegrees" : mapped;
   const result = key ? measurementGuideFor(type, key) : null;
   return result && inputUnit ? { ...result, unit: inputUnit === "degree" ? "°" : inputUnit } : result;
 }

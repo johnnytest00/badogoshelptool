@@ -102,6 +102,7 @@ describe("field survey editor", () => {
     expect(html).toContain("Mentés szükséges · V2");
     expect(html).toContain('form="field-survey-editor-form"');
     expect(html.match(/>Mentés<\/button>/g)).toHaveLength(1);
+    expect(html).toContain("Előbb mentsd a felmérést."); expect(html).toContain('aria-disabled="true"');
   });
 
   it("offers only roof and other for new sections while still opening legacy gutter sections", () => {
@@ -294,7 +295,7 @@ describe("field survey editor", () => {
     expect(html).toContain("Hajlás százalékban");
     expect(html).toContain("Vízszintes vetületi terület");
     expect(html).toContain("Élszakaszok bontása");
-    expect(html).toContain("A bemenetek felmért értékek");
+    expect(html).toContain("Teljes tetősík geometriai felülete"); expect(html).toContain(">számított<");
     expect(html).toContain("Tetősíkok");
     expect(html).not.toContain("Tetőgeometria vagy fedés számítása");
     expect(html).not.toContain("Ereszcsatorna-szükséglet számítása");
@@ -313,8 +314,23 @@ describe("field survey editor", () => {
   it.each(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"] as const)("preserves incomplete %s dimensions without drawing substitute geometry", (type) => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofSurvey(type, "incomplete")} />);
     expect(html).not.toContain('class="technical-drawing is-compact"');
-    expect(html).toContain(type === "gable" ? "Még hiányzik:" : "A rajz a tetőforma minden szükséges, érvényes méretének megadása után jelenik meg.");
+    expect(html).toContain("Még hiányzik:"); expect(html).not.toContain("megadása után jelenik meg");
     expect(["value=\"10\"", "value=\"10000\"", "value=\"6000\""].some((value) => html.includes(value))).toBe(true);
+  });
+
+  it("opens a legacy survey that has work-element sections without offering the feature", () => {
+    const base = roofSurvey("hip", "valid");
+    const legacy = { ...base, sections: [...(base.sections ?? []), { id: "123e4567-e89b-42d3-a456-426614174099", name: "Ereszcsatorna", workType: "gutter" as const, elementKind: "gutter" as const, notes: "", photoIds: [], measurements: [] }] };
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={legacy} />);
+    expect(html).not.toContain("Bádogos elemek"); expect(html).not.toContain("work-elements"); expect(html).toContain("Másik munkaszakasz hozzáadása"); expect(html).toContain("További mérések");
+  });
+
+  it.each(["hip", "pyramid", "halfHip", "lShape", "tShape"] as const)("shows %s as compact grouped fields with one optional extras block and no primary editing menus", (type) => {
+    const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofSurvey(type, "valid")} />);
+    expect(html).toContain("További mérések"); expect(html).toContain("Súgó: ");
+    expect(html).not.toContain("Beállítások: "); expect(html).not.toContain("Másik sablonmérés"); expect(html).not.toContain("Ehhez a tetőformához jelenleg");
+    expect(html.includes("Főtető")).toBe(type === "halfHip" || type === "lShape" || type === "tShape");
+    expect(html.includes(">Szárny<")).toBe(type === "lShape" || type === "tShape");
   });
 
   it.each(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape"] as const)("does not substitute gable geometry for incompatible %s dimensions", (type) => {

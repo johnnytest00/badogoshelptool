@@ -23,3 +23,20 @@ export function calculateQuickShed(drafts: readonly QuickGableDraft[]): QuickShe
   if (missing.length) return { status: "incomplete", message: `Még hiányzik: ${missing.join(", ")}.`, fieldMessages: messages };
   return { status: "ok", eaveRunMm: pe.mm!, slopeMm: ps.mm!, areaM2: (pe.mm! * ps.mm!) / 1_000_000, rakeTotalMm: 2 * ps.mm!, fieldMessages: {} };
 }
+
+/** Field-level messages for the single-slope Building Dimensions mode (engine limits: 100 m, pitch 0–80°). Empty fields stay silent. */
+export function shedBuildingFieldMessages(drafts: readonly QuickGableDraft[]): Record<string, string> {
+  const messages: Record<string, string> = {};
+  for (const draft of drafts) {
+    if (draft.value.trim() === "") continue;
+    if (draft.semanticType === "roof_outer_length" || draft.semanticType === "roof_outer_width") {
+      const parsed = quickLengthMm(draft);
+      if (parsed.error) messages[draft.id] = parsed.error;
+      else if (parsed.mm! > 100_000) messages[draft.id] = "A méret legfeljebb 100 m lehet.";
+    } else if (draft.semanticType === "roof_pitch") {
+      const value = Number(draft.value.trim().replace(",", "."));
+      if (!Number.isFinite(value) || value <= 0 || value >= 80) messages[draft.id] = "A hajlásszög 0 és 80 fok között legyen (pl. 20 vagy 22,5).";
+    }
+  }
+  return messages;
+}

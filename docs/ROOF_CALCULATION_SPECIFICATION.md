@@ -91,6 +91,8 @@ A geometriai séma csak egész mm méreteket és `0° < pitch < 80°` értéket 
 
 Az alábbi oldalak csak a mezők, kimenettípusok, rajzok, használati célok és a saját korlátaik feltárására szolgáltak; képletet, kódot vagy rajzot nem vettünk át. Nem követelmény a teljes Zhitov-paritás.
 
+> **Felülírva.** A „nem követelmény a teljes Zhitov-paritás" kitétel és az alábbi § F9.34 „nincs általános tetőforma-választó" döntése felhasználói utasításra megszűnt. Az új szerződés: [ZHITOV_PARITY_REDESIGN.md](ZHITOV_PARITY_REDESIGN.md). A képletátvétel korlátja marad: ott § 5 sorolja fel tételesen, mit nem veszünk át és miért.
+
 | Oldal | Bemenet/kimenet és használati megfigyelés | Megbízhatósági határ |
 |---|---|---|
 | [Rafter](https://www.zhitov.com/en/roof/) | X/Y/C/Z/B: félfesztáv/futás, emelkedés, túlnyúlás, kivágási távolság és szarufaszélesség; ferde hossz, szög és szarufarajz | A látható mezők nem adnak teljes támasz-/kivágási vagy statikai tervet |

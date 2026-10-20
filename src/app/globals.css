@@ -857,7 +857,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .field-survey-calculator-details { padding: .8rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-strong); }
 .field-survey-calculator-details summary { min-height: 2.75rem; cursor: pointer; font-weight: 700; }
 .field-survey-photo-queue p { margin: 0; }
-.survey-handoff-banner { display: grid; gap: .35rem; margin: 1rem 0; padding: .9rem 1rem; border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border)); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.survey-handoff-banner { display: grid; gap: .6rem; margin: 1rem 0; padding: .9rem 1rem; border: 1px solid color-mix(in srgb, var(--warning) 50%, var(--glass-border)); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--warning) 10%, var(--surface-glass)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.survey-draft-banner-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.survey-draft-banner-actions button { min-height: 2.75rem; }
 .survey-handoff-banner strong { color: var(--accent); }
 .survey-handoff-banner small { color: var(--muted); overflow-wrap: anywhere; }
 .survey-handoff-banner.is-modified strong { color: var(--warning, #bf6a00); }
@@ -4443,6 +4445,8 @@ html:has(.survey-savebar) { scroll-padding-top: 5rem; }
 .survey-savebar.is-unsaved .survey-savebar-status, .survey-savebar.is-recovery .survey-savebar-status { color: var(--warning); }
 .survey-savebar.is-error { border-color: var(--danger); }
 .survey-savebar.is-error .survey-savebar-status { color: var(--danger); }
+.survey-savebar { justify-content: flex-end; }
+.survey-savebar-status { margin-right: auto; }
 .survey-savebar-save { flex: 0 0 auto; min-width: 6.5rem; min-height: 2.75rem; border-radius: var(--radius-control); transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background-color var(--motion-fast) ease; }
 .survey-savebar-save.primary-button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 .45rem 1.1rem color-mix(in srgb, var(--brand) 32%, transparent); }
 .survey-savebar-save.primary-button:active:not(:disabled) { transform: translateY(0); }
@@ -4680,17 +4684,21 @@ main[id="main-content"]:focus { outline: none; }
 .supplier-chip { display: inline-block; max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; border-radius: 999px; background: var(--brand-soft); color: var(--brand); padding: .1rem .5rem; font-size: calc(.72rem * var(--tp-text-scale)); font-weight: 800; }
 
 /* F9.44.1 gyors tetőmérés */
-.roof-mode-selector, .quick-gable-match { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: .5rem; border: 0; margin: 0; padding: 0; min-width: 0; }
+.roof-mode-selector, .quick-gable-match { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: .4rem; border: 0; margin: 0; padding: 0; min-width: 0; }
 .roof-mode-selector legend, .quick-gable-match legend { font-weight: 600; padding: 0 0 .35rem; }
-.roof-mode-option { display: grid; gap: .1rem; text-align: left; min-height: 3rem; padding: .6rem .8rem; border: 1px solid var(--glass-border); border-radius: var(--radius-control); background: var(--surface-subtle); color: var(--foreground); }
-.roof-mode-option span { color: var(--muted); font-size: .85em; }
+.roof-mode-option { display: grid; gap: 0; text-align: left; min-height: 2.75rem; padding: .4rem .75rem; border: 1px solid var(--glass-border); border-radius: var(--radius-control); background: var(--surface-subtle); color: var(--foreground); }
+.roof-mode-option span { color: var(--muted); font-size: .8em; line-height: 1.25; }
+.quick-gable-match { grid-template-columns: repeat(2, minmax(0, 7rem)); align-items: center; }
+.quick-gable-match legend { grid-column: 1 / -1; }
+.survey-savebar-list { flex: 0 0 auto; min-height: 2.75rem; }
 .roof-mode-option[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); }
 .roof-mode-option:disabled { opacity: .55; }
 .quick-gable { display: grid; gap: 1rem; min-width: 0; grid-template-areas: "inputs" "drawing" "results"; }
 .quick-gable-inputs { grid-area: inputs; display: grid; gap: .8rem; min-width: 0; align-content: start; }
 .quick-gable-results { grid-area: results; min-width: 0; }
 .quick-gable-drawing-panel { grid-area: drawing; min-width: 0; border: 1px solid var(--glass-border); border-radius: var(--radius-panel); background: var(--surface-subtle); padding: .8rem; }
-.quick-gable-drawing-panel h3 { margin: 0 0 .5rem; font-size: 1rem; }
+.qg-placeholder { min-height: 11rem; border: 1px dashed var(--glass-border); border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-subtle) 60%, transparent); }
+.quick-gable-drawing-panel:has(svg) .qg-placeholder, .quick-gable-drawing-panel:not(:has(svg)) .qg-legend { display: none; }
 .quick-gable-drawing { width: 100%; height: auto; max-height: 26rem; display: block; }
 .qg-plane { fill: color-mix(in srgb, var(--info) 12%, transparent); stroke: var(--muted); stroke-width: 1.5; }
 .qg-plane.is-focused, .qg-ridge.is-focused, .qg-dim.is-focused { stroke: var(--brand); stroke-width: 3; }
@@ -4701,7 +4709,7 @@ main[id="main-content"]:focus { outline: none; }
 .quick-gable-result-list { display: grid; gap: .35rem; margin: 0; }
 .quick-gable-result-list > div { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem 0; border-bottom: 1px solid var(--tp-hairline); }
 .quick-gable-result-list dt { color: var(--muted); } .quick-gable-result-list dd { margin: 0; white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; }
-.quick-gable-result-list .is-primary dd { font-size: 1.25em; color: var(--brand-ink); }
+.quick-gable-result-list .is-primary dd { font-size: 1.7em; color: var(--brand-ink); }
 .quick-gable-provenance { color: var(--muted); font-size: .85em; margin: .5rem 0 0; }
 @media (min-width: 960px) {
   .quick-gable { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "inputs drawing" "results drawing"; align-items: start; }
@@ -4711,22 +4719,8 @@ main[id="main-content"]:focus { outline: none; }
 .quick-gable-tag.is-measured { background: var(--tone-success); color: var(--success); }
 
 /* F9.44.3 bádogos munkaelemek */
-.work-elements { display: grid; gap: .6rem; min-width: 0; }
-.work-element-kinds { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); gap: .5rem; }
-.work-element-card { min-width: 0; }
-.work-element-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .75rem; min-width: 0; }
-.work-element-summary > span:not(.work-element-state) { color: var(--muted); font-size: .88em; }
-.work-element-state { margin-left: auto; padding: .05rem .5rem; border-radius: 999px; font-size: .8em; background: var(--tone-success); color: var(--success); }
-.work-element-state.is-missing { background: var(--tone-warning); color: var(--warning); }
-.work-element-body { display: grid; gap: .7rem; min-width: 0; }
-.work-element-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: .6rem; }
-.work-element-suggest > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem .7rem; border-radius: var(--radius-control); background: var(--tone-info); }
-.work-element-provenance { margin: 0; font-size: .9em; color: var(--success); }
 .work-element-provenance.is-diverged, .work-element-warning { color: var(--warning); margin: 0; font-size: .9em; }
-.work-element-transfer { margin: 0; font-size: .85em; color: var(--muted); } .work-element-transfer.is-ready { color: var(--success); }
-.work-element-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .field-survey-hint { display: block; color: var(--muted); font-size: .82em; margin: -.1rem 0 .25rem; }
-.work-element-help { margin: 0 0 .5rem; color: var(--muted); font-size: .9em; }
 .roof-mode-selector legend small { color: var(--muted); font-weight: 400; margin-left: .4rem; }
 
 .quick-gable-guide { margin: 0 0 .5rem; min-height: 2.6em; font-size: .92em; color: var(--foreground); }
@@ -4735,10 +4729,55 @@ main[id="main-content"]:focus { outline: none; }
 .qg-legend li { display: inline-flex; align-items: center; gap: .4rem; }
 .qg-key { display: inline-block; width: 1.5rem; height: 0; border-top: 2px solid var(--construction-height); }
 .qg-key.is-schematic { border-top: 2px dashed var(--muted); }
-.survey-actions { display: grid; gap: .5rem; margin-top: .8rem; padding: .7rem; border: 1px solid var(--glass-border); border-radius: var(--radius-panel); background: var(--surface-subtle); }
-.survey-actions-status { margin: 0; font-weight: 600; }
-.survey-actions-status.is-saved { color: var(--success); } .survey-actions-status.is-unsaved { color: var(--warning); }
-.survey-actions-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: .5rem; }
-.survey-actions-buttons button { min-height: 3rem; }
-.survey-actions-hint { margin: 0; color: var(--muted); font-size: .88em; }
 @media (max-width: 30rem) { .quick-gable .roof-survey-measurement-strip { grid-template-columns: 1fr; } }
+
+/* F9.45.2: diszkrét, helyi piszkozat-értesítő a műhely-főoldalon */
+.survey-draft-notice { display: grid; gap: .5rem; margin: 0 0 1rem; padding: .75rem 1rem; border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--glass-border)); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--warning) 10%, var(--surface-glass)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); box-shadow: inset 0 1px 0 var(--glass-highlight); }
+.survey-draft-notice h2 { margin: 0; font-size: 1rem; }
+.survey-draft-notice ul { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.survey-draft-notice li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; color: var(--muted); overflow-wrap: anywhere; }
+.survey-draft-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.survey-draft-actions .primary-button, .survey-draft-actions .secondary-button { min-height: 2.75rem; }
+@media (max-width: 480px) { .survey-draft-notice li, .survey-draft-actions { width: 100%; } .survey-draft-actions > * { flex: 1 1 auto; text-align: center; } }
+
+/* F9.45.3: tömör felmérés-felület kis kijelzőn */
+.roof-mode-selector { margin-bottom: .5rem; }
+@media (max-width: 30rem) {
+  .roof-mode-selector { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .roof-mode-option { padding: .4rem .35rem; font-size: .8rem; text-align: center; }
+  .roof-mode-selector .roof-mode-option span { display: none; }
+  .survey-savebar-status { flex: 1 0 100%; }
+  .survey-savebar-save, .survey-savebar-list { flex: 1 1 0; min-width: 0; }
+}
+
+/* F9.45.4: egységes felmérés-munkaterület (Épületméretek = ugyanaz a keret, mint a gyors/részletes mód), kontraszt, elérhető letiltott műveletek */
+.roof-workspace-surface.roof-workspace-survey { border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; backdrop-filter: none; }
+.roof-workspace-survey > .technical-drawing, .roof-workspace-survey > .roof-results { border: 1px solid var(--glass-border); border-radius: var(--radius-panel); background: var(--surface-subtle); padding: .8rem; box-shadow: none; }
+.roof-workspace-survey > .technical-drawing .technical-drawing-header h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.roof-workspace-survey .roof-geometry-results.is-compact .roof-result-highlight { margin: 0 0 .6rem; padding: .6rem .8rem; }
+.roof-workspace-survey .roof-geometry-results.is-compact .roof-result-highlight > span { display: flex; align-items: center; gap: .35rem; }
+.roof-workspace-survey .roof-guidance-slot:empty { display: none; }
+.roof-survey-measurement-strip .field-survey-measurement-head { align-items: center; }
+.survey-savebar [aria-disabled="true"] { cursor: not-allowed; opacity: .72; }
+.survey-savebar [aria-disabled="true"]:hover { border-color: var(--border); color: inherit; }
+/* Gyenge kontraszt javítása a meglévő tokenekkel (világos és sötét téma): határ, helykitöltő, másodlagos gomb */
+.field-survey-card :is(.secondary-button, .roof-mode-option, input, select, textarea) { border-color: color-mix(in srgb, var(--muted) 55%, var(--surface-strong)); }
+.field-survey-card .secondary-button, .field-survey-card .roof-mode-option { color: var(--foreground); }
+.field-survey-card .roof-mode-option span { color: var(--muted); }
+.field-survey-card .roof-mode-option[aria-pressed="true"] { border-color: var(--brand); color: var(--brand-ink); }
+.field-survey-card ::placeholder { color: var(--muted); opacity: 1; }
+.field-survey-card :is(.secondary-button, .roof-mode-option, input, select, textarea):focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+@media (min-width: 1024px) {
+  .roof-workspace-survey:has(> .technical-drawing) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .roof-workspace-survey:has(> .technical-drawing):not(:has(> .roof-workspace-context)) > .technical-drawing { grid-row: 1 / span 12; }
+}
+@media (max-width: 30rem) {
+  .field-survey-card .roof-mode-option { padding-inline: .3rem; text-align: center; }
+  .field-survey-card .roof-mode-option strong { font-size: .86rem; line-height: 1.2; overflow-wrap: anywhere; }
+}
+.survey-savebar:not(.is-saved) { background: color-mix(in srgb, var(--background) 90%, transparent); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+
+/* F9.46: szakaszcsoportok a kontyolt/sátor/félkonty/L/T tetők épületméret-módjában */
+.roof-survey-group { display: grid; gap: .45rem; min-width: 0; }
+.roof-survey-group + .roof-survey-group { margin-top: .6rem; }
+.roof-survey-group-title { margin: 0; color: var(--muted); font-size: .8rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }

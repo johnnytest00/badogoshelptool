@@ -3,14 +3,14 @@
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { CircleAlert, CircleCheck, CircleDot, Loader2, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDot, Info, Loader2, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { AnchoredPopover } from "@/components/ui/anchored-popover";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { detailedGableTemplates, detailedVergeTemplates, fieldSurveySemanticTypeLabels, fieldSurveyTemplates, quickGableTemplates, quickShedTemplates, fieldSurveyUnitLabels, fieldSurveyWorkTypeLabels, type FieldSurveyMeasurement, type FieldSurveySemanticType, type FieldSurveyUnit, type FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
 import { surveySections, surveySectionsSchema, type SurveySection, type SurveyCalculationLink, type SurveyExecutionPlanLink, type SurveyFollowup } from "@/domain/field-surveys/workspace";
-import { readSurveyDraftRecovery, removeSurveyDraftRecovery, serializeSurveyDraftSections, writeSurveyDraftRecovery, type SurveyDraftRecovery, type SurveyMeasurementDraft, type SurveySectionDraft } from "./survey-draft-recovery";
+import { moveDraftAside, newSurveyTarget, resolveRecovery, removeSurveyDraftRecovery, serializeSurveyDraftSections, surveyDraftKey, writeSurveyDraftRecovery, type SurveyDraftRecovery, type SurveyMeasurementDraft, type SurveySectionDraft } from "./survey-draft-recovery";
 import { saveFieldSurveyAction } from "./field-survey-actions";
 import type { FieldSurveyRecord, FieldSurveyRevisionRecord } from "./field-survey-data";
 import { FieldSurveyPhotos } from "./field-survey-photos";
@@ -21,7 +21,7 @@ import type { SurveyMaterialSource } from "@/features/material-takeoffs/survey-m
 import type { SurveyLinkedMaterialList } from "@/features/material-takeoffs/material-list-links";
 import { SurveyRoofWorkspace } from "./survey-roof-workspace";
 import { RoofTypeSelector, roofTypeOptions } from "@/features/roof-models/roof-type-selector";
-import { geometryFromSurveyMeasurements, surveyRoofFields } from "@/domain/field-surveys/roof-geometry";
+import { geometryFromSurveyMeasurements, surveyRoofFieldGroups, surveyRoofFieldMessages, surveyRoofFields } from "@/domain/field-surveys/roof-geometry";
 import type { RoofGeometryType } from "@/domain/calculations/roof-geometry";
 import { calculateRoofGeometry } from "@/domain/calculations/roof-geometry";
 import { calculateRoofTimberLayout, roofTimberInputFromParameters, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
@@ -31,19 +31,17 @@ import { RoofTimberQuantityPanel } from "@/features/roof-models/roof-timber-quan
 import { RoofUnderlayQuantityPanel } from "@/features/roof-models/roof-underlay-quantity-panel";
 import type { RoofUnderlayParameters } from "@/domain/calculations/roof-underlay";
 import { calculateRoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
-import { MeasurementGuidance, measurementGuideForSurvey } from "@/features/roof-models/measurement-guidance";
+import { measurementGuideForSurvey } from "@/features/roof-models/measurement-guidance";
 import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
-import { SurveyWorkElements } from "./survey-work-elements";
-import { roofEdgeSuggestions, metresInput, type RoofEdgeSuggestion } from "./work-element-suggestions";
-import { primaryRunSemantic, suspectedDuplicates, workElementDefs, type WorkElementKind } from "@/domain/field-surveys/work-elements";
-import { RoofModeSelector, QuickGableWorkspace, QuickShedWorkspace, DetailedGableWorkspace, SurveyActions, type RoofMeasurementMode } from "./quick-gable-workspace";
+import { RoofModeSelector, QuickGableWorkspace, QuickShedWorkspace, DetailedGableWorkspace, type RoofMeasurementMode } from "./quick-gable-workspace";
 import { calculateDetailedGable } from "@/domain/field-surveys/detailed-gable";
 import { quickLengthMm } from "@/domain/field-surveys/quick-gable";
 import { calculateQuickGable } from "@/domain/field-surveys/quick-gable";
-import { calculateQuickShed } from "@/domain/field-surveys/quick-shed";
+import { calculateQuickShed, shedBuildingFieldMessages } from "@/domain/field-surveys/quick-shed";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { generateSecureUuid } from "@/lib/secure-uuid";
-import { appendSurveyMeasurement, type SurveyMeasurementTemplate } from "./measurement-creation";
+import { ensureTabId, liveTabIds } from "./draft-liveness";
+import { addMissingMeasurements, appendSurveyMeasurement, type SurveyMeasurementTemplate } from "./measurement-creation";
 import { buildGableSurveyPreview, type GableSurveyPreview } from "./gable-survey-preview";
 import type { ExecutionPlanOption } from "@/features/execution/execution-data";
 
@@ -115,26 +113,32 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   const dirty = baseline !== fingerprint;
   const blocked = saving || photoState.busy;
   const mainSections = sections.filter((section) => !section.elementKind);
-  const elementSections = sections.filter((section) => section.elementKind);
   const active = mainSections.find((section) => section.id === activeId) ?? mainSections[0] ?? sections[0];
-  const [openElementId, setOpenElementId] = useState<string | null>(null);
-  const edgeSuggestions = roofEdgeSuggestions(sections);
   const needsInitialWorkTypeChoice = surveyId === null && !initialWorkTypeChosen;
   const quickMode = active.workType === "roof" && active.roofType === "gable" && active.roofMeasurementMode === "quick";
   const quickResult = quickMode ? calculateQuickGable(active.measurements, active.quickPlanesMatch) : null;
   const detailedMode = active.workType === "roof" && active.roofType === "gable" && active.roofMeasurementMode === "detailed";
   const detailedResult = detailedMode ? calculateDetailedGable(active.measurements, active.quickPlanesMatch) : null;
-  const hintFor = (semantic: FieldSurveySemanticType) => active.roofType === "shed" ? shedHints[semantic] : semantic === "roof_pitch" && !detailedMode ? "Ha nem tudod a tetőemelkedést, a hajlásszöget add meg." : fieldHints[semantic];
+  const hintFor = (semantic: FieldSurveySemanticType) => active.roofType === "shed" ? shedHints[semantic] : active.roofType && active.roofType !== "gable" ? (({ meaning, convention }) => `${meaning} ${convention}`)(measurementGuideForSurvey(active.roofType, semantic) ?? { meaning: "", convention: "" }).trim() || undefined : semantic === "roof_pitch" && !detailedMode ? "Ha nem tudod a tetőemelkedést, a hajlásszöget add meg." : fieldHints[semantic];
   const guideFor = (semantic: FieldSurveySemanticType | null) => {
     const hint = semantic ? hintFor(semantic) : undefined;
-    return semantic && hint ? `${fieldSurveySemanticTypeLabels[semantic].replace(/^Nyeregtető · /, "")}: ${hint}` : "Kattints egy mezőre: a rajzon kiemeljük, mit kell mérni.";
+    return semantic && hint ? `${fieldSurveySemanticTypeLabels[semantic].replace(/^Nyeregtető · /, "")}: ${hint}` : "";
   };
   const shedQuickMode = active.workType === "roof" && active.roofType === "shed" && active.roofMeasurementMode === "quick";
   const shedResult = shedQuickMode ? calculateQuickShed(active.measurements) : null;
   const compactFieldMessages = quickResult?.fieldMessages ?? detailedResult?.fieldMessages ?? shedResult?.fieldMessages ?? {};
   const mmOf = (type: FieldSurveySemanticType) => quickLengthMm(active.measurements.find((measurement) => measurement.semanticType === type)).mm;
   const has = (type: FieldSurveySemanticType) => active.measurements.some((measurement) => measurement.semanticType === type && measurement.value.trim() !== "");
+  const shedBuildingMessages = active.roofType === "shed" && !shedQuickMode ? shedBuildingFieldMessages(active.measurements) : {};
   const shedBuildingMissing = active.roofType === "shed" && !shedQuickMode ? surveyRoofFields("shed").filter((field) => !has(field.semanticType)).map((field) => field.label.toLowerCase()) : [];
+  // Hip, pyramid, half-hip, L and T: one validated method (building dimensions); extras and duplicate roles live in an optional block.
+  const multiShape = active.workType === "roof" && active.roofType && active.roofType !== "gable" && active.roofType !== "shed" ? active.roofType : null;
+  const shapeFields = multiShape ? surveyRoofFields(multiShape) : [];
+  const shapeMessages = multiShape ? surveyRoofFieldMessages(multiShape, active.measurements) : {};
+  const shapePrimary = new Map<FieldSurveySemanticType, MeasurementDraft>();
+  if (multiShape) for (const measurement of active.measurements) if (shapeFields.some((field) => field.semanticType === measurement.semanticType) && !shapePrimary.has(measurement.semanticType)) shapePrimary.set(measurement.semanticType, measurement);
+  const shapeExtras = multiShape ? active.measurements.filter((measurement) => shapePrimary.get(measurement.semanticType) !== measurement) : [];
+  const shapeMissing = multiShape && shapeFields.some((field) => has(field.semanticType)) ? shapeFields.filter((field) => !has(field.semanticType)).map((field) => field.label.toLowerCase()) : [];
   /** Only the fields the current task needs; hidden ones keep their saved values. */
   const compactVisible = (type: FieldSurveySemanticType): boolean => {
     const separate = active.quickPlanesMatch === false;
@@ -200,13 +204,21 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
       return JSON.stringify(cleaned) === JSON.stringify(current) ? current : cleaned;
     });
   }, []);
-  const recoveryKey = userId ? `tetopro-survey:${userId}:${organizationId}:${surveyId ?? "new"}` : null;
-  const [recovery, setRecovery] = useState<SurveyDraftRecovery | null>(null);
+  // Draft identity: an editor instance (this mount) owns one record per survey; a new survey has its own stable draft id (kept in the URL).
+  const [instanceId, setInstanceId] = useState<string | null>(null);
+  const [otherDrafts, setOtherDrafts] = useState(0);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const draftTarget = surveyId ?? (draftId ? newSurveyTarget(draftId) : null);
+  const recoveryKey = userId && draftTarget && instanceId ? surveyDraftKey(userId, organizationId, draftTarget, instanceId) : null;
+  const [recovery, setRecovery] = useState<(SurveyDraftRecovery & { sourceKey: string }) | null>(null);
   const canSaveSurvey = !blocked && !recovery && !needsInitialWorkTypeChoice;
   const unsaved = dirty || photoAssociationPending;
   const saveBarState: "saving" | "error" | "recovery" | "unsaved" | "saved" | "new" = saving ? "saving" : error ? "error" : recovery ? "recovery" : unsaved ? "unsaved" : surveyId && workspacePersisted ? "saved" : "new";
   const saveIdle = !unsaved && Boolean(surveyId) && workspacePersisted;
-  const surveyActions = <SurveyActions state={saving ? "saving" : unsaved || !surveyId || !workspacePersisted ? "unsaved" : "saved"} version={version} saveDisabled={!canSaveSurvey || saveIdle} onList={() => void openMaterialPanel()} />;
+  // aria-disabled (not disabled) keeps the buttons focusable, so keyboard and touch users can read why an action is unavailable.
+  const blockedReason = recovery ? "Előbb állítsd vissza vagy vesd el a piszkozatot." : needsInitialWorkTypeChoice ? "Előbb válassz munkatípust." : blocked ? "Folyamatban van egy művelet." : "";
+  const saveReason = blockedReason || (saveIdle ? "Nincs mentetlen módosítás." : "");
+  const listReason = blockedReason || (!saveIdle ? "Előbb mentsd a felmérést." : photoState.queued ? "Várd meg a fotók feltöltését." : "");
   const saveBarLabels = { saving: "Mentés…", error: "A mentés nem sikerült", recovery: "Helyreállítható piszkozat", unsaved: "Nem mentett módosítások", saved: `Mentve · V${version}`, new: surveyId ? `Mentés szükséges · V${version}` : "Új felmérés · még nincs mentve" } as const;
   const SaveBarIcon = { saving: Loader2, error: CircleAlert, recovery: CircleDot, unsaved: CircleDot, saved: CircleCheck, new: CircleDot }[saveBarState];
   const recoveryChecked = useRef(false);
@@ -219,7 +231,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
     return Boolean(await persistCurrentRef.current());
   }, [dirty, photoAssociationPending, photoState.queued, recovery, surveyId, workspacePersisted]);
   const discardForNavigation = useCallback(() => {
-    if (recoveryKey) { try { removeSurveyDraftRecovery(sessionStorage, recoveryKey); } catch { /* Best effort. */ } }
+    if (recoveryKey) { try { removeSurveyDraftRecovery(localStorage, recoveryKey); } catch { /* Best effort. */ } }
     setRecovery(null); setError("");
     try {
       const saved = JSON.parse(baseline) as { sections: SectionDraft[]; projectId: string };
@@ -233,25 +245,86 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
     save: !blocked && !photoState.queued ? saveForNavigation : undefined,
     discard: discardForNavigation,
   });
+  /** Own draft is moved to a fresh key first: otherwise this tab's autosave (same key) would overwrite the very draft the user postponed. */
+  function keepDraftForLater(sourceKey: string) {
+    if (sourceKey === recoveryKey && userId && draftTarget) { try { moveDraftAside(localStorage, sourceKey, surveyDraftKey(userId, organizationId, draftTarget, generateSecureUuid())); } catch { setDraftStorageAvailable(false); } }
+    setRecovery(null);
+  }
+  async function discardRecovery(sourceKey: string) {
+    const accepted = await requestConfirmation({ title: "Piszkozat elvetése", message: "A mentetlen piszkozat véglegesen törlődik erről az eszközről. A már mentett felmérésváltozatokat ez nem érinti.", cancelLabel: "Mégse", actions: [{ label: "Piszkozat elvetése", tone: "danger", run: () => undefined }] });
+    if (!accepted) return;
+    try { removeSurveyDraftRecovery(localStorage, sourceKey); } catch { /* Storage is optional. */ }
+    setRecovery(null);
+  }
+  useEffect(() => { if (userId) void ensureTabId().then(setInstanceId); }, [userId]);
   useEffect(() => {
-    if (!recoveryKey || historicalRevision || recoveryChecked.current) return;
+    if (surveyId || historicalRevision) return;
+    const params = new URLSearchParams(window.location.search);
+    let id = params.get("draft");
+    if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+      id = generateSecureUuid(); params.set("draft", id);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params}`);
+    }
+    setDraftId(id);
+  }, [surveyId, historicalRevision]);
+  useEffect(() => {
+    if (!userId || !draftTarget || !instanceId || historicalRevision || recoveryChecked.current) return;
     recoveryChecked.current = true;
-    try {
-      const stored = readSurveyDraftRecovery(sessionStorage, recoveryKey);
-      if (stored) setRecovery(stored);
-      setDraftStorageAvailable(true);
-    } catch { setDraftStorageAvailable(false); }
-    finally { setRecoveryReady(true); }
-  }, [recoveryKey, historicalRevision]);
+    void (async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const wanted = params.get("recover");
+        const { candidate, others } = resolveRecovery(localStorage, userId, organizationId, draftTarget, instanceId, wanted, await liveTabIds());
+        if (wanted) { params.delete("recover"); window.history.replaceState(null, "", `${window.location.pathname}?${params}`); }
+        setOtherDrafts(others);
+        // Only this tab's own draft, or the one the dashboard named, is ever restored; one built on an older saved version is never applied silently.
+        if (candidate) {
+          if (candidate.draft.version === version) restoreDraftRef.current({ ...candidate.draft, sourceKey: candidate.key });
+          else setRecovery({ ...candidate.draft, sourceKey: candidate.key });
+        }
+        setDraftStorageAvailable(true);
+      } catch { setDraftStorageAvailable(false); }
+      finally { setRecoveryReady(true); }
+    })();
+  }, [userId, draftTarget, instanceId, historicalRevision, organizationId, version]);
+  // Invisible autosave: debounced, written only while there are unsaved changes, flushed when the page is hidden or left.
+  const restoreDraftRef = useRef<(draft: SurveyDraftRecovery & { sourceKey: string }, rebase?: boolean) => void>(() => undefined);
   useEffect(() => {
-    if (!recoveryKey || !recoveryReady || historicalRevision || recovery) return;
-    try {
-      const persisted = dirty
-        ? writeSurveyDraftRecovery(sessionStorage, recoveryKey, { schemaVersion: 1, sections, activeSectionId: activeId, projectId, version, requestSurveyId: createIdRef.current })
-        : removeSurveyDraftRecovery(sessionStorage, recoveryKey);
-      setDraftStorageAvailable(persisted);
-    } catch { setDraftStorageAvailable(false); }
+    restoreDraftRef.current = ({ sourceKey, ...draft }, rebase = false) => {
+      // Our own record is written before the source record is removed, so closing the tab at any moment loses nothing.
+      if (recoveryKey && userId && draftTarget) {
+        try {
+          // An explicit restore never overwrites this tab's own, different draft: that one is kept aside under a fresh key first.
+          if (sourceKey !== recoveryKey) moveDraftAside(localStorage, recoveryKey, surveyDraftKey(userId, organizationId, draftTarget, generateSecureUuid()));
+          writeSurveyDraftRecovery(localStorage, recoveryKey, rebase ? { ...draft, version } : draft);
+          if (sourceKey !== recoveryKey) removeSurveyDraftRecovery(localStorage, sourceKey);
+        } catch { setDraftStorageAvailable(false); }
+      }
+      createIdRef.current = draft.requestSurveyId; setSections(draft.sections); setActiveId(draft.activeSectionId); setProjectId(draft.projectId); if (!rebase) setVersion(draft.version); setInitialWorkTypeChosen(true); setRecovery(null);
+    };
+  });
+  const writeDraftRef = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    writeDraftRef.current = () => {
+      if (!recoveryKey || !recoveryReady || historicalRevision || recovery) return;
+      try {
+        setDraftStorageAvailable(dirty
+          ? writeSurveyDraftRecovery(localStorage, recoveryKey, { schemaVersion: 1, sections, activeSectionId: activeId, projectId, version, requestSurveyId: createIdRef.current, writer: instanceId ?? undefined })
+          : removeSurveyDraftRecovery(localStorage, recoveryKey));
+      } catch { setDraftStorageAvailable(false); }
+    };
+  });
+  useEffect(() => {
+    const timer = window.setTimeout(() => writeDraftRef.current(), dirty ? 500 : 0);
+    return () => window.clearTimeout(timer);
   }, [recoveryKey, recoveryReady, historicalRevision, recovery, dirty, sections, activeId, projectId, version]);
+  useEffect(() => {
+    const flush = () => writeDraftRef.current();
+    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => { window.removeEventListener("pagehide", flush); document.removeEventListener("visibilitychange", onHide); flush(); };
+  }, []);
   async function removeActiveSection() {
     if (sections.length === 1) return;
     const accepted = await requestConfirmation({
@@ -278,52 +351,9 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
     });
     if (accepted) notify({ kind: "info", message: "A mérés az aktuális piszkozatból eltávolítva." });
   }
-  function persistDraftSnapshot(nextSections: SectionDraft[], nextProjectId = projectId, nextVersion = version) {
-    if (!recoveryKey || !recoveryReady || historicalRevision) return;
-    const nextFingerprint = JSON.stringify({ sections: nextSections, projectId: nextProjectId });
-    try {
-      const persisted = nextFingerprint === baseline
-        ? removeSurveyDraftRecovery(sessionStorage, recoveryKey)
-        : writeSurveyDraftRecovery(sessionStorage, recoveryKey, { schemaVersion: 1, sections: nextSections, activeSectionId: activeId, projectId: nextProjectId, version: nextVersion, requestSurveyId: createIdRef.current });
-      setDraftStorageAvailable(persisted);
-    } catch { setDraftStorageAvailable(false); }
-  }
-  function commitSections(next: SectionDraft[]) { setSections(next); persistDraftSnapshot(next); setError(""); }
+  function commitSections(next: SectionDraft[]) { setSections(next); setError(""); }
   function patchSectionById(id: string, patch: Partial<SectionDraft>) { commitSections(sections.map((section) => section.id === id ? { ...section, ...patch } : section)); }
   function patchSection(patch: Partial<SectionDraft>) { patchSectionById(active.id, patch); }
-  const freshMeasurements = (kind: WorkElementKind): MeasurementDraft[] => workElementDefs[kind].templates.map((template) => ({ id: generateSecureUuid(), label: template.label, unit: template.unit, semanticType: template.semanticType, value: "" }));
-  function addElement(kind: WorkElementKind) {
-    const def = workElementDefs[kind]; const same = elementSections.filter((section) => section.elementKind === kind).length; const id = generateSecureUuid();
-    commitSections([...sections, { id, name: same ? `${def.label} ${same + 1}` : def.label, workType: def.workType, elementKind: kind, notes: "", photoIds: [], measurements: freshMeasurements(kind) }]);
-    setOpenElementId(id);
-  }
-  function patchElementMeasurement(id: string, measurementId: string, value: string) {
-    commitSections(sections.map((section) => section.id === id ? { ...section, measurements: section.measurements.map((measurement) => measurement.id === measurementId ? { ...measurement, value } : measurement) } : section));
-  }
-  async function acceptEdgeSuggestion(id: string, suggestion: RoofEdgeSuggestion) {
-    const element = sections.find((section) => section.id === id); const semantic = element?.elementKind ? primaryRunSemantic(element.elementKind) : null;
-    const primary = element?.measurements.find((measurement) => measurement.semanticType === semantic);
-    if (!element || !primary) return;
-    const current = primary.value.trim() === "" ? null : Number(primary.value.trim().replace(",", "."));
-    if (current !== null && Math.abs(current * 1000 - suggestion.valueMm) >= 0.5) {
-      const accepted = await requestConfirmation({ title: "Kézi mérés felülírása", message: `A jelenlegi értéket (${primary.value} m) felülírod a tetőgeometriából számított ${metresInput(suggestion.valueMm)} m-rel. Ezt csak te kezdeményezheted.`, cancelLabel: "Mégse", actions: [{ label: "Felülírás", tone: "primary", run: () => undefined }] });
-      if (!accepted) return;
-    }
-    commitSections(sections.map((section) => section.id === id ? { ...section, lengthSource: { roofSectionId: suggestion.roofSectionId, role: suggestion.role }, measurements: section.measurements.map((measurement) => measurement.id === primary.id ? { ...measurement, value: metresInput(suggestion.valueMm) } : measurement) } : section));
-  }
-  function duplicateElement(id: string) {
-    const source = sections.find((section) => section.id === id); if (!source?.elementKind) return;
-    const copyId = generateSecureUuid();
-    // The copy keeps its roof-edge origin so a calculated value is never silently turned into a measured one; the duplicate warning covers it.
-    const rest = source;
-    commitSections([...sections, { ...rest, id: copyId, name: `${source.name} (másolat)`.slice(0, 120), photoIds: [], measurements: source.measurements.map((measurement) => ({ ...measurement, id: generateSecureUuid() })) }]);
-    setOpenElementId(copyId);
-  }
-  async function removeElement(id: string) {
-    const element = sections.find((section) => section.id === id); if (!element) return;
-    const accepted = await requestConfirmation({ title: "Elem törlése", message: `A(z) „${element.name}” elem kikerül az aktuális piszkozatból. A már mentett korábbi változatok változatlanok maradnak.`, cancelLabel: "Mégse", actions: [{ label: "Elem törlése", tone: "danger", run: () => commitSections(sections.filter((section) => section.id !== id)) }] });
-    if (accepted) notify({ kind: "info", message: "Az elem az aktuális piszkozatból eltávolítva." });
-  }
   function patchMeasurement(id: string, patch: Partial<MeasurementDraft>) { patchSection({ measurements: active.measurements.map((measurement) => measurement.id === id ? { ...measurement, ...patch } : measurement) }); }
   async function selectRoofType(type: RoofGeometryType) {
     if (active.roofType === type) return;
@@ -338,12 +368,11 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   function switchRoofMode(mode: RoofMeasurementMode) {
     const shed = active.roofType === "shed";
     const wanted = mode === "quick" ? (shed ? quickShedTemplates : quickGableTemplates) : shed ? surveyRoofFields("shed") : mode === "detailed" ? [...detailedGableTemplates, ...Object.values(detailedVergeTemplates)] : fieldSurveyTemplates.roof.filter((template) => template.semanticType !== "roof_pitch");
-    const missing = wanted.filter((template) => !active.measurements.some((measurement) => measurement.semanticType === template.semanticType));
     const eaveRun = active.measurements.find((measurement) => measurement.semanticType === "roof_eave_run")?.value ?? "";
     const ridge = active.measurements.find((measurement) => measurement.semanticType === "roof_ridge_length")?.value ?? "";
     const seed = (semantic: FieldSurveySemanticType) => mode === "detailed" && (semantic === "roof_ridge_length" || semantic === "roof_eave_a" || (semantic === "roof_eave_b" && active.quickPlanesMatch === false)) ? eaveRun
       : mode === "quick" && semantic === "roof_eave_run" && ridge && quickLengthMm({ id: "r", semanticType: "roof_ridge_length", unit: "m", value: ridge }).mm === quickLengthMm(active.measurements.find((measurement) => measurement.semanticType === "roof_eave_a")).mm ? ridge : "";
-    const all = [...active.measurements, ...missing.map((template) => ({ ...template, id: generateSecureUuid(), value: "" }))].map((measurement) => measurement.value.trim() === "" && seed(measurement.semanticType) ? { ...measurement, value: seed(measurement.semanticType) } : measurement);
+    const all = addMissingMeasurements(active.measurements, wanted, generateSecureUuid).map((measurement) => measurement.value.trim() === "" && seed(measurement.semanticType) ? { ...measurement, value: seed(measurement.semanticType) } : measurement);
     patchSection({ roofMeasurementMode: mode, measurements: all });
   }
   async function returnToRoofSelection() {
@@ -406,7 +435,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
       data.set("organizationId", organizationId); data.set("surveyId", requestSurveyId);
       if (!surveyId && recoveryKey) {
         try {
-          const persisted = writeSurveyDraftRecovery(sessionStorage, recoveryKey, { schemaVersion: 1, sections: nextSections, activeSectionId: activeId, projectId, version, requestSurveyId });
+          const persisted = writeSurveyDraftRecovery(localStorage, recoveryKey, { schemaVersion: 1, sections: nextSections, activeSectionId: activeId, projectId, version, requestSurveyId });
           setDraftStorageAvailable(persisted);
         } catch { setDraftStorageAvailable(false); }
       }
@@ -414,7 +443,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
       data.set("sections", JSON.stringify(parsed.data)); data.set("measurements", JSON.stringify(parsed.data.flatMap((section) => section.measurements.filter((measurement) => measurement.value !== null)))); data.set("expectedVersion", String(version));
       const result = await saveFieldSurveyAction(data);
       if (!result.ok || !result.surveyId || !result.version) { const message = result.error ?? "Nem sikerült menteni. Próbáld újra."; setError(message); notify({ kind: "error", message }); return null; }
-      if (recoveryKey) { try { removeSurveyDraftRecovery(sessionStorage, recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } }
+      if (recoveryKey) { try { removeSurveyDraftRecovery(localStorage, recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } }
       setWorkspacePersisted(true); setSections(nextSections); setBaseline(JSON.stringify({ sections: nextSections, projectId })); setSurveyId(result.surveyId); setVersion(result.version); setPhotoAssociationPending(false);
       if (!surveyId) { window.history.replaceState(null, "", `/felmeresek/${result.surveyId}?organization=${organizationId}&section=${active.id}`); }
       notify({ kind: "success", message: "Felmérés mentve" });
@@ -453,11 +482,24 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
     <GlassPageHeader title={surveyId ? "Felmérés szerkesztése" : "Új felmérés"} context={surveyId ? `V${version}` : undefined} actions={<button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek?organization=${organizationId}`)}>Vissza a felmérésekhez</button>} />
     {!needsInitialWorkTypeChoice && <div className={`survey-savebar is-${saveBarState}`}>
       <p className="survey-savebar-status" role="status" aria-live="polite"><SaveBarIcon aria-hidden="true" className={`size-4${saveBarState === "saving" ? " animate-spin" : ""}`} /><span>{saveBarLabels[saveBarState]}</span></p>
-      <button type="submit" form="field-survey-editor-form" className={`${saveIdle ? "secondary-button is-idle" : "primary-button"} survey-savebar-save`} disabled={!canSaveSurvey || saveIdle}>{saving ? "Mentés…" : "Mentés"}</button>
+      <button type="submit" form="field-survey-editor-form" className={`${saveIdle ? "secondary-button is-idle" : "primary-button"} survey-savebar-save`} aria-disabled={saveReason ? true : undefined} aria-describedby={saveReason ? "survey-save-reason" : undefined} title={saveReason || undefined} onClick={(event) => { if (saveReason) { event.preventDefault(); notify({ kind: "info", message: saveReason }); } }}>{saving ? "Mentés…" : "Mentés"}</button>
+      <button type="button" className={`${saveIdle ? "primary-button" : "secondary-button"} survey-savebar-list`} aria-expanded={materialPanelOpen} aria-controls="survey-material-list-panel" aria-disabled={listReason ? true : undefined} aria-describedby={listReason ? "survey-list-reason" : undefined} title={listReason || undefined} onClick={() => { if (listReason) notify({ kind: "info", message: listReason }); else void openMaterialPanel(); }}>Anyaglista készítése</button>
+      {saveReason && <span id="survey-save-reason" className="sr-only">{saveReason}</span>}
+      {listReason && <span id="survey-list-reason" className="sr-only">{listReason}</span>}
     </div>}
     {error && <p role="alert" className="form-message is-error survey-save-error">{error}</p>}
     {revisionSelector}
-    {recovery && <aside className="survey-handoff-banner"><p>Korábbi nem mentett szerkesztés helyreállítható · alap V{recovery.version}.{recovery.version !== version ? " A mentett felmérés közben változott; a visszaállított piszkozat mentése verzióellenőrzést kap." : ""}</p><button type="button" className="secondary-button" onClick={() => { createIdRef.current = recovery.requestSurveyId; setSections(recovery.sections); setActiveId(recovery.activeSectionId); setProjectId(recovery.projectId); setVersion(recovery.version); setInitialWorkTypeChosen(true); setRecovery(null); }}>Piszkozat visszaállítása</button><button type="button" className="secondary-button" onClick={() => { if (recoveryKey) { try { removeSurveyDraftRecovery(sessionStorage, recoveryKey); } catch { /* Storage is optional; navigation warnings remain active. */ } } setRecovery(null); }}>Korábbi piszkozat elvetése</button></aside>}
+    {recovery && <aside className="survey-handoff-banner" role={recovery.version !== version ? "alert" : undefined}>
+      {recovery.version !== version
+        ? <p><strong>Ennek a felmérésnek közben új változata készült (V{version}).</strong> Az alábbi mezőkben a legújabb mentett változat (V{version}) látható. A mentetlen piszkozatod a régebbi V{recovery.version} változatra épül, és érintetlenül megmaradt. Nem vonjuk össze automatikusan, és semmit nem írunk felül csendben: ha visszaállítod, az új változatként (V{version + 1}) menthető, a V{version} megmarad a korábbi változatok között.</p>
+        : <p>Korábbi nem mentett szerkesztés helyreállítható · alap V{recovery.version}.</p>}
+      <div className="survey-draft-banner-actions">
+        <button type="button" className="primary-button" onClick={() => restoreDraftRef.current(recovery, recovery.version !== version)}>{recovery.version !== version ? "Visszaállítom, és új változatként mentem" : "Piszkozat visszaállítása"}</button>
+        <button type="button" className="secondary-button" onClick={() => keepDraftForLater(recovery.sourceKey)}>Most nem döntök (a piszkozat megmarad)</button>
+        <button type="button" className="secondary-button" onClick={() => void discardRecovery(recovery.sourceKey)}>Piszkozat elvetése</button>
+      </div>
+    </aside>}
+    {!recovery && otherDrafts > 0 && <p className="form-message" role="status">Ehhez a felméréshez más szerkesztésből származó, mentetlen piszkozat is tartozik. <button type="button" className="secondary-button" onClick={() => navigate(`/?organization=${organizationId}`)}>Megnézem a főoldalon</button></p>}
     {dirty && !recovery && !draftStorageAvailable && <p className="form-message is-error" role="alert">A böngésző helyi tárhelye nem elérhető. A mentetlen módosítás frissítéskor elveszhet; mentsd el a felmérést.</p>}
     <div className="field-survey-editor-workspace">
     {!needsInitialWorkTypeChoice && mainSections.length > 1 && <nav className="survey-section-tabs" aria-label="Munkaszakaszok">{mainSections.map((section) => {
@@ -476,12 +518,11 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
         {active.workType !== "roof" || active.roofType ? <section className="field-survey-measurements">{active.workType !== "roof" && <><h2>Mérések</h2><p>Az üres érték hiányzó mérésként menthető. Add meg a helyszínen ellenőrzött értéket és egységet.</p></>}
           {active.workType === "roof" && active.roofType === "gable" && <RoofModeSelector mode={quickMode ? "quick" : detailedMode ? "detailed" : "building"} onChange={switchRoofMode} disabled={blocked || Boolean(recovery)} />}
           {active.workType === "roof" && active.roofType === "shed" && <RoofModeSelector shape="shed" mode={shedQuickMode ? "quick" : "building"} onChange={switchRoofMode} disabled={blocked || Boolean(recovery)} />}
-          {active.workType === "roof" && active.roofType && active.roofType !== "gable" && active.roofType !== "shed" && <p className="form-message">Ehhez a tetőformához jelenleg csak a tetőforma saját méretei adhatók meg; a gyors mérés nyeregtetőhöz érhető el.</p>}
-          {shedResult ? <QuickShedWorkspace result={shedResult} drafts={active.measurements} focused={focusedRoofMeasurement} guide={guideFor(focusedRoofMeasurement)} footer={surveyActions} disabled={blocked || Boolean(recovery)} inputs={<div className="roof-survey-measurement-strip">{renderCompactFields(false)}</div>} />
+          {shedResult ? <QuickShedWorkspace result={shedResult} drafts={active.measurements} focused={focusedRoofMeasurement} guide={guideFor(focusedRoofMeasurement)} disabled={blocked || Boolean(recovery)} inputs={<div className="roof-survey-measurement-strip">{renderCompactFields(false)}</div>} />
           : (quickResult || detailedResult) ? (() => {
             const shared = {
               drafts: active.measurements, planesMatch: active.quickPlanesMatch, onPlanesMatch: (match: boolean) => patchSection({ quickPlanesMatch: match }), focused: focusedRoofMeasurement,
-              guide: guideFor(focusedRoofMeasurement), footer: surveyActions, disabled: blocked || Boolean(recovery),
+              guide: guideFor(focusedRoofMeasurement), disabled: blocked || Boolean(recovery),
               inputs: <>
                 <div className="roof-survey-measurement-strip">{renderCompactFields(false)}</div>
                 {renderCompactFields(true).length > 0 && <GlassDisclosure className="quick-gable-optional" defaultOpen={compactOptional.some((type) => has(type)) || Object.keys(compactFieldMessages).length > 0 && detailedResult?.status === "invalid"} summary={<>Nem kötelező mérések<span className="survey-optional-badge">Opcionális</span></>}><div className="roof-survey-measurement-strip">{renderCompactFields(true)}</div></GlassDisclosure>}
@@ -489,8 +530,6 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
             };
             return quickResult ? <QuickGableWorkspace result={quickResult} {...shared} /> : <DetailedGableWorkspace result={detailedResult!} {...shared} />;
           })() : active.workType === "roof" && active.roofType ? <>
-            {active.roofType === "shed" && <p className="quick-gable-intro">Add meg a tető külső hosszát az eresz mentén, a vízszintes mélységét az eresztől a felső élig, és a hajlásszöget. Ami nincs kitöltve, azt nem vesszük nullának.</p>}
-            {active.roofType === "gable" && <p className="quick-gable-intro">Add meg az épület külső méreteit, majd a tető emelkedését vagy hajlásszögét. Ami nincs kitöltve, azt nem vesszük nullának — ha nincs túlnyúlás, írj 0-t.</p>}
             <SurveyRoofPreview
             roofType={active.roofType}
             roofTimberParameters={active.roofTimberParameters}
@@ -498,9 +537,9 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
             roofUnderlayParameters={active.roofUnderlayParameters}
             onRoofUnderlayParametersChange={(roofUnderlayParameters) => patchSection({ roofUnderlayParameters })}
             gablePreview={activeGablePreview}
+            saved={saveIdle}
             activeDimension={activeSurveyGuide?.key ?? null}
             activeDimensionDescription={activeSurveyGuide?.meaning}
-            activeGuide={activeSurveyGuide}
             measurements={serialize([active])[0].measurements.filter((measurement): measurement is FieldSurveyMeasurement => measurement.value !== null)}
             onDimensionSelect={(key) => {
               const matches = active.measurements.filter((measurement) => measurementGuideForSurvey(active.roofType!, measurement.semanticType)?.key === key);
@@ -508,29 +547,31 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
             }}
             measurementInputs={
               <>
-                <div className="roof-survey-measurement-strip">{active.measurements.map((measurement, index) => active.roofType === "shed" && quickShedTemplates.some((template) => template.semanticType === measurement.semanticType) ? null : active.roofType === "gable" && (measurement.semanticType === "roof_pitch" ? measurement.value === "" : [...quickGableTemplates, ...detailedGableTemplates, ...Object.values(detailedVergeTemplates)].some((template) => template.semanticType === measurement.semanticType)) ? null : <MeasurementField
+                {multiShape ? <>{surveyRoofFieldGroups(multiShape).map((group) => <div className="roof-survey-group" key={group.title ?? "all"} role="group" aria-label={group.title ?? undefined}>{group.title && <h3 className="roof-survey-group-title">{group.title}</h3>}<div className="roof-survey-measurement-strip">{group.types.map((type) => shapePrimary.get(type)).filter((measurement): measurement is MeasurementDraft => Boolean(measurement)).map((measurement) => <MeasurementField key={measurement.id} measurement={measurement} index={active.measurements.indexOf(measurement)} hint={hintFor(measurement.semanticType)} compact recent={measurement.id === recentMeasurementId} geometryError={shapeMessages[measurement.id]} disabled={blocked || Boolean(recovery)} onFocus={() => setFocusedRoofMeasurement(measurement.semanticType)} onBlur={() => setFocusedRoofMeasurement(null)} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => void removeMeasurement(measurement.id)} />)}</div></div>)}</> : <div className="roof-survey-measurement-strip">{active.measurements.map((measurement, index) => active.roofType === "shed" && quickShedTemplates.some((template) => template.semanticType === measurement.semanticType) ? null : active.roofType === "gable" && (measurement.semanticType === "roof_pitch" ? measurement.value === "" : [...quickGableTemplates, ...detailedGableTemplates, ...Object.values(detailedVergeTemplates)].some((template) => template.semanticType === measurement.semanticType)) ? null : <MeasurementField
                   key={measurement.id}
                   measurement={measurement}
                   index={index}
                   hint={active.roofType === "gable" || active.roofType === "shed" ? hintFor(measurement.semanticType) : undefined}
                   compact={active.roofType === "gable" || active.roofType === "shed"}
                   recent={measurement.id === recentMeasurementId}
-                  geometryError={activeGablePreview?.issue && (activeGablePreview.issue.kind === "invalid" || active.measurements.some((item) => item.value.trim() !== "" && fieldSurveyTemplates.roof.some((template) => template.semanticType === item.semanticType))) ? activeGablePreview.issue.fieldMessages[measurement.id] : undefined}
+                  geometryError={active.roofType === "shed" ? shedBuildingMessages[measurement.id] : activeGablePreview?.issue && (activeGablePreview.issue.kind === "invalid" || active.measurements.some((item) => item.value.trim() !== "" && fieldSurveyTemplates.roof.some((template) => template.semanticType === item.semanticType))) ? activeGablePreview.issue.fieldMessages[measurement.id] : undefined}
                   disabled={blocked || Boolean(recovery)}
                   onFocus={() => setFocusedRoofMeasurement(measurement.semanticType)}
                   onBlur={() => setFocusedRoofMeasurement(null)}
                   onPatch={(patch) => patchMeasurement(measurement.id, patch)}
                   onRemove={() => void removeMeasurement(measurement.id)}
-                />)}</div>
+                />)}</div>}
+                {multiShape && shapeMissing.length > 0 && <p className="quick-gable-provenance" role="status">Még hiányzik: {shapeMissing.join(", ")}.</p>}
                 {active.roofType === "shed" && shedBuildingMissing.length > 0 && <p className="quick-gable-provenance" role="status">Még hiányzik: {shedBuildingMissing.join(", ")}.</p>}
               </>
             }
             actions={
               <>
-                {active.roofType !== "gable" && active.roofType !== "shed" && <div className="roof-survey-edit-actions">
-                  <button type="button" className="field-survey-add" disabled={measurementAddPending} onClick={(event) => addMeasurement(undefined, event)}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><GlassDisclosure className="field-survey-template-details" summary="Másik sablonmérés hozzáadása">{surveyRoofFields(active.roofType).map((template) => <button type="button" key={template.label} disabled={measurementAddPending} onClick={(event) => addMeasurement(template, event)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</GlassDisclosure>
-                </div>}
-                {surveyActions}
+                {multiShape && <GlassDisclosure className="field-survey-template-details" summary={<>További mérések<span className="survey-optional-badge">Opcionális</span></>}>
+                  {shapeExtras.length > 0 && <div className="roof-survey-measurement-strip">{shapeExtras.map((measurement) => <MeasurementField key={measurement.id} measurement={measurement} index={active.measurements.indexOf(measurement)} hint={hintFor(measurement.semanticType)} recent={measurement.id === recentMeasurementId} disabled={blocked || Boolean(recovery)} onPatch={(patch) => patchMeasurement(measurement.id, patch)} onRemove={() => void removeMeasurement(measurement.id)} />)}</div>}
+                  {shapeExtras.some((measurement) => shapePrimary.has(measurement.semanticType)) && <p className="quick-gable-provenance" role="status">Ugyanahhoz a szerephez több mérés tartozik, ezért a rajz nem készül. Töröld a felesleget vagy módosítsd a szerepét.</p>}
+                  <div className="roof-survey-edit-actions"><button type="button" className="field-survey-add" disabled={measurementAddPending} onClick={(event) => addMeasurement(undefined, event)}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button></div>
+                </GlassDisclosure>}
               </>
             }
           /></> : <>
@@ -546,7 +587,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
             <button type="button" className="field-survey-add" disabled={measurementAddPending} onClick={(event) => addMeasurement(undefined, event)}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><GlassDisclosure className="field-survey-template-details" summary="Másik sablonmérés hozzáadása">{fieldSurveyTemplates[active.workType].map((template) => <button type="button" key={template.label} disabled={measurementAddPending} onClick={(event) => addMeasurement(template, event)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</GlassDisclosure>
           </>}
         </section> : null}
-        <SurveyWorkElements sectionButtons={<><button type="button" className="secondary-button" onClick={() => addSection("roof")}><Plus aria-hidden="true" className="size-4" />Új tetőszakasz</button><button type="button" className="secondary-button" onClick={() => addSection("other")}><Plus aria-hidden="true" className="size-4" />Új egyéb szakasz</button></>} elements={elementSections} suggestions={edgeSuggestions} duplicates={suspectedDuplicates(elementSections)} photos={photos} openId={openElementId} disabled={blocked || Boolean(recovery)} onAdd={addElement} onPatch={patchSectionById} onMeasurement={patchElementMeasurement} onAccept={(id, suggestion) => void acceptEdgeSuggestion(id, suggestion)} onDuplicate={duplicateElement} onRemove={(id) => void removeElement(id)} />
+        <GlassDisclosure className="survey-section-more" summary={<>Másik munkaszakasz hozzáadása<span className="survey-optional-badge">Opcionális</span></>}><div className="survey-section-settings-actions"><button type="button" className="secondary-button" onClick={() => addSection("roof")}><Plus aria-hidden="true" className="size-4" />Új tetőszakasz</button><button type="button" className="secondary-button" onClick={() => addSection("other")}><Plus aria-hidden="true" className="size-4" />Új egyéb szakasz</button></div></GlassDisclosure>
 
         <GlassDisclosure className="survey-section-more" summary={<>További szakaszbeállítások<span className="survey-optional-badge">Opcionális</span></>}>
           <div className="survey-section-more-block"><h3>Név, munkatípus és sorrend</h3><label className="field-survey-field"><span>Munkaszakasz neve</span><input value={active.name} maxLength={120} onChange={(event) => patchSection({ name: event.target.value })} /></label><label className="field-survey-field"><span>Munkatípus</span><select value={active.workType} onChange={(event) => changeType(event.target.value as FieldSurveyWorkType)}>{Object.entries(fieldSurveyWorkTypeLabels).filter(([key]) => key === "roof" || key === "other" || key === active.workType).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><div className="survey-section-settings-actions"><button type="button" className="secondary-button" disabled={sections[0].id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setSections(next); }}>Előrébb</button><button type="button" className="secondary-button" disabled={sections.at(-1)?.id === active.id} onClick={() => { const index = sections.findIndex((item) => item.id === active.id); const next = [...sections]; [next[index], next[index + 1]] = [next[index + 1], next[index]]; setSections(next); }}>Hátrébb</button><button type="button" className="secondary-button" disabled={sections.length === 1} onClick={() => void removeActiveSection()}>Munkaszakasz eltávolítása</button></div></div>
@@ -560,7 +601,6 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
 
     <section className="survey-completion-area" aria-labelledby="survey-completion-title">
       <div className="survey-completion-heading"><div><h2 id="survey-completion-title">Következő lépések</h2></div></div>
-      <GlassToolbar ariaLabel="Felmérés folytatása" className="survey-completion-toolbar"><button type="button" className="secondary-button" aria-expanded={materialPanelOpen} aria-controls="survey-material-list-panel" disabled={!canSaveSurvey || photoState.queued} onClick={() => void openMaterialPanel()}>Anyaglista készítése</button></GlassToolbar>
       <SurveyExecutionActions organizationId={organizationId} surveyId={surveyId} version={version} plans={executionPlans} linkedPlans={relationships.executionPlans} canSave={canSaveSurvey} ensureSaved={ensureSaved} />
       {!needsInitialWorkTypeChoice && !recovery && <GlassDisclosure className="survey-completion-disclosure" summary="Fotók hozzáadása · privát felmérési képek"><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={version} onVersionChange={setVersion} onEnsureSaved={ensureSaved} onPendingChange={setPhotoState} onPhotosChange={onPhotos} onPhotoUploaded={associateUploadedPhoto} onUploadComplete={() => router.refresh()} /></GlassDisclosure>}
       {effectiveProjectId && <GlassDisclosure className="survey-completion-disclosure survey-section-more" summary={<>További műveletek<span className="survey-optional-badge">Opcionális</span></>}>
@@ -575,7 +615,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   </section>;
 }
 
-function SurveyRoofPreview({ roofType, roofTimberParameters, onRoofTimberParametersChange, roofUnderlayParameters, onRoofUnderlayParametersChange, gablePreview, measurements, activeDimension, activeDimensionDescription, activeGuide, measurementInputs, actions, onDimensionSelect }: Readonly<{ roofType: RoofGeometryType; roofTimberParameters?: RoofTimberParameters; onRoofTimberParametersChange: (parameters: RoofTimberParameters) => void; roofUnderlayParameters?: RoofUnderlayParameters; onRoofUnderlayParametersChange: (parameters: RoofUnderlayParameters) => void; gablePreview: GableSurveyPreview | null; measurements: readonly FieldSurveyMeasurement[]; activeDimension?: string | null; activeDimensionDescription?: string; activeGuide: ReturnType<typeof measurementGuideForSurvey>; measurementInputs: ReactNode; actions: ReactNode; onDimensionSelect: (key: string) => void }>) {
+function SurveyRoofPreview({ roofType, roofTimberParameters, onRoofTimberParametersChange, roofUnderlayParameters, onRoofUnderlayParametersChange, gablePreview, measurements, saved, activeDimension, activeDimensionDescription, measurementInputs, actions, onDimensionSelect }: Readonly<{ roofType: RoofGeometryType; roofTimberParameters?: RoofTimberParameters; onRoofTimberParametersChange: (parameters: RoofTimberParameters) => void; roofUnderlayParameters?: RoofUnderlayParameters; onRoofUnderlayParametersChange: (parameters: RoofUnderlayParameters) => void; gablePreview: GableSurveyPreview | null; measurements: readonly FieldSurveyMeasurement[]; saved: boolean; activeDimension?: string | null; activeDimensionDescription?: string; measurementInputs: ReactNode; actions: ReactNode; onDimensionSelect: (key: string) => void }>) {
   const gableOutput = gablePreview?.output ?? null;
   const previewIssue = gablePreview?.issue ?? null;
   let geometry: ReturnType<typeof calculateRoofGeometry> | null = roofType === "gable" ? gablePreview?.geometry ?? null : null;
@@ -589,12 +629,11 @@ function SurveyRoofPreview({ roofType, roofTimberParameters, onRoofTimberParamet
   return <RoofWorkspace
     className="roof-workspace-survey"
     label="Felmérés tetőmérési munkaterülete"
-    context={<div className="roof-workspace-context"><div className="roof-guidance-slot"><MeasurementGuidance compact guide={activeGuide} /></div></div>}
     measurements={measurementInputs}
-    drawing={geometry ? <TechnicalDrawing output={gableOutput ?? undefined} geometry={gableOutput ? undefined : geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} isSaved={false} /> : null}
+    drawing={geometry ? <TechnicalDrawing output={gableOutput ?? undefined} geometry={gableOutput ? undefined : geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} isSaved={saved} /> : null}
     results={!geometry
-      ? <p className="missing-data" role={previewIssue?.kind === "invalid" ? "alert" : "status"}>{previewIssue?.message ?? (measurements.length ? "A rajz a tetőforma minden szükséges, érvényes méretének megadása után jelenik meg." : "A rajz a szükséges méretek megadása után jelenik meg.")}</p>
-      : <><RoofGeometryResults geometry={geometry} provenanceLabel="A bemenetek felmért értékek; az alábbiakat a közös tetőgeometriai motor számítja." /><RoofTimberQuantityPanel geometry={geometry} value={roofTimberParameters} onChange={onRoofTimberParametersChange} /><RoofUnderlayQuantityPanel geometry={geometry} value={roofUnderlayParameters} onChange={onRoofUnderlayParametersChange} /></>}
+      ? previewIssue && <p className="missing-data" role={previewIssue.kind === "invalid" ? "alert" : "status"}>{previewIssue.message}</p>
+      : <><RoofGeometryResults geometry={geometry} compact /><RoofTimberQuantityPanel geometry={geometry} value={roofTimberParameters} onChange={onRoofTimberParametersChange} /><RoofUnderlayQuantityPanel geometry={geometry} value={roofUnderlayParameters} onChange={onRoofUnderlayParametersChange} /></>}
     actions={actions}
   />;
 }
@@ -605,6 +644,7 @@ function MeasurementField({ measurement, index, hint, compact, recent, geometryE
   return <div className={`field-survey-measurement${recent ? " is-recently-added" : ""}${geometryError ? " has-geometry-error" : ""}`}>
     <div className="field-survey-measurement-head">
       <label className="field-survey-measurement-name" htmlFor={inputId}>{measurement.label}</label>
+      {compact && hint && <AnchoredPopover label={`Súgó: ${measurement.label}`} heading={measurement.label} icon={Info} triggerClassName="field-survey-measurement-menu"><p className="field-survey-info-text">{hint}</p></AnchoredPopover>}
       {!compact && <AnchoredPopover label={`Beállítások: ${measurement.label}`} heading={`${measurement.label} · beállítások`} icon={MoreHorizontal} triggerClassName="field-survey-measurement-menu" disabled={disabled} focusFirst>
         <div className="field-survey-measurement-tools">
           <label className="field-survey-field"><span>Mérés neve</span><input aria-label={`Mérés ${index + 1} neve`} value={measurement.label} maxLength={120} disabled={disabled} onChange={(event) => onPatch({ label: event.target.value })} /></label>
@@ -614,7 +654,7 @@ function MeasurementField({ measurement, index, hint, compact, recent, geometryE
         </div>
       </AnchoredPopover>}
     </div>
-    {hint && <span className="field-survey-hint">{hint}</span>}
+    {hint && !compact && <span className="field-survey-hint">{hint}</span>}
     <div className="field-survey-measurement-control">
       <input id={inputId} type="text" aria-label={`Mérés ${index + 1} értéke: ${measurement.label}`} aria-invalid={geometryError ? true : undefined} aria-describedby={geometryError ? errorId : undefined} inputMode="decimal" autoComplete="off" value={measurement.value} onFocus={onFocus} onBlur={onBlur} onChange={(event) => onPatch({ value: event.target.value })} />
       {compact && (measurement.unit === "m" || measurement.unit === "mm") ? <select className="field-survey-measurement-unit-badge" aria-label={`${measurement.label}: egység`} value={measurement.unit} disabled={disabled} onChange={(event) => onPatch({ unit: event.target.value as FieldSurveyUnit })}><option value="m">m</option><option value="mm">mm</option></select> : <span className="field-survey-measurement-unit-badge" aria-hidden="true">{fieldSurveyUnitLabels[measurement.unit]}</span>}

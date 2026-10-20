@@ -9,6 +9,8 @@ import { calculateRoofTimberLayout, roofTimberInputFromParameters, type RoofTimb
 import { calculateRoofUnderlayLayout, type RoofUnderlayParameters } from "@/domain/calculations/roof-underlay";
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
 import { TechnicalDrawing } from "@/features/roof-models/technical-drawing";
+import { calculateQuickShed } from "@/domain/field-surveys/quick-shed";
+import { QuickShedDrawing } from "./quick-gable-workspace";
 import { buildGableSurveyPreview } from "./gable-survey-preview";
 import { createSurveyFollowups } from "./workspace-actions";
 
@@ -76,6 +78,12 @@ function HistoricalSurveyRoofGeometry({ section }: Readonly<{ section: SurveySec
     return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><TechnicalDrawing output={preview.output} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact isSaved /><p>Mentett felmérési mérésekből újraszámított tetőfelület: <strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(preview.output.areas.combinedRoofM2)} m²</strong> · {preview.output.planes.length} tetősík.</p>{preview.geometry && <>{section.roofTimberParameters && <HistoricalSurveyTimberLayout section={section} geometry={preview.geometry} />} {section.roofUnderlayParameters && <HistoricalSurveyUnderlay section={section} geometry={preview.geometry} />}</>}</section>;
   }
 
+  // Gyors félnyeregtető: a mentett revíziószakasz két mért hosszából, nem a szerkeszthető állapotból.
+  if (section.roofType === "shed" && section.roofMeasurementMode === "quick") {
+    const quick = calculateQuickShed(section.measurements.map((m) => ({ id: m.id, semanticType: m.semanticType, unit: m.unit, value: m.value === null ? "" : String(m.value) })));
+    if (quick.status !== "ok") return <p role="status">A tetőforma rajza hiányos vagy hibás mérések miatt nem számítható újra. A mentett mérések változatlanok.</p>;
+    return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><QuickShedDrawing drafts={section.measurements.filter((m) => m.value !== null).map((m) => ({ id: m.id, semanticType: m.semanticType, unit: m.unit, value: String(m.value) }))} focused={null} /><p>Tetőfelület: {new Intl.NumberFormat("hu-HU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(quick.areaM2)} m² · a mentett gyors mérésből számítva (téglalap alakú sík).</p></section>;
+  }
   const input = geometryFromSurveyMeasurements(section.roofType, completeSectionMeasurements(section));
   if (!input) return <p role="status">A tetőforma rajza hiányos vagy hibás mérések miatt nem számítható újra. A mentett mérések változatlanok.</p>;
   const geometry = calculateRoofGeometry(input);

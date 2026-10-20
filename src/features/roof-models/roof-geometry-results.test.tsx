@@ -24,4 +24,10 @@ describe("shared roof geometry results view", () => {
     expect(html).toContain("Faanyag, lécezés és fedés");
     expect(html).not.toMatch(/<strong>0(?:,0+)? m<\/strong>/);
   });
+
+  it("compact mode drops the heading text and provenance paragraph but keeps the calculated result and its tag", () => {
+    const html = renderToStaticMarkup(<RoofGeometryResults geometry={calculateRoofGeometry(inputs[0])} compact />);
+    expect(html).not.toContain("Számított geometria"); expect(html).not.toContain("roof-results-provenance");
+    expect(html).toContain("számított"); expect(html).toContain("Teljes tetősík geometriai felülete");
+  });
 });

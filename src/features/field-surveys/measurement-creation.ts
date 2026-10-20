@@ -13,5 +13,17 @@ export function appendSurveyMeasurement(
   if (!uuidPattern.test(id) || measurements.some((measurement) => measurement.id === id)) {
     throw new Error("A new survey measurement requires a unique UUID.");
   }
-  return [...measurements, { ...template, id, value: "" }];
+  // Explicit pick: roof templates (RoofField) carry UI-only metadata such as `key`, which the strict section schema rejects.
+  return [...measurements, { id, label: template.label, unit: template.unit, semanticType: template.semanticType, value: "" }];
+}
+
+/** Adds one blank draft per template whose role is not yet present; every existing value is kept. */
+export function addMissingMeasurements(
+  measurements: readonly SurveyMeasurementDraft[],
+  templates: readonly SurveyMeasurementTemplate[],
+  createId: () => string,
+): SurveyMeasurementDraft[] {
+  return templates
+    .filter((template) => !measurements.some((measurement) => measurement.semanticType === template.semanticType))
+    .reduce((all, template) => appendSurveyMeasurement(all, template, createId), [...measurements]);
 }

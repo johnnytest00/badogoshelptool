@@ -15,15 +15,15 @@ function Metric({ result }: Readonly<{ result: Extract<RoofGeometryResult, { sta
   </div>;
 }
 
-export function RoofGeometryResults({ geometry, heading = "Ellenőrzött eredmények", provenanceLabel = "Kézi bemenetek · számított geometriai eredmények." }: Readonly<{ geometry: RoofGeometry; heading?: string; provenanceLabel?: string }>) {
+export function RoofGeometryResults({ geometry, heading = "Ellenőrzött eredmények", provenanceLabel = "Kézi bemenetek · számított geometriai eredmények.", compact = false }: Readonly<{ geometry: RoofGeometry; heading?: string; provenanceLabel?: string; compact?: boolean }>) {
   const summary = summarizeRoofGeometry(geometry);
   const [highlight, ...primary] = summary.primary;
   if (!highlight || highlight.status !== "available") return null;
 
-  return <section className="roof-results roof-geometry-results" aria-live="polite">
-    <div className="roof-section-heading"><div><p className="section-eyebrow">Számított geometria</p><h2>{heading}</h2></div></div>
-    <p className="roof-results-provenance">{provenanceLabel}</p>
-    <div className="roof-result-highlight"><span>{highlight.label}</span><strong>{resultText(highlight)}</strong><small>Geometriai tetősíkfelület · nem beszerzési mennyiség</small></div>
+  return <section className={`roof-results roof-geometry-results${compact ? " is-compact" : ""}`} aria-live="polite">
+    {compact ? <h2 className="sr-only">{heading}</h2> : <><div className="roof-section-heading"><div><p className="section-eyebrow">Számított geometria</p><h2>{heading}</h2></div></div>
+    <p className="roof-results-provenance">{provenanceLabel}</p></>}
+    <div className="roof-result-highlight"><span>{highlight.label}{compact && <span className="quick-gable-tag">számított</span>}</span><strong>{resultText(highlight)}</strong><small>Geometriai tetősíkfelület · nem beszerzési mennyiség</small></div>
     <div className="roof-result-grid">{primary.map((result) => result.status === "available" ? <Metric key={result.key} result={result} /> : null)}</div>
     <details className="roof-result-details">
       <summary>Tetősíkok részletes mérései</summary>

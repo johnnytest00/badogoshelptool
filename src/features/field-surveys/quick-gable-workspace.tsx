@@ -6,41 +6,23 @@ import type { QuickShedResult } from "@/domain/field-surveys/quick-shed";
 
 export type RoofMeasurementMode = "quick" | "building" | "detailed";
 
-const modes: readonly { mode: RoofMeasurementMode; label: string; hint: string }[] = [
-  { mode: "quick", label: "Gyors mérés", hint: "Két méret: a tető hossza és a lejtő menti hossz. A legtöbb nyeregtetőhöz ez elég." },
-  { mode: "building", label: "Épületméretek alapján", hint: "Az épület hossza, szélessége és a tető hajlása alapján." },
-  { mode: "detailed", label: "Részletes mérés", hint: "Síkonként és élenként mérsz — ha a tető nem szabályos." },
+type ModeInfo = Readonly<{ mode: RoofMeasurementMode; label: string; hint: string }>;
+const modes: readonly ModeInfo[] = [
+  { mode: "quick", label: "Gyors mérés", hint: "Közvetlen tetőméretek" },
+  { mode: "building", label: "Épületméretek", hint: "Méretek és tetőhajlás alapján" },
+  { mode: "detailed", label: "Részletes mérés", hint: "Tetősíkonkénti mérés" },
 ];
+/** Félnyeregtetőnél egyetlen síkról van szó: nincs részletes mód. */
+const shedModes = modes.filter((item) => item.mode !== "detailed");
 
 const mm = (value: number) => `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value / 1000)} m`;
 const m2 = (value: number) => `${new Intl.NumberFormat("hu-HU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} m²`;
 
-/** Félnyeregtetőnél egyetlen síkról van szó: nincs „részletes” mód, mert a téglalap alakú sík két mérettel teljes. */
-const shedModes: readonly { mode: RoofMeasurementMode; label: string; hint: string }[] = [
-  { mode: "quick", label: "Gyors mérés", hint: "Két méret: a tető hossza az eresz mentén és a lejtő menti hossz. A legtöbb félnyeregtetőhöz ez elég." },
-  { mode: "building", label: "Épületméretek alapján", hint: "Az épület hossza, szélessége és a tető hajlásszöge alapján." },
-];
-
 export function RoofModeSelector({ mode, onChange, disabled, shape = "gable" }: Readonly<{ mode: RoofMeasurementMode; onChange: (mode: RoofMeasurementMode) => void; disabled: boolean; shape?: "gable" | "shed" }>) {
   return <fieldset className="roof-mode-selector" disabled={disabled}>
-    <legend>Hogyan mérsz? <small>A beírt méreteid módváltáskor megmaradnak.</small></legend>
-    {(shape === "shed" ? shedModes : modes).map((item) => <button key={item.mode} type="button" className="roof-mode-option" aria-pressed={mode === item.mode} onClick={() => mode !== item.mode && onChange(item.mode)}><strong>{item.label}</strong><span>{item.hint}</span></button>)}
+    <legend className="sr-only">Mérési mód</legend>
+    {(shape === "shed" ? shedModes : modes).map((item) => <button key={item.mode} type="button" className="roof-mode-option" title={item.hint} aria-pressed={mode === item.mode} onClick={() => mode !== item.mode && onChange(item.mode)}><strong>{item.label}</strong><span>{item.hint}</span></button>)}
   </fieldset>;
-}
-
-export type SurveySaveState = "saving" | "unsaved" | "saved";
-
-/** One stable pair of actions for every measurement mode: "Mentés" always saves, "Anyaglista készítése" always opens the material list. */
-export function SurveyActions({ state, version, saveDisabled, onList }: Readonly<{ state: SurveySaveState; version: number; saveDisabled: boolean; onList: () => void }>) {
-  const saved = state === "saved";
-  return <div className="survey-actions" role="group" aria-label="Mentés és következő lépés">
-    <p className={`survey-actions-status is-${state}`} role="status">{state === "saving" ? "Mentés folyamatban…" : saved ? `Mentve · V${version}` : "Nincs mentve"}</p>
-    <div className="survey-actions-buttons">
-      <button type="submit" form="field-survey-editor-form" className={saved ? "secondary-button" : "primary-button"} disabled={saveDisabled}>{state === "saving" ? "Mentés…" : "Mentés"}</button>
-      <button type="button" className={saved ? "primary-button" : "secondary-button"} disabled={!saved} onClick={onList}>Anyaglista készítése</button>
-    </div>
-    {!saved && <p className="survey-actions-hint">{state === "saving" ? "Egy pillanat, mentem a felmérést." : "Az anyaglistát a mentett felmérésből készíted — előbb mentsd."}</p>}
-  </div>;
 }
 
 const hi = (focused: FieldSurveySemanticType | null, ...types: FieldSurveySemanticType[]) => (focused && types.includes(focused) ? "is-focused" : "");
@@ -50,7 +32,7 @@ function QuickGableDrawing({ drafts, planesMatch, focused }: Readonly<{ drafts: 
   const get = (type: FieldSurveySemanticType) => quickLengthMm(drafts.find((draft) => draft.semanticType === type)).mm;
   const eave = get("roof_eave_run"); const a = get("roof_plane_slope_a");
   const b = planesMatch === true ? a : planesMatch === false ? get("roof_plane_slope_b") : null;
-  if (!eave || !a) return <p className="missing-data" role="status">A rajz a tető hosszának és az A sík lejtő menti hosszának megadása után jelenik meg.</p>;
+  if (!eave || !a) return <DrawingPlaceholder />;
   const W = 360; const pad = 76; const innerW = W - 2 * pad;
   const scale = Math.min(innerW / eave, 190 / (a + (b ?? 0) || 1));
   const w = eave * scale; const ha = a * scale; const hb = (b ?? 0) * scale;
@@ -75,7 +57,7 @@ function DetailedGableDrawing({ drafts, planesMatch, focused }: Readonly<{ draft
   const R = get("roof_ridge_length"); const eA = get("roof_eave_a"); const hA = get("roof_plane_slope_a");
   const eB = planesMatch === true ? eA : planesMatch === false ? get("roof_eave_b") : null;
   const hB = planesMatch === true ? hA : planesMatch === false ? get("roof_plane_slope_b") : null;
-  if (!R || !eA || !hA) return <p className="missing-data" role="status">A rajz a gerinc hosszának, valamint az A sík eresz- és lejtő menti hosszának megadása után jelenik meg.</p>;
+  if (!R || !eA || !hA) return <DrawingPlaceholder />;
   const hasB = Boolean(eB && hB);
   const W = 360; const pad = 76;
   const maxW = Math.max(R, eA, eB ?? 0);
@@ -102,46 +84,49 @@ function DetailedGableDrawing({ drafts, planesMatch, focused }: Readonly<{ draft
       <text className="qg-dimtext" x={W - 36} y={ridgeY + sh(hA) / 2} textAnchor="end" dominantBaseline="middle">{mm(hA)}</text>
       {hasB && <><line className={`qg-dim ${hi(focused, "roof_plane_slope_b")}`} x1={30} x2={30} y1={topY} y2={ridgeY} /><text className="qg-dimtext" x={36} y={ridgeY - sh(hB!) / 2} dominantBaseline="middle">{mm(hB!)}</text></>}
     </svg>
-    {trapezoid && <p className="quick-gable-provenance">A szaggatott alak szemléltető: ahol az eresz és a gerinc hossza eltér, a ferde szélek pontos helyzetét nem mérted, ezért a rajz nem a tető pontos alakja.</p>}
+    {trapezoid && <p className="quick-gable-provenance">A szaggatott alak szemléltető, nem a tető pontos alakja.</p>}
   </>;
 }
 
-/** Shared frame: short guidance, inputs, plane decision, results, the next actions and the drawing. Mobile order: inputs → drawing → results. */
-function GableFrame({ intro, inputs, planesMatch, onPlanesMatch, disabled, results, footer, drawingTitle, guide, drawing }: Readonly<{
-  intro: string; inputs: ReactNode; planesMatch?: boolean; onPlanesMatch?: (match: boolean) => void; disabled: boolean;
-  results: ReactNode; footer: ReactNode; drawingTitle: string; guide: string; drawing: ReactNode;
+/** Calm, text-free placeholder: the drawing area is reserved, nothing is explained before there is something to draw. */
+const DrawingPlaceholder = () => <div className="qg-placeholder" role="img" aria-label="A rajz a méretek megadása után jelenik meg" />;
+
+/** Shared frame: inputs (+ plane decision) and the result on one side, the drawing on the other. Mobile order: inputs → result → drawing. */
+function GableFrame({ inputs, planesMatch, onPlanesMatch, disabled, results, guide, drawing }: Readonly<{
+  inputs: ReactNode; planesMatch?: boolean; onPlanesMatch?: (match: boolean) => void; disabled: boolean;
+  results: ReactNode; guide: string; drawing: ReactNode;
 }>) {
   return <section className="quick-gable" aria-label="Tetőmérés">
     <div className="quick-gable-inputs">
-      <p className="quick-gable-intro">{intro}</p>
       {inputs}
       {onPlanesMatch && <fieldset className="quick-gable-match" disabled={disabled}>
         <legend>A két tetősík egyforma?</legend>
-        <button type="button" className="roof-mode-option" aria-pressed={planesMatch === true} onClick={() => onPlanesMatch(true)}><strong>Igen</strong><span>A B sík ugyanakkora, mint az A</span></button>
-        <button type="button" className="roof-mode-option" aria-pressed={planesMatch === false} onClick={() => onPlanesMatch(false)}><strong>Nem</strong><span>A B síkot külön megmérem</span></button>
+        <button type="button" className="roof-mode-option" aria-pressed={planesMatch === true} onClick={() => onPlanesMatch(true)}><strong>Igen</strong></button>
+        <button type="button" className="roof-mode-option" aria-pressed={planesMatch === false} onClick={() => onPlanesMatch(false)}><strong>Nem</strong></button>
       </fieldset>}
     </div>
     <div className="quick-gable-drawing-panel">
-      <h3>{drawingTitle}</h3>
-      <p className="quick-gable-guide" aria-live="polite">{guide}</p>
+      {guide && <p className="quick-gable-guide" aria-live="polite">{guide}</p>}
       {drawing}
       <ul className="qg-legend" aria-label="Jelmagyarázat"><li><span className="qg-key is-measured" aria-hidden="true" />mért méret</li><li><span className="qg-key is-schematic" aria-hidden="true" />szemléltető, nem mért</li></ul>
     </div>
-    <div className="quick-gable-results" aria-live="polite">{results}{footer}</div>
+    <div className="quick-gable-results" aria-live="polite">{results}</div>
   </section>;
 }
 
 const Row = ({ label, value, tag, primary }: { label: string; value: string; tag?: "számított" | "mért"; primary?: boolean }) => <div className={primary ? "is-primary" : undefined}><dt>{label}{tag && <span className={`quick-gable-tag${tag === "mért" ? " is-measured" : ""}`}>{tag}</span>}</dt><dd>{value}</dd></div>;
-const Note = () => <p className="quick-gable-provenance">Ez a tető felülete, nem anyagmennyiség — a fedést és a veszteséget az anyaglistában adhatod meg.</p>;
+const Note = () => <p className="quick-gable-provenance">Tetőfelület, nem anyagmennyiség.</p>;
+/** Nothing typed yet: no result panel at all, so the inputs and the drawing are the only things on screen. */
+const untouched = (drafts: readonly QuickGableDraft[]) => drafts.every((draft) => draft.value.trim() === "");
+const Status = ({ result, drafts }: { result: { status: "incomplete" | "invalid" | "empty"; message: string }; drafts: readonly QuickGableDraft[] }) =>
+  result.status === "empty" || (result.status === "incomplete" && untouched(drafts)) ? null : <p className="missing-data" role={result.status === "invalid" ? "alert" : "status"}>{result.message}</p>;
 
-type Shared = Readonly<{ drafts: readonly QuickGableDraft[]; planesMatch: boolean | undefined; onPlanesMatch: (match: boolean) => void; focused: FieldSurveySemanticType | null; guide: string; inputs: ReactNode; disabled: boolean; footer: ReactNode }>;
+type Shared = Readonly<{ drafts: readonly QuickGableDraft[]; planesMatch: boolean | undefined; onPlanesMatch: (match: boolean) => void; focused: FieldSurveySemanticType | null; guide: string; inputs: ReactNode; disabled: boolean }>;
 
 export function QuickGableWorkspace({ result, ...p }: Shared & Readonly<{ result: QuickGableResult }>) {
-  return <GableFrame intro="Mérd le a tető hosszát az eresz mentén, majd az egyik sík lejtő menti hosszát (eresztől a gerincig). Ami nincs kitöltve, azt nem vesszük nullának."
-    inputs={p.inputs} planesMatch={p.planesMatch} onPlanesMatch={p.onPlanesMatch} disabled={p.disabled} footer={p.footer} guide={p.guide}
-    drawingTitle="Így mérd — a sík kiterítve"
+  return <GableFrame inputs={p.inputs} planesMatch={p.planesMatch} onPlanesMatch={p.onPlanesMatch} disabled={p.disabled} guide={p.guide}
     results={result.status !== "ok"
-      ? <p className="missing-data" role={result.status === "invalid" ? "alert" : "status"}>{result.message}</p>
+      ? <Status result={result} drafts={p.drafts} />
       : <><dl className="quick-gable-result-list">
         <Row primary label="Tetőfelület" tag="számított" value={m2(result.totalAreaM2)} />
         {result.planes.map((plane) => <Row key={plane.key} label={`${plane.label} · ${mm(plane.slopeMm)} × ${mm(result.eaveRunMm)}`} tag="számított" value={m2(plane.areaM2)} />)}
@@ -153,9 +138,7 @@ export function QuickGableWorkspace({ result, ...p }: Shared & Readonly<{ result
 }
 
 export function DetailedGableWorkspace({ result, ...p }: Shared & Readonly<{ result: DetailedGableResult }>) {
-  return <GableFrame intro="Mérd meg a gerincet, majd az A sík ereszét és lejtő menti hosszát (eresztől a gerincig). Csak azt kell megmérni, amit tudsz — a hiányzó értéket nem pótoljuk."
-    inputs={p.inputs} planesMatch={p.planesMatch} onPlanesMatch={p.onPlanesMatch} disabled={p.disabled} footer={p.footer} guide={p.guide}
-    drawingTitle="Így mérd — a síkok kiterítve"
+  return <GableFrame inputs={p.inputs} planesMatch={p.planesMatch} onPlanesMatch={p.onPlanesMatch} disabled={p.disabled} guide={p.guide}
     results={result.status === "ok"
       ? <><dl className="quick-gable-result-list">
         <Row primary label="Tetőfelület" tag="számított" value={m2(result.totalAreaM2)} />
@@ -163,16 +146,16 @@ export function DetailedGableWorkspace({ result, ...p }: Shared & Readonly<{ res
         <Row label="Gerinc" tag="mért" value={mm(result.ridgeMm)} />
         <Row label="Eresz összesen" tag="számított" value={mm(result.eaveTotalMm)} />
         {result.vergeTotalMm !== null ? <Row label="Oromszél összesen" tag="számított" value={mm(result.vergeTotalMm)} /> : <Row label="Oromszél összesen" value="még nem ismert" />}
-      </dl>{result.vergeTotalMm === null && <p className="quick-gable-provenance">Az oromszél hosszát a „Nem kötelező mérések” alatt, a ferde szélek megmérésével adhatod meg; nem szabályos síknál nem találgatjuk.</p>}<Note /></>
-      : <p className="missing-data" role={result.status === "invalid" ? "alert" : "status"}>{result.message}</p>}
+      </dl>{result.vergeTotalMm === null && <p className="quick-gable-provenance">Oromszél: a „Nem kötelező mérések” alatt adható meg; nem szabályos síknál nem találgatunk.</p>}<Note /></>
+      : <Status result={result} drafts={p.drafts} />}
     drawing={<DetailedGableDrawing drafts={p.drafts} planesMatch={p.planesMatch} focused={p.focused} />} />;
 }
 
 /** Egyetlen, kiterített tetősík méretarányosan, csak a mért hosszakból; hajlásszög és emelkedés nincs levezetve. */
-function QuickShedDrawing({ drafts, focused }: Readonly<{ drafts: readonly QuickGableDraft[]; focused: FieldSurveySemanticType | null }>) {
+export function QuickShedDrawing({ drafts, focused }: Readonly<{ drafts: readonly QuickGableDraft[]; focused: FieldSurveySemanticType | null }>) {
   const get = (type: FieldSurveySemanticType) => quickLengthMm(drafts.find((draft) => draft.semanticType === type)).mm;
   const eave = get("roof_eave_run"); const slope = get("roof_plane_slope_a");
-  if (!eave || !slope) return <p className="missing-data" role="status">A rajz a tetőhossz és a lejtő menti hossz megadása után jelenik meg.</p>;
+  if (!eave || !slope) return <DrawingPlaceholder />;
   const W = 360; const pad = 76;
   const scale = Math.min((W - 2 * pad) / eave, 190 / slope);
   const w = eave * scale; const h = slope * scale;
@@ -189,12 +172,10 @@ function QuickShedDrawing({ drafts, focused }: Readonly<{ drafts: readonly Quick
   </svg>;
 }
 
-export function QuickShedWorkspace({ result, ...p }: Readonly<{ result: QuickShedResult; drafts: readonly QuickGableDraft[]; focused: FieldSurveySemanticType | null; guide: string; inputs: ReactNode; disabled: boolean; footer: ReactNode }>) {
-  return <GableFrame intro="Mérd le a tető hosszát az eresz mentén, majd a lejtő menti hosszt (az ereszről a felső élig). Ami nincs kitöltve, azt nem vesszük nullának."
-    inputs={p.inputs} disabled={p.disabled} footer={p.footer} guide={p.guide}
-    drawingTitle="Így mérd — a sík kiterítve"
+export function QuickShedWorkspace({ result, ...p }: Readonly<{ result: QuickShedResult; drafts: readonly QuickGableDraft[]; focused: FieldSurveySemanticType | null; guide: string; inputs: ReactNode; disabled: boolean }>) {
+  return <GableFrame inputs={p.inputs} disabled={p.disabled} guide={p.guide}
     results={result.status !== "ok"
-      ? <p className="missing-data" role={result.status === "invalid" ? "alert" : "status"}>{result.message}</p>
+      ? <Status result={result} drafts={p.drafts} />
       : <><dl className="quick-gable-result-list">
         <Row primary label="Tetőfelület" tag="számított" value={m2(result.areaM2)} />
         <Row label="Eresz (alsó él)" tag="mért" value={mm(result.eaveRunMm)} />

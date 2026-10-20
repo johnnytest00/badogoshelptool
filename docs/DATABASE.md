@@ -858,3 +858,7 @@ A már alkalmazott helyi migráció nyilvántartását a
 `npx supabase migration repair --local --status applied 20261015120000`
 parancs sikeresen rögzítette; további futás nem próbálja ismét létrehozni az
 objektumokat. Ez kizárólag a helyi migrációs ledger bejegyzése.
+
+## F9.45.1 — `roof.shed.quick` felmérés-geometriaforrás
+
+Migráció `20261019080000_survey_quick_shed.sql` (helyben alkalmazva): `field_survey_roof_geometry_sources.geometry_type` ellenőrzése bővül `roof.shed.quick`-kel; `private.survey_quick_shed_input` és `public.save_survey_quick_shed_geometry_source_secure` (csak `tetopro_covering_writer`) a revíziószakaszból (`roofType=shed`, `roofMeasurementMode=quick`, `roof_eave_run` + `roof_plane_slope_a`, mm/m, egész mm, ≤200 m) maga számolja újra a bemenetet és a területet; hívó értékét nem fogadja el, idempotens, módosíthatatlan. `private.valid_field_survey_sections`: a `roofMeasurementMode` nyeregtetőnél quick/building/detailed, félnyeregtetőnél quick/building. pgTAP: `055_survey_quick_shed.sql`.

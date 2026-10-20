@@ -53,4 +53,15 @@ describe("saved calculation in the survey summary", () => {
     expect(html).not.toContain("Épület hossza");
     expect(html).toContain("Felmérés összesítése · V1");
   });
+
+  it("renders the historical quick single-slope revision from its own saved measurements (V1 ≠ V2)", () => {
+    const section = (eave: number): SurveySection => ({ id: "123e4567-e89b-42d3-a456-426614174201", name: "DEMO félnyereg", workType: "roof", roofType: "shed", roofMeasurementMode: "quick", notes: "", photoIds: [], measurements: [
+      { id: "123e4567-e89b-42d3-a456-426614174202", label: "Eresz", value: eave, unit: "m", semanticType: "roof_eave_run" },
+      { id: "123e4567-e89b-42d3-a456-426614174203", label: "Lejtő", value: 4.2, unit: "m", semanticType: "roof_plane_slope_a" }] });
+    const render = (sections: SurveySection[], version: number) => renderToStaticMarkup(<WorkspaceSummary organizationId="o" surveyId="s" version={version} sections={sections} calculations={[]} initialFollowups={[]} projects={[]} originalProjectId={null} readOnly />);
+    expect(render([section(8.5)], 1)).toContain("35,70 m²");
+    expect(render([section(8.5)], 1)).toContain("A félnyeregtető síkjának méretarányos");
+    expect(render([section(9)], 2)).toContain("37,80 m²");
+    expect(render([section(8.5)], 1)).not.toContain("nem számítható újra");
+  });
 });

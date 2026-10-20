@@ -35,6 +35,8 @@ Fő útvonal- és adatfolyam-áttekintés: [`docs/PROJECT_MAP.md`](docs/PROJECT_
 - **Bádogos munkaelemek (F9.44.3):** egy felmérésben több elem (ereszcsatorna, lefolyó, szegélyek, vápalemez, kémény, tetőablak, javítás, egyedi), kibontható kártyákon; tetőél-javaslat kifejezett átvétellel; anyaglistába csak a gutter/szegély/vápa szakaszhossz (m) vihető át.
 
 - **Részletes nyeregtetőmérés (F9.44.5):** gerinc + síkonkénti eresz és lejtő menti hossz (trapéz/téglalap), mért oromszél nem szabályos síknál, opcionális hajlásszög; ellenőrzött `roof.gable.detailed` forrás az anyaglistához/ajánlathoz; a három mérési mód között az értékek megmaradnak.
+- **Félnyeregtető gyors mérés (F9.45.1):** eresz menti hossz × lejtő menti hossz (téglalap alakú sík), ellenőrzött `roof.shed.quick` forrás, anyaglistába csak terület; az „Épületméretek” mód (hossz, vízszintes mélység, hajlásszög) megmarad, mezőszintű mm/m hibaüzenetekkel; történeti revíziók a mentett mérésből jelennek meg.
+- **Helyi piszkozat-helyreállítás (F9.45.2):** a mentetlen felmérés láthatatlanul, böngészőlokálisan, lapokként külön rekordban őrződik (új felmérés egyedi azonosítóval); főoldali értesítő Folytatás/Elvetés gombokkal; ha közben új mentett változat készült, magyar ütközésbanner (nincs automatikus összefésülés); hivatalos revíziót csak a Mentés készít.
 
 ## Rendszeráttekintés
 

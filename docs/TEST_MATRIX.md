@@ -1,5 +1,19 @@
 # Tesztmátrix
 
+## F9.45.1 — Félnyeregtető gyors mérés és QA-javítások — 2026-10-19
+
+| Ellenőrzés | Állapot | Bizonyíték / korlát |
+| --- | --- | --- |
+| Typecheck, ESLint, production build | PASS | Hiba nélkül. |
+| Vitest src/features+domain+app | PASS | 135 fájl / 731 teszt (19 kihagyva); új: `quick-shed.test.ts`, mód-váltás/`key`-szivárgás (`measurement-creation.test.ts`), történeti V1/V2 (`workspace-summary.test.tsx`). |
+| Teljes pgTAP | PASS | 57 fájl / 1233 teszt; új `055_survey_quick_shed.sql`. |
+| Böngésző: gyors → mentés → újranyitás → anyaglista | PASS | 35,7 m², `calculated`, forrás `roof.shed.quick`. |
+| Böngésző: gyors↔épületméret mentés/újranyitás | PASS | V2 (37,991 m²), V3; régi hiba: „Unrecognized key”. |
+| Böngésző: történeti V1/V2 | PASS | V1 35,70 m² rajzzal; V2 épületgeometria. |
+| Böngésző: mm-ben tizedes hibaüzenet | PASS | „Milliméterben egész értéket adj meg…”. |
+| Böngésző: nyeregtető gyors/épület/részletes váltás + mentés | PASS | 88,2 m²; csak 1024 px. |
+| Tablet/mobil, világos téma, hosted DB | NEM FUTOTT | — |
+
 ## F9.40.5 — Audit lezárás és munkafolyamat-ellenőrzés — 2026-10-18
 
 | Ellenőrzés | Állapot | Bizonyíték / korlát |

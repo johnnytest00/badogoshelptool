@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateQuickShed } from "./quick-shed";
+import { calculateQuickShed, shedBuildingFieldMessages } from "./quick-shed";
 import { quickShedInputFromSurveySection, quickShedSourceOutput } from "./quick-shed-section";
 import { multiRoofGeometryFromSurveySection } from "./multi-roof-section-geometry";
 import type { SurveySection } from "./workspace";
@@ -46,5 +46,21 @@ describe("quick shed source", () => {
       { id: id(4), label: "H", value: 8.5, unit: "m", semanticType: "roof_outer_length" }, { id: id(5), label: "Sz", value: 4, unit: "m", semanticType: "roof_outer_width" }, { id: id(6), label: "P", value: 20, unit: "degree", semanticType: "roof_pitch" }] };
     expect(multiRoofGeometryFromSurveySection(withBuilding)).toBeNull();
     expect(multiRoofGeometryFromSurveySection({ ...withBuilding, roofMeasurementMode: "building" })).toMatchObject({ type: "shed", lengthMm: 8500 });
+  });
+});
+
+describe("unit-aware validation", () => {
+  it("explains mm vs m for decimals typed in millimetres, without rounding", () => {
+    const r = calculateQuickShed([d("roof_eave_run", "8,5", "mm"), d("roof_plane_slope_a", "4,2", "mm")]);
+    expect(r).toMatchObject({ status: "invalid", fieldMessages: { roof_eave_run: "Milliméterben egész értéket adj meg. Ha méterben mérsz, válts m egységre." } });
+  });
+  it("building mode: specific field messages, decimal comma ok, empty silent", () => {
+    const b = (semanticType: "roof_outer_length" | "roof_outer_width" | "roof_pitch", value: string, unit: "m" | "mm" | "degree") => ({ id: semanticType, semanticType, unit, value }) as never;
+    const m = shedBuildingFieldMessages([b("roof_outer_length", "8,5", "mm"), b("roof_outer_width", "4,2", "m"), b("roof_pitch", "95", "degree")]);
+    expect(m.roof_outer_length).toContain("Milliméterben egész");
+    expect(m.roof_outer_width).toBeUndefined();
+    expect(m.roof_pitch).toContain("0 és 80 fok");
+    expect(shedBuildingFieldMessages([b("roof_outer_length", "", "mm"), b("roof_pitch", "22,5", "degree")])).toEqual({});
+    expect(shedBuildingFieldMessages([b("roof_outer_length", "101", "m")]).roof_outer_length).toContain("100 m");
   });
 });
