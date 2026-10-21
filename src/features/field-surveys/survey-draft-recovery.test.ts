@@ -191,3 +191,50 @@ describe("F9.45.2 per-instance local drafts", () => {
     expect(readSurveyDraftRecovery(s, key)?.sections[0]).toMatchObject({ roofType: "shed", roofMeasurementMode: "quick" });
   });
 });
+
+describe("F9.52 piszkozat meglévő tetőrészletekkel", () => {
+  const detail = (patch: Record<string, unknown> = {}) => ({
+    id: "123e4567-e89b-42d3-a456-4266141740f1", kind: "chimney", status: "measured",
+    count: "1", widthMm: "600", heightMm: "800", lengthM: "", note: "Hátsó tetősík", ...patch,
+  });
+  const withDetails = (details: Record<string, unknown>[], value = "10,5"): SurveyDraftRecovery => ({
+    ...snapshot,
+    sections: [{ ...snapshot.sections[0], notes: "", measurements: [{ ...snapshot.sections[0].measurements[0], value }], roofDetails: details }],
+  } as unknown as SurveyDraftRecovery);
+
+  it("visszaállítható a mért tetőrészletet tartalmazó piszkozat, a szöveges értékekkel együtt", () => {
+    const parsed = parseSurveyDraftRecovery(JSON.stringify(withDetails([detail()])));
+    expect(parsed).not.toBeNull();
+    expect(parsed?.sections[0].roofDetails?.[0]).toMatchObject({ kind: "chimney", status: "measured", count: "1", widthMm: "600", note: "Hátsó tetősík" });
+  });
+  it("a szerkesztés közbeni részleges vagy érvénytelen méret sem teszi visszaállíthatatlanná", () => {
+    for (const widthMm of ["12,", "abc", "", "0"]) {
+      expect(parseSurveyDraftRecovery(JSON.stringify(withDetails([detail({ widthMm })])))).not.toBeNull();
+    }
+    expect(parseSurveyDraftRecovery(JSON.stringify(withDetails([detail({ status: "absent", count: "", widthMm: "", heightMm: "" })])))).not.toBeNull();
+  });
+  it("tartalmasnak számít a csak tetőrészletet rögzítő piszkozat is", () => {
+    expect(draftHasContent(withDetails([detail({ status: "present_unmeasured", count: "", widthMm: "", heightMm: "" })], ""))).toBe(true);
+    expect(draftHasContent(withDetails([], ""))).toBe(false);
+  });
+  it("a szerkezetileg hibás tetőrészletet továbbra is elutasítja", () => {
+    expect(parseSurveyDraftRecovery(JSON.stringify(withDetails([detail({ kind: "new_gutter_work" })])))).toBeNull();
+    expect(parseSurveyDraftRecovery(JSON.stringify(withDetails([detail({ id: "nem-uuid" })])))).toBeNull();
+    expect(parseSurveyDraftRecovery(JSON.stringify(withDetails([detail({ plannedWork: "új szegély" })])))).toBeNull();
+  });
+  it("a tetőrészlet nélküli régi piszkozat változatlanul visszaáll", () => {
+    const parsed = parseSurveyDraftRecovery(JSON.stringify(snapshot));
+    expect(parsed?.sections[0].roofDetails).toBeUndefined();
+    expect(parsed?.sections).toHaveLength(2);
+  });
+  it("a saját piszkozatot a szerkesztő visszaállításra jelölteként találja meg", () => {
+    const user = "123e4567-e89b-42d3-a456-4266141740a1"; const org = "123e4567-e89b-42d3-a456-4266141740c1"; const survey = "123e4567-e89b-42d3-a456-4266141740d1";
+    const memory = new Map<string, string>();
+    const storage = { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => void memory.set(k, v), removeItem: (k: string) => void memory.delete(k), key: (i: number) => [...memory.keys()][i] ?? null, get length() { return memory.size; } };
+    const key = surveyDraftKey(user, org, survey, "tab-1");
+    writeSurveyDraftRecovery(storage, key, withDetails([detail()]));
+    const resolved = resolveRecovery(storage, user, org, survey, "tab-1", null, new Set());
+    expect(resolved.candidate?.key).toBe(key);
+    expect(resolved.candidate?.draft.sections[0].roofDetails?.[0].widthMm).toBe("600");
+  });
+});

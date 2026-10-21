@@ -34,9 +34,17 @@ export function ScalingBubble() {
         const margin = 12;
         const size = launcher.getBoundingClientRect().width || 44;
         const sticky = ".drawing-toolbar, .survey-savebar, .quotation-savebar, .preparation-save-bar, .workflow-material-save, .standalone-save, .field-survey-save-row";
-        const protectedElements = document.querySelectorAll(`${sticky}, input:not([type=range]):not([type=hidden]), textarea, select, summary, .field-survey-measurement button, .field-survey-add, button.primary-button, button.secondary-button, a.primary-button, a.secondary-button, [role=dialog], nav`);
+        // Minden kezelhető elem akadály, nem csak néhány kiválasztott osztály: a korábbi engedélyezőlistából
+        // kimaradtak a sima gombok (pl. a „Két tetősík egyforma?” Igen/Nem), ezért a buborék rájuk ülhetett.
+        const interactive = "a[href], button, input:not([type=range]):not([type=hidden]), textarea, select, summary, [role=button], [role=dialog], [tabindex]:not([tabindex=\"-1\"])";
+        // A projekt szabálya szerint figyelmeztetést és adatforrást nem rejtünk el, ezért ezek is akadályok.
+        const readable = ".roof-result-highlight, .survey-savebar-status, .form-message, .provenance-badge, .status-pill, .missing-data, [role=alert], [role=status]";
+        const protectedElements = document.querySelectorAll(`${sticky}, ${interactive}, ${readable}, nav`);
         const obstacles = Array.from(protectedElements).filter((element) => !bubble.contains(element)).map((element) => element.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0);
-        const next = chooseFloatingPlacement({ viewport: box, size, margin, baseBottom: margin + (keyboardInset > 0 ? 0 : parseFloat(safe.paddingBottom) || 0), obstacles, current: placementRef.current ?? undefined });
+        // A mobil alsó navigáció magassága explicit tartalék: a sávot nem csak akadályként kerüljük ki.
+        const navBar = keyboardInset > 0 ? 0 : parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--app-nav-bar")) || 0;
+        const baseBottom = margin + navBar + (keyboardInset > 0 ? 0 : parseFloat(safe.paddingBottom) || 0);
+        const next = chooseFloatingPlacement({ viewport: box, size, margin, baseBottom, obstacles, current: placementRef.current ?? undefined, dockedWidth: Math.round(size / 2) });
         placementRef.current = next;
         const sideInset = (next.side === "right" ? parseFloat(safe.paddingRight) : parseFloat(safe.paddingLeft)) || 0;
         const style = bubble.style;
@@ -45,6 +53,7 @@ export function ScalingBubble() {
         style.right = next.side === "right" ? `${margin + sideInset + rightInset}px` : "auto";
         style.left = next.side === "left" ? `${margin + sideInset + box.left}px` : "auto";
         bubble.dataset.side = next.side;
+        bubble.dataset.docked = next.docked ? "true" : "false";
       }, 40);
     };
     const observer = new MutationObserver(updatePlacement);

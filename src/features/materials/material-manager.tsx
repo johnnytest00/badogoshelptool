@@ -118,7 +118,7 @@ export function MaterialManager({
   const editCategory = dialog?.mode === "rename" ? dialog.category : null;
 
   return <div className="dashboard-shell"><div className="dashboard-container materials-workspace material-manager-workspace">
-    <BackNavigation href={`/?organization=${organizationId}`} label="Műhely áttekintése" />
+    <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
     <GlassPageHeader title="Anyagkezelő" context="Kategóriák, termékek, egységek és árak" actions={<>
       <button className="secondary-button" type="button" onClick={() => { setFeedback(""); setDialog({ mode: "create" }); }}><Plus className="size-4" /> Új kategória</button>
       <button className="primary-button" type="button" onClick={() => setProductDialogOpen(true)}><Plus className="size-4" /> Új termék</button>

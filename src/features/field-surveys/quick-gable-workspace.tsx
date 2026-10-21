@@ -3,6 +3,7 @@ import type { FieldSurveySemanticType } from "@/domain/field-surveys/contracts";
 import type { DetailedGableResult } from "@/domain/field-surveys/detailed-gable";
 import { quickLengthMm, type QuickGableDraft, type QuickGableResult } from "@/domain/field-surveys/quick-gable";
 import type { QuickShedResult } from "@/domain/field-surveys/quick-shed";
+import { formatQuantityValue } from "@/lib/quantity-format";
 
 export type RoofMeasurementMode = "quick" | "building" | "detailed";
 
@@ -15,8 +16,8 @@ const modes: readonly ModeInfo[] = [
 /** Félnyeregtetőnél egyetlen síkról van szó: nincs részletes mód. */
 const shedModes = modes.filter((item) => item.mode !== "detailed");
 
-const mm = (value: number) => `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value / 1000)} m`;
-const m2 = (value: number) => `${new Intl.NumberFormat("hu-HU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)} m²`;
+const mm = (value: number) => `${formatQuantityValue(value / 1000, "m")} m`;
+const m2 = (value: number) => `${formatQuantityValue(value, "m²")} m²`;
 
 export function RoofModeSelector({ mode, onChange, disabled, shape = "gable" }: Readonly<{ mode: RoofMeasurementMode; onChange: (mode: RoofMeasurementMode) => void; disabled: boolean; shape?: "gable" | "shed" }>) {
   return <fieldset className="roof-mode-selector" disabled={disabled}>
@@ -115,7 +116,8 @@ function GableFrame({ inputs, planesMatch, onPlanesMatch, disabled, results, gui
 }
 
 const Row = ({ label, value, tag, primary }: { label: string; value: string; tag?: "számított" | "mért"; primary?: boolean }) => <div className={primary ? "is-primary" : undefined}><dt>{label}{tag && <span className={`quick-gable-tag${tag === "mért" ? " is-measured" : ""}`}>{tag}</span>}</dt><dd>{value}</dd></div>;
-const Note = () => <p className="quick-gable-provenance">Tetőfelület, nem anyagmennyiség.</p>;
+/** Közvetlen mérés: a mért hossz a teljes tetősíkra vonatkozik, így a túlnyúlás benne van — nem adunk hozzá újra. */
+const Note = () => <p className="quick-gable-provenance">Tetőfelület, nem anyagmennyiség. A mért hosszak a teljes tetősíkot adják (az ereszkiülés és az oromtúlnyúlás a mérésben van), ezért külön túlnyúlást nem számolunk hozzá. Hajlásszög és épületméret ebből nem következik.</p>;
 /** Nothing typed yet: no result panel at all, so the inputs and the drawing are the only things on screen. */
 const untouched = (drafts: readonly QuickGableDraft[]) => drafts.every((draft) => draft.value.trim() === "");
 const Status = ({ result, drafts }: { result: { status: "incomplete" | "invalid" | "empty"; message: string }; drafts: readonly QuickGableDraft[] }) =>

@@ -19,7 +19,7 @@ export default async function CalculatorsPage({ searchParams }: Readonly<{ searc
   // Read-only, organization-scoped; a failure degrades to manual/DEMO mode instead of breaking the calculators.
   const catalog = await getMaterialProductsForOrganization(organizationId).then((products) => ({ profiles: catalogProfilesFromProducts(products), error: false }), () => ({ profiles: [], error: true }));
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
-    <BackNavigation href={`/?organization=${organizationId}`} label="Műhely áttekintése" />
+    <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
     <GlassPageHeader title="Kalkulátorok" actions={<Link className="secondary-button" href={`/kalkulatorok/mentett?organization=${organizationId}`}>Mentett számításaim →</Link>} />
     <ConstructionCalculatorSuite initialCalculatorId={query.calculator} catalogProfiles={catalog.profiles} catalogError={catalog.error} />
   </div></main>;

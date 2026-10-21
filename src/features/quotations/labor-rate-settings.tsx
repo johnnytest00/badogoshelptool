@@ -6,6 +6,7 @@ import { laborBasisLabels } from "@/domain/quotations/labor-rate";
 import type { LaborRateRecord } from "./labor-rate-data";
 import { archiveLaborRateAction } from "./labor-rate-actions";
 import { LaborRateEditor } from "./labor-rate-editor";
+import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 
 const classLabel = { net: "nettó", gross: "bruttó" } as const;
 
@@ -33,9 +34,9 @@ export function LaborRateSettings({ organizationId, rates, canEdit }: Readonly<{
       <p className="plan-link-note">A szabály csak akkor kerül ajánlatba, ha a felhasználó az ajánlatszerkesztőben kifejezetten alkalmazza, ellenőrzött felmérési mennyiségre. ÁFA, kedvezmény és becslés nincs. A díj módosítása új szabályt hoz létre és archiválja a régit, így a korábbi ajánlatok forrása visszakövethető marad.</p>
       {active.length === 0 ? <p className="plan-link-empty">Még nincs szabály.</p> : <ul className="plan-link-list">{active.map((r) => <li key={r.id}>
         <span><strong>{r.name}</strong><br /><small>{laborBasisLabels[r.basis]} · {Number(r.rateAmount).toLocaleString("hu-HU", { minimumFractionDigits: 2 })} Ft · {classLabel[r.priceClass]}</small>
-          {canEdit && <details><summary>Díj szerkesztése</summary><LaborRateEditor organizationId={organizationId} rate={r} /></details>}</span>
+          {canEdit && <GlassDisclosure summary="Díj szerkesztése"><LaborRateEditor organizationId={organizationId} rate={r} /></GlassDisclosure>}</span>
         {canEdit && <button type="button" className="text-action" disabled={pending} onClick={() => void archive(r.id)}>Archiválás</button>}</li>)}</ul>}
-      {archived.length > 0 && <details><summary>Archivált szabályok ({archived.length})</summary><ul className="plan-link-list">{archived.map((r) => <li key={r.id}><small>{r.name} · {laborBasisLabels[r.basis]} · {r.rateAmount} Ft · {classLabel[r.priceClass]}</small></li>)}</ul></details>}
+      {archived.length > 0 && <GlassDisclosure summary={`Archivált szabályok (${archived.length})`}><ul className="plan-link-list">{archived.map((r) => <li key={r.id}><small>{r.name} · {laborBasisLabels[r.basis]} · {r.rateAmount} Ft · {classLabel[r.priceClass]}</small></li>)}</ul></GlassDisclosure>}
     </section>
     {canEdit ? <section className="glass-bubble material-quotation-card" aria-label="Új munkadíj-szabály">
       <h2>Új szabály</h2>

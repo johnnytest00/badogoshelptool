@@ -1,6 +1,7 @@
 "use client";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useEffect, useRef, useState } from "react";
+import { roofDetailDefs, roofDetailLabel, roofDetailStatusLabels, roofDetailValues, roofDetailsSummary, type RoofDetail } from "@/domain/field-surveys/roof-details";
 import { fieldSurveyUnitLabels } from "@/domain/field-surveys/contracts";
 import { completeSectionMeasurements, savedQuantitySummary, type SurveySection, type SurveyCalculationLink, type SurveyFollowup } from "@/domain/field-surveys/workspace";
 import { geometryFromSurveyMeasurements } from "@/domain/field-surveys/roof-geometry";
@@ -13,6 +14,7 @@ import { calculateQuickShed } from "@/domain/field-surveys/quick-shed";
 import { QuickShedDrawing } from "./quick-gable-workspace";
 import { buildGableSurveyPreview } from "./gable-survey-preview";
 import { createSurveyFollowups } from "./workspace-actions";
+import { formatQuantityValue } from "@/lib/quantity-format";
 
 export function WorkspaceSummary({ organizationId, surveyId, version, sections, calculations, initialFollowups, originalProjectId, readOnly = false, onPendingChange }: {
   organizationId: string; surveyId: string; version: number; sections: SurveySection[]; calculations: SurveyCalculationLink[]; initialFollowups: SurveyFollowup[];
@@ -42,7 +44,7 @@ export function WorkspaceSummary({ organizationId, surveyId, version, sections, 
     {sections.map((section) => {
       const links = calculations.filter((link) => link.sectionId === section.id && link.surveyVersion <= version);
       const unselectedRoof = section.workType === "roof" && !section.roofType;
-      return <article key={section.id}><h3>{section.name}</h3><p>{section.measurements.length ? `${section.measurements.filter((measurement) => measurement.value !== null).length} kitöltött, ${section.measurements.filter((measurement) => measurement.value === null).length} hiányzó mérés` : "Hiányzik: mérés"} · {section.photoIds.length} kapcsolt fotó · {links.length} korábban kapcsolt számítás</p>{unselectedRoof && <p>A felmérés menthető tetőforma nélkül. A geometriai előnézethez válassz tetőformát a szerkesztésnél.</p>}{readOnly && <HistoricalSurveyRoofGeometry section={section} />}<dl>{section.measurements.map((measurement) => <div key={measurement.id}><dt>{measurement.label}</dt><dd>{(measurement.value === null ? "Hiányzik" : measurement.value.toLocaleString("hu-HU"))} {fieldSurveyUnitLabels[measurement.unit]}</dd></div>)}</dl>{section.notes && <p>{section.notes}</p>}
+      return <article key={section.id}><h3>{section.name}</h3><p>{section.measurements.length ? `${section.measurements.filter((measurement) => measurement.value !== null).length} kitöltött, ${section.measurements.filter((measurement) => measurement.value === null).length} hiányzó mérés` : "Hiányzik: mérés"} · {section.photoIds.length} kapcsolt fotó · {links.length} korábban kapcsolt számítás</p>{unselectedRoof && <p>A felmérés menthető tetőforma nélkül. A geometriai előnézethez válassz tetőformát a szerkesztésnél.</p>}{readOnly && <HistoricalSurveyRoofGeometry section={section} />}<dl>{section.measurements.map((measurement) => <div key={measurement.id}><dt>{measurement.label}</dt><dd>{(measurement.value === null ? "Hiányzik" : measurement.value.toLocaleString("hu-HU"))} {fieldSurveyUnitLabels[measurement.unit]}</dd></div>)}</dl>{section.workType === "roof" && <SurveyRoofDetailSummary details={section.roofDetails ?? []} />}{section.notes && <p>{section.notes}</p>}
       {links.map((link) => {
         return <div className="survey-saved-calculation" key={link.id}><strong>{link.name} · V{link.revisionNumber}</strong><p>Forrásfelmérés: V{link.surveyVersion}{link.surveyVersion !== version ? " · korábbi forrás, nincs automatikus újraszámítás" : ""}</p>{savedQuantitySummary(link.calculatorType, link.output).map((quantity) => <p key={quantity.label}>{quantity.label}: {quantity.value.toLocaleString("hu-HU")} {quantity.unit}</p>)}<details><summary>Forrásazonosítók</summary><p>Számítás: {link.calculationId} · revízió: {link.revisionId} · felmérésrevízió: {link.surveyRevisionId}</p></details>{Array.isArray(link.warnings) && link.warnings.length > 0 && <p>Forrásfigyelmeztetések: {link.warnings.map((warning) => typeof warning === "string" ? warning : JSON.stringify(warning)).join("; ")}</p>}</div>;
       })}
@@ -60,6 +62,17 @@ export function WorkspaceSummary({ organizationId, surveyId, version, sections, 
   </section>;
 }
 
+/** Csak a rögzített, meglévő állapot; levonás és munkatétel nem keletkezik belőle. */
+function SurveyRoofDetailSummary({ details }: Readonly<{ details: readonly RoofDetail[] }>) {
+  return <div className="survey-roof-detail-summary"><h4>Meglévő tetőrészletek</h4><p>{roofDetailsSummary(details)}</p>
+    {details.length > 0 && <dl>{details.map((detail) => <div key={detail.id}>
+      <dt>{roofDetailLabel(detail)} · {roofDetailStatusLabels[detail.status]}</dt>
+      <dd>{roofDetailValues(detail).map(({ key, value }) => `${roofDetailDefs[detail.kind].fields.find((field) => field.key === key)?.label ?? key}: ${value.toLocaleString("hu-HU")} ${key === "count" ? "db" : key === "lengthM" ? "m" : "mm"}`).join(" · ") || "Nincs rögzített méret"}{detail.note ? ` · ${detail.note}` : ""}</dd>
+    </div>)}</dl>}
+    {details.length > 0 && <p>A tetőfelületből nem vonunk le áttörést; ehhez ellenőrzött elhelyezkedés és geometria kellene.</p>}
+  </div>;
+}
+
 function HistoricalSurveyRoofGeometry({ section }: Readonly<{ section: SurveySection }>) {
   if (section.workType !== "roof" || !section.roofType) return null;
 
@@ -75,14 +88,14 @@ function HistoricalSurveyRoofGeometry({ section }: Readonly<{ section: SurveySec
     const timberInput = section.roofTimberParameters ? roofTimberInputFromParameters(section.roofTimberParameters) : null;
     const timberLayout = preview.geometry && timberInput ? calculateRoofTimberLayout(preview.geometry, timberInput) : null;
     const underlayLayout = preview.geometry && section.roofUnderlayParameters ? calculateRoofUnderlayLayout(preview.geometry, section.roofUnderlayParameters) : null;
-    return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><TechnicalDrawing output={preview.output} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact isSaved /><p>Mentett felmérési mérésekből újraszámított tetőfelület: <strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(preview.output.areas.combinedRoofM2)} m²</strong> · {preview.output.planes.length} tetősík.</p>{preview.geometry && <>{section.roofTimberParameters && <HistoricalSurveyTimberLayout section={section} geometry={preview.geometry} />} {section.roofUnderlayParameters && <HistoricalSurveyUnderlay section={section} geometry={preview.geometry} />}</>}</section>;
+    return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><TechnicalDrawing output={preview.output} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact isSaved /><p>Mentett felmérési mérésekből újraszámított tetőfelület: <strong>{formatQuantityValue(preview.output.areas.combinedRoofM2, "m²")} m²</strong> · {preview.output.planes.length} tetősík.</p>{preview.geometry && <>{section.roofTimberParameters && <HistoricalSurveyTimberLayout section={section} geometry={preview.geometry} />} {section.roofUnderlayParameters && <HistoricalSurveyUnderlay section={section} geometry={preview.geometry} />}</>}</section>;
   }
 
   // Gyors félnyeregtető: a mentett revíziószakasz két mért hosszából, nem a szerkeszthető állapotból.
   if (section.roofType === "shed" && section.roofMeasurementMode === "quick") {
     const quick = calculateQuickShed(section.measurements.map((m) => ({ id: m.id, semanticType: m.semanticType, unit: m.unit, value: m.value === null ? "" : String(m.value) })));
     if (quick.status !== "ok") return <p role="status">A tetőforma rajza hiányos vagy hibás mérések miatt nem számítható újra. A mentett mérések változatlanok.</p>;
-    return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><QuickShedDrawing drafts={section.measurements.filter((m) => m.value !== null).map((m) => ({ id: m.id, semanticType: m.semanticType, unit: m.unit, value: String(m.value) }))} focused={null} /><p>Tetőfelület: {new Intl.NumberFormat("hu-HU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(quick.areaM2)} m² · a mentett gyors mérésből számítva (téglalap alakú sík).</p></section>;
+    return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><QuickShedDrawing drafts={section.measurements.filter((m) => m.value !== null).map((m) => ({ id: m.id, semanticType: m.semanticType, unit: m.unit, value: String(m.value) }))} focused={null} /><p>Tetőfelület: {formatQuantityValue(quick.areaM2, "m²")} m² · a mentett gyors mérésből számítva (téglalap alakú sík).</p></section>;
   }
   const input = geometryFromSurveyMeasurements(section.roofType, completeSectionMeasurements(section));
   if (!input) return <p role="status">A tetőforma rajza hiányos vagy hibás mérések miatt nem számítható újra. A mentett mérések változatlanok.</p>;
@@ -90,7 +103,7 @@ function HistoricalSurveyRoofGeometry({ section }: Readonly<{ section: SurveySec
   const timberInput = section.roofTimberParameters ? roofTimberInputFromParameters(section.roofTimberParameters) : null;
   const timberLayout = timberInput ? calculateRoofTimberLayout(geometry, timberInput) : null;
   const underlayLayout = section.roofUnderlayParameters ? calculateRoofUnderlayLayout(geometry, section.roofUnderlayParameters) : null;
-  return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><TechnicalDrawing geometry={geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact isSaved /><p>Mentett felmérési mérésekből újraszámított tetőfelület: <strong>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(geometry.totalAreaMm2 / 1_000_000)} m²</strong> · {geometry.planes.length} tetősík.</p>{section.roofTimberParameters && <HistoricalSurveyTimberLayout section={section} geometry={geometry} />}{section.roofUnderlayParameters && <HistoricalSurveyUnderlay section={section} geometry={geometry} />}</section>;
+  return <section className="roof-results" aria-label="Mentett felmérés tetőgeometriája"><TechnicalDrawing geometry={geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact isSaved /><p>Mentett felmérési mérésekből újraszámított tetőfelület: <strong>{formatQuantityValue(geometry.totalAreaMm2 / 1_000_000, "m²")} m²</strong> · {geometry.planes.length} tetősík.</p>{section.roofTimberParameters && <HistoricalSurveyTimberLayout section={section} geometry={geometry} />}{section.roofUnderlayParameters && <HistoricalSurveyUnderlay section={section} geometry={geometry} />}</section>;
 }
 
 function HistoricalSurveyUnderlay({ section, geometry }: Readonly<{ section: SurveySection; geometry: RoofGeometry }>) {
@@ -100,7 +113,7 @@ function HistoricalSurveyUnderlay({ section, geometry }: Readonly<{ section: Sur
     ["rollWidthMm", "Tekercs szélessége", "mm"], ["rollLengthMm", "Tekercs hossza", "mm"],
     ["sideOverlapMm", "Oldalátfedés", "mm"], ["endOverlapMm", "Végtoldás átfedése", "mm"],
   ];
-  return <section className="roof-timber-history" aria-label="Mentett alátétfólia paraméterek és eredmények"><h4>Mentett alátétfólia-paraméterek és újraszámított mennyiség</h4><dl>{entries.filter(([key]) => parameters[key] !== undefined).map(([key, label, unit]) => <div key={key}><dt>{label}</dt><dd>{parameters[key]} {unit}</dd></div>)}{parameters.installationDirection && <div><dt>Fektetés iránya</dt><dd>{parameters.installationDirection === "eave-to-ridge" ? "Eresztől a gerinc felé" : "Gerinctől az eresz felé"}</dd></div>}</dl><p>Nettó geometriai tetőfelület: {result.netRoofAreaMm2 === null ? "nem elérhető" : `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(result.netRoofAreaMm2 / 1_000_000)} m²`}</p>{result.courses.length > 0 && <p>{result.courseCount} csík · {new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format((result.calculatedStripLengthMm ?? 0) / 1000)} m összes vágási hossz{result.grossRequiredUnderlayAreaMm2 === null ? "" : ` · ${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(result.grossRequiredUnderlayAreaMm2 / 1_000_000)} m² bruttó vágott fóliafelület`}{result.rollCount === null ? "" : ` · ${result.rollCount} tekercs pontos vágási minimum`}</p>}{result.reasons.map((reason) => <p key={reason} role="status">{reason}</p>)}</section>;
+  return <section className="roof-timber-history" aria-label="Mentett alátétfólia paraméterek és eredmények"><h4>Mentett alátétfólia-paraméterek és újraszámított mennyiség</h4><dl>{entries.filter(([key]) => parameters[key] !== undefined).map(([key, label, unit]) => <div key={key}><dt>{label}</dt><dd>{parameters[key]} {unit}</dd></div>)}{parameters.installationDirection && <div><dt>Fektetés iránya</dt><dd>{parameters.installationDirection === "eave-to-ridge" ? "Eresztől a gerinc felé" : "Gerinctől az eresz felé"}</dd></div>}</dl><p>Nettó geometriai tetőfelület: {result.netRoofAreaMm2 === null ? "nem elérhető" : `${formatQuantityValue(result.netRoofAreaMm2 / 1_000_000, "m²")} m²`}</p>{result.courses.length > 0 && <p>{result.courseCount} csík · {formatQuantityValue((result.calculatedStripLengthMm ?? 0) / 1000, "m")} m összes vágási hossz{result.grossRequiredUnderlayAreaMm2 === null ? "" : ` · ${formatQuantityValue(result.grossRequiredUnderlayAreaMm2 / 1_000_000, "m²")} m² bruttó vágott fóliafelület`}{result.rollCount === null ? "" : ` · ${result.rollCount} tekercs pontos vágási minimum`}</p>}{result.reasons.map((reason) => <p key={reason} role="status">{reason}</p>)}</section>;
 }
 
 const timberParameterLabels: Readonly<Record<keyof RoofTimberParameters, string>> = {
@@ -114,7 +127,7 @@ function HistoricalSurveyTimberLayout({ section, geometry }: Readonly<{ section:
   if (!parameters) return null;
   const input = roofTimberInputFromParameters(parameters);
   const result = input ? calculateRoofTimberLayout(geometry, input) : null;
-  const family = (label: string, value: RoofTimberFamilyResult | null) => value && <p key={label}>{label}: {value.count} geometriai tengely/vonal · {new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value.totalLengthM)} m{value.nominalVolumeM3 === null ? "" : ` · ${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 4 }).format(value.nominalVolumeM3)} m³`}</p>;
+  const family = (label: string, value: RoofTimberFamilyResult | null) => value && <p key={label}>{label}: {value.count} geometriai tengely/vonal · {formatQuantityValue(value.totalLengthM, "m")} m{value.nominalVolumeM3 === null ? "" : ` · ${formatQuantityValue(value.nominalVolumeM3, "m³")} m³`}</p>;
   return <section className="roof-timber-history" aria-label="Mentett faanyag geometriai mennyisége"><h4>Mentett faanyag-paraméterek és újraszámított geometriai mennyiségek</h4><dl>{(Object.keys(timberParameterLabels) as (keyof RoofTimberParameters)[]).filter((key) => parameters[key] !== undefined).map((key) => <div key={key}><dt>{timberParameterLabels[key]}</dt><dd>{parameters[key]} mm</dd></div>)}</dl>
     {!input && <p role="status">A mentett paraméterkészlet részleges; ebből nem állítható elő teljes geometriai mennyiség.</p>}
     {result?.status === "unavailable" && <p role="status">A geometriai mennyiség nem számítható újra: {result.reason}</p>}

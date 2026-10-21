@@ -15,6 +15,7 @@ import { useUnsavedChangeGuard } from "@/components/feedback/app-interaction-pro
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
+import { formatQuantity } from "@/lib/quantity-format";
 
 type Draft = Record<string, string> & { inputMode: "height" | "angle" };
 const emptyDraft: Draft = {
@@ -22,7 +23,7 @@ const emptyDraft: Draft = {
   eaveOverhangMm: "", frontGableOverhangMm: "", rearGableOverhangMm: "",
 };
 const parse = (value: string) => value.trim() ? Number(value.trim().replace(",", ".")) : undefined;
-const format = (value: number, unit: string) => `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value)} ${unit}`;
+const format = (value: number, unit: string) => formatQuantity(value, unit);
 function draftFromInput(input: GableRoofInput): Draft { return { inputMode: input.inputMode, buildingLengthMm: String(input.buildingLengthMm), buildingWidthMm: String(input.buildingWidthMm), roofRiseMm: input.inputMode === "height" ? String(input.roofRiseMm) : "", roofPitchDegrees: input.inputMode === "angle" ? String(input.roofPitchDegrees) : "", eaveOverhangMm: String(input.eaveOverhangMm), frontGableOverhangMm: String(input.frontGableOverhangMm), rearGableOverhangMm: String(input.rearGableOverhangMm) }; }
 function draftFromPrefill(input: RoofPrefill): Draft { return { ...input }; }
 

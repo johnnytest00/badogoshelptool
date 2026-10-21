@@ -2,6 +2,7 @@ import { z } from "zod";
 import { fieldSurveyMeasurementSchema, fieldSurveyWorkTypeSchema, fieldSurveyWorkTypeLabels, fieldSurveySemanticTypeSchema, fieldSurveyUnitSchema, type FieldSurveyMeasurement, type FieldSurveyWorkType } from "./contracts";
 import { roofGeometryTypeSchema } from "@/domain/calculations/roof-geometry";
 import { lengthSourceSchema, workElementDefs, workElementKindSchema, type RoofEdgeRole } from "./work-elements";
+import { roofDetailsSchema } from "./roof-details";
 import { roofTimberParametersSchema } from "@/domain/calculations/roof-timber-layout";
 import { roofUnderlayParametersSchema } from "@/domain/calculations/roof-underlay";
 
@@ -27,6 +28,8 @@ export const surveySectionSchema = z.object({
   /** Bádogos munkaelem típusa; hiányzó érték = hagyományos munkaszakasz. */
   elementKind: workElementKindSchema.optional(),
   lengthSource: lengthSourceSchema.optional(),
+  /** Meglévő, megfigyelt fizikai tetőrészletek; hiányzó/üres lista = nem vizsgált (nem megerősített hiány). */
+  roofDetails: roofDetailsSchema.optional(),
   roofTimberParameters: roofTimberParametersSchema.optional(),
   roofUnderlayParameters: roofUnderlayParametersSchema.optional(),
   notes: z.string().max(2000), photoIds: z.array(z.string().uuid()).max(100),
@@ -35,6 +38,7 @@ export const surveySectionSchema = z.object({
   if (section.lengthSource && (!section.elementKind || workElementDefs[section.elementKind].roofRole !== section.lengthSource.role)) context.addIssue({ code: "custom", path: ["lengthSource"], message: "A tetőgeometria-forrás ehhez a munkaelemhez nem értelmezett." });
   if (section.roofMeasurementMode && (section.workType !== "roof" || (section.roofType !== "gable" && section.roofType !== "shed") || (section.roofType === "shed" && section.roofMeasurementMode === "detailed"))) context.addIssue({ code: "custom", path: ["roofMeasurementMode"], message: "A mérési mód csak nyeregtető (gyors/épületméret/részletes) vagy félnyeregtető (gyors/épületméret) munkaszakaszhoz menthető." });
   if (section.quickPlanesMatch !== undefined && section.roofType !== "gable") context.addIssue({ code: "custom", path: ["quickPlanesMatch"], message: "A síkegyezés megerősítése csak nyeregtetőnél értelmezett." });
+  if (section.roofDetails?.length && section.workType !== "roof") context.addIssue({ code: "custom", path: ["roofDetails"], message: "Tetőrészlet csak tető munkaszakaszhoz menthető." });
   if (section.roofTimberParameters && section.workType !== "roof") context.addIssue({ code: "custom", path: ["roofTimberParameters"], message: "Tetőfaanyag-kiosztás csak tető munkaszakaszhoz menthető." });
   if (section.roofUnderlayParameters && section.workType !== "roof") context.addIssue({ code: "custom", path: ["roofUnderlayParameters"], message: "Alátétfólia-paraméter csak tető munkaszakaszhoz menthető." });
 });

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { calculateRoofUnderlayLayout, type RoofUnderlayParameters } from "@/domain/calculations/roof-underlay";
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
+import { formatQuantityValue } from "@/lib/quantity-format";
 
 const fields = [
   ["rollWidthMm", "Tekercs szélessége", "mm"],
@@ -12,8 +13,8 @@ const fields = [
   ["endOverlapMm", "Végtoldás átfedése", "mm"],
 ] as const satisfies readonly (readonly ["rollWidthMm" | "rollLengthMm" | "sideOverlapMm" | "endOverlapMm", string, string])[];
 const number = (value: number | undefined) => value === undefined ? "" : String(value);
-const m2 = (areaMm2: number) => new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(areaMm2 / 1_000_000);
-const metres = (lengthMm: number) => new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(lengthMm / 1000);
+const m2 = (areaMm2: number) => formatQuantityValue(areaMm2 / 1_000_000, "m²");
+const metres = (lengthMm: number) => formatQuantityValue(lengthMm / 1000, "m");
 
 export function RoofUnderlayQuantityPanel({ geometry, value: controlledValue, onChange }: Readonly<{ geometry: RoofGeometry; value?: RoofUnderlayParameters; onChange?: (value: RoofUnderlayParameters) => void }>) {
   const [localValue, setLocalValue] = useState<RoofUnderlayParameters>({});

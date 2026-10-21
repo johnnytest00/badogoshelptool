@@ -25,7 +25,7 @@ export default async function StandaloneTakeoffPage({ params, searchParams }: Re
   const listLink = await getTakeoffListLink(organizationId, takeoff.id);
   const stale = takeoff.sourceRevisionId !== takeoff.sourceCurrentRevisionId;
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
-    <BackNavigation href={`/anyagkimutatasok?organization=${organizationId}`} label="Önálló anyagkimutatások" />
+    <BackNavigation href={`/anyagkimutatasok?organization=${organizationId}`} label="Vissza az anyagkimutatásokhoz" />
     <GlassPageHeader title={takeoff.name} context={`${takeoff.status === "approved" ? "Jóváhagyva" : "Piszkozat"} · V${takeoff.version} · önálló, projekt és munkanapló nélkül`} />
     <section className="detail-surface">
       <div className="roof-list-heading"><div><p className="section-eyebrow">Forrás</p><h2>{takeoff.sourceDisplayName}</h2></div>{stale && <span className="coming-soon-pill">A forrásprofil időközben új revíziót kapott</span>}</div>

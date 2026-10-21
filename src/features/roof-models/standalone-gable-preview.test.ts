@@ -41,7 +41,7 @@ describe("standalone gable geometry preview", () => {
 
     expect(html).toContain("Átvett tetőméretek");
     expect(html).toContain("Tetőméretek szerkesztése");
-    expect(html).toContain("84,853 m²");
+    expect(html).toContain("84,85 m²");
     expect(html).not.toContain('<input id="buildingLengthMm"');
     expect(html).toContain("technical-drawing is-compact");
   });

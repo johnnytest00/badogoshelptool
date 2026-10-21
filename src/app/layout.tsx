@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ScalingProvider } from "@/features/preferences/scaling-provider";
 import { AppInteractionProvider } from "@/components/feedback/app-interaction-provider";
 import { ScalingBubble } from "@/components/accessibility/scaling-bubble";
 import { MobileFocusSupport } from "@/components/accessibility/mobile-focus-support";
+import { AppNavigation } from "@/components/navigation/app-navigation";
 import { PremiumGlassBackground } from "@/components/background/premium-glass-background";
 import { themeStorageKey } from "@/lib/theme";
 import { scalingStorageKey } from "@/features/preferences/scaling";
@@ -50,6 +51,18 @@ const appearanceBootstrap = `(() => {
 export const metadata: Metadata = {
   title: "TetőPro — műhely",
   description: "Tetőfedő és bádogos munkafolyamatok egy helyen.",
+  applicationName: "TetőPro",
+  appleWebApp: { capable: true, title: "TetőPro", statusBarStyle: "black-translucent" },
+};
+
+/** viewportFit: "cover" — enélkül az env(safe-area-inset-*) értékek 0-k maradnak telepített/iOS nézetben. */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f3ed" },
+    { media: "(prefers-color-scheme: dark)", color: "#111923" },
+  ],
+  colorScheme: "light dark",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -62,7 +75,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           dangerouslySetInnerHTML={{ __html: appearanceBootstrap }}
         />
       </head>
-      <body><a className="skip-link" href="#main-content">Ugrás a tartalomra</a><PremiumGlassBackground /><ThemeProvider><LiquidGlassProvider><ScalingProvider><AppInteractionProvider>{children}<MobileFocusSupport /><ScalingBubble /></AppInteractionProvider></ScalingProvider></LiquidGlassProvider></ThemeProvider></body>
+      <body><a className="skip-link" href="#main-content">Ugrás a tartalomra</a><PremiumGlassBackground /><ThemeProvider><LiquidGlassProvider><ScalingProvider><AppInteractionProvider><AppNavigation />{children}<MobileFocusSupport /><ScalingBubble /></AppInteractionProvider></ScalingProvider></LiquidGlassProvider></ThemeProvider></body>
     </html>
   );
 }

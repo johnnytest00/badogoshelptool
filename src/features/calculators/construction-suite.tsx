@@ -23,6 +23,7 @@ import { createCalculationSnapshot, roofGeometryInputFromFields } from "@/domain
 import { RoofMaterialInputs, initialMaterialState, type RoofMaterialUiState } from "./material-spec-editor";
 import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-results";
 import { ConstructionCalculatorThumbnail, ConstructionMaterialDrawing, ConstructionStairDrawing } from "./construction-visuals";
+import { validationMessage } from "@/lib/validation-message";
 
 type Field = { key: string; label: string; unit: string; initial?: string; integer?: boolean; advanced?: boolean; placeholder?: string; kind?: "text" | "checkbox" | "select"; options?: readonly { value: string; label: string }[]; shapes?: readonly string[] };
 type ResultLine = { label: string; value: number | string; unit: string };
@@ -489,7 +490,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
       return { rows: definition.calculate(raw, takeoffInputs), error: null, geometry };
     }
     catch (error) {
-      const message = error instanceof z.ZodError ? error.issues.map((issue) => issue.message).join(" ") : "A megadott méretekkel a számítás nem végezhető el.";
+      const message = error instanceof z.ZodError ? [...new Set(error.issues.map((issue) => validationMessage(issue)))].join(" ") : "A megadott méretekkel a számítás nem végezhető el.";
       return { rows: [] as ResultLine[], error: message, geometry: null as RoofGeometry | null };
     }
   }, [definition, inputsReady, raw, roofGeometryType, takeoffInputs, values]);

@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { filterMaterialProductOptions, normalizeMaterialProductSearch, WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "./workflow-material-product-picker";
+import { isCoarsePointer, filterMaterialProductOptions, normalizeMaterialProductSearch, WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "./workflow-material-product-picker";
 
 const options: readonly WorkflowMaterialProductOption[] = [
   { id: "variant-roof", name: "Tetőcserép", detail: "db · Ár nincs megadva", searchText: "Alap egység" },
@@ -44,5 +44,20 @@ describe("workflow material product picker", () => {
     }));
 
     expect(html).toContain('aria-label="Katalógustermék: Csatorna 333 mm. Másik termék kiválasztása"');
+  });
+
+  it("does not mark the dialog or search field for automatic focus", () => {
+    const html = renderToStaticMarkup(createElement(WorkflowMaterialProductPicker, { options, value: "", disabled: false, onSelect: () => undefined }));
+    expect(html).not.toMatch(/autofocus/i);
+    expect(html).toContain('tabindex="-1"'); // the dialog itself, a safe focus target on touch devices
+  });
+
+  it("detects coarse pointers only when the media query matches (desktop keeps search focus)", () => {
+    const original = globalThis.window;
+    const stub = (matches: boolean) => Object.defineProperty(globalThis, "window", { configurable: true, value: { matchMedia: (query: string) => ({ matches: matches && query === "(pointer: coarse)" }) } });
+    try {
+      stub(true); expect(isCoarsePointer()).toBe(true);
+      stub(false); expect(isCoarsePointer()).toBe(false);
+    } finally { Object.defineProperty(globalThis, "window", { configurable: true, value: original }); }
   });
 });

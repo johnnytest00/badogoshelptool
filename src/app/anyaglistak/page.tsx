@@ -17,7 +17,7 @@ export default async function MaterialListsPage({ searchParams }: Readonly<{ sea
   const [lists, plans] = await Promise.all([getWorkflowMaterialLists(organizationId), getExecutionPlanOptionsForOrganization(organizationId)]);
   const planNames = new Map(plans.map((plan) => [plan.id, plan.title]));
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container workflow-material-lists-index">
-    <BackNavigation href={`/?organization=${organizationId}`} label="Műhely áttekintése" />
+    <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
     <GlassPageHeader title="Anyaglisták" context="Önállóan vagy munkanaplóhoz kapcsolva" actions={<><Link className="secondary-button" href={`/anyagok?organization=${organizationId}`}>Anyagkezelő</Link><Link className="primary-button" href={`/anyaglistak/uj?organization=${organizationId}`}><Plus aria-hidden="true" className="size-4" /> Új anyaglista</Link></>} />
     {lists.length ? <div className="workflow-material-list-cards">{lists.map((list) => {
       const surveySource = list.currentRevision?.surveySource ?? null;

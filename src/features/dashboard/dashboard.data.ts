@@ -18,16 +18,17 @@ export const dashboardFunctions: readonly DashboardFunction[] = [
   { id: "calculators", label: "Kalkulátorok", description: "Tető-, lépcső- és betonozási számítások", icon: Calculator, tone: "blue" },
 ] as const;
 
+export const dashboardFunctionRoutes: Record<string, string> = {
+  calculators: "/kalkulatorok",
+  quotes: "/ajanlatok",
+  "material-lists": "/anyaglistak",
+  "material-manager": "/anyagkezelo",
+  execution: "/kivitelezes",
+  "field-surveys": "/felmeresek",
+};
+
 export function dashboardFunctionHref(id: string, organizationId: string) {
-  const routes: Record<string, string> = {
-    calculators: "/kalkulatorok",
-    quotes: "/ajanlatok",
-    "material-lists": "/anyaglistak",
-    "material-manager": "/anyagkezelo",
-    execution: "/kivitelezes",
-    "field-surveys": "/felmeresek",
-  };
-  const route = routes[id];
+  const route = dashboardFunctionRoutes[id];
   if (!route) throw new Error(`Ismeretlen dashboard funkció: ${id}`);
   return `${route}?organization=${encodeURIComponent(organizationId)}`;
 }

@@ -1,8 +1,23 @@
 import type { FieldSurveyMeasurement } from "@/domain/field-surveys/contracts";
+import type { RoofDetail, RoofDetailFieldKey } from "@/domain/field-surveys/roof-details";
 import { surveySectionsSchema, type SurveySection } from "@/domain/field-surveys/workspace";
 
 export type SurveyMeasurementDraft = Omit<FieldSurveyMeasurement, "value"> & { value: string };
-export type SurveySectionDraft = Omit<SurveySection, "measurements"> & { measurements: SurveyMeasurementDraft[] };
+/** A méretek szerkesztés közben szövegként élnek (magyar tizedesvessző, részleges beírás), mentéskor számra váltanak. */
+export type RoofDetailDraft = Omit<RoofDetail, RoofDetailFieldKey> & Record<RoofDetailFieldKey, string>;
+export type SurveySectionDraft = Omit<SurveySection, "measurements" | "roofDetails"> & { measurements: SurveyMeasurementDraft[]; roofDetails?: RoofDetailDraft[] };
+
+/** Mentett részlet → szerkeszthető piszkozat; a hiányzó érték üres marad, a tizedespont vesszőre vált. */
+export function roofDetailDraft(detail: RoofDetail): RoofDetailDraft {
+  const text = (value: number | null) => value === null ? "" : String(value).replace(".", ",");
+  return { ...detail, count: text(detail.count), widthMm: text(detail.widthMm), heightMm: text(detail.heightMm), lengthM: text(detail.lengthM) };
+}
+
+/** Üres mező = hiányzó adat (null), nem nulla; az érvénytelen szöveg NaN-ként a séma hibájába fut. */
+export function serializeRoofDetail(detail: RoofDetailDraft): RoofDetail {
+  const value = (raw: string) => raw.trim() === "" ? null : Number(raw.trim().replace(",", "."));
+  return { ...detail, count: value(detail.count), widthMm: value(detail.widthMm), heightMm: value(detail.heightMm), lengthM: value(detail.lengthM) };
+}
 
 export type SurveyDraftRecovery = Readonly<{
   schemaVersion: 1;
@@ -34,6 +49,7 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}
 export function serializeSurveyDraftSections(sections: readonly SurveySectionDraft[]): SurveySection[] {
   return sections.map((section) => ({
     ...section,
+    roofDetails: section.roofDetails?.map(serializeRoofDetail),
     measurements: section.measurements.map((measurement) => ({
       ...measurement,
       value: measurement.value.trim() === "" ? null : Number(measurement.value.trim().replace(",", ".")),
@@ -65,6 +81,15 @@ function hasValidDraftShape(value: unknown): value is Omit<SurveyDraftRecovery, 
       label: typeof measurement.label === "string" && measurement.label.trim() ? measurement.label : "x",
       value: null,
     })),
+    // A részletek méretei szerkesztés közben szövegek; a státuszt is semlegesítjük, mert érték nélkül a „Felmérve” nem érvényes.
+    ...(Array.isArray((section as { roofDetails?: unknown }).roofDetails)
+      ? { roofDetails: (section as { roofDetails: Array<Record<string, unknown>> }).roofDetails.map((detail) => ({
+          ...detail,
+          status: "present_unmeasured",
+          count: null, widthMm: null, heightMm: null, lengthM: null,
+          note: typeof detail.note === "string" ? detail.note.slice(0, 500) : "",
+        })) }
+      : {}),
   }));
   return surveySectionsSchema.safeParse(structuralSections).success;
 }
@@ -113,7 +138,9 @@ export function removeSurveyDraftRecovery(storage: SessionDraftStorage, key: str
 
 /** A draft is worth recovering only if it holds something the user actually entered; an empty work-type choice is not. */
 export function draftHasContent(draft: SurveyDraftRecovery): boolean {
-  return draft.sections.length > 1 || draft.sections.some((section) => section.notes.trim() !== "" || section.measurements.some((measurement) => measurement.value.trim() !== ""));
+  return draft.sections.length > 1 || draft.sections.some((section) => section.notes.trim() !== ""
+    || section.measurements.some((measurement) => measurement.value.trim() !== "")
+    || (section.roofDetails?.length ?? 0) > 0);
 }
 
 

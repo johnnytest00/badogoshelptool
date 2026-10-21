@@ -1,5 +1,9 @@
 # F2.1 adatbázis-alap
 
+## F9.52 — meglévő tetőrészletek a felmérésszakaszban (2026-10-20, csak helyi)
+
+Migráció: `20261020090000_survey_roof_details.sql` — kizárólag a `private.valid_field_survey_sections` validátor `create or replace`-e. Új, opcionális `roofDetails` szakaszkulcs (legfeljebb 30 bejegyzés, egyedi UUID): `kind` (chimney/skylight/hatch/vent/penetration/valley/wall_junction/gutter/downpipe/flashing/other), `status` (absent/present_unmeasured/measured), `count`/`widthMm`/`heightMm`/`lengthM` (pozitív vagy `null`; mm egész, hossz legfeljebb mm pontosságú m), `note` (≤500). A megerősített hiányhoz nem tartozhat érték, a `measured` állapothoz legalább egy érték kell, és a kulcs csak `workType = 'roof'` szakaszban nem üres. Tábla, RPC, jogosultság, geometriaforrás és meglévő revízió **nem** változik; a kulcs nélküli régi szakasz változatlanul érvényes. Hosted DB-re nincs alkalmazva.
+
 ## F9.42 — munkanapló-kapcsolatok (2026-10-18, csak helyi)
 
 Migráció: `20261018100000_execution_plan_document_links.sql`; teszt: `supabase/tests/database/040_execution_plan_document_links.sql` (24 állítás, helyi PASS). Hosted DB-re nem alkalmazva.

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/infrastructure/supabase/server";
 
 export type OrganizationAccess = {
@@ -13,7 +14,8 @@ export type AuthContext = {
   organizations: OrganizationAccess[];
 };
 
-export async function getAuthContext(): Promise<AuthContext | null> {
+/** Kérésenként gyorsítótárazva: a gyökér layout és az oldal is lekérheti egyetlen adatbázis-kör árán. */
+export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
   const supabase = await createClient();
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
   const claims = claimsData?.claims;
@@ -42,4 +44,4 @@ export async function getAuthContext(): Promise<AuthContext | null> {
       .filter((membership) => organizationNames.has(membership.organization_id))
       .map((membership) => ({ id: membership.organization_id, name: organizationNames.get(membership.organization_id)!, role: membership.role })),
   };
-}
+});

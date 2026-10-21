@@ -1,3 +1,4 @@
+import { filterMaterialProductOptions } from "@/features/material-takeoffs/workflow-material-product-picker";
 import { describe, expect, it } from "vitest";
 import { materialVariantInputSchema } from "@/domain/materials/contracts";
 import type { MaterialProductRecord, MaterialVariantRecord } from "@/features/materials/material-data";
@@ -15,15 +16,28 @@ describe("catalog variant → roof MaterialProfile", () => {
     expect(profile).toMatchObject({ id: "v1", group: "covering", verification: "user_provided", catalog: { productId: "p1", variantId: "v1", sku: "SKU-1" }, values: { nominalWidthMm: 1_100, effectiveCoveringWidthMm: 1_000, physicalLengthMm: 4_000, usableCoveringLengthMm: 3_900 } });
   });
   it("maps underlay and timber keys, skips invalid text, never invents missing values", () => {
-    const underlay = catalogProfilesFromProducts([product({ category: "insulation", variants: [variant({ technicalSpecs: { roll_width_mm: "1500", roll_length_mm: "abc", side_overlap_mm: "0", installation_direction: "x" } })] })])[0];
+    const underlay = catalogProfilesFromProducts([product({ category: "insulation", variants: [variant({ technicalSpecs: { roll_width_mm: "1500", roll_length_mm: "abc", side_overlap_mm: "0", installation_direction: "x" } })] })]).find((item) => item.group === "underlay")!;
     expect(underlay.values).toEqual({ rollWidthMm: 1_500, sideOverlapMm: 0 });
     const timber = catalogProfilesFromProducts([product({ category: "timber", variants: [variant({ technicalSpecs: { section_width_mm: "80", section_height_mm: "200" } })] })]);
-    expect(timber.map((item) => item.group)).toEqual(["rafter", "batten"]);
-    expect(timber[0].values).toEqual({ sectionWidthMm: 80, sectionHeightMm: 200 });
-    expect(resolveMaterialSpec("rafter", pick("v1"), [underlay]).profile).toBeNull(); // wrong group
+    expect(timber.map((item) => item.group)).toEqual(["covering", "underlay", "rafter", "batten"]);
+    expect(timber[2].values).toEqual({ sectionWidthMm: 80, sectionHeightMm: 200 });
+    expect(timber[0].values).toEqual({}); // timber dimensions are never reused as covering dimensions
   });
-  it("excludes archived products, inactive categories and other categories", () => {
-    expect(catalogProfilesFromProducts([product({ status: "archived" }), product({ categoryActive: false }), product({ category: "other" }), product({ category: "gutter" })])).toEqual([]);
+  it("excludes archived products and inactive categories only", () => {
+    expect(catalogProfilesFromProducts([product({ status: "archived" }), product({ categoryActive: false })])).toEqual([]);
+  });
+  it("offers custom-category (other) products in every group without reinterpreting general dimensions", () => {
+    const profiles = catalogProfilesFromProducts([product({ category: "other", categoryName: "Egyedi", variants: [variant({ technicalSpecs: { section_width_mm: "50", section_height_mm: "30", usable_covering_length_mm: "900" } })] })]);
+    const by = (group: string) => profiles.find((item) => item.group === group)!;
+    expect(profiles).toHaveLength(4);
+    expect(by("covering")).toMatchObject({ values: { usableCoveringLengthMm: 900 }, catalog: { categoryMatch: false, categoryName: "Egyedi" } });
+    expect(by("batten").values).toEqual({ sectionWidthMm: 50, sectionHeightMm: 30 });
+    expect(by("underlay").values).toEqual({});
+  });
+  it("sheet-metal dimensions never become timber cross-section", () => {
+    const rafter = catalogProfilesFromProducts([product({ category: "sheet_metal" })]).find((item) => item.group === "rafter")!;
+    expect(rafter.values).toEqual({});
+    expect(resolveMaterialSpec("rafter", pick("v1"), [rafter]).missingKeys).toEqual(["sectionWidthMm", "sectionHeightMm"]);
   });
   it("override → restore → manual transitions keep the catalog value intact", () => {
     const profiles = catalogProfilesFromProducts([product()]);
@@ -60,4 +74,10 @@ describe("Anyagkezelő roof technical_specs validation", () => {
     expect(ok({ section_width_mm: "-5" })).toBe(false);
     expect(ok({ installation_direction: "sideways" })).toBe(false);
   });
+});
+
+describe("shared searchable picker filtering", () => {
+  const options = catalogProfilesFromProducts([product({ name: "Prémium cserép", manufacturerName: "Bramac", variants: [variant({ name: "Antracit", sku: "BR-77" })] })]).filter((item) => item.group === "covering").map((profile) => ({ id: profile.id, name: profile.label, detail: "", searchText: [profile.catalog?.manufacturerName, profile.catalog?.productName, profile.catalog?.variantName, profile.catalog?.sku, profile.catalog?.categoryName].join(" ") }));
+  it.each(["premium", "antracit", "br-77", "BRAMAC", "fedes"])("finds by %s (accent-insensitive)", (query) => expect(filterMaterialProductOptions(options, query)).toHaveLength(1));
+  it("returns nothing for an unknown term", () => expect(filterMaterialProductOptions(options, "zzz")).toHaveLength(0));
 });

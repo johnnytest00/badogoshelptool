@@ -19,5 +19,5 @@ export default async function NewFieldSurveyPage({ searchParams }: Readonly<{ se
   ]);
   const projectOptions = requestedProject ? [{ id: requestedProject.id, name: requestedProject.name }] : [];
   const initialProjectId = requestedProject?.id ?? null;
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} executionPlans={executionPlans} initialProjectId={initialProjectId} /></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container field-survey-page-container"><FieldSurveyEditor organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} executionPlans={executionPlans} initialProjectId={initialProjectId} /></div></main>;
 }

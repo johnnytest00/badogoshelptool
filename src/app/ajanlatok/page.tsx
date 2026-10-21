@@ -18,5 +18,5 @@ export default async function QuotationsIndexPage({ searchParams }: Readonly<{ s
     const result = await getGlobalProjectQuotations(organizationId);
     projectItems = result.items; projectHasMore = result.hasMore;
   } catch (error) { projectError = error instanceof Error ? error.message : "A projektajánlatok listája nem tölthető be."; }
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/?organization=${organizationId}`} label="Műhely áttekintése" /><QuotationOverview organizationId={organizationId} projectItems={projectItems} projectHasMore={projectHasMore} projectError={projectError} /></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" /><QuotationOverview organizationId={organizationId} projectItems={projectItems} projectHasMore={projectHasMore} projectError={projectError} /></div></main>;
 }

@@ -38,7 +38,7 @@ export default async function FieldSurveyPage({ params, searchParams }: Readonly
     : [null, []];
   const materialListSource = currentRevision ? buildSurveyMaterialSource(survey, currentRevision, relationships.calculations, geometrySources) : null;
   const projectOptions = linkedProject ? [{ id: linkedProject.id, name: linkedProject.name }] : [];
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} executionPlans={executionPlans} relationships={relationships} materialListSource={materialListSource} linkedMaterialLists={linkedMaterialLists} initialMaterialPanelOpen={viewingCurrent && query.anyaglista === "1"} survey={survey} initialSectionId={query.section} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container field-survey-page-container"><FieldSurveyEditor key={historicalRevision?.version ?? "current"} organizationId={organizationId} userId={selected.auth.userId} projects={projectOptions} executionPlans={executionPlans} relationships={relationships} materialListSource={materialListSource} linkedMaterialLists={linkedMaterialLists} initialMaterialPanelOpen={viewingCurrent && query.anyaglista === "1"} survey={survey} initialSectionId={query.section} revisionVersions={revisionVersions} historicalRevision={historicalRevision} /></div></main>;
 }
 
 function NotFound({ organizationId }: Readonly<{ organizationId: string }>) {

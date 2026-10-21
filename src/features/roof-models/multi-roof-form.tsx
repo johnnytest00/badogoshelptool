@@ -12,14 +12,16 @@ import type { StandaloneRoofRecord } from "./standalone-roof-data";
 import { MeasurementGuidance, measurementGuideFor } from "./measurement-guidance";
 import { RoofWorkspace } from "./roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
+import { labelledValidationMessage, validationMessage as fieldValidationMessage } from "@/lib/validation-message";
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
+import { formatQuantity } from "@/lib/quantity-format";
 
 type MultiType = Exclude<RoofGeometryType, "gable">;
 type Field = { key: string; label: string; unit: string; help: string };
 const names: Record<MultiType, string> = Object.fromEntries(roofTypeOptions.filter((option) => option.type !== "gable").map((option) => [option.type, option.name])) as Record<MultiType, string>;
 const num = (text: string) => text.trim() ? Number(text.trim().replace(",", ".")) : undefined;
-const display = (value: number, unit: string) => `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value)} ${unit}`;
+const display = (value: number, unit: string) => formatQuantity(value, unit);
 
 function fieldsFor(type: MultiType): Field[] {
   if (type === "pyramid") return [{ key: "sideMm", label: "Tető külső oldalhossza", unit: "mm", help: "A négyzet alakú ereszkontúr egyik oldala." }, { key: "pitchDegrees", label: "Tetőhajlás", unit: "°", help: "A vízszintes síkhoz mért szög." }];
@@ -51,8 +53,20 @@ export function MultiRoofCalculatorForm({ type, organizationId, projectId, model
   const router = useRouter();
   const { notify } = useAppInteraction();
   const parsed = useMemo(() => roofGeometryInputSchema.safeParse({ type, ...Object.fromEntries(fields.map((field) => [field.key, num(values[field.key] ?? "")])) }), [fields, type, values]);
-  const fieldError = (key: string) => values[key]?.trim() ? (parsed.success ? undefined : parsed.error.issues.find((issue) => issue.path.includes(key))?.message) : undefined;
-  const validationMessage = !parsed.success && Object.values(values).some(Boolean) ? `${fields.find((field) => field.key === parsed.error.issues[0]?.path[0])?.label ?? "Tetőméret"}: ${parsed.error.issues[0]?.message ?? "Ellenőrizd a méretet."}` : null;
+  const issueFor = (key: string) => parsed.success ? undefined : parsed.error.issues.find((issue) => issue.path.includes(key));
+  // Kitöltetlen mezőre nem jelzünk hibát (fokozatos validáció); a hiányt a szakasz alatti üzenet mondja ki.
+  const fieldError = (key: string) => {
+    const raw = values[key];
+    if (!raw?.trim()) return undefined;
+    const issue = issueFor(key);
+    return issue ? fieldValidationMessage(issue, raw) : undefined;
+  };
+  const validationMessage = useMemo(() => {
+    if (parsed.success || !Object.values(values).some(Boolean)) return null;
+    const issue = parsed.error.issues[0];
+    const field = fields.find((item) => item.key === issue?.path[0]);
+    return labelledValidationMessage(field?.label ?? "Tetőméret", issue, field ? values[field.key] ?? "" : undefined);
+  }, [fields, parsed, values]);
   const dirty = (!model && !standalone) || JSON.stringify(parsed.success ? parsed.data : values) !== JSON.stringify(savedInput) || name !== (model?.name ?? standalone?.name);
   const interactionDirty = JSON.stringify(values) !== JSON.stringify(interactionBaseline.current.values) || name !== interactionBaseline.current.name;
   useEffect(() => { onWorkspaceState?.({ dirty: interactionDirty, pending }); }, [interactionDirty, onWorkspaceState, pending]);

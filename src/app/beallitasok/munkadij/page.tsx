@@ -15,7 +15,7 @@ export default async function LaborRatesPage({ searchParams }: Readonly<{ search
   const membership = selected.auth.organizations.find((o) => o.id === organizationId);
   const rates = await getLaborRates(organizationId);
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
-    <BackNavigation href={`/ajanlatok?organization=${organizationId}`} label="Ajánlatok" />
+    <BackNavigation href={`/ajanlatok?organization=${organizationId}`} label="Vissza az ajánlatokhoz" />
     <GlassPageHeader title="Munkadíj-szabályok" context="Opcionális · szervezeti beállítás" />
     <LaborRateSettings organizationId={organizationId} rates={rates} canEdit={membership?.role === "owner" || membership?.role === "admin"} />
   </div></main>;

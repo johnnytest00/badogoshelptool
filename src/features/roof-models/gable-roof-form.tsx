@@ -23,6 +23,7 @@ import { RoofWorkspace } from "./roof-workspace";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
+import { validationMessage } from "@/lib/validation-message";
 
 type FormValues = Record<string, string> & { inputMode: "height" | "angle" };
 const defaults: FormValues = { inputMode: "height", buildingLengthMm: "", buildingWidthMm: "", roofRiseMm: "", roofPitchDegrees: "", eaveOverhangMm: "", frontGableOverhangMm: "", rearGableOverhangMm: "" };
@@ -96,7 +97,13 @@ export function GableRoofCalculatorForm({ organizationId, projectId, projectName
   const { requestConfirmation, notify } = useAppInteraction();
   const input = useMemo(() => toInput(values), [values]);
   const inputValidation = useMemo(() => gableRoofInputSchema.safeParse(rawInput(values)), [values]);
-  const inputError = (key: string) => fieldErrors[key] ?? (values[key]?.trim() ? (inputValidation.success ? undefined : inputValidation.error.issues.find((issue) => issue.path.includes(key))?.message) : undefined);
+  const inputError = (key: string) => {
+    if (fieldErrors[key]) return fieldErrors[key];
+    const raw = values[key];
+    if (!raw?.trim() || inputValidation.success) return undefined;
+    const issue = inputValidation.error.issues.find((item) => item.path.includes(key));
+    return issue ? validationMessage(issue, raw) : undefined;
+  };
   const output = useMemo(() => input ? calculateGableRoof(input) : null, [input]);
   const sheetLayoutCalculation = useMemo(() => {
     const selected = sheetLayoutMaterials.find((item) => item.variantId === sheetLayoutValues.variantId);

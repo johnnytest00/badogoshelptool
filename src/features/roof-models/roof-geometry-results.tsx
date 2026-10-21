@@ -1,17 +1,18 @@
+import { formatQuantity } from "@/lib/quantity-format";
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
 import { summarizeRoofGeometry, type RoofGeometryResult } from "@/domain/calculations/roof-geometry-results";
 
-const number = new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 });
+
 
 function resultText(result: Extract<RoofGeometryResult, { status: "available" }>) {
-  return `${number.format(result.value)} ${result.unit}`;
+  return formatQuantity(result.value, result.unit);
 }
 
 function Metric({ result }: Readonly<{ result: Extract<RoofGeometryResult, { status: "available" }>; }>) {
   return <div className="roof-result-metric">
     <small>{result.label}</small>
     <strong>{resultText(result)}</strong>
-    {result.detail && <small>{result.detail.label}: {number.format(result.detail.value)} {result.detail.unit}</small>}
+    {result.detail && <small>{result.detail.label}: {formatQuantity(result.detail.value, result.detail.unit)}</small>}
   </div>;
 }
 
@@ -30,7 +31,7 @@ export function RoofGeometryResults({ geometry, heading = "Ellenőrzött eredmé
       <div className="roof-result-detail-list">{summary.planes.map((plane, index) => <article key={plane.id}>
         <h3>Tetősík {index + 1}</h3>
         {[plane.area, plane.projectedArea, plane.pitch, plane.slopeRun, plane.slopeLength, plane.perimeter].map((result) => result.status === "available"
-          ? <p key={result.key}><span>{result.label}</span><strong>{resultText(result)}</strong>{result.detail && <small>{number.format(result.detail.value)} {result.detail.unit}</small>}</p>
+          ? <p key={result.key}><span>{result.label}</span><strong>{resultText(result)}</strong>{result.detail && <small>{formatQuantity(result.detail.value, result.detail.unit)}</small>}</p>
           : <p key={result.key}><span>{result.label}</span><strong>{result.reason}</strong></p>)}
       </article>)}</div>
     </details>
@@ -40,7 +41,7 @@ export function RoofGeometryResults({ geometry, heading = "Ellenőrzött eredmé
         {summary.edges.map((edge) => edge.status === "available"
           ? <p key={edge.key}><span>{edge.label} · összesen</span><strong>{resultText(edge)}</strong></p>
           : <p key={edge.key}><span>{edge.label}</span><strong>{edge.reason}</strong></p>)}
-        {summary.edgeSegments.map((edge, index) => <p key={edge.id}><span>{edge.label} {index + 1} · {edge.adjacentPlaneIds.map((id) => `Tetősík ${summary.planes.findIndex((plane) => plane.id === id) + 1}`).join(" / ")}</span><strong>{number.format(edge.lengthM)} m</strong></p>)}
+        {summary.edgeSegments.map((edge, index) => <p key={edge.id}><span>{edge.label} {index + 1} · {edge.adjacentPlaneIds.map((id) => `Tetősík ${summary.planes.findIndex((plane) => plane.id === id) + 1}`).join(" / ")}</span><strong>{formatQuantity(edge.lengthM, "m")}</strong></p>)}
       </div>
     </details>
     <details className="roof-result-details">

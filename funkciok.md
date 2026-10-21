@@ -12,6 +12,7 @@ Ez a rövid térkép a route- és feature-forráskódot a `docs/PROGRESS.md` akt
 
 | Terület | Állapot | Megvalósult működés és fontos korlát |
 |---|---|---|
+| Alkalmazás-héj (navigáció, PWA) | **Megvalósított, telepíthetőség igazolva; offline NINCS** | Állandó alkalmazás-navigáció a gyökér layoutban: 64 rem felett oldalsáv mind a hét céllal, alatta öt elemű alsó sáv (Műhely, Felmérések, Munkanaplók, Anyaglisták, Kalkulátorok); aktív útvonal jelölve, a bejelentkezés elrejti. A cél-lista forrása a `dashboard.data.ts`, az aktuális szervezet a query paraméterből öröklődik. A `src/app/manifest.ts` + `public/icons/*` telepíthetővé teszi az appot (standalone, márkaszínek, 192/512/maskable ikon). **Service worker, háttérszinkron és offline adatmentés nincs** — hálózat nélkül a szerveres munkafolyamatok nem működnek. |
 | Dashboard, Auth, szervezet | **Megvalósított, helyi flow** | Bejelentkezés, tagságok betöltése, több szervezetnél explicit választás, műhely-dashboard. Hosted onboarding/meghívás/szerepkör-admin nincs igazolva. |
 | Felmérés | **Megvalósított, részleges pilot** | Projekt nélküli, szakaszos és verziózott mérés; fotó; közös geometriai előnézet; támogatott kalkuláció, projekt/ajánlat/munkanapló/anyaglista follow-up. Terepi mobil, gyenge hálózat, hosted Storage és EXIF/GPS-kezelés nem teljesen ellenőrzött. |
 | Projekt és ügyfél | **Adatmodell és munkafelület létezik; globális CRUD UI részleges** | `/projektek/[projectId]/**` projektmunka és tetőmodellek elérhetők. `/projektek`, `/projektek/uj` és `/ugyfelek/**` aktuális route-jai a dashboardra irányítanak. Felmérésből projekt-utókövetés van; ne írd le teljes általános projekt/ügyfél kezelőként. |
@@ -36,6 +37,8 @@ Fő útvonal- és adatfolyam-áttekintés: [`docs/PROJECT_MAP.md`](docs/PROJECT_
 
 - **Részletes nyeregtetőmérés (F9.44.5):** gerinc + síkonkénti eresz és lejtő menti hossz (trapéz/téglalap), mért oromszél nem szabályos síknál, opcionális hajlásszög; ellenőrzött `roof.gable.detailed` forrás az anyaglistához/ajánlathoz; a három mérési mód között az értékek megmaradnak.
 - **Félnyeregtető gyors mérés (F9.45.1):** eresz menti hossz × lejtő menti hossz (téglalap alakú sík), ellenőrzött `roof.shed.quick` forrás, anyaglistába csak terület; az „Épületméretek” mód (hossz, vízszintes mélység, hajlásszög) megmarad, mezőszintű mm/m hibaüzenetekkel; történeti revíziók a mentett mérésből jelennek meg.
+- **Meglévő tetőrészletek (F9.52):** a tető munkaszakaszban opcionálisan rögzíthető a helyszínen megfigyelt, **meglévő** fizikai objektum (kémény, tetőablak, kibúvó, szellőző- és egyéb áttörés, vápa, falcsatlakozás, meglévő csatorna/lefolyó/szegély, egyéb körülmény): típusonként állapot (Felmérve / Van, de nincs felmérve / Nincs (ellenőrizve)) + a típushoz tartozó méretek és megfigyelés. A bejegyzés hiánya „nem vizsgált”, nem megerősített hiány. Nem munkatervezés: tervezett munka, termék és mennyiség nem keletkezik belőle, és a tetőfelületből sem vonódik le áttörés.
+
 - **Helyi piszkozat-helyreállítás (F9.45.2):** a mentetlen felmérés láthatatlanul, böngészőlokálisan, lapokként külön rekordban őrződik (új felmérés egyedi azonosítóval); főoldali értesítő Folytatás/Elvetés gombokkal; ha közben új mentett változat készült, magyar ütközésbanner (nincs automatikus összefésülés); hivatalos revíziót csak a Mentés készít.
 
 ## Rendszeráttekintés

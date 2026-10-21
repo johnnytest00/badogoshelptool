@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "@/features/material-takeoffs/workflow-material-product-picker";
 import { MATERIAL_SPEC_FIELDS, initialSpecState, resolveMaterialSpec, restoreProductValues, setSpecEntry, switchSpecMode, type MaterialGroup, type MaterialProfile, type SpecFieldDef, type SpecState, type SpecValueSource } from "@/domain/calculations/roof-material-spec";
 import { materialProvenanceLabels } from "@/domain/materials/contracts";
 import type { RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
@@ -16,6 +18,7 @@ export const initialMaterialState = (profiles: readonly MaterialProfile[], timbe
   specs: Object.fromEntries((["covering", "underlay", "rafter", "batten"] as const).map((group) => [group, initialSpecState(profiles.some((profile) => profile.group === group))])) as Record<MaterialGroup, SpecState>,
 });
 
+const PICKER_COPY = { searchLabel: "Keresés terméknév, variáns, SKU vagy gyártó szerint", dialogLabel: "Termék kiválasztása", listLabel: "Elérhető termékek", emptyText: "Nincs a keresésnek megfelelő termék." } as const;
 const BADGE: Record<SpecValueSource, string> = { product: "Termék", override: "Felülírva", manual: "Kézi" };
 
 type EditorProps = Readonly<{ group: MaterialGroup; title: string; profiles: readonly MaterialProfile[]; catalogError?: boolean; state: SpecState; onChange: (next: SpecState) => void }>;
@@ -25,6 +28,14 @@ export function MaterialSpecEditor({ group, title, profiles, catalogError = fals
   const options = profiles.filter((profile) => profile.group === group);
   const spec = resolveMaterialSpec(group, state, profiles);
   const productMode = state.mode === "product";
+  const [categoryId, setCategoryId] = useState("");
+  const categories = [...new Map(options.flatMap((profile) => profile.catalog ? [[profile.catalog.categoryId, profile.catalog.categoryName] as const] : [])).entries()];
+  const pickerOptions: WorkflowMaterialProductOption[] = options
+    .filter((profile) => profile.id === state.profileId || (categoryId === "" ? true : profile.catalog?.categoryId === categoryId))
+    .map((profile) => profile.catalog
+      ? { id: profile.id, name: profile.label, group: "Anyagkezelő termékei", detail: `${profile.catalog.categoryName} · ${materialProvenanceLabels[profile.verification]}${profile.catalog.sku ? ` · ${profile.catalog.sku}` : ""}`, searchText: [profile.catalog.manufacturerName, profile.catalog.productName, profile.catalog.variantName, profile.catalog.sku, profile.catalog.categoryName].filter(Boolean).join(" ") }
+      : { id: profile.id, name: profile.label, group: "DEMO minták (nem gyártói)", detail: "DEMO · nem gyártói adat", searchText: "demo minta" })
+    .sort((left, right) => Number(left.group !== "Anyagkezelő termékei") - Number(right.group !== "Anyagkezelő termékei"));
   const setMode = (mode: "product" | "manual") => onChange(switchSpecMode(state, mode, spec));
   const parse = (field: SpecFieldDef, raw: string) => field.kind === "text" || field.kind === "select" ? raw : raw.trim() === "" ? undefined : Number(raw.replace(",", "."));
   const renderField = (field: SpecFieldDef) => {
@@ -51,11 +62,15 @@ export function MaterialSpecEditor({ group, title, profiles, catalogError = fals
       <button type="button" aria-pressed={productMode} disabled={options.length === 0} title={options.length === 0 ? "Nincs elérhető termék – használd a kézi megadást." : undefined} onClick={() => setMode("product")}>Termék</button>
       <button type="button" aria-pressed={!productMode} onClick={() => setMode("manual")}>Kézi megadás</button>
     </div>
-    {productMode && <label className="construction-suite-field"><span>Termék</span><select value={state.profileId ?? ""} aria-label={`${title} · termék`} onChange={(event) => onChange({ ...state, profileId: event.target.value === "" ? null : event.target.value })}><option value="">Válassz terméket…</option>{[["Anyagkezelő termékei", options.filter((profile) => profile.catalog)], ["DEMO minták (nem gyártói)", options.filter((profile) => !profile.catalog)]].map(([label, items]) => (items as MaterialProfile[]).length > 0 && <optgroup key={label as string} label={label as string}>{(items as MaterialProfile[]).map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}</optgroup>)}</select></label>}
+    {productMode && <div className="construction-suite-field material-spec-picker-field" role="group" aria-label={`${title} · termék`}><span>Termék</span>
+      {categories.length > 1 && <select aria-label={`${title} · kategória`} value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">Összes kategória</option>{categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>}
+      <WorkflowMaterialProductPicker options={pickerOptions} value={state.profileId ?? ""} disabled={false} idPrefix={`roof-material-${group}`} label={`${title} · termék`} copy={PICKER_COPY} onSelect={(id) => onChange({ ...state, profileId: id })} />
+    </div>}
     {productMode && state.profileId !== null && !spec.profile && <p className="material-spec-hint is-error" role="alert">A kiválasztott termék már nem elérhető · válassz másikat vagy add meg kézzel.</p>}
     {productMode && !options.some((profile) => profile.catalog) && <p className="material-spec-note">{catalogError ? "Az Anyagkezelő termékei nem töltődtek be." : "Az Anyagkezelőben nincs ehhez a csoporthoz tartozó aktív termék."}</p>}
     {!productMode && <p className="material-spec-note">Felhasználó által megadott adat – nem gyártói ellenőrzött érték.</p>}
     {spec.profile?.verification === "demo" && <p className="material-spec-note is-demo">DEMO adat – nem gyártói specifikáció.</p>}
+    {spec.profile?.catalog && !spec.profile.catalog.categoryMatch && <p className="material-spec-note" role="status">A termék kategóriája ({spec.profile.catalog.categoryName}) nem ehhez az anyagcsoporthoz tartozik · csak a kifejezetten ehhez megadott műszaki adatok kerültek át, az általános méreteket nem használjuk. Pótold kézzel, ami hiányzik.</p>}
     {spec.profile?.catalog && spec.profile.verification !== "demo" && <p className="material-spec-note">Anyagkezelő adat · {materialProvenanceLabels[spec.profile.verification]}{spec.profile.catalog.sku ? ` · SKU: ${spec.profile.catalog.sku}` : ""}. A hiányzó értékeket kézzel pótolhatod; a katalógus nem módosul.</p>}
     <div className="construction-suite-form-grid">{MATERIAL_SPEC_FIELDS[group].map(renderField)}</div>
     {spec.overriddenKeys.length > 0 && <button type="button" className="material-spec-restore is-block" onClick={() => onChange(restoreProductValues(state, spec))}>Termékadatok visszaállítása</button>}

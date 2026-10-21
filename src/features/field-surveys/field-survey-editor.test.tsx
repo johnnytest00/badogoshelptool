@@ -281,8 +281,8 @@ describe("field survey editor", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofRecord} revisionVersions={[2, 1]} historicalRevision={revision} />);
     expect(html).toContain("Szarufa legnagyobb osztása");
     expect(html).toContain("2500 mm");
-    expect(html).toContain("Szarufa geometriai mennyisége: 10 geometriai tengely/vonal · 50 m");
-    expect(html).toContain("Léc geometriai mennyisége: 11 geometriai tengely/vonal · 110 m");
+    expect(html).toContain("Szarufa geometriai mennyisége: 10 geometriai tengely/vonal · 50,00 m");
+    expect(html).toContain("Léc geometriai mennyisége: 11 geometriai tengely/vonal · 110,00 m");
     expect(html).toContain("Fizikai kiosztás nem igazolt");
     expect(html).toContain("fizikai faelem tagolását és szerkezeti kialakítást nem igazol");
   });
@@ -315,6 +315,8 @@ describe("field survey editor", () => {
     const html = renderToStaticMarkup(<FieldSurveyEditor organizationId={survey.organizationId} projects={[]} survey={roofSurvey(type, "incomplete")} />);
     expect(html).not.toContain('class="technical-drawing is-compact"');
     expect(html).toContain("Még hiányzik:"); expect(html).not.toContain("megadása után jelenik meg");
+    // A rajz helye megmarad, de néma: nem ígér rajzot és nem rajzol geometriát.
+    expect(html).toContain('class="technical-drawing survey-drawing-placeholder" aria-hidden="true"');
     expect(["value=\"10\"", "value=\"10000\"", "value=\"6000\""].some((value) => html.includes(value))).toBe(true);
   });
 

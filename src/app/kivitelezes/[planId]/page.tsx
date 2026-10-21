@@ -37,7 +37,7 @@ export default async function ExecutionPlanPage({ params, searchParams }: Readon
   const planMaterialLists = materialLists.filter((list) => list.executionPlanId === plan.id);
   const listCandidates: LinkCandidate[] = materialLists.filter((list) => list.executionPlanId !== plan.id).map((list) => ({ kind: "material_list", documentId: list.id, name: list.name, detail: `Anyaglista · V${list.version}` }));
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
-    <BackNavigation href={`/kivitelezes?organization=${organizationId}`} label="Munkanaplók" />
+    <BackNavigation href={`/kivitelezes?organization=${organizationId}`} label="Vissza a munkanaplókhoz" />
     <GlassPageHeader title={plan.title} context="Munkanapló" />
     <ExecutionPlanning organizationId={organizationId} projectId={planOption.projectId} projectName={project?.name ?? ""} clientName={project?.clientName ?? null} location={project?.location ?? null} plans={workspace.plans} acceptedQuotations={workspace.acceptedQuotations} timelineByPlan={workspace.timelineByPlan} initialPlanId={plan.id} showHeading={false} showDescription={false} showPlanTabs={false} />
     <GlassDisclosure className="execution-workflow-links" summary={`Ebben a naplóban készült anyaglisták · ${planMaterialLists.length}`}>

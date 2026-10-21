@@ -8,9 +8,11 @@ import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { AnchoredPopover } from "@/components/ui/anchored-popover";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
+import { BackNavigation } from "@/components/navigation/back-navigation";
 import { detailedGableTemplates, detailedVergeTemplates, fieldSurveySemanticTypeLabels, fieldSurveyTemplates, quickGableTemplates, quickShedTemplates, fieldSurveyUnitLabels, fieldSurveyWorkTypeLabels, type FieldSurveyMeasurement, type FieldSurveySemanticType, type FieldSurveyUnit, type FieldSurveyWorkType } from "@/domain/field-surveys/contracts";
 import { surveySections, surveySectionsSchema, type SurveySection, type SurveyCalculationLink, type SurveyExecutionPlanLink, type SurveyFollowup } from "@/domain/field-surveys/workspace";
-import { moveDraftAside, newSurveyTarget, resolveRecovery, removeSurveyDraftRecovery, serializeSurveyDraftSections, surveyDraftKey, writeSurveyDraftRecovery, type SurveyDraftRecovery, type SurveyMeasurementDraft, type SurveySectionDraft } from "./survey-draft-recovery";
+import { moveDraftAside, newSurveyTarget, resolveRecovery, removeSurveyDraftRecovery, roofDetailDraft, serializeSurveyDraftSections, surveyDraftKey, writeSurveyDraftRecovery, type SurveyDraftRecovery, type SurveyMeasurementDraft, type SurveySectionDraft } from "./survey-draft-recovery";
+import { SurveyRoofDetails } from "./survey-roof-details";
 import { saveFieldSurveyAction } from "./field-survey-actions";
 import type { FieldSurveyRecord, FieldSurveyRevisionRecord } from "./field-survey-data";
 import { FieldSurveyPhotos } from "./field-survey-photos";
@@ -69,7 +71,7 @@ const initialWorkTypeOptions: readonly { type: FieldSurveyWorkType; label: strin
   { type: "roof", label: "Tető", hint: "Tetőforma és méretek" },
   { type: "other", label: "Egyéb munka", hint: "Tetőforma nélkül mérhető munka" },
 ];
-const draftSections = (sections: SurveySection[]): SectionDraft[] => sections.map((section) => ({ ...section, measurements: section.measurements.map((measurement) => ({ ...measurement, value: measurement.value === null ? "" : String(measurement.value).replace(".", ","), semanticType: measurement.semanticType ?? "custom" })) }));
+const draftSections = (sections: SurveySection[]): SectionDraft[] => sections.map((section) => ({ ...section, roofDetails: section.roofDetails?.map(roofDetailDraft), measurements: section.measurements.map((measurement) => ({ ...measurement, value: measurement.value === null ? "" : String(measurement.value).replace(".", ","), semanticType: measurement.semanticType ?? "custom" })) }));
 const initialSections = (survey?: FieldSurveyRecord | null): SectionDraft[] => survey ? draftSections(surveySections(survey)) : [{ id: "00000000-0000-4000-8000-000000000002", name: "Tető", workType: "roof", notes: "", photoIds: [], measurements: [emptyMeasurement("roof", "00000000-0000-4000-8000-000000000001")] }];
 const serialize = serializeSurveyDraftSections;
 const emptyRelationships: { calculations: SurveyCalculationLink[]; followups: SurveyFollowup[]; executionPlans: [] } = { calculations: [], followups: [], executionPlans: [] };
@@ -479,7 +481,8 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
   const revisionSelector = surveyId && revisionVersions.length > 1 && <label className="field-survey-field"><span>Felmérés változata</span><select value={selectedVersion} disabled={blocked} onChange={(event) => navigate(`/felmeresek/${surveyId}?organization=${organizationId}${Number(event.target.value) === version ? "" : `&version=${event.target.value}`}`)}>{[...new Set([version, ...revisionVersions])].map((item) => <option key={item} value={item}>{item === version ? "Aktuális" : "Korábbi"} · V{item}</option>)}</select></label>;
   if (historicalRevision && surveyId) return <section className="field-survey-card"><GlassPageHeader title="Korábbi felmérés" context={`V${historicalRevision.version}`} />{revisionSelector}<WorkspaceSummary organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} sections={surveySections(historicalRevision)} calculations={relationships.calculations} initialFollowups={relationships.followups.filter((row) => row.surveyRevisionId === historicalRevision.id)} originalProjectId={historicalRevision.projectId} readOnly /><FieldSurveyPhotos organizationId={organizationId} surveyId={surveyId} version={historicalRevision.version} historical onVersionChange={() => undefined} onEnsureSaved={async () => null} onUploadComplete={() => undefined} /><button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek/${surveyId}?organization=${organizationId}`)}>Aktuális felmérés folytatása</button></section>;
   return <section className={`field-survey-card${active.workType === "roof" && active.roofType ? " field-survey-card-roof" : ""}`}>
-    <GlassPageHeader title={surveyId ? "Felmérés szerkesztése" : "Új felmérés"} context={surveyId ? `V${version}` : undefined} actions={<button type="button" className="secondary-button" onClick={() => navigate(`/felmeresek?organization=${organizationId}`)}>Vissza a felmérésekhez</button>} />
+    <BackNavigation href={`/felmeresek?organization=${organizationId}`} label="Vissza a felmérésekhez" />
+    <GlassPageHeader title={surveyId ? "Felmérés szerkesztése" : "Új felmérés"} context={surveyId ? `V${version}` : undefined} />
     {!needsInitialWorkTypeChoice && <div className={`survey-savebar is-${saveBarState}`}>
       <p className="survey-savebar-status" role="status" aria-live="polite"><SaveBarIcon aria-hidden="true" className={`size-4${saveBarState === "saving" ? " animate-spin" : ""}`} /><span>{saveBarLabels[saveBarState]}</span></p>
       <button type="submit" form="field-survey-editor-form" className={`${saveIdle ? "secondary-button is-idle" : "primary-button"} survey-savebar-save`} aria-disabled={saveReason ? true : undefined} aria-describedby={saveReason ? "survey-save-reason" : undefined} title={saveReason || undefined} onClick={(event) => { if (saveReason) { event.preventDefault(); notify({ kind: "info", message: saveReason }); } }}>{saving ? "Mentés…" : "Mentés"}</button>
@@ -587,6 +590,7 @@ export function FieldSurveyEditor({ organizationId, userId, projects, executionP
             <button type="button" className="field-survey-add" disabled={measurementAddPending} onClick={(event) => addMeasurement(undefined, event)}><Plus aria-hidden="true" className="size-4" />Mérés hozzáadása</button><GlassDisclosure className="field-survey-template-details" summary="Másik sablonmérés hozzáadása">{fieldSurveyTemplates[active.workType].map((template) => <button type="button" key={template.label} disabled={measurementAddPending} onClick={(event) => addMeasurement(template, event)}>{template.label} · {fieldSurveyUnitLabels[template.unit]}</button>)}</GlassDisclosure>
           </>}
         </section> : null}
+        {active.workType === "roof" && <SurveyRoofDetails details={active.roofDetails ?? []} disabled={blocked || Boolean(recovery)} newId={generateSecureUuid} onChange={(roofDetails) => patchSection({ roofDetails })} />}
         <GlassDisclosure className="survey-section-more" summary={<>Másik munkaszakasz hozzáadása<span className="survey-optional-badge">Opcionális</span></>}><div className="survey-section-settings-actions"><button type="button" className="secondary-button" onClick={() => addSection("roof")}><Plus aria-hidden="true" className="size-4" />Új tetőszakasz</button><button type="button" className="secondary-button" onClick={() => addSection("other")}><Plus aria-hidden="true" className="size-4" />Új egyéb szakasz</button></div></GlassDisclosure>
 
         <GlassDisclosure className="survey-section-more" summary={<>További szakaszbeállítások<span className="survey-optional-badge">Opcionális</span></>}>
@@ -630,7 +634,11 @@ function SurveyRoofPreview({ roofType, roofTimberParameters, onRoofTimberParamet
     className="roof-workspace-survey"
     label="Felmérés tetőmérési munkaterülete"
     measurements={measurementInputs}
-    drawing={geometry ? <TechnicalDrawing output={gableOutput ?? undefined} geometry={gableOutput ? undefined : geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} isSaved={saved} /> : null}
+    drawing={geometry
+      ? <TechnicalDrawing output={gableOutput ?? undefined} geometry={gableOutput ? undefined : geometry} timberLayout={timberLayout?.status === "available" ? timberLayout : null} underlayLayout={underlayLayout} compact activeDimension={activeDimension} activeDimensionDescription={activeDimensionDescription} onDimensionSelect={onDimensionSelect} isSaved={saved} />
+      // A rajz helye hiányos geometriánál is megmarad, hogy a mezők ne nyúljanak szét és a rajz ne ugorjon be később.
+      // Néma dísz: nem ígér rajzot és nem rajzol geometriát — a hiányzó adatokat továbbra is a „Még hiányzik” üzenet mondja ki.
+      : <div className="technical-drawing survey-drawing-placeholder" aria-hidden="true" />}
     results={!geometry
       ? previewIssue && <p className="missing-data" role={previewIssue.kind === "invalid" ? "alert" : "status"}>{previewIssue.message}</p>
       : <><RoofGeometryResults geometry={geometry} compact /><RoofTimberQuantityPanel geometry={geometry} value={roofTimberParameters} onChange={onRoofTimberParametersChange} /><RoofUnderlayQuantityPanel geometry={geometry} value={roofUnderlayParameters} onChange={onRoofUnderlayParametersChange} /></>}

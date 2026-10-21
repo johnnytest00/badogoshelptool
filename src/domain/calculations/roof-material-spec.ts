@@ -46,7 +46,9 @@ export const MATERIAL_SPEC_FIELDS: Readonly<Record<MaterialGroup, readonly SpecF
 };
 
 /** Identity of the Anyagkezelő record a profile was read from; absent for DEMO samples. */
-export type CatalogIdentity = Readonly<{ productId: string; variantId: string; productName: string; variantName: string; manufacturerName: string | null; sku: string | null; purchasingUnit: string }>;
+export type CatalogIdentity = Readonly<{ productId: string; variantId: string; productName: string; variantName: string; manufacturerName: string | null; sku: string | null; purchasingUnit: string; categoryId: string; categoryName: string;
+  /** False when the product's technical category does not fit this group: general dimensions are then NOT reused, only explicit calculator keys. */
+  categoryMatch: boolean }>;
 
 export type MaterialProfile = Readonly<{
   id: string;
