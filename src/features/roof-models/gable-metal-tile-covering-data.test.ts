@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createClient } from "@/infrastructure/supabase/server";
 import { listGableMetalTileCoverings } from "./gable-metal-tile-covering-data";
-import { GABLE_METAL_TILE_COVERING_ID } from "./gable-metal-tile-covering-persistence";
+import { calculateMetalTileSnapshot, GABLE_METAL_TILE_COVERING_ID } from "./gable-metal-tile-covering-persistence";
 
 vi.mock("@/features/auth/auth.server", () => ({ getAuthContext: vi.fn(async () => ({ organizations: [{ id: "org" }] })) }));
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: vi.fn() }));
@@ -68,5 +68,26 @@ describe("mentett cserepeslemez-fedések batch betöltése", () => {
     expect(result.revisions[0].revisionNumber).toBe(1001);
     expect(result.revisions.at(-1)?.revisionNumber).toBe(902);
     expect(fake.requests).toEqual(["calculations", "calculation_revisions", "calculation_revisions"]);
+  });
+
+  it("kulcsrendezéstől függetlenül elfogadja a meglévő snapshotot, mutáció nélkül", async () => {
+    const output = {
+      geometry: { dimensions: { lengthMm: 6000, widthMm: 10000 } },
+      covering: { courses: [{ lengthMm: 10000, widthMm: 1200, overlapMm: 100 }] },
+    };
+    vi.mocked(calculateMetalTileSnapshot).mockReturnValue({ geometry: output.geometry, output: output.covering } as never);
+    const savedRevision = revision("a1", "a", 1);
+    savedRevision.output_snapshot = {
+      covering: { courses: [{ overlapMm: 100, widthMm: 1200, lengthMm: 10000 }] },
+      geometry: { dimensions: { widthMm: 10000, lengthMm: 6000 } },
+    };
+    const snapshotBefore = structuredClone(savedRevision.output_snapshot);
+    const fake = fakeClient({ calculations: [calculation("a", "a1")], calculation_revisions: [savedRevision] });
+    vi.mocked(createClient).mockResolvedValue(fake.client as never);
+
+    const [result] = await listGableMetalTileCoverings("org");
+
+    expect(result.revisions).toHaveLength(1);
+    expect(savedRevision.output_snapshot).toEqual(snapshotBefore);
   });
 });

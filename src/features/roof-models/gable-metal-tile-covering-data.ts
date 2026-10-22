@@ -1,6 +1,7 @@
 import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
 import { calculateMetalTileSnapshot, GABLE_METAL_TILE_COVERING_ID, GABLE_METAL_TILE_COVERING_VERSION, METAL_TILE_INPUT_SCHEMA_VERSION } from "./gable-metal-tile-covering-persistence";
+import { stableJsonStringify } from "./stable-json";
 
 export type SavedMetalTileCoveringRevision = Readonly<{
   revisionId: string;
@@ -23,9 +24,6 @@ export type SavedMetalTileCovering = Readonly<{
   revisions: readonly SavedMetalTileCoveringRevision[];
 }>;
 
-const stable = (value: unknown): string => JSON.stringify(value, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item)
-  ? Object.fromEntries(Object.entries(item as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : item);
-
 async function authorized(organizationId: string) {
   const auth = await getAuthContext();
   return auth?.organizations.some((organization) => organization.id === organizationId) ?? false;
@@ -40,7 +38,7 @@ function validatedRevision(row: { id: string; revision_number: number; input_sna
   const calculated = calculateMetalTileSnapshot(input?.source?.geometryInput, input?.productInput);
   if (!calculated) return null;
   const expected = { geometry: calculated.geometry, covering: calculated.output };
-  if (stable(expected) !== stable(row.output_snapshot)) return null;
+  if (stableJsonStringify(expected) !== stableJsonStringify(row.output_snapshot)) return null;
   return { revisionId: row.id, revisionNumber: row.revision_number, scope: input.scope as "project" | "standalone", input: row.input_snapshot,
     output: expected, provenance: row.data_provenance, validationStatus: row.validation_status, createdAt: row.created_at };
 }

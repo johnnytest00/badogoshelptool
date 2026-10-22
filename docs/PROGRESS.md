@@ -1,5 +1,36 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## F9.67 — Safe Snapshot JSON Helper Deduplication
+
+Státusz: **a három viselkedésazonos kulcsrendező helper egy közös TypeScript függvénybe került; snapshot/revízió/persistence contract változatlan.** A két saved-covering reader összehasonlításra használja, a trapezoidal panel pedig dirty state és edit-signature meghatározásra. A helper JSON.stringify replacere rekurzívan `localeCompare` szerint rendezi az objektumkulcsokat, a tömbök sorrendjét megtartja; sem decode, sem adatírás nem történik.
+
+- **TDD / parity:** a két régi loader tesztben előbb rögzítettem a nested, eltérő kulcssorrendű historikus output elfogadását és az input változatlanságát; ezek a régi kóddal 7/7 PASS voltak. Ezután a közös `stableJsonStringify` négy tesztje rögzíti az objektum/tömb sorrendet, null/undefined, IEEE-754 JSON-kimenetet, fagyasztott bemenetet, BigInt `TypeError`-t és a ciklikus input korábbi `RangeError`-át.
+- **Érintett kód/teszt:** `src/features/roof-models/stable-json.ts`; a két covering data reader és a `gable-trapezoidal-covering-panel.tsx`; a dedikált helper, két reader és meglévő UX/persistence tesztek.
+- **Ellenőrzés:** fókuszteszt 6 fájl / 22 PASS; `npm run lint`, `npm run typecheck`, teljes `npm test` (159 fájl / 924 PASS, 8 fájl és 19 teszt SKIP), `npm run build` (Next.js 16.4.2 webpack, 32 statikus oldal) PASS. `git diff --check` végleges dokumentáció után.
+- **Adatintegritás:** nincs schema/migration, revision ID, képlet, snapshot formátum, mentett adat vagy Supabase-művelet változás. Böngésző- és DB-teszt nem futott; csak strukturális összehasonlítás és UI dirty-state kód érintett.
+- **Javasolt Conventional Commit:** `refactor: F9.67 share stable snapshot JSON serialization`
+
+## F9.66 — Safe Dependency Cleanup & Dead-Code Verification
+
+Státusz: **az igazoltan nem használt `liquid-glass-react@1.1.1` eltávolítva; további törlés nincs bizonyítva.** A kód/config/dinamikus belépők, tesztek, SSR/runtime oldalhatások, npm dependency graph és F9.39.1 kompatibilitási előzmény ellenőrizve. A saját CSS-tokenes Liquid Glass rendszer változatlan. Egy három helyen ismétlődő snapshot-JSON helper külön, kis hasznú deduplikációs jelölt; a legacy `/kalkulatorok/epitesi` redirect és minden migration/route megmaradt.
+
+- **Footprint:** runtime dependency 12→11; lock package rekord 350→349; telepített csomag 208 KiB volt; npm diff csak a package deklarációt és az egyetlen 14 soros lockbejegyzést távolította el.
+- **Ellenőrzés:** célzott Liquid Glass teszt 2 fájl / 8 PASS; lint, typecheck, teljes Vitest (158 fájl / 918 PASS, 8 fájl és 19 teszt SKIP), Next.js 16.4.2 webpack build PASS. `git diff --check` a végleges dokumentumok után újrafuttatva.
+- **Korlát:** böngésző smoke és DB teszt nem indokolt/nem futott, DB és üzleti adat nem változott. Knip nincs telepítve; teljes exported-symbol dead-code gráf ezért nem igazolt. Részletes jelöltek és evidence: [`CODE_CLEANUP_F9.66.md`](CODE_CLEANUP_F9.66.md).
+- **Javasolt Conventional Commit:** `chore: F9.66 remove unused liquid-glass dependency`
+
+## F9.65 — Anyagkatalógus- és kalkulátor-adatbetöltés optimalizálása
+
+Státusz: **megvalósítva és lokálisan ellenőrizve**. A kalkulátor hub dedikált profilreadje már nem tölti le az árverziókat és az Anyagkezelő számára szükséges mezőket. A takeoff két kategóriánkénti, legfeljebb 200 termékes rendezett olvasása megmarad, a gyártó/kategória/variáns/ár kapcsolati betöltő viszont csak egyszer fut. A Material Manager általános loaderje, ár-historyje, auth/RLS, snapshotok és számítási eredmények nem változtak.
+
+- **Azonos fixture, deterministic Supabase mock:** kalkulátor 6→4 kérés, 7→4 visszaadott sor, **2458→580 B** tömörítetlen JSON-válasz (**−76%**); üres katalógus 3→1 kérés. A kalkulátor profilok teljes kimenete megegyezik a régi teljes katalógus + domain profilépítő eredményével. Az új read csak a szükséges termék/gyártó/kategória/variáns mezőket választja ki, árat nem.
+- **Takeoff mock összevetés:** két nem üres kategórián 12→7 kérés (**−42%**), 13→10 visszaadott sor, **3052→2534 B** mock JSON-válasz (**−17%**); üres kategóriákon 6→2 kérés. A tetőfedés/lemez sorrend, piece variáns, műszaki adat, provenance, teljes ár-historyből származó effective latest price és `latestPrice` szabály megmaradt. A két külön termékkérés szándékos, hogy mindkét kategória saját 200-as limitje és rendezése változatlan legyen.
+- **Adatvédelem/konzisztencia:** minden új query explicit `organization_id` szűrésű és a meglévő SSR Supabase klienst/RLS-t használja; nincs privilegizált kliens, cache vagy árazási logika duplikálása. Külön szervezet és nem kért kategória fixture sora nem kerül az eredménybe. A történeti snapshot/írási kód érintetlen.
+- **Ellenőrzések:** RED→GREEN regressziós tesztek; célzott 2 fájl / 5 teszt PASS; `npm run lint` PASS; `npm run typecheck` PASS; teljes `npm test` **158 fájl, 918 PASS, 19 skip**; izolált Next 16.4.2 webpack `npm run build` PASS (32 statikus oldal); `git diff --check` PASS. Böngészős smoke és élő DB/RLS timing nem futott: a kliensoldali viselkedés változatlan, a mock mérések nem mutatnak valódi hálózati vagy adatbázis-időt.
+- **Mérési korlát:** a bájtok a tesztfixture kiválasztott JSON sorainak tömörítetlen méretei; nem tartalmaznak HTTP overheadet, compressiont vagy Postgres időt. A kalkulátor régi/új rekord- és byte-összehasonlítása ugyanazon, kisméretű DEMO-jellegű fixture-en történt. Production hatás nem állítható.
+- **Javasolt következő mérföldkő:** ha valós felhasználói méret mellett továbbra is lassú a katalógus, külön, RLS alatti request/timing mérés reprezentatív több gyártós/árverziós lokális fixture-rel; indexet vagy cache-t csak ilyen bizonyíték után mérlegeljünk.
+- **Javasolt Conventional Commit:** `perf: F9.65 narrow calculator and takeoff catalog reads`
+
 ## F9.64 — Backend-, adatbázis- és renderelési teljesítményaudit
 
 Státusz: **AUDIT COMPLETE — PASS WITH FINDINGS**. Kód- és migrációváltozás nélkül, külön production builden és helyi authenticated DEMO sessionben készült. Három read-only RLS `EXPLAIN (ANALYZE, BUFFERS)` terv lokálisan lefutott; a minimális adatmennyiség nem alkalmas production következtetésre. Két material/takeoff többletolvasási minta forrásból igazolt, runtime hatásuk nyitott. A böngészőben vizsgált dashboard, felmérés, kalkulátor és anyagkeresés működött; mért renderköltség nem igazolt szűk keresztmetszetet. CSS/GPU, mobil, quote/worklog runtime, memory-trend és szerveroldali route query-count nincs teljesen ellenőrizve.

@@ -1,6 +1,7 @@
 import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
 import { GABLE_TRAPEZOIDAL_COVERING_ID, calculateCoveringSnapshot } from "./gable-trapezoidal-covering-persistence";
+import { stableJsonStringify } from "./stable-json";
 
 export type SavedGableCoveringRevision = Readonly<{
   revisionId: string;
@@ -24,9 +25,6 @@ export type SavedGableCovering = Readonly<{
   revisions: readonly SavedGableCoveringRevision[];
 }>;
 
-const stable = (value: unknown): string => JSON.stringify(value, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item)
-  ? Object.fromEntries(Object.entries(item as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : item);
-
 async function authorized(organizationId: string) {
   const auth = await getAuthContext();
   return auth?.organizations.some((organization) => organization.id === organizationId) ?? false;
@@ -37,7 +35,7 @@ function validatedRevision(row: { id: string; revision_number: number; input_sna
   const calculated = calculateCoveringSnapshot(input?.source?.geometryInput, input?.coveringInput);
   if (!calculated) return null;
   const expected = { geometry: calculated.geometry, covering: calculated.output };
-  if (stable(expected) !== stable(row.output_snapshot)) return null;
+  if (stableJsonStringify(expected) !== stableJsonStringify(row.output_snapshot)) return null;
   if (input.scope !== "project" && input.scope !== "standalone") return null;
   return { revisionId: row.id, revisionNumber: row.revision_number, scope: input.scope, input: row.input_snapshot, output: expected, provenance: row.data_provenance, validationStatus: row.validation_status, createdAt: row.created_at };
 }

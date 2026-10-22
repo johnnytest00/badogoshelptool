@@ -1,6 +1,6 @@
 import { createClient } from "@/infrastructure/supabase/server";
 import { GABLE_CALCULATOR_ID, GABLE_CALCULATOR_VERSION, GABLE_INPUT_SCHEMA_VERSION, gableRoofCalculator } from "@/domain/calculations/gable-roof";
-import { getMaterialProductsForOrganization, type MaterialPriceRecord, type MaterialVariantRecord } from "@/features/materials/material-data";
+import { getMaterialProductsForOrganization, getMaterialProductsForCategories, type MaterialPriceRecord, type MaterialVariantRecord } from "@/features/materials/material-data";
 import { materialPurchasingUnitLabels, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
 
 export type SavedGableCalculation = { id: string; revisionId: string; displayName: string; revisionNumber: number; current: boolean; output: ReturnType<typeof gableRoofCalculator.calculate> };
@@ -98,11 +98,8 @@ export async function getTakeoffVariants(organizationId: string): Promise<Materi
 }
 
 export async function getGableCoveringTakeoffOptions(organizationId: string): Promise<GableCoveringTakeoffOption[]> {
-  const [roofCovering, sheetMetal] = await Promise.all([
-    getMaterialProductsForOrganization(organizationId, { category: "roof_covering" }),
-    getMaterialProductsForOrganization(organizationId, { category: "sheet_metal" }),
-  ]);
-  return [...roofCovering, ...sheetMetal].filter((product) => product.status === "active")
+  const products = await getMaterialProductsForCategories(organizationId, ["roof_covering", "sheet_metal"]);
+  return products.filter((product) => product.status === "active")
     .flatMap((product) => product.variants.filter((variant) => variant.purchasingUnit === "piece").map((variant) => ({
       id: variant.id, productId: product.id, productName: product.name, productCode: product.productCode,
       productCategory: product.category as "roof_covering" | "sheet_metal", variantName: variant.name,

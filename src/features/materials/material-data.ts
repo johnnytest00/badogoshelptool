@@ -2,6 +2,7 @@ import { createClient } from "@/infrastructure/supabase/server";
 import type { Database } from "@/infrastructure/supabase/database";
 import { buildPriceOptions, defaultPrice, type PriceOption, type PriceOptionRow } from "@/domain/pricing";
 import { materialFilterSchema, type MaterialCategory, type MaterialPriceKind, type MaterialProvenance, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
+import { catalogProfilesFromProducts, type CatalogProductInput } from "@/domain/calculations/roof-material-catalog";
 
 type ManufacturerRow = Database["public"]["Tables"]["material_manufacturers"]["Row"];
 type CategoryRow = Database["public"]["Tables"]["material_categories"]["Row"];
@@ -51,6 +52,57 @@ export async function getMaterialProductsForOrganization(organizationId: string,
   const filters = materialFilterSchema.parse(rawFilters); const supabase = await createClient(); let query = supabase.from("material_products").select("id, organization_id, manufacturer_id, category, category_id, name, description, product_code, status, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at, updated_at").eq("organization_id", organizationId).order("updated_at", { ascending: false }).limit(200);
   if (filters.search) query = query.or(`name.ilike.%${filters.search}%,product_code.ilike.%${filters.search}%`); if (filters.category) query = query.eq("category", filters.category); if (filters.categoryId) query = query.eq("category_id", filters.categoryId); if (filters.manufacturerId) query = query.eq("manufacturer_id", filters.manufacturerId); if (!filters.includeArchived) query = query.eq("status", "active");
   const { data, error } = await query; if (error) throw new Error("Az anyagkatalógus betöltése nem sikerült."); const products = data ?? []; const related = await loadRelated(supabase, organizationId, products); return products.map((row) => mapProduct(row, related.manufacturers, related.categories, related.variantRecords ? [...related.variantRecords.values()].filter((item) => item.productId === row.id) : []));
+}
+
+/** Calculator profiles need technical catalog fields, but never material price history. */
+export async function getCalculatorMaterialProfiles(organizationId: string) {
+  const supabase = await createClient();
+  const { data: products, error: productError } = await supabase.from("material_products")
+    .select("id, manufacturer_id, category, category_id, name, status, data_provenance, source_name")
+    .eq("organization_id", organizationId).eq("status", "active").order("updated_at", { ascending: false }).limit(200);
+  if (productError) throw new Error("Az anyagkatalógus betöltése nem sikerült.");
+  if (!products?.length) return [];
+
+  const manufacturerIds = [...new Set(products.flatMap((product) => product.manufacturer_id ? [product.manufacturer_id] : []))];
+  const categoryIds = [...new Set(products.map((product) => product.category_id))];
+  const productIds = products.map((product) => product.id);
+  const [{ data: manufacturers, error: manufacturerError }, { data: categories, error: categoryError }, { data: variants, error: variantError }] = await Promise.all([
+    manufacturerIds.length ? supabase.from("material_manufacturers").select("id, name").eq("organization_id", organizationId).in("id", manufacturerIds) : Promise.resolve({ data: [], error: null }),
+    supabase.from("material_categories").select("id, name, is_active").eq("organization_id", organizationId).in("id", categoryIds),
+    supabase.from("material_variants").select("id, product_id, name, sku, purchasing_unit, nominal_width_mm, effective_width_mm, length_mm, technical_specs, data_provenance, source_name").eq("organization_id", organizationId).in("product_id", productIds).order("name"),
+  ]);
+  if (manufacturerError || categoryError || variantError) throw new Error("Az anyagkapcsolatok betöltése nem sikerült.");
+
+  const manufacturerNames = new Map((manufacturers ?? []).map((item) => [item.id, item.name]));
+  const categoryById = new Map((categories ?? []).map((item) => [item.id, item]));
+  const variantsByProduct = new Map<string, CatalogProductInput["variants"][number][]>();
+  for (const variant of variants ?? []) {
+    const technicalSpecs = variant.technical_specs && typeof variant.technical_specs === "object" && !Array.isArray(variant.technical_specs) ? variant.technical_specs as Record<string, string> : {};
+    const list = variantsByProduct.get(variant.product_id) ?? [];
+    list.push({ id: variant.id, name: variant.name, sku: variant.sku, purchasingUnit: variant.purchasing_unit, nominalWidthMm: variant.nominal_width_mm === null ? null : Number(variant.nominal_width_mm), effectiveWidthMm: variant.effective_width_mm === null ? null : Number(variant.effective_width_mm), lengthMm: variant.length_mm === null ? null : Number(variant.length_mm), technicalSpecs, provenance: variant.data_provenance, sourceName: variant.source_name });
+    variantsByProduct.set(variant.product_id, list);
+  }
+  return catalogProfilesFromProducts(products.map((product) => {
+    const category = categoryById.get(product.category_id);
+    return { id: product.id, name: product.name, manufacturerName: product.manufacturer_id ? manufacturerNames.get(product.manufacturer_id) ?? null : null, category: product.category, categoryId: product.category_id, categoryName: category?.name ?? materialCategoryFallback(product.category), categoryActive: category?.is_active ?? false, status: product.status, provenance: product.data_provenance, sourceName: product.source_name, variants: variantsByProduct.get(product.id) ?? [] } satisfies CatalogProductInput;
+  }));
+}
+
+/** Loads full catalog records for several categories while sharing the related-row reads. */
+export async function getMaterialProductsForCategories(organizationId: string, requestedCategories: readonly MaterialCategory[]) {
+  const categories = [...new Set(requestedCategories)];
+  if (!categories.length) return [];
+  const supabase = await createClient();
+  const productGroups = await Promise.all(categories.map(async (category) => {
+    const query = supabase.from("material_products").select("id, organization_id, manufacturer_id, category, category_id, name, description, product_code, status, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at, updated_at").eq("organization_id", organizationId).eq("category", category).eq("status", "active").order("updated_at", { ascending: false }).limit(200);
+    const { data, error } = await query;
+    if (error) throw new Error("Az anyagkatalógus betöltése nem sikerült.");
+    return data ?? [];
+  }));
+  const products = productGroups.flat();
+  if (!products.length) return [];
+  const related = await loadRelated(supabase, organizationId, products);
+  return products.map((row) => mapProduct(row, related.manufacturers, related.categories, related.variantRecords ? [...related.variantRecords.values()].filter((item) => item.productId === row.id) : []));
 }
 
 export async function getMaterialProductForOrganization(organizationId: string, productId: string) { const products = await getMaterialProductsForOrganization(organizationId, { includeArchived: true }); return products.find((item) => item.id === productId) ?? null; }

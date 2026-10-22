@@ -10,6 +10,7 @@ import { calculateGableTrapezoidalCovering, gableTrapezoidalCoveringInputSchema,
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import { useAppInteraction } from "@/components/feedback/app-interaction-provider";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
+import { stableJsonStringify } from "./stable-json";
 import { coveringRevisionView, sameOrNewCoveringOperation, type CoveringOperation } from "./gable-trapezoidal-covering-ux";
 import { readGableTrapezoidalCovering, saveGableTrapezoidalCovering } from "./gable-trapezoidal-covering-actions";
 import type { SavedGableCovering, SavedGableCoveringRevision } from "./gable-trapezoidal-covering-data";
@@ -20,7 +21,6 @@ type Draft = { nominalSheetWidthMm: string; effectiveCoveringWidthMm: string; se
 const initial: Draft = { nominalSheetWidthMm: "", effectiveCoveringWidthMm: "", selectedSheetLengthMm: "", minimumSheetLengthMm: "", maximumSheetLengthMm: "", endAllowanceMm: "", longitudinalOverlapMm: "", lapCompatibilityConfirmed: false };
 const number = (value: string): number | null => value.trim() === "" ? null : Number(value.trim().replace(",", "."));
 const display = (value: number | null, unit: string) => value === null ? "—" : `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value)} ${unit}`;
-const stable = (value: unknown): string => JSON.stringify(value, (_key, item: unknown) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : item);
 const fields: { key: Exclude<keyof Draft, "lapCompatibilityConfirmed">; label: string }[] = [
   { key: "nominalSheetWidthMm", label: "Névleges lemezszélesség" }, { key: "effectiveCoveringWidthMm", label: "Hasznos fedési szélesség" },
   { key: "selectedSheetLengthMm", label: "Kiválasztott lemezhossz" }, { key: "minimumSheetLengthMm", label: "Megadott termékminimum" },
@@ -70,11 +70,11 @@ export function GableTrapezoidalCoveringPanel(props: Readonly<Props>) {
   const coveringInput = useMemo<GableTrapezoidalCoveringInput>(() => ({ nominalSheetWidthMm: number(draft.nominalSheetWidthMm), effectiveCoveringWidthMm: number(draft.effectiveCoveringWidthMm), selectedSheetLengthMm: number(draft.selectedSheetLengthMm), minimumSheetLengthMm: number(draft.minimumSheetLengthMm), maximumSheetLengthMm: number(draft.maximumSheetLengthMm), endAllowanceMm: number(draft.endAllowanceMm), longitudinalOverlapMm: number(draft.longitudinalOverlapMm), lapCompatibilityConfirmed: draft.lapCompatibilityConfirmed, maximumSheetCount: 100_000 }), [draft]);
   const calculated = useMemo(() => calculateGableTrapezoidalCovering(sourceGeometry, coveringInput), [sourceGeometry, coveringInput]);
   const savedInput = selected ? coveringRevisionView(selected).coveringInput : null;
-  const dirty = Boolean(selected ? stable(coveringInput) !== stable(savedInput) || name !== saved?.displayName || (props.mode === "standalone" && stable(props.geometryInput) !== stable(selectedSource?.geometryInput)) || useLatestSource : fields.some((field) => draft[field.key].trim()) || draft.lapCompatibilityConfirmed);
+  const dirty = Boolean(selected ? stableJsonStringify(coveringInput) !== stableJsonStringify(savedInput) || name !== saved?.displayName || (props.mode === "standalone" && stableJsonStringify(props.geometryInput) !== stableJsonStringify(selectedSource?.geometryInput)) || useLatestSource : fields.some((field) => draft[field.key].trim()) || draft.lapCompatibilityConfirmed);
   const shown: GableTrapezoidalCoveringOutput = selected && !dirty ? (selected.output as { covering: GableTrapezoidalCoveringOutput }).covering : calculated;
   const shownGeometry = selected && !dirty ? (selected.output as { geometry: GableRoofOutput }).geometry : sourceGeometry;
   useEffect(() => { props.onDirtyChange?.(dirty); }, [dirty, props.onDirtyChange]);
-  const editSignature = stable({ coveringInput, geometryInput: props.geometryInput, name, useLatestSource, viewedId });
+  const editSignature = stableJsonStringify({ coveringInput, geometryInput: props.geometryInput, name, useLatestSource, viewedId });
   useEffect(() => { if (lastEdit.current !== null && lastEdit.current !== editSignature) operation.current = null; lastEdit.current = editSignature; }, [editSignature]);
   const set = (key: keyof Draft, value: string | boolean) => { setDraft((current) => ({ ...current, [key]: value })); setFeedback(""); };
   const openRevision = async (revision: SavedGableCoveringRevision) => {
