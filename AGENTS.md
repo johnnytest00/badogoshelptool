@@ -1,5 +1,7 @@
 # TetőPro — Codex szabályok
 
+- A ténylegesen ellenőrzött Codex skill/plugin/MCP-leltár: [`docs/AI_TOOLING.md`](docs/AI_TOOLING.md). Feladat előtt mérlegeld a releváns eszközöket, de kizárólag indokolt esetben használd őket; új telepítést vagy aktiválást ne kezdeményezz külön kérés nélkül.
+
 - A `PROJECT_BLUEPRINT.md` az irányadó specifikáció; a fázishatárokat tartsd be.
 - Minden feladat: állapotfelmérés → rövid terv → célzott implementáció → tesztek → bizonyíték és dokumentáció.
 - Az alkalmazáskód TypeScriptben, a `src/` alatt maradjon; a rétegek függőségi iránya: UI → alkalmazás → domain, az infrastruktúra adapterként csatlakozik.

@@ -5020,3 +5020,13 @@ main[id="main-content"]:focus { outline: none; }
 @media (min-width: 32.5rem) {
   .execution-direct-plan-list li > a > .project-calculator-open { grid-column: 3; }
 }
+
+/* F9.60.1 — a felmérésoldalon a kártya az oldal első eleme, így az .field-survey-card
+   1,25rem-es felső margója üres sávot hagyott: a fejléc 20 px-szel lejjebb indult,
+   mint a többi oldalé. A lapkeret saját felső térköze elég. */
+.field-survey-page-container > .field-survey-card:first-child { margin-top: 0; }
+
+/* A felmérésoldal külső kártyájának nincs szegélye és érdemi háttere, de a közös üveg-szabály
+   visszaadta neki az `inset 0 1px 0` csillanást: ez önálló vízszintes vonalként látszott
+   a fejléc fölött, a tartalomoszlop teljes szélességében. */
+.field-survey-page-container > .field-survey-card { box-shadow: none; }
