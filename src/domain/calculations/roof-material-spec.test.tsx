@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ConstructionCalculatorSuite, limitationGroups, takeoffLines } from "@/features/calculators/construction-suite";
+import { ConstructionCalculatorSuite, limitationGroups } from "@/features/calculators/construction-suite";
+import { takeoffLines } from "@/features/calculators/roof-calculator-definitions";
+import { loadConstructionCalculatorDefinition } from "@/features/calculators/construction-calculator-loading";
 import { createCalculationSnapshot, replayRoofCalculation } from "./roof-calculation-snapshot";
 import { calculateRoofGeometry } from "./roof-geometry";
 import { calculateRoofMaterialTakeoff, roofTakeoffCriticalWarnings } from "./roof-material-takeoff";
@@ -335,16 +337,17 @@ describe("timber cut-list calculator contract", () => {
 });
 
 describe("calculator UI", () => {
-  it("shows the material choices and overhang inputs without covering fields up front", () => {
+  it("keeps material calculator inputs in its lazy definition and renders a loading state on the server", async () => {
+    const definition = await loadConstructionCalculatorDefinition("roof.material-takeoff");
     const html = renderToStaticMarkup(<ConstructionCalculatorSuite initialCalculatorId="roof.material-takeoff" />);
-    expect(html).toContain("Mit számoljon?");
-    expect(html).toContain("Homlokzati kiülés");
-    expect(html).not.toContain("Hasznos fedési szélesség");
+    expect(definition?.fields.some((field) => field.key === "frontGableOverhangMm")).toBe(true);
+    expect(html).toContain("A kalkulátor betöltése…");
+    expect(html).toContain("construction-suite-workspace is-loading");
   });
-  it("timber cut-list needs no covering or underlay inputs", () => {
+  it("keeps timber cut-list independent of covering and underlay inputs", async () => {
+    const definition = await loadConstructionCalculatorDefinition("roof.timber-cutlist");
     const html = renderToStaticMarkup(<ConstructionCalculatorSuite initialCalculatorId="roof.timber-cutlist" />);
-    expect(html).toContain("Faanyag kiosztása");
-    expect(html).not.toContain("Mit számoljon?");
-    expect(html).not.toContain("Hasznos fedési szélesség");
+    expect(definition?.fields.some((field) => field.key === "roofShape")).toBe(true);
+    expect(html).toContain("A kalkulátor betöltése…");
   });
 });

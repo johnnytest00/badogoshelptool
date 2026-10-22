@@ -3804,6 +3804,7 @@ html[data-glass-frame-free="true"] :is(
 .construction-suite-options button > span { overflow-wrap: anywhere; }
 .construction-suite-empty { color: var(--muted); font-size: .85rem; }
 .construction-suite-workspace { display: grid; gap: .8rem; }
+.construction-suite-workspace.is-loading { min-height: clamp(24rem, 58vh, 40rem); align-content: center; }
 .construction-suite-title { display: flex; align-items: center; gap: .75rem; min-width: 0; }
 .construction-suite-title h2 { margin: 0; color: var(--foreground); font-size: calc(1.25rem * var(--tp-text-scale)); line-height: 1.3; overflow-wrap: anywhere; }
 .construction-suite-title .section-eyebrow { margin: 0 0 .2rem; }

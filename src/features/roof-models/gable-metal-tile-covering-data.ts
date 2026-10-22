@@ -55,17 +55,29 @@ export async function listGableMetalTileCoverings(organizationId: string, projec
   query = projectId ? query.eq("ownership_scope", "project").eq("project_id", projectId) : query.eq("ownership_scope", "standalone");
   const { data: calculations, error } = await query;
   if (error) throw new Error("A mentett cserepeslemez-számítások listája nem tölthető be.");
-  return Promise.all((calculations ?? []).map(async (calculation) => {
-    const { data: rows, error: revisionError } = await supabase.from("calculation_revisions").select(revisionSelect)
-      .eq("organization_id", organizationId).eq("calculation_id", calculation.id)
+  if (!calculations?.length) return [];
+  const revisionsByCalculation = new Map<string, Array<Parameters<typeof validatedRevision>[0] & { calculation_id: string }>>();
+  let offset = 0;
+  while (true) {
+    const { data, error: revisionError } = await supabase.from("calculation_revisions").select(`calculation_id, ${revisionSelect}`)
+      .eq("organization_id", organizationId).in("calculation_id", calculations.map(({ id }) => id))
       .eq("input_schema_version", METAL_TILE_INPUT_SCHEMA_VERSION).eq("calculator_implementation_version", GABLE_METAL_TILE_COVERING_VERSION)
-      .order("revision_number", { ascending: false }).limit(100);
+      .order("calculation_id", { ascending: true }).order("revision_number", { ascending: false }).range(offset, offset + 999);
     if (revisionError) throw new Error("A cserepeslemez-számítás revíziói nem tölthetők be.");
-    const revisions = (rows ?? []).flatMap((row) => { const revision = validatedRevision(row, calculation); return revision ? [revision] : []; });
+    for (const row of data ?? []) {
+      const rows = revisionsByCalculation.get(row.calculation_id) ?? [];
+      if (rows.length < 100) rows.push(row);
+      revisionsByCalculation.set(row.calculation_id, rows);
+    }
+    if (!data || data.length < 1000) break;
+    offset += 1000;
+  }
+  return calculations.map((calculation) => {
+    const revisions = (revisionsByCalculation.get(calculation.id) ?? []).flatMap((row) => { const revision = validatedRevision(row, calculation); return revision ? [revision] : []; });
     const current = revisions.find((revision) => revision.revisionId === calculation.current_revision_id);
     return { calculationId: calculation.id, organizationId, projectId: calculation.project_id, roofModelId: calculation.roof_model_id,
       displayName: calculation.display_name, currentRevisionId: calculation.current_revision_id, currentRevisionNumber: current?.revisionNumber ?? 0, revisions };
-  }));
+  });
 }
 
 export async function getGableMetalTileCovering(organizationId: string, calculationId: string, revisionNumber?: number): Promise<SavedMetalTileCovering | null> {

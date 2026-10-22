@@ -7,7 +7,7 @@ import { mapFieldSurveyToCalculator } from "@/domain/field-surveys/calculator-ha
 import { completeSectionMeasurements, surveySections } from "@/domain/field-surveys/workspace";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { getFieldSurvey, getFieldSurveyRevision } from "./field-survey-data";
-import { getRoofModelsForProject } from "@/features/roof-models/roof-model-data";
+import { getRoofModelsForProject, type RoofModelRecord } from "@/features/roof-models/roof-model-data";
 import { createClient } from "@/infrastructure/supabase/server";
 import { persistGableRoof } from "@/infrastructure/supabase/gable-roof-writer";
 import { calculateRoofGeometry, type RoofGeometry, type RoofGeometryInput } from "@/domain/calculations/roof-geometry";
@@ -56,26 +56,38 @@ function geometryFromSection(revision: Awaited<ReturnType<typeof getFieldSurveyR
   return revision ? gableGeometryFromSurveySection(revision, section) : null;
 }
 
+const batches = <T,>(items: T[], size = 100) => Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
+
 export async function listVerifiedSurveyRoofs(raw: z.infer<typeof sourceSchema>): Promise<VerifiedSurveyRoof[]> {
   const input = sourceSchema.parse(raw);
   const { projectId, revision, section } = await exactSurveySource(input);
   const currentSurveyInput = geometryFromSection(revision, section);
   const models = await getRoofModelsForProject(input.organizationId, projectId);
+  const candidates = models.filter((model): model is RoofModelRecord & { roofType: "gable"; currentRevisionId: string; currentInput: GableRoofInput; currentCalculationId: string; currentCalculationRevisionId: string } =>
+    model.roofType === "gable" && model.currentRevisionId !== null && model.currentInput !== null && model.currentCalculationId !== null && model.currentCalculationRevisionId !== null);
+  if (!candidates.length) return [];
   const client = await createClient();
-  return (await Promise.all(models.map(async (model) => {
-    if (model.roofType !== "gable" || !model.currentRevisionId || !model.currentInput || !model.currentCalculationId || !model.currentCalculationRevisionId) return [];
-    // Ellenőrzött forrás: verified tetőmodell-revízió, verified számításrevízió, köztük tárolt függőség, és a tárolt eredmény megegyezik a motor eredményével.
-    const [{ data: modelRevision }, { data: result }, { data: dependency }] = await Promise.all([
-      client.from("roof_model_revisions").select("id").eq("organization_id", input.organizationId).eq("id", model.currentRevisionId).eq("roof_model_id", model.id).eq("validation_status", "verified").maybeSingle(),
-      client.from("calculation_revisions").select("id, output_snapshot").eq("organization_id", input.organizationId).eq("id", model.currentCalculationRevisionId).eq("calculation_id", model.currentCalculationId).eq("validation_status", "verified").maybeSingle(),
-      client.from("calculation_dependencies").select("id").eq("downstream_calculation_revision_id", model.currentCalculationRevisionId).eq("upstream_roof_model_revision_id", model.currentRevisionId).maybeSingle(),
-    ]);
-    if (!modelRevision || !result || !dependency) return [];
+  const [modelRevisionBatches, calculationRevisionBatches, dependencyBatches] = await Promise.all([
+    Promise.all(batches(candidates.map((model) => model.currentRevisionId)).map((ids) => client.from("roof_model_revisions").select("id, roof_model_id")
+      .eq("organization_id", input.organizationId).in("id", ids).eq("validation_status", "verified"))),
+    Promise.all(batches(candidates.map((model) => model.currentCalculationRevisionId)).map((ids) => client.from("calculation_revisions").select("id, calculation_id, output_snapshot")
+      .eq("organization_id", input.organizationId).in("id", ids).eq("validation_status", "verified"))),
+    Promise.all(batches(candidates.map((model) => model.currentCalculationRevisionId)).map((ids) => client.from("calculation_dependencies").select("downstream_calculation_revision_id, upstream_roof_model_revision_id")
+      .eq("organization_id", input.organizationId).in("downstream_calculation_revision_id", ids))),
+  ]);
+  const modelRevisions = new Map(modelRevisionBatches.flatMap(({ data }) => data ?? []).map((row) => [row.id, row]));
+  const calculationRevisions = new Map(calculationRevisionBatches.flatMap(({ data }) => data ?? []).map((row) => [row.id, row]));
+  const dependencies = new Set(dependencyBatches.flatMap(({ data }) => data ?? []).map((row) => `${row.downstream_calculation_revision_id}:${row.upstream_roof_model_revision_id}`));
+  return candidates.flatMap((model) => {
+    const modelRevision = modelRevisions.get(model.currentRevisionId);
+    const result = calculationRevisions.get(model.currentCalculationRevisionId);
+    const dependency = `${model.currentCalculationRevisionId}:${model.currentRevisionId}`;
+    if (!modelRevision || modelRevision.roof_model_id !== model.id || !result || result.calculation_id !== model.currentCalculationId || !dependencies.has(dependency)) return [];
     const output = calculateGableRoof(model.currentInput);
     const stored = result.output_snapshot as { lengths?: Record<string, unknown> } | null;
     if (stored?.lengths?.eachEaveEdgeMm !== output.lengths.eachEaveEdgeMm || stored.lengths.ridgeLineMm !== output.lengths.ridgeLineMm || stored.lengths.eachSlopingGableEdgeMm !== output.lengths.eachSlopingGableEdgeMm) return [];
     return [{ roofModelId: model.id, roofModelRevisionId: model.currentRevisionId, roofModelRevisionNumber: model.currentRevisionNumber, calculationId: model.currentCalculationId, calculationRevisionId: model.currentCalculationRevisionId, name: model.name, input: model.currentInput, output, matchesCurrentSurvey: Boolean(currentSurveyInput && JSON.stringify(currentSurveyInput) === JSON.stringify(model.currentInput)) }];
-  }))).flat();
+  });
 }
 
 export async function saveSurveyRoofGeometry(raw: z.infer<typeof saveSchema>): Promise<{ ok: true; source: VerifiedSurveyRoof; linked: boolean; linkError?: string } | { ok: false; error: string }> {

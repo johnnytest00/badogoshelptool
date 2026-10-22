@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ConstructionCalculatorSuite } from "@/features/calculators/construction-suite";
 import { ConstructionCalculatorThumbnail, ConstructionMaterialDrawing, ConstructionStairDrawing } from "@/features/calculators/construction-visuals";
+import { loadConstructionCalculatorDefinition } from "@/features/calculators/construction-calculator-loading";
 
 const straight = { totalRiseMm: "2800", availableRunMm: "4200", riserCount: "16", stairWidthMm: "900" };
 const landing90 = { totalRiseMm: "3000", stairWidthMm: "900", goingMm: "250", firstFlightRiserCount: "8", secondFlightRiserCount: "8", landingDepthMm: "900", turnDirection: "right" };
@@ -62,15 +62,13 @@ const inputCases: ReadonlyArray<{ id: string; required: readonly string[]; optio
 ];
 
 describe("F9.38.1 construction drawing and legend coverage", () => {
-  it.each(inputCases)("marks only the essential inputs as required for $id", ({ id, required, optional = [] }) => {
-    const html = renderToStaticMarkup(<ConstructionCalculatorSuite initialCalculatorId={id} />);
-    for (const key of required) {
-      expect(html).toMatch(new RegExp(`<(?:(?:input)|(?:select))[^>]*\\bid="${key}"[^>]*\\brequired=""`));
-    }
-    for (const key of optional) {
-      expect(html).toMatch(new RegExp(`<(?:(?:input)|(?:select))[^>]*\\bid="${key}"`));
-      expect(html).not.toMatch(new RegExp(`<(?:(?:input)|(?:select))[^>]*\\bid="${key}"[^>]*\\brequired=""`));
-    }
+  it.each(inputCases)("keeps required and optional field metadata for $id", async ({ id, required, optional = [] }) => {
+    const definition = await loadConstructionCalculatorDefinition(id);
+    const fields = new Map(definition?.fields.map((field) => [field.key, field]));
+    for (const key of required) expect(fields.get(key)).toBeDefined();
+    for (const key of optional) expect(fields.get(key)).toBeDefined();
+    expect(required.filter((key) => fields.get(key)?.advanced || fields.get(key)?.initial !== undefined)).toEqual([]);
+    expect(optional.filter((key) => !fields.get(key)?.advanced && fields.get(key)?.initial === undefined)).toEqual([]);
   });
 
   it.each(stairCases)("renders a text-free, accessible drawing and matching legend for %s · %s", (referenceId, values, initialView) => {
@@ -99,13 +97,11 @@ describe("F9.38.1 construction drawing and legend coverage", () => {
     expect(html).not.toContain("Infinity");
   });
 
-  it("keeps 360° and steel density explicit instead of silently defaulting them", () => {
-    const spiral = renderToStaticMarkup(<ConstructionCalculatorSuite initialCalculatorId="stair.wood.spiral" />);
-    const bars = renderToStaticMarkup(<ConstructionCalculatorSuite initialCalculatorId="concrete.rebar" />);
-    expect(spiral).toContain("Teljes fordulási szög");
-    expect(spiral).not.toContain('value="360"');
-    expect(bars).toContain("Acélsűrűség");
-    expect(bars).not.toContain('value="7850"');
+  it("keeps 360° and steel density explicit instead of silently defaulting them", async () => {
+    const spiral = await loadConstructionCalculatorDefinition("stair.wood.spiral");
+    const bars = await loadConstructionCalculatorDefinition("concrete.rebar");
+    expect(spiral?.fields.find((field) => field.key === "turnDegrees")?.initial).toBeUndefined();
+    expect(bars?.fields.find((field) => field.key === "steelDensityKgPerM3")?.initial).toBeUndefined();
   });
 
   it("shows computed stair dimensions as legend values rather than SVG text", () => {

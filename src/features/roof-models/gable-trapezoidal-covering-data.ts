@@ -50,17 +50,30 @@ export async function listGableTrapezoidalCoverings(organizationId: string, proj
   query = projectId ? query.eq("ownership_scope", "project").eq("project_id", projectId) : query.eq("ownership_scope", "standalone");
   const { data: calculations, error } = await query;
   if (error) throw new Error("A mentett trapézlemez-fedések listája nem tölthető be.");
-  return Promise.all((calculations ?? []).map(async (calculation) => {
-    const { data: rows, error: revisionError } = await supabase.from("calculation_revisions")
-      .select("id, revision_number, input_snapshot, output_snapshot, data_provenance, validation_status, created_at, input_schema_version, calculator_implementation_version")
-      .eq("organization_id", organizationId).eq("calculation_id", calculation.id)
-      .eq("input_schema_version", "1.0.0").eq("calculator_implementation_version", "1.0.0").order("revision_number", { ascending: false }).limit(100);
+  if (!calculations?.length) return [];
+  const revisionsByCalculation = new Map<string, Array<Parameters<typeof validatedRevision>[0]>>();
+  let offset = 0;
+  while (true) {
+    const { data, error: revisionError } = await supabase.from("calculation_revisions")
+      .select("id, calculation_id, revision_number, input_snapshot, output_snapshot, data_provenance, validation_status, created_at, input_schema_version, calculator_implementation_version")
+      .eq("organization_id", organizationId).in("calculation_id", calculations.map(({ id }) => id))
+      .eq("input_schema_version", "1.0.0").eq("calculator_implementation_version", "1.0.0")
+      .order("calculation_id", { ascending: true }).order("revision_number", { ascending: false }).range(offset, offset + 999);
     if (revisionError) throw new Error("A trapézlemez-fedés revíziói nem tölthetők be.");
-    const revisions = (rows ?? []).flatMap((row) => { const revision = validatedRevision(row); return revision ? [revision] : []; });
+    for (const row of data ?? []) {
+      const rows = revisionsByCalculation.get(row.calculation_id) ?? [];
+      if (rows.length < 100) rows.push(row);
+      revisionsByCalculation.set(row.calculation_id, rows);
+    }
+    if (!data || data.length < 1000) break;
+    offset += 1000;
+  }
+  return calculations.map((calculation) => {
+    const revisions = (revisionsByCalculation.get(calculation.id) ?? []).flatMap((row) => { const revision = validatedRevision(row); return revision ? [revision] : []; });
     const current = revisions.find((revision) => revision.revisionId === calculation.current_revision_id);
     return { calculationId: calculation.id, organizationId, projectId: calculation.project_id, roofModelId: calculation.roof_model_id,
       displayName: calculation.display_name, currentRevisionId: calculation.current_revision_id, currentRevisionNumber: current?.revisionNumber ?? 0, revisions };
-  }));
+  });
 }
 
 export async function getGableTrapezoidalCovering(organizationId: string, calculationId: string, revisionNumber?: number): Promise<SavedGableCovering | null> {
