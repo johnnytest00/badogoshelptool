@@ -5,7 +5,6 @@ import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getExecutionPlanningWorkspace } from "@/features/execution/execution-data";
 import { renderExecutionReportPdf, safeExecutionReportFilename } from "@/features/execution/execution-report-pdf";
 import type { ExecutionReportSection } from "@/features/execution/execution-report-document";
-import type { ExecutionPhotoRecord, ExecutionPlanRecord } from "@/features/execution/execution-data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,9 +34,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ proj
   const project = await getProjectForOrganization(organizationId, projectId);
   if (!project) return badRequest("A projekt nem található ebben a műhelyben.", 404);
   const workspace = await getExecutionPlanningWorkspace(organizationId, projectId);
-  const plan = (workspace.plans as ExecutionPlanRecord[]).find((candidate) => candidate.id === planId);
+  const plan = workspace.plans.find((candidate) => candidate.id === planId);
   if (!plan) return badRequest("A munkanapló nem található ebben a projektben.", 404);
-  const selectedPhotos = photoIds.map((id) => (plan.photos as ExecutionPhotoRecord[]).find((photo) => photo.id === id)).filter((photo): photo is NonNullable<typeof photo> => Boolean(photo));
+  const selectedPhotos = photoIds.map((id) => plan.photos.find((photo) => photo.id === id)).filter((photo) => photo !== undefined);
   if (selectedPhotos.length !== photoIds.length) return badRequest("A kiválasztott fénykép nem tartozik ehhez a munkanaplóhoz.", 403);
   let totalBytes = 0;
   const reportPhotos = [];

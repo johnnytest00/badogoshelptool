@@ -1,5 +1,34 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## F9.70 — Execution Data Layer Type Safety & Mapping Optimization
+
+Státusz: **a `LooseClient`/`any` határ megszűnt; a lekérdezések a generált Supabase sémából tipizáltak, a tervkapcsolatok egyszeri indexeléssel készülnek.** Az overview/workspace queryk, oszlopok, explicit organization szűrők, RLS-t használó SSR kliens, signed URL-ek, sorrendek és limitek nem változtak. Az export route addigi típuscastjai eltűntek; a subtotal alkalmazási típusa a DB-sémában tárolt számot tükrözi.
+
+- **Paritás és mock mérés:** a régi implementáción előre futtatott, majd az új kódon változatlanul futtatott tesztek a workspace/overview/survey export-kimenetet, üres állapotot, nullable/hiányzó kapcsolásokat és cross-org/unrelated sorokat fednek. Ugyanazon 21-futásos mock medián 1/50/200 tervnél **0.020/0.392/4.349 ms → 0.019/0.154/0.737 ms**; mindegyiknél 7 DB-kérés maradt. Ez nem production vagy hálózati gyorsulási bizonyíték.
+- **Ellenőrzések:** 5 célzott teszt PASS; izolált `npm run lint`, `npm run typecheck`, teljes `npm test` **160 fájl / 938 PASS / 8 fájl és 19 teszt SKIP**, `npm run build` (Next.js 16.4.2 Webpack, 32 statikus oldal) PASS. A typegen/build a 3000-es fejlesztői szerver fő `.next` könyvtárát nem érintő másolaton futott. `git diff --check` a végső diff áttekintés után.
+- **Korlát:** élő Supabase/pgTAP, hosted RLS/Storage és böngészős ellenőrzés nem futott; memóriahasználatot nem mértem. A survey JSON snapshot szakaszai meglévő domain sémával validálódnak; hibás vagy a sémától eltérő történeti JSON esetén az új, szűk típusos határ hibát adhat a korábbi loose cast továbbadásával szemben. DB/migration/RLS/auth/RPC/írási út és történeti adat nem változott.
+- Részletes bizonyíték és mérési korlátok: [`EXECUTION_DATA_REFACTOR_F9.70.md`](EXECUTION_DATA_REFACTOR_F9.70.md).
+- **Javasolt Conventional Commit:** `refactor: F9.70 type execution data mappings`
+
+## F9.69 — Biztonságos fotófeltöltési határ és erőforrás-védelem
+
+Státusz: **az alkalmazási multipart parser előtti korlát megvalósítva; a hosted ingress-korlát és teljes DoS-védelem nem igazolt.** A Route Handler auth után 11 MiB teljes body-t olvas streamből, 10 MiB kép + 1 MiB multipart/mező többletkerettel; hiányzó vagy kisebbre mondott `Content-Length` mellett is számlál. A túllépés parser előtt 413, írási mellékhatás nélkül. A meglévő 10 MiB/kép szerződés, MIME/magic-byte, Sharp/EXIF, auth/org, reservation/attach/retry és privát Storage út változatlan.
+
+- **Ellenőrzések:** fókuszteszt 1 fájl / 12 PASS; lint PASS; teljes Vitest 159 fájl PASS / 8 SKIP, 933 PASS / 19 SKIP; izolált `npm run typecheck` és `npm run build` PASS; `git diff --check` PASS. HTTP/hosted ingress, DB/pgTAP és browser teszt nem futott.
+- **Nyitott rollout-kapu:** repositoryban nincs igazolt deployment platform vagy pre-parser ingress-limit. Hoszt tulajdonosa erősítse meg legalább 11 MiB teljes kérés kompatibilitását; a handler korlátja nem ingress vagy konkurencia-limit.
+- Részletes adatút, kockázat, host-kompatibilitási döntés, tesztmátrix és korlátozások: [`PHOTO_UPLOAD_SECURITY_F9.69.md`](PHOTO_UPLOAD_SECURITY_F9.69.md).
+- **Javasolt Conventional Commit:** `fix: F9.69 bound survey photo request bodies`
+
+## F9.68 — Mérnöki architektúra-, kódminőség- és működési audit
+
+Státusz: **AUDIT COMPLETE — nincs igazolt P0/P1 kódhiba; 4 P2 finding és 2 hosted/operációs rollout-kapu dokumentálva.** Audit-only: alkalmazáskód, konfiguráció, adatbázis és build cache nem változott. A munkafa induláskor tiszta volt; a lokális `main` egy commit-tal előrébb állt az `origin/main`-nél, és a 3000-es dev szervert érintetlenül hagytam.
+
+- **Fő findings:** munkanapló adatlekérő loose `any`/cast határa és ismételt sor-keresése; survey photo multipart fájlméret-ellenőrzése csak `request.formData()` után; a fotó EXIF/GPS-stripping tényleges működése eltér a pilot dokumentációjától; `.next` 6.2 GB, ebből 2.9 GB Next 16.4.0-s verzióspecifikus Turbopack cache és 1.8 GB külön Webpack build cache. Nem állítok production runtime lassulást a cache-méretből.
+- **Megőrzendő:** feature/domain/infrastructure határok, auth/org + RLS/RPC ellenőrzés, immutable revision/snapshot, expected-version és idempotens retry; a vizsgált új survey ID és retry szerződés megfelelő. Hosted cross-org/Storage, backup-restore, RPO/RTO, monitoring és mobil terepi ellenőrzés nincs bizonyítva, ezért széles SaaS rollout előtt kapu marad.
+- **Ellenőrzések:** `npm test` **159 fájl PASS / 8 SKIP; 924 teszt PASS / 19 SKIP; 4,13 s**. `npm run lint` **PASS**, ESLint: no issues. A typecheck/build nem futott, mert a 3000-es aktív dev szerver mellett `next typegen` és build ugyanazt a `.next` területet érintheti. DB/pgTAP és browser/hosted teszt nem futott.
+- Részletes bizonyíték, lefedettségi korlát, maturity matrix, cache-bontás és roadmap: [`ENGINEERING_EXCELLENCE_AUDIT_F9.68.md`](ENGINEERING_EXCELLENCE_AUDIT_F9.68.md). A következő javasolt implementációs milestone: F9.69 — a fotó API hosting/ingress request-body korlátjának ellenőrzése, és ha hiányzik, a legkisebb platformszintű védelem.
+- **Javasolt Conventional Commit:** `docs: F9.68 record engineering excellence audit`
+
 ## F9.67 — Safe Snapshot JSON Helper Deduplication
 
 Státusz: **a három viselkedésazonos kulcsrendező helper egy közös TypeScript függvénybe került; snapshot/revízió/persistence contract változatlan.** A két saved-covering reader összehasonlításra használja, a trapezoidal panel pedig dirty state és edit-signature meghatározásra. A helper JSON.stringify replacere rekurzívan `localeCompare` szerint rendezi az objektumkulcsokat, a tömbök sorrendjét megtartja; sem decode, sem adatírás nem történik.

@@ -7,6 +7,7 @@ import { attachFieldSurveyPhoto, cancelFieldSurveyPhotoUpload, removeFieldSurvey
 import { normalizeSurveyPhoto } from "@/infrastructure/images/normalize-survey-photo";
 
 const maxPhotoBytes = 10 * 1024 * 1024;
+const maxRequestBytes = maxPhotoBytes + 1024 * 1024;
 const allowedTypes = new Map([["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"]]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const failure = (error: string, status: number) => Response.json({ ok: false, error }, { status, headers: { "Cache-Control": "no-store" } });
@@ -26,6 +27,29 @@ function matchesImageSignature(bytes: Uint8Array, mimeType: string) {
 function safeFilename(value: string, extension: string) {
   const base = value.split(/[\\/]/).pop()?.normalize("NFKC").replace(/[^\p{L}\p{N}._ -]/gu, "_").replace(/^\.+/, "").trim().slice(0, 245) || "fénykép";
   return `${base.replace(/\.[^.]*$/, "") || "fénykép"}.${extension}`;
+}
+
+async function readBoundedBody(request: NextRequest): Promise<Uint8Array<ArrayBuffer> | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return new Uint8Array();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxRequestBytes) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const body = new Uint8Array(size) as Uint8Array<ArrayBuffer>;
+  let offset = 0;
+  for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.byteLength; }
+  return body;
 }
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ surveyId: string }> }) {
@@ -66,8 +90,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ su
   if (!uuidPattern.test(surveyId)) return failure("A felmérés nem található.", 404);
   const auth = await getAuthContext();
   if (!auth) return failure("Jelentkezz be a fénykép feltöltéséhez.", 401);
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!/^multipart\/form-data(?:;|$)/i.test(contentType)) return failure("A feltöltési adatok nem olvashatók.", 400);
+  const contentLength = request.headers.get("content-length");
+  if (contentLength !== null && /^\d+$/.test(contentLength) && Number(contentLength) > maxRequestBytes) return failure("A feltöltési kérés nagyobb a megengedettnél.", 413);
   let form: FormData;
-  try { form = await request.formData(); } catch { return failure("A feltöltési adatok nem olvashatók.", 400); }
+  try {
+    const body = await readBoundedBody(request);
+    if (body === null) return failure("A feltöltési kérés nagyobb a megengedettnél.", 413);
+    form = await new Response(body, { headers: { "Content-Type": contentType } }).formData();
+  } catch { return failure("A feltöltési adatok nem olvashatók.", 400); }
   const organizationId = String(form.get("organizationId") ?? "");
   const requestKey = String(form.get("requestKey") ?? "");
   const expectedVersion = Number(form.get("expectedVersion"));

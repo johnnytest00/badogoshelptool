@@ -8,7 +8,7 @@ export type ExecutionReportData = {
   organizationName: string;
   generatedAt: string;
   project: { name: string; clientName: string | null; location: string | null };
-  plan: { title: string; description: string | null; tasks: ExecutionTaskRecord[]; timeline: ExecutionTimelineItem[]; sourceQuotationName: string | null; sourceQuotationStatus: string | null; sourceRevisionId: string | null; sourceRevisionNumber: number | null; sourceSubtotal: string | null; photos: Array<ExecutionPhotoRecord & { dataUri: string }> };
+  plan: { title: string; description: string | null; tasks: ExecutionTaskRecord[]; timeline: ExecutionTimelineItem[]; sourceQuotationName: string | null; sourceQuotationStatus: string | null; sourceRevisionId: string | null; sourceRevisionNumber: number | null; sourceSubtotal: number | null; photos: Array<ExecutionPhotoRecord & { dataUri: string }> };
   sections: ExecutionReportSection[];
 };
 
@@ -53,7 +53,7 @@ const categoryLabels: Record<string, string> = { before: "Munka előtt", during:
 const journalLabels: Record<string, string> = { general: "Általános", work_done: "Elvégzett munka", problem: "Probléma / akadály", next_step: "Következő lépés" };
 const dateTime = (value: string) => new Date(value).toLocaleString("hu-HU");
 const dateOnly = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString("hu-HU");
-const money = (value: string | null) => value == null || !Number.isFinite(Number(value)) ? "Nincs megadva" : `${Number(value).toLocaleString("hu-HU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ft`;
+const money = (value: number | null) => value == null || !Number.isFinite(value) ? "Nincs megadva" : `${value.toLocaleString("hu-HU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ft`;
 
 function Progress({ tasks }: Readonly<{ tasks: ExecutionTaskRecord[] }>) {
   const total = tasks.length;
