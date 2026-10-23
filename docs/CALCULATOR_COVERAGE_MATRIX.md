@@ -65,7 +65,7 @@ A F9.38 célzottan kiegészíti a fenti 27 meglévő kalkulátor eredménylistá
 
 **Értelmezési határ:** C1 névleges alapfelület nem egyesített alaprajzi footprint; a csomóponti átfedés nem állapítható meg csupán a hosszból. C2 összegzett kör alapfelület, nem cölöpcsoport befoglaló területe. C5 területarányos lapdarab továbbra sem kiosztási/rendelési mennyiség. C6 kizárólag négyzetes/téglalap épület egyenletes sávja; opcionális rétegekhez csak explicit vastagság esetén van térfogat. C7 arányból számolt tömeg nem keverékterv. C8/C9 geometriai acéltömeg nem vasalási terv. A lépcső 2R+G megjelenítése a referenciaoldalakon olvasott 600–660 mm tartományt csak tájékoztató összevetésként közli, és nem állít ergonómiai vagy szabványi megfelelést. Fa- és fémszerkezeti profil, tartó, csatlakozás, anyagkihozatal és statika nincs levezetve.
 
-Kalkulátoronkénti input/eredmény/rajz/matematika/böngésző checklist: [F9.38 teljesítési riport](F9_38_CALCULATOR_COMPLETION_REPORT.md). Független kézi fixture-ek: [F9.38 matematikai ellenőrzés](CALCULATOR_MATH_VERIFICATION.md#f938--lepcso-es-betoneredmenyek-fuggetlen-fixture-ei).
+Kalkulátoronkénti input/eredmény/rajz/matematika/böngésző checklist: [F9.38 teljesítési riport](F9_38_CALCULATOR_COMPLETION_REPORT.md). Független kézi fixture-ek: [F9.38 matematikai ellenőrzés](CALCULATOR_MATH_VERIFICATION.md#f938--lepcso--es-betoneredmenyek-fuggetlen-fixture-ei).
 
 ## F9.24.5 — Betonrajz-lefedettségi kiegészítés
 
@@ -108,7 +108,7 @@ Az S4/S6/S8 egy közös, tiszta TypeScript motorral elérhető. A teljes fordul�
 | S6 180° húzott | azonos bemenetek, 180° egy fordulóra | azonos, 180°-os alaprajz | közös motor; 45°/fok fixture és tükörteszt | csak egy koncentrikus félforduló |
 | S8 három kar | emelkedés, szélesség, belső sugár, alsó/középső/felső kar fokszáma, húzott fok/forduló, irány | két külön fordulószámú 90°-os fokcsoport, terv és kiterített profil | közös motor; két forduló elkülönítése és összes fokpár átfedésvizsgálata | mindkét forduló azonos geometriájú és irányú |
 
-Az S4/S6/S8 Zhitov oldalain talált formmezők azonosítására szolgáltak: [S4](https://www.zhitov.com/en/lestnica3/), [S6](https://www.zhitov.com/en/lestnica5/), [S8](https://www.zhitov.com/en/lestnica7/). A saját motor nem számol fokvastagságot, orrkiülést, pofafát, tartót, fejmagasságot vagy szerkezeti megfelelőséget. Lásd a [matematikai levezetést és fixture-ket](CALCULATOR_MATH_VERIFICATION.md#f9244--huzott-fokok-annularis-szektoros-geometria).
+Az S4/S6/S8 Zhitov oldalain talált formmezők azonosítására szolgáltak: [S4](https://www.zhitov.com/en/lestnica3/), [S6](https://www.zhitov.com/en/lestnica5/), [S8](https://www.zhitov.com/en/lestnica7/). A saját motor nem számol fokvastagságot, orrkiülést, pofafát, tartót, fejmagasságot vagy szerkezeti megfelelőséget. Lásd a [matematikai levezetést és fixture-ket](CALCULATOR_MATH_VERIFICATION.md#f9244--huzott-fokok-annularis-szektoros-geometriaja).
 
 ### Hivatkozott képletforrások
 
@@ -229,7 +229,7 @@ Minősítés: `VERIFIED GEOMETRIC QUANTITY` a támogatott gable/shed/hip polygon
 
 ## F9.38.1 — Egyszerűsített bemenetek és rajz/legenda lefedettség
 
-Ez a mérföldkő a fenti F9.38 input/rajz állapotát frissíti. Kalkulátoronként a kötelező és opcionális bemenetek, fő eredmények, SVG-geometria és korlát az [F9.38.1 teljesítési riport 27 soros mátrixában](F9_38_CALCULATOR_COMPLETION_REPORT.md#f9381--bemenetek-egyszerusitese-es-muszaki-rajzok-atervezese) található.
+Ez a mérföldkő a fenti F9.38 input/rajz állapotát frissíti. Kalkulátoronként a kötelező és opcionális bemenetek, fő eredmények, SVG-geometria és korlát az [F9.38.1 teljesítési riport 27 soros mátrixában](F9_38_CALCULATOR_COMPLETION_REPORT.md#f9381--bemenetek-egyszerusitese-es-muszaki-rajzok-attervezese) található.
 
 A 17 lépcső, 9 beton/alapozási és C10 segédátló alapbemeneteit a számított alapmennyiséghez szükséges mezőkre szűkítettük. Az S5/S14/S15 karhézag, az összes fordulós pihenős lépcső iránya és az S9 teljes fordulási szöge explicit; nincs rejtett alapérték. Az S16-nál csak a belépő és fellépő kötelező, az orrkiülés opcionális. C8/C9 hossz, darabszám/kiosztás és térfogat sűrűségtől független; tömeg csak explicit, opcionális acélsűrűséggel jelenik meg.
 

@@ -1,13 +1,13 @@
 # TetőPro — Codex szabályok
 
-- A ténylegesen ellenőrzött Codex skill/plugin/MCP-leltár: [`docs/AI_TOOLING.md`](docs/AI_TOOLING.md). Feladat előtt mérlegeld a releváns eszközöket, de kizárólag indokolt esetben használd őket; új telepítést vagy aktiválást ne kezdeményezz külön kérés nélkül.
+- A ténylegesen ellenőrzött Codex skill/plugin/MCP-leltár: [`docs/AI_TOOLING.md`](docs/AI_TOOLING.md). Csak az adott feladathoz releváns részt olvasd; a hivatkozás nem jelent automatikus betöltést. Eszközt kizárólag indokolt esetben használj; új telepítést vagy aktiválást ne kezdeményezz külön kérés nélkül.
 
-- A `PROJECT_BLUEPRINT.md` az irányadó specifikáció; a fázishatárokat tartsd be.
+- A `PROJECT_BLUEPRINT.md` a jóváhagyott termékcélokat és fázishatárokat írja le, nem bizonyíték a megvalósult működésre. A működést a jelenlegi forráskód, az alkalmazott adatbázis-migrációk és az ellenőrzött viselkedés bizonyítja; az újabb, explicit termékdöntést vedd figyelembe.
+- Csak az explicit kérésben szereplő mérföldkövet és hatókört valósítsd meg. A szükséges meglévő modulokat módosíthatod, de nem kért üzleti funkciót vagy későbbi architekturális réteget ne építs előre.
 - Minden feladat: állapotfelmérés → rövid terv → célzott implementáció → tesztek → bizonyíték és dokumentáció.
 - Az alkalmazáskód TypeScriptben, a `src/` alatt maradjon; a rétegek függőségi iránya: UI → alkalmazás → domain, az infrastruktúra adapterként csatlakozik.
 - DEMO-adat csak egyértelmű `DEMO` jelöléssel használható; szakmai, gyártói vagy áradatot ne találj ki.
 - Nincs önkényes commit, push, deploy, éles Supabase-migráció vagy destruktív művelet.
-- Tartsd be az aktuális fázishatárt: ne készíts későbbi üzleti funkciót, hitelesítést, Supabase-réteget vagy kalkulációs motort előre.
 - Minden mérföldkő végén javasolj rövid Conventional Commit üzenetet, amely tartalmazza a mérföldkő verzióját és fő funkcionalitását; commitot csak külön kérésre készíts.
 
 ## Evidence-Based Engineering Rules
@@ -20,9 +20,21 @@
 
 - Célzottan vizsgáld a releváns fájlokat, minimális kontextust tölts be.
 - Fókuszáltan fejlessz; ne telepíts indokolatlan függőséget és ne futtasd ismételten a teljes tesztkészletet.
-- Böngészős ellenőrzést csak a végén végezz, legfeljebb egy fókuszált smoke workflow-val.
-- Ne készíts ismételt screenshot-loopokat és ne próbáld újra indokolatlanul a nem támogatott böngészős képességeket.
+- A böngészős ellenőrzést kockázathoz igazítsd: kisebb, nem vizuális változásnál általában nem kell vagy egy fókuszált smoke elég; jelentős UI-, navigációs, interakciós vagy magas kockázatú workflow-változásnál vizsgáld meg az érintett képernyőket, nézetméreteket és állapotokat kellő mélységben.
+- Ne ismételj screenshot-loopokat vagy nem támogatott böngészős próbákat; a szükséges ellenőrzési minőséget ne csökkentsd pusztán a kontextus vagy idő megtakarításáért.
 - A nem elérhető ellenőrzéseket őszintén jelentsd, a szükséges biztonsági és matematikai ellenőrzéseket ne hagyd el.
+
+## Next.js fejlesztői folyamatok
+
+- Ha aktív fejlesztői szerver használja a fő checkout `.next` könyvtárát, a buildet, `next typegen`-t és minden oda író folyamatot izolált környezetben futtasd. Ha nincs ütköző folyamat, az izolált build nem követelmény.
+- Először létező, igazolt izolált workflow-t használj; ennek hiányában külön worktree-t vagy ideiglenes másolatot, saját generált kimenettel. Ne írj párhuzamosan megosztott `.next` kimenetre.
+- Ne állítsd le vagy indítsd újra automatikusan a fejlesztői szervert, ne törölj cache-t, és ne módosíts közösen használt generált fájlokat konkurens fejlesztés közben.
+
+## Dokumentációs belépési pontok
+
+- A `docs/README.md` navigációs index; a `docs/PROGRESS.md` a rövid aktuális állapot és a legutóbbi fejlesztési bizonyítékok belépési pontja.
+- A `docs/archive/PROGRESS_HISTORY.md` régebbi mérföldkövek története; csak releváns történeti kérdésnél olvasd.
+- A `PROJECT_BLUEPRINT.md` cél- és termékspecifikáció. A tényleges implementáció megállapításához a jelenlegi kód, az alkalmazott migrációk és az ellenőrzött viselkedés az irányadó.
 
 ## Engineering Verification & Reporting
 

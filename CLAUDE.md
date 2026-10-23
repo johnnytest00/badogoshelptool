@@ -1,6 +1,6 @@
 # Claude Code — TetőPro projektutasítások
 
-Ez a fájl a Claude Code állandó projektmemóriája. A forráskód, a ténylegesen alkalmazott migrációk és a futtatott ellenőrzések bizonyítják a jelenlegi működést; a `PROJECT_BLUEPRINT.md` jóváhagyott célterv, nem megvalósult funkciólista.
+Ez a fájl a Claude Code projektmemóriája; a közös projekt- és mérnöki szabályokat az `AGENTS.md` tartalmazza.
 
 @AGENTS.md
 
@@ -8,27 +8,16 @@ Ez a fájl a Claude Code állandó projektmemóriája. A forráskód, a tényleg
 
 - A felhasználóval magyarul kommunikálj.
 - Minden feladat előtt nézd meg a `git status`-t, majd csak a feladat szempontjából releváns forrásokat és dokumentációt olvasd el.
-- A legutóbbi állapothoz olvasd el a `docs/PROGRESS.md` elejét; a funkciókhoz használd a `funkciok.md` megfelelő szakaszát, az adatbázishoz a `docs/DATABASE.md` releváns részét.
+- A legutóbbi állapothoz olvasd el a `docs/PROGRESS.md` „Jelenlegi állapot” összefoglalóját és a feladathoz releváns mérföldkő-szakaszt; ne töltsd be a teljes naplót vagy az archívumot. A funkciókhoz használd a `funkciok.md` megfelelő szakaszát, az adatbázishoz a `docs/DATABASE.md` releváns részét.
 - Üzleti vagy számítási változtatásnál ellenőrizd a vonatkozó specifikációt, domain-szerződést, aktuális kódot és adatbázis-migrációt. A tervekből ne következtess működésre.
 - Ne implementálj nem kért funkciót, ne változtass üzleti vagy szakmai szabályt jóváhagyás és ellenőrzött forrás nélkül.
 - Ne olvass be vagy írj dokumentációba `.env.local`-t, titkot, jelszót, kulcsot vagy személyes adatot. Változónevet dokumentálhatsz, értéket soha.
-EXECUTION EFFICIENCY
+## Claude-specifikus munkafolyamat
 
-Minimize token usage without sacrificing correctness.
-
-- Read only relevant files and code sections.
-- Use RTK where appropriate.
-- Avoid redundant tool calls and screenshots.
-- Use at most one relevant skill unless justified.
-- Batch independent inspections where practical.
-- Implement before performing browser verification.
-- Test only affected components and critical workflows.
-- Run full regression/build only when risk justifies it.
-- Keep documentation and final reports concise.
-- Do not repeat completed audits or project onboarding.
-- Activate plugins, skills és opcionális eszközök csak akkor, ha egyértelmű értéket adnak az adott feladathoz; elérhető pluginok pl. typescript-native-lsp, Engineering, Design — használat előtt ellenőrizd az elérhetőséget.
-- Kódkereséshez LSP szimbólumkeresést és célzott keresést részesíts előnyben teljes projekt-újraátvizsgálás helyett.
-- Soha ne áldozd fel a helyességet token-megtakarításért.
+- Az általános célzott olvasási, módosítási és ellenőrzési szabályokat az `AGENTS.md` tartalmazza.
+- RTK-t és célzott/LSP-alapú kódkeresést használj, ahol elérhető.
+- Egyszerű feladatnál dolgozz skill nélkül vagy egy releváns skillel; több területet érintő munkánál több, egymást kiegészítő skill is indokolt lehet. Csak ellenőrzött, elérhető és releváns skilleket használj; kerüld az átfedő meghívásokat, ismételt telepítést és szükségtelen kontextust. Az eszközleltár: [`docs/AI_TOOLING.md`](docs/AI_TOOLING.md).
+- Opcionális pluginokat vagy eszközöket csak igazolt elérhetőség és feladatszintű haszon esetén aktiválj.
 ## A tényleges rendszer röviden
 
 - Next.js App Router, React és TypeScript; a kód a `src/` alatt van.
@@ -57,7 +46,6 @@ Minimize token usage without sacrificing correctness.
 - Csak a változtatáshoz szükséges célzott ellenőrzéseket futtasd; célzott teszt nem teljes regresszió. Adatbázis- és böngészőellenőrzést csak releváns változtatáskor végezz, az eredményt pontosan nevezd meg.
 - Next.js kód módosítása előtt olvasd el a telepített verzió megfelelő útmutatóját a `node_modules/next/dist/docs/` alatt. Ez a repó Next.js 16.4-et használ, és az API-k eltérhetnek a korábbról ismert Next.js-től.
 - Dokumentációs hatékonyság:
-  - A `docs/PROGRESS.md` az elsődleges fejlesztési történet; mérföldkő leírása itt él, máshol csak rövid hivatkozás legyen rá.
   - Más dokumentumot csak akkor frissíts, ha annak konkrét tartalma vagy állapota érdemben megváltozott: `funkciok.md` (új/módosított funkció), `docs/PROJECT_MAP.md` és/vagy `docs/DATABASE.md` (architektúra- vagy sémaváltozás), `docs/CLAUDE_HANDOFF.md` (jelentős állapotváltozás vagy munkamenet-lezárás). Soha ne frissítsd automatikusan az összeset.
   - A `docs/CLAUDE_HANDOFF.md` rövid maradjon: jelenlegi állapot, megoldatlan kockázatok, következő lépések.
   - Csak a releváns dokumentumszakaszt olvasd és szerkeszd; nagy dokumentumot ne tölts be egészében, hacsak valóban nem szükséges. Ismétlődő szerkesztéshez célzott patch vagy script is jó, ha biztonságosabb és hatékonyabb.

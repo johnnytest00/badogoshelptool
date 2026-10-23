@@ -30,12 +30,12 @@ Ez a dokumentum a Bádogos HelpTool korlátozott, ellenőrzött pilotjának elő
 | Tetőmodell, kalkuláció | Domain/UI validáció, revíziók | Szakmai felelősség, gyártói és statikai review |
 | Anyag, ár, ajánlat | Szervezeti relációk, append-only döntési esemény | Árforrás és szerződéses határ |
 | Feladat, napló, esemény | Szerveroldali org/project ellenőrzés, append-only napló | Archiválás, export, offline és konfliktus-eljárás |
-| Fotó | Privát bucket, signed URL, tervhez kötött előnézet/PDF | EXIF/GPS-döntés, megőrzés/törlés, cross-org staging |
+| Fotó | Privát bucket, signed URL; feltöltéskor EXIF/GPS nélkül újrakódolt kép | Tájékoztatás, retention/törlés, régi fotók és cross-org staging |
 | PDF | Aktuális adatokból belső összefoglaló | Immutable snapshot, hiteles archiválás |
 
 ## Fotók, EXIF és GPS
 
-Az upload útvonal nyers File objektumot validál és privát Storage-ba tölt. Nincs EXIF-olvasás, GPS-felderítés, transzkódolás vagy metaadat-strippelés. Az eredeti fájl EXIF/GPS-tartalma ezért NOT VERIFIED / ismeretlen. A 300 másodperces signed URL a hozzáférést korlátozza, a metaadatot nem módosítja.
+Az upload útvonal a fájlt Sharp segítségével dekódolja, EXIF nélkül újrakódolja, majd privát Storage-ba tölti; az alkalmazás által tárolt normalizált kép EXIF/GPS metaadatot nem tartalmaz. Ezt a viselkedést a `src/infrastructure/images/normalize-survey-photo.test.ts` közvetlenül ellenőrzi. A signed URL 15 perces; a metaadatot a normalizálás távolítja el, nem az URL. A hosted útvonal és a korábban feltöltött objektumok állapota ebből nem következik.
 
 Pilot előtti döntés kell arról, hogy az eredeti fájl megmarad-e, kell-e tisztított előnézet, és milyen tájékoztatás, megőrzési idő és törlési jog vonatkozik a képekre. Történeti fotó nem kerül átírásra vagy törlésre. Szabály nélkül a fotófolyamat BLOCKING.
 
@@ -62,7 +62,7 @@ A jelenlegi szöveg a geometriai összesítőt geometriailag ellenőrzöttként,
 | P01 | PARTIALLY VERIFIED | Lokális Auth/org/project szűrés | Szerepkörök, meghívás, letiltás | Product owner + fejlesztő | Igen |
 | P02 | NOT VERIFIED | Nincs hosted bizonyíték | Staging/prod, secret, TLS | Üzemeltető | Igen |
 | P03 | PARTIALLY VERIFIED | Privát bucket, signed URL | Cross-org és session staging smoke | Fejlesztő + QA | Igen |
-| P04 | NOT VERIFIED | EXIF nincs feldolgozva | EXIF/GPS, retention és tájékoztató döntés | Product owner + adatvédelmi szakértő | Igen |
+| P04 | PARTIALLY VERIFIED | Az új feltöltésből EXIF/GPS törlődik; hosted és korábbi objektumok nem ellenőrzöttek | Tájékoztatás, retention/törlés és régi fotók kezelése | Product owner + adatvédelmi szakértő | Igen |
 | P05 | NOT VERIFIED | Nincs restore-run | DB+Storage backup és restore-próba | Üzemeltető | Igen |
 | P06 | NOT VERIFIED | Nincs RPO/RTO/monitoring | Runbook, riasztás, rotáció | Üzemeltető | Igen |
 | P07 | PARTIALLY VERIFIED | Belső összefoglaló/disclaimer | Terminológia review | Szakmai reviewer + jogász | Igen |
@@ -74,7 +74,7 @@ A jelenlegi szöveg a geometriai összesítőt geometriailag ellenőrzöttként,
 
 1. Hosted környezet, secrets, TLS és szerepkörök.
 2. Adatvédelmi jogalap, tájékoztatás, megőrzés, export/törlés és incidensfolyamat.
-3. EXIF/GPS-kezelési döntés.
+3. A már működő EXIF/GPS-eltávolítás tájékoztatási, retention/törlési szabálya és a korábban feltöltött fotók kezelése.
 4. Cross-organization és Storage negatív staging teszt.
 5. DB- és Storage-mentés, restore, RPO/RTO és monitorozás.
 6. Terminológia szakmai/jogi jóváhagyása.
@@ -85,7 +85,7 @@ A jelenlegi szöveg a geometriai összesítőt geometriailag ellenőrzöttként,
 
 - Mely szervezetek, szerepkörök és projekttípusok tartoznak a pilotba?
 - Használhatók-e valódi ügyfél- és helyszínadatok, vagy csak DEMO-adatok?
-- Megőrzendő-e az eredeti EXIF/GPS?
+- Megfelelő-e, hogy az új feltöltések normalizált képe EXIF/GPS nélkül tárolódik; milyen tájékoztatás, retention és törlés vonatkozzon a fotókra, és hogyan kezeljük a korábbi feltöltéseket?
 - Mennyi a megőrzési idő, és kell-e export/törlés/helyesbítés?
 - Mi a támogatási csatorna, válaszidő és incidens-eszkaláció?
 - Mit tekintenek belső segédletnek, és mit tilos ügyfélnek vagy hatóságnak átadni?
