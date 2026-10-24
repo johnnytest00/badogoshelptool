@@ -5,6 +5,7 @@ import type { SavedSurveyCalculation } from "@/domain/field-surveys/workspace";
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { LengthField } from "@/components/ui/length-field";
 import { calculateGableRoof, type GableRoofInput, type GableRoofOutput } from "@/domain/calculations/gable-roof";
 import { calculateGableTrapezoidalCovering, gableTrapezoidalCoveringInputSchema, type GableTrapezoidalCoveringInput, type GableTrapezoidalCoveringOutput } from "@/domain/calculations/gable-trapezoidal-covering";
 import { generateSecureUuid } from "@/lib/secure-uuid";
@@ -113,7 +114,7 @@ export function GableTrapezoidalCoveringPanel(props: Readonly<Props>) {
     <details className="roof-help-note"><summary>Fedéshez használt geometriai bemenet</summary><p>Épülethossz: {display(sourceInput.buildingLengthMm, "mm")}; épületszélesség: {display(sourceInput.buildingWidthMm, "mm")}; {sourceInput.inputMode === "height" ? `tetőemelkedés: ${display(sourceInput.roofRiseMm, "mm")}` : `tetőhajlás: ${display(sourceInput.roofPitchDegrees, "°")}`}; eresztúlnyúlás: {display(sourceInput.eaveOverhangMm, "mm")}; első és hátsó oromtúlnyúlás: {display(sourceInput.frontGableOverhangMm, "mm")} / {display(sourceInput.rearGableOverhangMm, "mm")}.</p></details>
     {selected && <p className="roof-help-note">Számítási változat: V{selected.revisionNumber} · mentve {new Date(selected.createdAt).toLocaleString("hu-HU")} · {selected.validationStatus === "estimated" ? "előzetes mennyiségi becslés" : selected.validationStatus}. A geometria és az eredmény az adott változat mentett snapshotjából származik.</p>}
     <label className="roof-field roof-name-field"><span>Számítás neve</span><input value={name} maxLength={200} disabled={historical || pending} onChange={(event) => setName(event.target.value)} /></label>
-    <div className="roof-form-grid">{fields.map((field) => <label className="roof-field" key={field.key}><span>{field.label} <small>mm</small></span><input inputMode="decimal" value={draft[field.key]} disabled={historical || pending} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} onChange={(event) => set(field.key, event.target.value)} /></label>)}</div>
+    <div className="roof-form-grid">{fields.map((field) => <label className="roof-field" key={field.key}><span>{field.label}</span><LengthField label={field.label} mmDecimals={2} value={draft[field.key]} disabled={historical || pending} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} onChange={(value) => set(field.key, value)} /></label>)}</div>
     <label className="roof-field roof-covering-confirm"><span><input type="checkbox" checked={draft.lapCompatibilityConfirmed} disabled={historical || pending} onChange={(event) => set("lapCompatibilityConfirmed", event.target.checked)} /> Megerősítem, hogy a megadott termék és kialakítás alkalmas hosszanti toldásra</span></label>
     <p className="roof-help-note">A lemez a tetősík lejtésirányában fut. A hasznos szélesség önálló adat; ebből nem vonunk le újabb oldalsó átfedést. A termékhatárok és hosszráhagyás opcionális kézi adatok.</p>
     {shown.status === "VALID" && shown.columnsPerPlane !== null && shown.rowsPerPlane !== null ? <><div className="roof-result-grid" aria-live="polite">

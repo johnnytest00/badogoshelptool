@@ -15,7 +15,8 @@ describe("standalone gable geometry preview", () => {
     expect(html).toContain("Tetőemelkedés");
     expect(html).toContain('aria-label="Tetőmérési munkaterület"');
     expect(html).toContain("Add meg az összes méretet");
-    expect(html).not.toContain("<button");
+    // Only the per-field mm/cm/m switches; no save or follow-up action before dimensions exist.
+    expect(html).not.toMatch(/<button(?![^>]*aria-pressed)/);
   });
 
   it("prefills explicit survey dimensions and retains the exact revision banner", () => {
@@ -25,7 +26,7 @@ describe("standalone gable geometry preview", () => {
     }));
     expect(html).toContain("Méretek átvéve a felmérésből · V2");
     expect(html).toContain("Felmérés: survey-id · felmérésrevízió: revision-id · V2");
-    expect(html).toContain('value="10000"');
+    expect(html).toContain('aria-label="Épület hossza, cm" value="1000"');
     expect(html).toContain("Teljes tetőfelület");
     expect(html).toContain("technical-drawing is-compact");
     expect(html.indexOf("<form class=\"roof-form roof-measurement-inputs roof-form-grid-compact\"")).toBeLessThan(html.indexOf("technical-drawing is-compact"));

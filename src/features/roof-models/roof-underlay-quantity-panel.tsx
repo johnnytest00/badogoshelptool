@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
+import { LengthField } from "@/components/ui/length-field";
 import { calculateRoofUnderlayLayout, type RoofUnderlayParameters } from "@/domain/calculations/roof-underlay";
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
 import { formatQuantityValue } from "@/lib/quantity-format";
@@ -27,8 +28,7 @@ export function RoofUnderlayQuantityPanel({ geometry, value: controlledValue, on
   }
   return <GlassDisclosure className="roof-timber-quantity roof-underlay-quantity" summary="Tetőfedés és alátétfólia">
     <p className="roof-timber-help">Opcionális fóliacsík-geometria. A tekercs, átfedés és fektetési irány adatait a kiválasztott termék vagy telepítési előírás alapján add meg; hiányzó adatból a rendszer nem következtet.</p>
-    <div className="roof-timber-input-grid">{fields.map(([key, label, unit]) => <label className="field-survey-field" key={key}><span>{label} <small>{unit}</small></span><input type="number" inputMode="numeric" min="0" max={key === "rollLengthMm" ? "1000000" : "100000"} step="1" value={number(value[key])} aria-label={`${label}, ${unit}`} onChange={(event) => {
-      const raw = event.target.value;
+    <div className="roof-timber-input-grid">{fields.map(([key, label]) => <label className="field-survey-field" key={key}><span>{label}</span><LengthField label={label} maxMm={key === "rollLengthMm" ? 1_000_000 : 100_000} value={number(value[key])} onChange={(raw) => {
       const parsed = raw === "" ? undefined : Number(raw);
       if (parsed !== undefined && !Number.isFinite(parsed)) return;
       update(key, parsed as RoofUnderlayParameters[typeof key] | undefined);

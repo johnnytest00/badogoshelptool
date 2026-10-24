@@ -43,7 +43,7 @@ describe("cserepeslemez-fedés preview", () => {
     expect(html).toContain("Tetőméretek szerkesztése");
     expect(html).toContain("Átvett tetőméretek");
     expect(html).toContain("További termékadat szükséges");
-    expect(html).not.toContain('value="10000"');
+    expect(html).not.toContain('aria-label="Épület hossza, cm"');
     expect(html.indexOf("revision-uuid")).toBeGreaterThan(html.indexOf("Forrás adatai"));
     expect(html).not.toContain("Projekt nélküli kézi geometria");
   });
@@ -74,7 +74,7 @@ describe("cserepeslemez-fedés preview", () => {
     expect(html).toContain("Korábbi változat V1");
     expect(html).toContain("Kézi V1 adatforrás");
     expect(html).toContain(`data-total-sheet-count="${expectedV1.totalSheetCount}"`);
-    expect(html).toContain('value="5100"');
+    expect(html).toContain('aria-label="Fizikai lemezhossz, cm" value="510"');
     expect(html).toContain("<strong>100 m²</strong>");
     expect(html).not.toContain("<strong>200 m²</strong>");
     expect(html).not.toContain("Nem mentett módosítások");
@@ -82,7 +82,7 @@ describe("cserepeslemez-fedés preview", () => {
     expect(currentHtml).toContain("Mentve V2");
     const expectedV2 = calculateGableMetalTileCovering(calculateGableRoof(geometryInputV2), productInputV2);
     expect(currentHtml).toContain(`data-total-sheet-count="${expectedV2.totalSheetCount}"`);
-    expect(currentHtml).toContain('value="900"');
+    expect(currentHtml).toContain('aria-label="Hasznos fedési szélesség, cm" value="90"');
     expect(currentHtml).not.toContain("Nem mentett módosítások");
   });
 

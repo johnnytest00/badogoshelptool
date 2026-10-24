@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { calculateRoofTimberLayout, roofTimberInputFromParameters, type RoofTimberFamilyResult, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
+import { LengthField } from "@/components/ui/length-field";
 
 const fields = [
   ["rafterMaxSpacingMm", "Szarufák legnagyobb tengelytávolsága", "mm"], ["rafterStartInsetMm", "Szarufák kezdő peremsávja", "mm"], ["rafterEndInsetMm", "Szarufák záró peremsávja", "mm"],
@@ -31,8 +32,7 @@ export function RoofTimberQuantityPanel({ geometry, value: controlledValue, onCh
   const result = useMemo(() => input ? calculateRoofTimberLayout(geometry, input) : null, [geometry, input]);
   return <GlassDisclosure className="roof-timber-quantity" summary="Szarufák és lécezés">
     <p className="roof-timber-help">Opcionális geometriai mennyiségek. Add meg a kiosztást és mindkét peremsávot; a megadott távolság felső korlát, a sorok a két perem között egyenletesen oszlanak el. Térfogathoz mindkét keresztmetszeti méret szükséges.</p>
-    <div className="roof-timber-input-grid">{fields.map(([key, label, unit]) => <label className="field-survey-field" key={key}><span>{label} <small>{unit}</small></span><input type="number" inputMode="numeric" min={key.includes("Inset") ? "0" : "1"} max="100000" step="1" value={number(value[key])} aria-label={`${label}, ${unit}`} onChange={(event) => {
-      const raw = event.target.value;
+    <div className="roof-timber-input-grid">{fields.map(([key, label]) => <label className="field-survey-field" key={key}><span>{label}</span><LengthField label={label} maxMm={100_000} value={number(value[key])} onChange={(raw) => {
       const parsed = raw === "" ? undefined : Number(raw);
       if (parsed !== undefined && !Number.isFinite(parsed)) return;
       const next = { ...value, [key]: parsed };

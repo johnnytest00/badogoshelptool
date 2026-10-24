@@ -2,6 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
+import { LengthField } from "@/components/ui/length-field";
 import {
   roofDetailDefs, roofDetailKinds, roofDetailSchema, roofDetailStatusLabels, roofDetailsSummary,
   type RoofDetailFieldKey, type RoofDetailKind, type RoofDetailStatus,
@@ -65,6 +66,7 @@ export function SurveyRoofDetails({ details, disabled, onChange, newId }: Readon
             return <div className={`field-survey-measurement${error ? " has-geometry-error" : ""}`} key={field.key}>
               <div className="field-survey-measurement-head"><label className="field-survey-measurement-name" htmlFor={inputId}>{field.label}</label></div>
               <div className="field-survey-measurement-control">
+                {field.unit === "mm" ? <LengthField id={inputId} label={field.label} value={detail[field.key]} error={error} onChange={(value) => patch(detail.id, { [field.key]: value } as Partial<RoofDetailDraft>)} /> : <>
                 <input
                   id={inputId}
                   type="text"
@@ -76,8 +78,9 @@ export function SurveyRoofDetails({ details, disabled, onChange, newId }: Readon
                   onChange={(event) => patch(detail.id, { [field.key]: event.target.value } as Partial<RoofDetailDraft>)}
                 />
                 <span className="field-survey-measurement-unit-badge" aria-hidden="true">{unitLabels[field.unit]}</span>
+                </>}
               </div>
-              {error && <span className="field-survey-inline-error" id={`${inputId}-error`}>{error}</span>}
+              {error && field.unit !== "mm" && <span className="field-survey-inline-error" id={`${inputId}-error`}>{error}</span>}
             </div>;
           })}
         </div>}

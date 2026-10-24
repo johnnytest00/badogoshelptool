@@ -15,6 +15,7 @@ import { useUnsavedChangeGuard } from "@/components/feedback/app-interaction-pro
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
+import { LengthField } from "@/components/ui/length-field";
 import { formatQuantity } from "@/lib/quantity-format";
 
 type Draft = Record<string, string> & { inputMode: "height" | "angle" };
@@ -72,7 +73,7 @@ export function StandaloneGablePreview({ organizationId, saved = null, initialHa
   ];
   const geometryForm = <form className="roof-form roof-measurement-inputs roof-form-grid-compact" onSubmit={(event) => event.preventDefault()}>
     <label className="roof-field"><span>Bemenet módja</span><select value={draft.inputMode} disabled={historical || savePending} onChange={(event) => { const inputMode = event.target.value as Draft["inputMode"]; setDraft((current) => ({ ...current, inputMode, roofRiseMm: "", roofPitchDegrees: "" })); }}><option value="height">Tetőemelkedés</option><option value="angle">Tetőhajlás</option></select></label>
-    {fields.map((field) => <label className="roof-field" key={field.key}><span>{field.label} <small>{field.unit}</small></span><input id={String(field.key)} inputMode="decimal" value={draft[field.key]} disabled={historical || savePending} onFocus={() => setFocusedField(field.key)} onBlur={handleMeasurementBlur} onChange={(event) => set(field.key, event.target.value)} aria-label={`${field.label} (${field.unit})`} /></label>)}
+    {fields.map((field) => <label className="roof-field" key={field.key}>{field.unit === "mm" ? <><span>{field.label}</span><LengthField id={String(field.key)} label={field.label} value={draft[field.key]} disabled={historical || savePending} onFocus={() => setFocusedField(field.key)} onBlur={handleMeasurementBlur} onChange={(value) => set(field.key, value)} /></> : <><span>{field.label} <small>{field.unit}</small></span><input id={String(field.key)} inputMode="decimal" value={draft[field.key]} disabled={historical || savePending} onFocus={() => setFocusedField(field.key)} onBlur={handleMeasurementBlur} onChange={(event) => set(field.key, event.target.value)} aria-label={`${field.label} (${field.unit})`} /></>}</label>)}
   </form>;
   const measurements = reuseSurveyGeometry ? <div className="survey-imported-geometry">
     <GlassDisclosure summary="Átvett tetőméretek"><dl className="survey-geometry-summary">{fields.map((field) => <Fragment key={field.key}><dt>{field.label}</dt><dd>{parse(draft[field.key]) === undefined ? "—" : format(parse(draft[field.key])!, field.unit)}</dd></Fragment>)}</dl></GlassDisclosure>

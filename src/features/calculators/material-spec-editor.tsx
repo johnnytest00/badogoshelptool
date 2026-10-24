@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LengthField } from "@/components/ui/length-field";
 import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "@/features/material-takeoffs/workflow-material-product-picker";
 import { MATERIAL_SPEC_FIELDS, initialSpecState, resolveMaterialSpec, restoreProductValues, setSpecEntry, switchSpecMode, type MaterialGroup, type MaterialProfile, type SpecFieldDef, type SpecState, type SpecValueSource } from "@/domain/calculations/roof-material-spec";
 import { materialProvenanceLabels } from "@/domain/materials/contracts";
@@ -42,7 +43,10 @@ export function MaterialSpecEditor({ group, title, profiles, catalogError = fals
     const source = spec.sources[field.key];
     const value = spec.values[field.key];
     const missingInProduct = spec.missingKeys.includes(field.key);
-    const control = field.kind === "select"
+    const isLength = field.kind !== "text" && field.kind !== "select" && field.unit === "mm";
+    const control = isLength
+      ? <LengthField label={`${title} · ${field.label}`} value={typeof value === "number" ? String(value) : ""} onChange={(next) => onChange(setSpecEntry(state, field.key, next === "" ? undefined : Number(next)))} />
+      : field.kind === "select"
       ? <select value={typeof value === "string" ? value : ""} aria-label={field.label} onChange={(event) => onChange(setSpecEntry(state, field.key, parse(field, event.target.value)))}><option value="">Válassz…</option>{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>
       : <input type={field.kind === "text" ? "text" : "number"} inputMode={field.kind === "text" ? "text" : "decimal"} min={field.kind === "text" ? undefined : "0"} step="any" value={value === undefined ? "" : String(value)} aria-label={`${title} · ${field.label}${field.unit ? `, ${field.unit}` : ""}`} onChange={(event) => {
         const parsed = parse(field, event.target.value);
@@ -50,7 +54,7 @@ export function MaterialSpecEditor({ group, title, profiles, catalogError = fals
         onChange(setSpecEntry(state, field.key, parsed));
       }} />;
     return <label className="construction-suite-field material-spec-field" key={field.key}>
-      <span>{field.label}{field.unit && <small>{field.unit}</small>}{source && <em className="material-spec-badge" data-source={source}>{source === "product" && spec.profile?.verification === "demo" ? "DEMO termék" : BADGE[source]}</em>}{source === "override" && <button type="button" className="material-spec-restore" onClick={() => onChange(restoreProductValues(state, spec, field.key))}>Visszaállít</button>}</span>
+      <span>{field.label}{field.unit && !isLength && <small>{field.unit}</small>}{source && <em className="material-spec-badge" data-source={source}>{source === "product" && spec.profile?.verification === "demo" ? "DEMO termék" : BADGE[source]}</em>}{source === "override" && <button type="button" className="material-spec-restore" onClick={() => onChange(restoreProductValues(state, spec, field.key))}>Visszaállít</button>}</span>
       {control}
       {spec.issues[field.key] && <small className="material-spec-hint is-error" role="alert">{spec.issues[field.key]}</small>}
       {missingInProduct && <small className="material-spec-hint">A termékadat ezt nem tartalmazza · add meg kézzel.</small>}
@@ -101,11 +105,9 @@ export function RoofMaterialInputs({ timberOnly, profiles, catalogError, state, 
     </fieldset>}
     {requested.timber && <>
       <fieldset className="material-spec"><legend>Faanyag kiosztása</legend>
-        <div className="construction-suite-form-grid">{layoutFields.map(([key, label]) => <label className="construction-suite-field" key={key}><span>{label}<small>mm</small></span><input type="number" inputMode="numeric" min="0" step="1" value={state.layout[key] === undefined ? "" : String(state.layout[key])} aria-label={`${label}, mm`} onChange={(event) => {
+        <div className="construction-suite-form-grid">{layoutFields.map(([key, label]) => <label className="construction-suite-field" key={key}><span>{label}</span><LengthField label={label} value={state.layout[key] === undefined ? "" : String(state.layout[key])} onChange={(value) => {
           const rest = Object.fromEntries(Object.entries(state.layout).filter(([entry]) => entry !== key));
-          const parsed = event.target.value === "" ? undefined : Number(event.target.value);
-          if (parsed !== undefined && !Number.isFinite(parsed)) return;
-          onChange({ ...state, layout: parsed === undefined ? rest : { ...rest, [key]: parsed } });
+          onChange({ ...state, layout: value === "" ? rest : { ...rest, [key]: Number(value) } });
         }} /></label>)}</div>
       </fieldset>
       <MaterialSpecEditor group="rafter" title="Szarufa keresztmetszet · opcionális" profiles={profiles} catalogError={catalogError} state={state.specs.rafter} onChange={setSpec("rafter")} />

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Save } from "lucide-react";
+import { LengthField } from "@/components/ui/length-field";
 import { executeCalculator } from "@/domain/calculations/engine";
 import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput, type GableRoofOutput } from "@/domain/calculations/gable-roof";
 import { metalSheetLayoutCalculator } from "@/domain/calculations/metal-sheet-layout";
@@ -53,6 +54,7 @@ function toInput(values: FormValues): GableRoofInput | null {
 }
 
 function NumericField({ name, label, value, unit, error, onChange, help, onFocus, onBlur }: Readonly<{ name: string; label: string; value: string; unit: string; error?: string; onChange: (value: string) => void; help?: string; onFocus?: () => void; onBlur?: (event: React.FocusEvent<HTMLInputElement>) => void }>) {
+  if (unit === "mm") return <label className="roof-field"><span>{label}</span><LengthField id={name} name={name} label={label} value={value} onChange={onChange} error={error} describedBy={help ? `measurement-help-${name}` : undefined} onFocus={onFocus} onBlur={onBlur} />{help && <em id={`measurement-help-${name}`}>{help}</em>}</label>;
   return <label className="roof-field"><span>{label} <small>{unit}</small></span><input id={name} name={name} inputMode="decimal" value={value} onFocus={onFocus} onBlur={onBlur} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={`measurement-help-${name}`} />{help && <em id={`measurement-help-${name}`}>{help}</em>}{error && <b className="roof-field-error">{error}</b>}</label>;
 }
 
