@@ -17,6 +17,7 @@ import { DEMO_MATERIAL_PROFILES, type MaterialProfile, overhangFromField } from 
 import { RoofMaterialInputs, initialMaterialState, type RoofMaterialUiState } from "./material-spec-editor";
 import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-results";
 import { ConstructionCalculatorThumbnail } from "./construction-thumbnails";
+import { RafterJointsPanel } from "./rafter-joints-panel";
 import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition } from "./construction-calculator-loading";
 import type { CalculatorDefinition, Field } from "./construction-calculator-types";
 import { computeConstruction, constructionInputSnapshot, constructionOutputSnapshot, inputRecord, isFieldVisible, isSaveableComputation, isSaveableConstructionCalculator, materialStateFromSnapshot, roofGeometryTypeForDefinition, roofShapeOf } from "./construction-computation";
@@ -219,8 +220,11 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     {usesMaterials && <RoofMaterialInputs timberOnly={timberOnly} profiles={profiles} catalogError={catalogError} state={materialState} onChange={(next) => setMaterialByCalculator((current) => ({ ...current, [selectedId]: next }))} />}
     {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="Részletes számítás · opcionális">{definition.advancedHelp && <p className="construction-suite-note">{definition.advancedHelp}</p>}{!definition.advancedHelp && <p className="construction-suite-note">Ezek az adatok további mennyiségi eredményt vagy ellenőrzést kapcsolnak be. Az alapgeometriai számításhoz nem szükségesek.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}
   </>;
-  const primaryRows = calculation.rows.slice(0, 6);
-  const detailRows = calculation.rows.slice(6);
+  // Joint values are saved with the result lines but shown in their own section.
+  const jointLabels = new Set(calculation.rafterJoints?.joints.flatMap((joint) => joint.values.map((item) => `${joint.title} · ${item.label}`)) ?? []);
+  const resultRows = calculation.rows.filter((line) => !jointLabels.has(line.label));
+  const primaryRows = resultRows.slice(0, 6);
+  const detailRows = resultRows.slice(6);
   const stepRuleLine = calculation.rows.find((line) => line.label.startsWith("2 × fellépő"));
   const stepRuleValue = typeof stepRuleLine?.value === "number" ? stepRuleLine.value : null;
   const echoedInputs = definition.fields.filter((field) => isFieldVisible(field, values) && (values[field.key] ?? "").trim() !== "" && field.kind !== "checkbox");
@@ -234,6 +238,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     {timberOnly && materialTakeoff && <CriticalWarnings parts={materialTakeoff.parts} />}
     {timberOnly && materialTakeoff?.parts.map((part) => part.invalidInputs.map((reason) => <p className="form-message is-error" role="alert" key={`${part.id}${reason}`}>{part.label}: {reason}</p>))}
     {primaryRows.length > 0 && !isTakeoff && <section className="construction-suite-results" aria-live="polite"><h3>Fő eredmények</h3><dl>{primaryRows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl>{stepRuleValue !== null && <p className="construction-suite-advisory">A számított 2R+G érték {formatHuNumber(stepRuleValue)} mm, {stepRuleValue < 600 || stepRuleValue > 660 ? "a közölt 600–660 mm-es referencia-tartományon kívül esik" : "a közölt 600–660 mm-es referencia-tartományon belül van"}. Ez csak számtani összevetés; nem ergonómiai minősítés és nem szabványi megfelelőség.</p>}<p className="construction-suite-limit">{definition.reference.limitation}</p></section>}
+    {calculation.rafterJoints && <RafterJointsPanel joints={calculation.rafterJoints} />}
     {cutList && (cutList.rafters.length > 0 || cutList.battens.length > 0) && <section className="construction-suite-results construction-suite-cut-lists"><h3>Vágáslista</h3>{cutListSection("Szarufák", cutList.rafters)}{cutListSection("Lécek", cutList.battens)}<p className="construction-suite-limit">Névleges geometriai hosszak, vágási ráhagyás és toldás nélkül.</p></section>}
     {primaryRows.length === 0 && !isTakeoff && calculation.geometry !== null && <p className="construction-suite-limit">{definition.reference.limitation}</p>}
     {detailRows.length > 0 && <GlassDisclosure className="construction-suite-result-details" summary={`Részletes eredmények · ${detailRows.length}`}><dl>{detailRows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl></GlassDisclosure>}

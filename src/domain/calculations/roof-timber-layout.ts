@@ -40,9 +40,10 @@ export type RoofTimberUnavailable = Readonly<{ status: "unavailable"; reason: st
 
 export function roofTimberInputFromParameters(value: RoofTimberParameters): RoofTimberInput | null {
   const family = (prefix: "rafter" | "batten") => {
-    const maxSpacingMm = value[`${prefix}MaxSpacingMm`], startInsetMm = value[`${prefix}StartInsetMm`], endInsetMm = value[`${prefix}EndInsetMm`];
+    // M6 (12/1 "A"): the edge strip is 0 unless a stored historical snapshot carries its own value.
+    const maxSpacingMm = value[`${prefix}MaxSpacingMm`], startInsetMm = value[`${prefix}StartInsetMm`] ?? 0, endInsetMm = value[`${prefix}EndInsetMm`] ?? 0;
     const sectionWidthMm = value[`${prefix}SectionWidthMm`], sectionHeightMm = value[`${prefix}SectionHeightMm`];
-    if (maxSpacingMm === undefined || startInsetMm === undefined || endInsetMm === undefined) return undefined;
+    if (maxSpacingMm === undefined) return undefined;
     return { maxSpacingMm, startInsetMm, endInsetMm, ...(sectionWidthMm === undefined || sectionHeightMm === undefined ? {} : { sectionWidthMm, sectionHeightMm }) };
   };
   const rafter = family("rafter"), batten = family("batten");
@@ -198,7 +199,10 @@ export function calculateRoofTimberLayout(geometry: RoofGeometry, raw: RoofTimbe
     battens,
     assumptions: [
       "Minden hely a tetősík határpoligonjának vetített koordinátáiból, egyenletes kiosztással adódik.",
-      "A megadott tengelytávolság felső korlát; a két peremsáv között a tényleges osztás egyenletes.",
+      "A megadott tengelytávolság felső korlát; a két szélső elem között a tényleges osztás egyenletes.",
+      [parsed.data.rafter, parsed.data.batten].every((family) => !family || (family.startInsetMm === 0 && family.endInsetMm === 0))
+        ? "Peremsáv: 0 mm. A szélső szarufa a tetősík (homlokzati kiülést is tartalmazó) határán, a szélső léc az eresz- és a felső élen áll."
+        : "Egyedi peremsáv: a mentett adat a régi, megadott peremsávval számol.",
       "A geometriai vonalhossz a tetősík polygonjával vágott háromdimenziós szakaszok egyedi összegéből adódik.",
       "Nincs nyílásmodell, vágási veszteség, toldás, túlnyúlás- vagy csomóponti levonás; fizikai darabszám és statikai terv nem állítható elő.",
     ],

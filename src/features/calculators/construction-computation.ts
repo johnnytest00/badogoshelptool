@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { calculateExistingRoofGeometry } from "@/domain/calculations/construction/roofs";
+import { calculateRafterJoints, rafterJointInputFromFields, type RafterJoints } from "@/domain/calculations/construction/rafter-joints";
 import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoff, type RoofMaterialTakeoffInputs } from "@/domain/calculations/roof-material-takeoff";
 import type { RoofGeometry, RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/roof-geometry";
-import { roofTimberInputFromParameters, roofTimberParametersSchema, type RoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
+import { roofTimberInputFromParameters, roofTimberParametersSchema, type RoofTimberLayout, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
 import type { RoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
 import { coveringParametersFromSpec, createSpecSnapshot, resolveMaterialSpec, timberParametersFromSpecs, underlayParametersFromSpec, type MaterialGroup, type MaterialProfile, type RoofMaterialSpecSnapshot, type SpecState } from "@/domain/calculations/roof-material-spec";
 import { createCalculationSnapshot, roofGeometryInputFromFields } from "@/domain/calculations/roof-calculation-snapshot";
@@ -30,7 +31,8 @@ const usesRoofShape = (definition: CalculatorDefinition) => definition.fields.so
 export function roofGeometryTypeForDefinition(definition: CalculatorDefinition, values: Record<string, string>): RoofGeometryType | null {
   return usesRoofShape(definition) ? roofShapeOf(values) : null;
 }
-export const isFieldVisible = (field: Field, values: Record<string, string>) => !field.shapes || field.shapes.includes(roofShapeOf(values));
+export const isFieldVisible = (field: Field, values: Record<string, string>) => (!field.shapes || field.shapes.includes(roofShapeOf(values)))
+  && (!field.visibleWhen || field.visibleWhen.values.includes(values[field.visibleWhen.key] ?? ""));
 
 function reusableRoofGeometry(definition: CalculatorDefinition, values: Record<string, string>): RoofGeometry | null {
   if (!usesRoofShape(definition)) return null;
@@ -51,6 +53,10 @@ export function cutListRows(segments: readonly { lengthMm: number }[]): readonly
   return [...grouped].map(([lengthMm, count]) => ({ lengthMm, count })).sort((a, b) => b.lengthMm - a.lengthMm);
 }
 
+/** M6 (12/1 "A"): the suite always lays out with a 0 mm edge strip, so legacy inset keys are dropped from new input. */
+export const withoutEdgeStrips = (layout: RoofTimberParameters): RoofTimberParameters =>
+  Object.fromEntries(Object.entries(layout).filter(([key]) => !key.endsWith("InsetMm")));
+
 export const usesMaterialInputs = (calculatorId: string) => calculatorId === "roof.material-takeoff" || calculatorId === "roof.timber-cutlist";
 
 export type ConstructionComputation = Readonly<{
@@ -63,6 +69,7 @@ export type ConstructionComputation = Readonly<{
   timberLayout: RoofTimberLayout | null;
   underlayLayout: RoofUnderlayLayout | null;
   cutList: Readonly<{ rafters: readonly { lengthMm: number; count: number }[]; battens: readonly { lengthMm: number; count: number }[] }> | null;
+  rafterJoints: RafterJoints | null;
 }>;
 
 /** One calculation path for the browser preview and the server-side recomputation before saving. */
@@ -79,11 +86,12 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
       rafter: resolveMaterialSpec("rafter", material.specs.rafter, profiles), batten: resolveMaterialSpec("batten", material.specs.batten, profiles),
     };
     const requested = timberOnly ? { timber: true, underlay: false, covering: false } : material.requested;
-    const timberInput = roofTimberInputFromParameters(timberParametersFromSpecs(material.layout, specs.rafter, specs.batten));
+    const layout = withoutEdgeStrips(material.layout);
+    const timberInput = roofTimberInputFromParameters(timberParametersFromSpecs(layout, specs.rafter, specs.batten));
     takeoffInputs = {
       timber: timberInput ?? undefined, underlay: underlayParametersFromSpec(specs.underlay), covering: coveringParametersFromSpec(specs.covering), requested,
       specSnapshot: createSpecSnapshot([...(requested.timber ? [specs.rafter, specs.batten] : []), ...(requested.underlay ? [specs.underlay] : []), ...(requested.covering ? [specs.covering] : [])]),
-      calculationSnapshot: createCalculationSnapshot({ calculatorId, roofShape: roofShapeOf(values), fields: raw, requested, timberLayout: material.layout, specs: [specs.rafter, specs.batten, specs.underlay, specs.covering] }),
+      calculationSnapshot: createCalculationSnapshot({ calculatorId, roofShape: roofShapeOf(values), fields: raw, requested, timberLayout: layout, specs: [specs.rafter, specs.batten, specs.underlay, specs.covering] }),
     };
   }
   let rows: readonly ResultLine[] = [];
@@ -102,7 +110,8 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
   const timberLayout = materialTakeoff?.timber.status === "available" ? materialTakeoff.timber : null;
   const underlayLayout = materialTakeoff && takeoffInputs?.requested?.underlay ? materialTakeoff.underlay : null;
   const cutList = timberOnly && timberLayout ? { rafters: cutListRows(timberLayout.rafters?.segments ?? []), battens: cutListRows(timberLayout.battens?.segments ?? []) } : null;
-  return { inputsReady, rows, error, geometry, takeoffInputs, materialTakeoff, timberLayout, underlayLayout, cutList };
+  const rafterJoints = calculatorId === "roof.rafter-cut" && rows.length > 0 && error === null ? calculateRafterJoints(rafterJointInputFromFields(raw)) : null;
+  return { inputsReady, rows, error, geometry, takeoffInputs, materialTakeoff, timberLayout, underlayLayout, cutList, rafterJoints };
 }
 
 export const CONSTRUCTION_INPUT_SCHEMA = "construction-suite.input.v1";
@@ -141,7 +150,7 @@ export function constructionInputSnapshot(definition: CalculatorDefinition, valu
   const specs = material && Object.fromEntries((["covering", "underlay", "rafter", "batten"] as const satisfies readonly MaterialGroup[]).map((group) => [group, material.specs[group]])) as Record<MaterialGroup, SpecState>;
   return {
     schemaVersion: CONSTRUCTION_INPUT_SCHEMA, calculatorId: definition.reference.id, fields,
-    material: usesMaterialInputs(definition.reference.id) && material && specs ? { requested: { ...material.requested }, layout: { ...material.layout }, specs } : null,
+    material: usesMaterialInputs(definition.reference.id) && material && specs ? { requested: { ...material.requested }, layout: withoutEdgeStrips(material.layout), specs } : null,
   };
 }
 
@@ -162,7 +171,7 @@ export const isSaveableComputation = (computation: ConstructionComputation) =>
 
 /** Rebuild editor state from a saved input snapshot. */
 export function materialStateFromSnapshot(snapshot: ConstructionInputSnapshot): RoofMaterialUiState | null {
-  return snapshot.material ? { requested: snapshot.material.requested, layout: snapshot.material.layout, specs: snapshot.material.specs } : null;
+  return snapshot.material ? { requested: snapshot.material.requested, layout: withoutEdgeStrips(snapshot.material.layout), specs: snapshot.material.specs } : null;
 }
 
 export const constructionCalculatorLabels: Readonly<Record<(typeof SAVEABLE_CONSTRUCTION_CALCULATORS)[number], string>> = {

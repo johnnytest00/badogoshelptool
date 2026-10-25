@@ -82,8 +82,7 @@ export function MaterialSpecEditor({ group, title, profiles, catalogError = fals
 }
 
 const layoutFields = [
-  ["rafterMaxSpacingMm", "Szarufa · legnagyobb tengelytávolság"], ["rafterStartInsetMm", "Szarufa · kezdő peremsáv"], ["rafterEndInsetMm", "Szarufa · záró peremsáv"],
-  ["battenMaxSpacingMm", "Léc · legnagyobb sortávolság"], ["battenStartInsetMm", "Léc · kezdő peremsáv (eresztől)"], ["battenEndInsetMm", "Léc · záró peremsáv (felső éltől)"],
+  ["rafterMaxSpacingMm", "Szarufa · legnagyobb tengelytávolság"], ["battenMaxSpacingMm", "Léc · legnagyobb sortávolság"],
 ] as const satisfies readonly (readonly [keyof RoofTimberParameters, string])[];
 
 type InputsProps = Readonly<{
@@ -105,6 +104,7 @@ export function RoofMaterialInputs({ timberOnly, profiles, catalogError, state, 
     </fieldset>}
     {requested.timber && <>
       <fieldset className="material-spec"><legend>Faanyag kiosztása</legend>
+        <p className="material-spec-note">Peremsáv nélkül: a szélső szarufa a tetősík (kiüléssel együtt mért) szélén, a szélső léc az eresznél és a felső élnél áll.</p>
         <div className="construction-suite-form-grid">{layoutFields.map(([key, label]) => <label className="construction-suite-field" key={key}><span>{label}</span><LengthField label={label} value={state.layout[key] === undefined ? "" : String(state.layout[key])} onChange={(value) => {
           const rest = Object.fromEntries(Object.entries(state.layout).filter(([entry]) => entry !== key));
           onChange({ ...state, layout: value === "" ? rest : { ...rest, [key]: Number(value) } });

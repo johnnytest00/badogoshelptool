@@ -1,5 +1,16 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M6 — Peremsáv-szabály és szarufa-csomópontok
+
+Státusz: **PASS WITH LIMITATIONS.** Döntések: 12/1 — „A”: a peremsáv mindig 0, a lécre is; 12/2 — mindhárom csomópont, mérési referencia a szarufa felső éle (mai modell: a madárszáj magassága csökkenti a hatásos emelkedést, így a hajlást is).
+
+- **Peremsáv:** a `roof.material-takeoff` és `roof.timber-cutlist` kiosztási mezői közül a négy peremsáv-mező kikerült; a suite bemenete a régi kulcsokat eldobja (`withoutEdgeStrips`), a `roofTimberInputFromParameters` hiányzó peremsávot 0-nak vesz. Történeti snapshot (felmérés, projekt-kalkuláció) a saját tárolt peremsávjával számol tovább. Az eredmény feltételezései kiírják, hogy a szélső szarufa a (kiülést tartalmazó) tetősík határán áll. A helyi mentett faanyag-revízió eleve 0 peremsávval készült, így eltérés nincs.
+- **Csomópontok:** új `src/domain/calculations/construction/rafter-joints.ts`. Koordináták: x vízszintesen a talpszelemen külső síkjától (madárszáj függővágása), y függőlegesen a talpszelemen felső síkjától; felső él `y = HAP + x·tanα`. Alsó felfekvés: függő- és ülékvágás szöge (A); szarufa-magassággal függővágás-magasság, ülékhossz, merőleges bevágási mélység, megmaradó magasság (B). Derékszelemen: felfekvés távolsága a felső él mentén és bevágás vagy alátétezési hézag a szelemen helyéből és magasságából (B). Gerinc: szembefutó (A), gerincdeszka `(t/2)/cosα` hosszcsökkenés (B), gerincszelemen bevágás (B). Hiányzó bemenet: C-lista; bevágás megengedhetősége, méretezés, kapcsolóelemek: D-szöveg, a rendszer nem dönt. A táblázat és a metszeti SVG ugyanabból a kimenetből készül. A B-értékek a mentett revízió eredménysoraiba kerülnek; csomópont-bemenet nélkül a sorok változatlanok (régi revízió nem jelez eltérést).
+- **Ellenőrzés:** új Vitest: csomópontok (6, független kézi trigonometria: 3-4-5 háromszög, HAP 100, h 200 → függővágás 150, ülék 200, mélység 120, maradék 80; derékszelemen 50/66,7/40, felfekvés 2500; gerincdeszka 31,25; gerincszelemen 60/80), suite (2: peremsáv-eldobás, sorstabilitás). Teljes Vitest **173 fájl PASS / 8 SKIP, 1029 PASS / 19 SKIP**; `eslint .` PASS; `tsc` PASS. Adatbázis-változás nincs, pgTAP nem futott.
+- **Böngésző (helyi DEMO, 375×812):** a kézi tesztadatok mind a négy csomópont-esetben pontosan ugyanazokat az értékeket adták; a metszeti rajz a két bevágással megjelent; a gerinctípus-váltó a releváns mezőket mutatja; a faanyag-kalkulátorban nincs peremsáv-mező. Valódi mentés: V1 a szerveren újraszámolva, a csomópont-értékek az eredményben (helyi DB).
+- **Korlát / nem ellenőrzött:** a tesztadat független kézi számítás, nem CAD- vagy szakemberi ellenőrzés. A talpszelemen szélessége nem bemenet (az ülék ráférése nem ellenőrzött); az eresz végvágása függőlegesnek rajzolt. A visszavont felmérés-szerkesztő peremsáv-mezői változatlanok (UI-ból nem érhető el). Izolált build nem futott (fut a dev szerver; M7).
+- **Javasolt Conventional Commit:** `feat(M6): zero edge strip layout and classified rafter joint geometry`.
+
 ## M5 — Felmérések kivezetése, kalkulátor-központú navigáció
 
 Státusz: **PASS WITH LIMITATIONS.** Döntések: 12/5 — a meglévő felmérésekre nincs szükség (mind DEMO), ezért nem készült csak olvasható nézet; az adatok törlés nélkül megmaradnak. 12/10 — mobil alsó sáv: Műhely, Kalkulátorok, Munkanaplók, Árajánlatok, Anyaglisták.

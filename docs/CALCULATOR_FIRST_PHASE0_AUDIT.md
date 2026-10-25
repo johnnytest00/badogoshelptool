@@ -231,8 +231,8 @@ A javasolt sorrend eltér a briefben szereplőtől: az egységbevitel előrébb 
 
 ## 12. Csak felhasználói vagy szakemberi döntéssel feloldható kérdések [J]
 
-1. **Peremsáv szabály** (6. pont): A / B / C / D? A léc peremsávjára is vonatkozik?
-2. **Szarufa-csomópontok konvenciója:** mérési referenciavonal, a madárszáj hajlásra gyakorolt hatása, mely tetőtípusok, gerinc-csatlakozás típusai; ki adja az ellenőrzött tesztadatokat?
+1. **Peremsáv szabály** (6. pont): A / B / C / D? A léc peremsávjára is vonatkozik? — **Eldöntve (2026-10-25): A (mindig 0), a lécre is; megvalósítva az M6-ban.**
+2. **Szarufa-csomópontok konvenciója:** mérési referenciavonal, a madárszáj hajlásra gyakorolt hatása, mely tetőtípusok, gerinc-csatlakozás típusai; ki adja az ellenőrzött tesztadatokat? — **Eldöntve (2026-10-25): mindhárom csomópont, felső él referencia (mai modell); M6-ban független kézi trigonometriai tesztadattal, CAD/szakemberi ellenőrzés még nincs.**
 3. **Tört mm:** a suite-ben 0,1 mm-es határ elfogadható, vagy mindenhol egész mm?
 4. **Kimeneti egység:** az eredmények is kövessék a választott egységet, vagy maradjanak mm/m-ben?
 5. **Meglévő felmérés-draftok és utókövetések:** a régi, még nem lezárt felmérés szerkeszthető maradjon, vagy azonnal read-only? A meglévő felmérésből indítható napló/ajánlat/anyaglista megmaradjon?

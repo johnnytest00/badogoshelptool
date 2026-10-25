@@ -2,6 +2,8 @@ import { constructionCalculatorCatalog } from "@/domain/calculations/constructio
 
 import { calculateExistingRoofGeometry, calculateRafterGeometry, calculateTriangularTrussGeometry } from "@/domain/calculations/construction/roofs";
 
+import { calculateRafterJoints, rafterJointInputFromFields } from "@/domain/calculations/construction/rafter-joints";
+
 import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoffInputs } from "@/domain/calculations/roof-material-takeoff";
 
 import type { RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/roof-geometry";
@@ -53,11 +55,21 @@ export function takeoffLines(input: Record<string, unknown>, context: RoofMateri
 
 export const definitions: Record<string, CalculatorDefinition> = {
 "roof.rafter-cut": {
-    reference: reference("roof.rafter-cut"), draw: "rafter", note: "Egyetlen szarufa kiszabása. A hosszak a szarufa felső éle mentén értendők; a madárszáj vízszintes vágása ezt az élt süllyeszti a falnál.",
-    fields: [{ key: "horizontalHalfSpanMm", label: "Fél fesztáv", unit: "mm" }, { key: "riseMm", label: "Gerincemelkedés", unit: "mm" }, { key: "eaveProjectionMm", label: "Vízszintes ereszkiülés", unit: "mm", initial: "0" }, { key: "seatCutHeightMm", label: "Madárszáj vízszintes vágásának magassága", unit: "mm", initial: "0" }],
+    reference: reference("roof.rafter-cut"), draw: "rafter", note: "Egyetlen szarufa kiszabása. A hosszak a szarufa felső éle mentén értendők; a madárszáj vízszintes vágása ezt az élt süllyeszti a falnál. A fél fesztáv a talpszelemen külső síkjától (a madárszáj függővágásától) a gerinctengelyig, a gerincemelkedés a talpszelemen felső síkjától a felső élig mérendő.",
+    advancedHelp: "Csomópontok: a szarufa magasságával a madárszáj bevágása, a szelemenek helyével és magasságával a felfekvések számíthatók. A magasságokat a talpszelemen felső síkjától, a vízszintes helyeket a talpszelemen külső síkjától mérd. A bevágás megengedhetőségét a rendszer nem ellenőrzi.",
+    fields: [{ key: "horizontalHalfSpanMm", label: "Fél fesztáv", unit: "mm" }, { key: "riseMm", label: "Gerincemelkedés", unit: "mm" }, { key: "eaveProjectionMm", label: "Vízszintes ereszkiülés", unit: "mm", initial: "0" }, { key: "seatCutHeightMm", label: "Madárszáj vízszintes vágásának magassága", unit: "mm", initial: "0" },
+      { key: "rafterDepthMm", label: "Szarufa magassága (keresztmetszet)", unit: "mm", advanced: true, placeholder: "nincs megadva" },
+      { key: "ridgeJoint", label: "Gerinccsatlakozás", unit: "", initial: "opposed", kind: "select", advanced: true, options: [{ value: "opposed", label: "Szembefutó szarufák" }, { value: "board", label: "Gerincdeszkára fut" }, { value: "purlin", label: "Gerincszelemenre fekszik" }] },
+      { key: "ridgeBoardThicknessMm", label: "Gerincdeszka vastagsága", unit: "mm", advanced: true, visibleWhen: { key: "ridgeJoint", values: ["board"] } },
+      { key: "ridgePurlinWidthMm", label: "Gerincszelemen szélessége", unit: "mm", advanced: true, visibleWhen: { key: "ridgeJoint", values: ["purlin"] } },
+      { key: "ridgePurlinTopMm", label: "Gerincszelemen felső síkja · a talpszelemen felső síkja felett", unit: "mm", advanced: true, visibleWhen: { key: "ridgeJoint", values: ["purlin"] } },
+      { key: "purlinFaceMm", label: "Derékszelemen ereszoldali síkja · vízszintesen a talpszelemen külső síkjától", unit: "mm", advanced: true, placeholder: "nincs derékszelemen" },
+      { key: "purlinTopMm", label: "Derékszelemen felső síkja · a talpszelemen felső síkja felett", unit: "mm", advanced: true, placeholder: "nincs derékszelemen" }],
     calculate: (input) => {
       const result = calculateRafterGeometry({ horizontalHalfSpanMm: mm(input, "horizontalHalfSpanMm"), riseMm: mm(input, "riseMm"), eaveProjectionMm: mm(input, "eaveProjectionMm"), seatCutHeightMm: mm(input, "seatCutHeightMm") });
-      return [{ label: "Gerendahossz az ereszig", value: result.bodyLengthMm, unit: "mm" }, { label: "Eresz hossza a gerendán", value: result.eaveLengthMm, unit: "mm" }, { label: "Szarufa teljes hossza", value: result.slopeLengthMm, unit: "mm" }, { label: "Tetőhajlás", value: result.pitchDegrees, unit: "°" }, { label: "Bevágás szöge", value: result.plumbCutToBoardAxisDegrees, unit: "°" }];
+      // Joint values from extra input (class B) are saved with the revision; the angles are already in the base lines.
+      const jointLines = calculateRafterJoints(rafterJointInputFromFields(input)).joints.flatMap((joint) => joint.values.filter((item) => item.classification === "B").map((item) => ({ label: `${joint.title} · ${item.label}`, value: item.value, unit: item.unit })));
+      return [{ label: "Gerendahossz az ereszig", value: result.bodyLengthMm, unit: "mm" }, { label: "Eresz hossza a gerendán", value: result.eaveLengthMm, unit: "mm" }, { label: "Szarufa teljes hossza", value: result.slopeLengthMm, unit: "mm" }, { label: "Tetőhajlás", value: result.pitchDegrees, unit: "°" }, { label: "Bevágás szöge", value: result.plumbCutToBoardAxisDegrees, unit: "°" }, ...jointLines];
     },
   },
 "roof.material-takeoff": {

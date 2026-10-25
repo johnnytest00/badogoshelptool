@@ -11,7 +11,7 @@ const rafter = definitions["roof.rafter-cut"];
 const timber = definitions["roof.timber-cutlist"];
 const material: RoofMaterialUiState = {
   requested: { timber: true, underlay: false, covering: false },
-  layout: { rafterMaxSpacingMm: 900, rafterStartInsetMm: 0, rafterEndInsetMm: 0 },
+  layout: { rafterMaxSpacingMm: 900 },
   specs: { covering: initialSpecState(false), underlay: initialSpecState(false), rafter: initialSpecState(false), batten: initialSpecState(false) },
 };
 const timberValues = { roofShape: "gable", lengthMm: "10000", widthMm: "8000", pitchDegrees: "35", eaveOverhangMm: "0" };
@@ -34,6 +34,22 @@ describe("computeConstruction", () => {
     const result = computeConstruction(timber, timberValues, material, DEMO_MATERIAL_PROFILES);
     expect(result.timberLayout?.rafters?.count).toBe(26);
     expect(result.cutList?.rafters).toEqual([{ lengthMm: 4883, count: 26 }]);
+  });
+
+  it("always lays out with a 0 mm edge strip and drops legacy inset keys (M6, 12/1 A)", () => {
+    const legacy = { ...material, layout: { rafterMaxSpacingMm: 900, rafterStartInsetMm: 1000, rafterEndInsetMm: 1000, battenStartInsetMm: 50 } };
+    expect(computeConstruction(timber, timberValues, legacy, DEMO_MATERIAL_PROFILES).timberLayout?.rafters?.count).toBe(26);
+    expect(constructionInputSnapshot(timber, timberValues, legacy).material?.layout).toEqual({ rafterMaxSpacingMm: 900 });
+  });
+
+  it("adds rafter joints without changing the lines of a revision that has no joint input", () => {
+    const values = { horizontalHalfSpanMm: "4000", riseMm: "3100", eaveProjectionMm: "400", seatCutHeightMm: "100", ridgeJoint: "opposed" };
+    const plain = computeConstruction(rafter, values, null, []);
+    expect(plain.rows).toHaveLength(5);
+    expect(plain.rafterJoints?.joints[0]).toMatchObject({ status: "incomplete" });
+    const withDepth = computeConstruction(rafter, { ...values, rafterDepthMm: "200" }, null, []);
+    expect(withDepth.rows.find((line) => line.label === "Alsó felfekvés (talpszelemen) · Vízszintes ülékhossz")?.value).toBeCloseTo(200, 9);
+    expect(computeConstruction(timber, timberValues, material, DEMO_MATERIAL_PROFILES).rafterJoints).toBeNull();
   });
 });
 
