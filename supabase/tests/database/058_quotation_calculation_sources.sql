@@ -9,13 +9,15 @@ insert into public.organization_members(organization_id, user_id, role) values
   ('00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000002', 'member') on conflict do nothing;
 select set_config('test.rev', (select calculation_revision_id::text from public.save_standalone_construction_calculation('00000000-0000-4000-8000-000000000010',
   '00000000-0000-4000-8000-000000580010','00000000-0000-4000-8000-000000580101',0,'construction.roof.timber-cutlist','DEMO M4 faanyag',
-  '{"schemaVersion":"construction-suite.input.v1","calculatorId":"roof.timber-cutlist","fields":{"lengthMm":"10000"},"material":null}'::jsonb,
-  '{"schemaVersion":"construction-suite.output.v1","calculatorId":"roof.timber-cutlist","lines":[],
+  '{"schemaVersion":"construction-suite.input.v1","calculatorId":"roof.timber-cutlist","fields":{"lengthMm":"10000"},
+    "material":{"requested":{"timber":true,"underlay":false,"covering":false},"layout":{},"specs":{}}}'::jsonb,
+  '{"schemaVersion":"construction-suite.output.v1","calculatorId":"roof.timber-cutlist","lines":[{"label":"Tetőfelület","value":84.85,"unit":"m²"}],
     "takeoff":{"status":"VALID","parts":[{"id":"rafters","label":"Szarufa","status":"VALID","quantities":[
       {"label":"Geometriai tengely / vonal","value":26,"unit":"db","meaning":"LAYOUT"},
       {"label":"Geometriai összhossz","value":126.961243,"unit":"m","meaning":"LAYOUT"},
       {"label":"Névleges keresztmetszeti térfogat","value":0.95,"unit":"m³","meaning":"NOMINAL"}]}]},
-    "cutList":{"rafters":[{"lengthMm":4883,"count":26}],"battens":[]},"specifications":null}'::jsonb,
+    "cutList":{"rafters":[{"lengthMm":4883,"count":26}],"battens":[]},
+    "specifications":{"schemaVersion":1,"persisted":false,"groups":{"rafter":{"issues":{},"invalidKeys":[]}},"gableOverhangs":null}}'::jsonb,
   '00000000-0000-4000-8000-000000000001')), true);
 
 create function pg_temp.q_lines(p_qty text default '26') returns jsonb language sql immutable as $$

@@ -1,4 +1,5 @@
 import type { ResultLine } from "@/features/calculators/construction-calculator-types";
+import { isCompleteConstructionOutput } from "@/features/calculators/construction-computation";
 
 /** Decision 12/8: layout quantities and cut-list rows may become quotation quantities; everything else is informational. */
 export type CalculationQuoteCandidate = Readonly<{ sourceKey: string; label: string; quantity: number; unit: string; meaning: "LAYOUT" | "CUT_LIST" }>;
@@ -21,6 +22,7 @@ const finite = (value: unknown): value is number => typeof value === "number" &&
 
 /** Mirrors the source keys the database resolves in save_standalone_quotation_from_calculation. */
 export function calculationQuoteCandidates(output: unknown): { candidates: CalculationQuoteCandidate[]; informational: ResultLine[] } {
+  if (!isCompleteConstructionOutput(output)) return { candidates: [], informational: [] };
   const snapshot = record(output);
   const candidates: CalculationQuoteCandidate[] = [];
   const informational: ResultLine[] = [];

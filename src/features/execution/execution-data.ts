@@ -1,5 +1,5 @@
 import { executionPhotoCategorySchema, type ExecutionPhotoCategory } from "@/domain/execution/contracts";
-import { surveySectionSchema, type SurveySection } from "@/domain/field-surveys/workspace";
+import { surveySectionsSchema, type SurveySection } from "@/domain/field-surveys/workspace";
 import { createClient } from "@/infrastructure/supabase/server";
 import type { Database } from "@/infrastructure/supabase/database";
 import { summarizeExecutionIndexTasks } from "./execution-overview-index";
@@ -18,7 +18,12 @@ export type ExecutionPhotoRecord = { id: string; taskId: string | null; taskTitl
 export type ExecutionPlanRecord = { id: string; projectId: string | null; title: string; description: string | null; version: number; createdAt: string; updatedAt: string; sourceQuotationId: string | null; sourceRevisionId: string | null; sourceRevisionNumber: number | null; sourceQuotationName: string | null; sourceQuotationStatus: string | null; sourceSubtotal: number | null; tasks: ExecutionTaskRecord[]; photos: ExecutionPhotoRecord[] };
 export type ExecutionPlanOption = { id: string; title: string; projectId: string | null; updatedAt: string };
 export type ExecutionLinkedSurveyPhoto = { id: string; displayFilename: string; description: string | null; signedUrl: string | null };
-export type ExecutionLinkedSurvey = { id: string; surveyId: string; surveyVersion: number; currentVersion: number; revisionId: string; sections: SurveySection[]; notes: string | null; photos: ExecutionLinkedSurveyPhoto[] };
+export type ExecutionLinkedSurvey =
+  | { status: "available"; id: string; surveyId: string; surveyVersion: number; currentVersion: number; revisionId: string; sections: SurveySection[]; notes: string | null; photos: ExecutionLinkedSurveyPhoto[] }
+  | { status: "unavailable"; linkId: string; reason: "source_unavailable" | "invalid_snapshot" };
+export type ExecutionLinkedSurveysResult =
+  | { status: "loaded"; items: ExecutionLinkedSurvey[] }
+  | { status: "unavailable" | "access_denied" };
 export type AcceptedQuotationOption = { id: string; name: string; finalizedRevisionId: string; subtotal: string | null };
 export type ExecutionTimelineItem = { id: string; type: "journal" | "task_event"; date: string; recordedAt: string; authorAvailable: boolean; taskTitle: string | null; category?: "general" | "work_done" | "problem" | "next_step"; content?: string; problems?: string | null; nextSteps?: string | null; fromStatus?: "todo" | "in_progress" | "done"; toStatus?: "todo" | "in_progress" | "done" };
 
@@ -37,6 +42,53 @@ function firstById<T extends { id: string }>(rows: readonly T[]): Map<string, T>
   const indexed = new Map<string, T>();
   for (const row of rows) if (!indexed.has(row.id)) indexed.set(row.id, row);
   return indexed;
+}
+
+async function readAllRows<T extends { id: string }>(
+  loadPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown; count: number | null }>,
+  errorMessage: string,
+): Promise<T[]> {
+  const pageSize = 100;
+  const rows: T[] = [];
+  const seen = new Set<string>();
+  let expectedCount: number | null = null;
+  while (true) {
+    const { data, error, count } = await loadPage(rows.length, rows.length + pageSize - 1);
+    if (error || !data || count === null || count < 0 || (expectedCount !== null && count !== expectedCount) || data.length > pageSize) throw new Error(errorMessage);
+    expectedCount = count;
+    for (const row of data) {
+      if (seen.has(row.id)) throw new Error(errorMessage);
+      seen.add(row.id);
+      rows.push(row);
+    }
+    if (rows.length === count) return rows;
+    if (!data.length || rows.length > count) throw new Error(errorMessage);
+  }
+}
+
+function parseLinkedSurveySections(values: readonly unknown[]): SurveySection[] | null {
+  const compatibleValues = values.map((value) => {
+    const section = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+    return section && Array.isArray(section.measurements)
+      ? {
+          ...section,
+          measurements: section.measurements.map((measurement) => {
+            if (!measurement || typeof measurement !== "object" || Array.isArray(measurement)) return measurement;
+            const record = measurement as Record<string, unknown>;
+            // Historically valid revisions omitted this field and PostgreSQL treated it as "custom".
+            return "semanticType" in record ? record : { ...record, semanticType: "custom" };
+          }),
+        }
+      : value;
+  });
+  const parsed = surveySectionsSchema.safeParse(compatibleValues);
+  return parsed.success ? parsed.data : null;
+}
+
+function isAuthorizationFailure(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as { code?: unknown; status?: unknown };
+  return value.status === 401 || value.status === 403 || ["42501", "PGRST301", "PGRST302"].includes(String(value.code));
 }
 
 export async function getExecutionOverviewForOrganization(organizationId: string) {
@@ -80,35 +132,47 @@ export async function getExecutionPlanForOrganization(organizationId: string, pl
   return data ? { id: data.id, title: data.title, projectId: data.project_id, updatedAt: data.updated_at } : null;
 }
 
-export async function getExecutionPlanLinkedSurveys(organizationId: string, planId: string): Promise<ExecutionLinkedSurvey[]> {
+export async function getExecutionPlanLinkedSurveys(organizationId: string, planId: string): Promise<ExecutionLinkedSurveysResult> {
   const supabase = await createClient();
   const { data: links, error: linksError } = await supabase.from("field_survey_execution_plan_links").select("id,survey_id,survey_revision_id,created_at").eq("organization_id", organizationId).eq("execution_plan_id", planId).order("created_at", { ascending: false });
-  if (linksError) throw new Error("A munkanaplóhoz kapcsolt felmérések nem tölthetők be.");
-  if (!links?.length) return [];
+  if (linksError) return { status: isAuthorizationFailure(linksError) ? "access_denied" : "unavailable" };
+  if (!links?.length) return { status: "loaded", items: [] };
   const surveyIds = [...new Set(links.map((link) => link.survey_id))];
   const revisionIds = [...new Set(links.map((link) => link.survey_revision_id))];
   const [revisionsResponse, surveysResponse] = await Promise.all([
     supabase.from("field_survey_revisions").select("id,survey_id,version,work_type,sections,measurements,notes,photos_snapshot").eq("organization_id", organizationId).in("id", revisionIds),
     supabase.from("field_surveys").select("id,version").eq("organization_id", organizationId).in("id", surveyIds),
   ]);
-  if (revisionsResponse.error || surveysResponse.error) throw new Error("A felmérés pontos forrásváltozata nem tölthető be.");
+  if (revisionsResponse.error || surveysResponse.error) return { status: isAuthorizationFailure(revisionsResponse.error) || isAuthorizationFailure(surveysResponse.error) ? "access_denied" : "unavailable" };
   const revisions = revisionsResponse.data ?? [];
   const surveys = firstById(surveysResponse.data ?? []);
   const photosByRevision = revisions.map((revision) => ({ revision, photos: Array.isArray(revision.photos_snapshot) ? revision.photos_snapshot : [] }));
   const photos = photosByRevision.flatMap(({ photos: snapshotPhotos }) => snapshotPhotos);
   const signedPhotos = await Promise.all(photos.map(async (photo) => {
     if (!photo || typeof photo !== "object" || Array.isArray(photo) || typeof photo.objectKey !== "string") return null;
-    const { data } = await supabase.storage.from("field-survey-photos").createSignedUrl(photo.objectKey, 300);
-    return [photo.objectKey, data?.signedUrl ?? null] as const;
+    try {
+      const { data } = await supabase.storage.from("field-survey-photos").createSignedUrl(photo.objectKey, 300);
+      return [photo.objectKey, data?.signedUrl ?? null] as const;
+    } catch {
+      return [photo.objectKey, null] as const;
+    }
   }));
   const signedPhotoMap = new Map(signedPhotos.filter((entry): entry is NonNullable<typeof entry> => entry !== null));
-  return links.flatMap((link) => {
+  const items: ExecutionLinkedSurvey[] = [];
+  for (const link of links) {
     const revision = revisions.find((row) => row.id === link.survey_revision_id && row.survey_id === link.survey_id);
     const current = surveys.get(link.survey_id);
-    if (!revision || !current) return [];
-    const rawSections: SurveySection[] = Array.isArray(revision.sections)
-      ? revision.sections.map((section) => surveySectionSchema.parse(section))
-      : [surveySectionSchema.parse({ id: link.survey_id, name: "Felmérés", workType: revision.work_type, measurements: revision.measurements, notes: revision.notes ?? "", photoIds: [] })];
+    if (!revision || !current) {
+      items.push({ status: "unavailable", linkId: link.id, reason: "source_unavailable" });
+      continue;
+    }
+    const rawSections = parseLinkedSurveySections(Array.isArray(revision.sections)
+      ? revision.sections
+      : [{ id: link.survey_id, name: "Felmérés", workType: revision.work_type, measurements: revision.measurements, notes: revision.notes ?? "", photoIds: [] }]);
+    if (!rawSections) {
+      items.push({ status: "unavailable", linkId: link.id, reason: "invalid_snapshot" });
+      continue;
+    }
     const revisionPhotos = Array.isArray(revision.photos_snapshot) ? revision.photos_snapshot : [];
     const photoRecords = revisionPhotos.map((photo, index) => {
       const value = photo && typeof photo === "object" && !Array.isArray(photo) ? photo : {};
@@ -119,48 +183,58 @@ export async function getExecutionPlanLinkedSurveys(organizationId: string, plan
         signedUrl: typeof value.objectKey === "string" ? signedPhotoMap.get(value.objectKey) ?? null : null,
       };
     });
-    return [{ id: link.id, surveyId: link.survey_id, surveyVersion: revision.version, currentVersion: current.version, revisionId: revision.id, sections: rawSections, notes: revision.notes, photos: photoRecords }];
-  });
+    items.push({ status: "available", id: link.id, surveyId: link.survey_id, surveyVersion: revision.version, currentVersion: current.version, revisionId: revision.id, sections: rawSections, notes: revision.notes, photos: photoRecords });
+  }
+  return { status: "loaded", items };
 }
 
 export async function getExecutionPlanningWorkspace(organizationId: string, projectId: string | null, requestedPlanId?: string) {
   const supabase = await createClient();
-  let planQuery = supabase.from("execution_plans").select("id, title, description, project_id, version, created_at, updated_at, source_quotation_id, source_revision_id").eq("organization_id", organizationId).order("updated_at", { ascending: false });
-  if (requestedPlanId) planQuery = planQuery.eq("id", requestedPlanId);
-  else if (projectId) planQuery = planQuery.eq("project_id", projectId);
-  else planQuery = planQuery.is("project_id", null);
-  const plansResponse = await planQuery;
-  if (plansResponse.error) throw new Error("A munkanaplók betöltése nem sikerült.");
-  const plans: PlanRow[] = plansResponse.data ?? [];
+  const plans = await readAllRows<PlanRow>((from, to) => {
+    let query = supabase.from("execution_plans").select("id, title, description, project_id, version, created_at, updated_at, source_quotation_id, source_revision_id", { count: "exact" }).eq("organization_id", organizationId).order("updated_at", { ascending: false }).order("id", { ascending: true });
+    if (requestedPlanId) query = query.eq("id", requestedPlanId);
+    else if (projectId) query = query.eq("project_id", projectId);
+    else query = query.is("project_id", null);
+    return query.range(from, to);
+  }, "A munkanaplók betöltése nem sikerült.");
   const planIds = plans.map((plan) => plan.id);
   if (!planIds.length) return { plans: [], acceptedQuotations: [], timelineByPlan: new Map<string, ExecutionTimelineItem[]>() };
-  const [tasksResponse, quotesResponse, journalResponse, eventResponse, photosResponse] = await Promise.all([
-    supabase.from("execution_tasks").select("id, plan_id, title, description, status, priority, due_date, sort_order, version").eq("organization_id", organizationId).in("plan_id", planIds).order("sort_order", { ascending: true }).order("created_at", { ascending: true }),
+  const detailError = "A munkanaplók részletei nem tölthetők be.";
+  const [tasks, quotesResponse, journal, events, photos] = await Promise.all([
+    readAllRows<TaskRow>((from, to) => supabase.from("execution_tasks").select("id, plan_id, title, description, status, priority, due_date, sort_order, version", { count: "exact" }).eq("organization_id", organizationId).in("plan_id", planIds).order("sort_order", { ascending: true }).order("created_at", { ascending: true }).order("id", { ascending: true }).range(from, to), detailError),
     projectId ? supabase.from("quotations").select("id, name, finalized_revision_id, status").eq("organization_id", organizationId).eq("project_id", projectId).eq("status", "accepted").not("finalized_revision_id", "is", null).order("updated_at", { ascending: false }) : Promise.resolve({ data: [], error: null }),
-    supabase.from("execution_journal_entries").select("id, plan_id, task_id, work_date, category, content, problems, next_steps, created_by, created_at").eq("organization_id", organizationId).in("plan_id", planIds).order("work_date", { ascending: false }).order("created_at", { ascending: false }).limit(100),
-    supabase.from("execution_task_events").select("id, plan_id, task_id, from_status, to_status, changed_by, changed_at").eq("organization_id", organizationId).in("plan_id", planIds).order("changed_at", { ascending: false }).order("id", { ascending: false }).limit(100),
-    supabase.from("execution_photos").select("id, project_id, plan_id, task_id, journal_entry_id, object_key, display_filename, mime_type, file_size, caption, category, uploaded_by, uploaded_at").eq("organization_id", organizationId).in("plan_id", planIds).order("uploaded_at", { ascending: false }).order("id", { ascending: false }).limit(100),
+    readAllRows<JournalRow>((from, to) => supabase.from("execution_journal_entries").select("id, plan_id, task_id, work_date, category, content, problems, next_steps, created_by, created_at", { count: "exact" }).eq("organization_id", organizationId).in("plan_id", planIds).order("work_date", { ascending: false }).order("created_at", { ascending: false }).order("id", { ascending: false }).range(from, to), detailError),
+    readAllRows<EventRow>((from, to) => supabase.from("execution_task_events").select("id, plan_id, task_id, from_status, to_status, changed_by, changed_at", { count: "exact" }).eq("organization_id", organizationId).in("plan_id", planIds).order("changed_at", { ascending: false }).order("id", { ascending: false }).range(from, to), detailError),
+    readAllRows<PhotoRow>((from, to) => supabase.from("execution_photos").select("id, project_id, plan_id, task_id, journal_entry_id, object_key, display_filename, mime_type, file_size, caption, category, uploaded_by, uploaded_at", { count: "exact" }).eq("organization_id", organizationId).in("plan_id", planIds).order("uploaded_at", { ascending: false }).order("id", { ascending: false }).range(from, to), detailError),
   ]);
-  if (tasksResponse.error || quotesResponse.error || journalResponse.error || eventResponse.error || photosResponse.error) throw new Error("A munkanaplók részletei nem tölthetők be.");
-  const tasks: TaskRow[] = tasksResponse.data ?? [];
+  if (quotesResponse.error) throw new Error(detailError);
   const quotes: QuotationRow[] = quotesResponse.data ?? [];
-  const journal: JournalRow[] = journalResponse.data ?? [];
-  const events: EventRow[] = eventResponse.data ?? [];
-  const photos: PhotoRow[] = photosResponse.data ?? [];
   const uploaderIds = [...new Set(photos.map((photo) => photo.uploaded_by).filter(Boolean))];
   const { data: uploaders } = uploaderIds.length ? await supabase.from("profiles").select("id, display_name").in("id", uploaderIds) : { data: [] };
   const uploaderMap = new Map((uploaders ?? []).map((profile) => [profile.id, profile.display_name] as const));
-  const signedPhotos = await Promise.all(photos.map(async (photo) => {
-    const { data } = await supabase.storage.from("execution-photos").createSignedUrl(photo.object_key, 300);
-    return [photo.id, data?.signedUrl ?? null] as const;
-  }));
+  const signedPhotos: Array<readonly [string, string | null]> = [];
+  for (let start = 0; start < photos.length; start += 16) {
+    signedPhotos.push(...await Promise.all(photos.slice(start, start + 16).map(async (photo) => {
+      const { data } = await supabase.storage.from("execution-photos").createSignedUrl(photo.object_key, 300);
+      return [photo.id, data?.signedUrl ?? null] as const;
+    })));
+  }
   const signedPhotoMap = new Map(signedPhotos);
   const sourceIds = plans.flatMap((plan) => plan.source_quotation_id ? [plan.source_quotation_id] : []);
-  const { data: sourceQuotes } = sourceIds.length ? await supabase.from("quotations").select("id, name, finalized_revision_id, status").in("id", sourceIds).eq("organization_id", organizationId) : { data: [] };
+  const { data: sourceQuotes, error: sourceQuoteError } = sourceIds.length ? await supabase.from("quotations").select("id, name, finalized_revision_id, status").in("id", sourceIds).eq("organization_id", organizationId) : { data: [], error: null };
+  if (sourceQuoteError) throw new Error("A munkanapló pontos ajánlati forrása nem ellenőrizhető.");
   const revisionIds = plans.flatMap((plan) => plan.source_revision_id ? [plan.source_revision_id] : []);
-  const { data: revisions } = revisionIds.length ? await supabase.from("quotation_revisions").select("id, revision_number, subtotal").in("id", revisionIds).eq("organization_id", organizationId) : { data: [] };
+  const { data: revisions, error: revisionError } = revisionIds.length ? await supabase.from("quotation_revisions").select("id, quotation_id, revision_number, subtotal").in("id", revisionIds).eq("organization_id", organizationId) : { data: [], error: null };
+  if (revisionError) throw new Error("A munkanapló pontos ajánlati forrása nem ellenőrizhető.");
   const quoteMap = new Map((sourceQuotes ?? []).map((quote) => [quote.id, quote] as const));
   const revisionMap = new Map((revisions ?? []).map((revision) => [revision.id, revision] as const));
+  const missingSource = plans.some((plan) => {
+    if (plan.source_quotation_id === null && plan.source_revision_id === null) return false;
+    const quote = plan.source_quotation_id ? quoteMap.get(plan.source_quotation_id) : undefined;
+    const revision = plan.source_revision_id ? revisionMap.get(plan.source_revision_id) : undefined;
+    return !quote || !revision || quote.status !== "accepted" || quote.finalized_revision_id !== plan.source_revision_id || revision.quotation_id !== plan.source_quotation_id;
+  });
+  if (missingSource) throw new Error("A munkanapló pontos ajánlati forrása nem ellenőrizhető.");
   const tasksByPlan = groupBy(tasks, (task) => task.plan_id);
   const photosByPlan = groupBy(photos, (photo) => photo.plan_id);
   const journalByPlan = groupBy(journal, (entry) => entry.plan_id);

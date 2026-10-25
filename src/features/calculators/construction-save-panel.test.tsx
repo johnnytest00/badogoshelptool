@@ -11,11 +11,11 @@ vi.mock("@/features/execution/execution-document-link-actions", () => ({ linkExe
 
 const definition = definitions["roof.rafter-cut"];
 const values = { horizontalHalfSpanMm: "3000", riseMm: "2000", eaveProjectionMm: "500", seatCutHeightMm: "0" };
-const input = constructionInputSnapshot(definition, values, null);
+const input = constructionInputSnapshot(definition, Object.fromEntries(definition.fields.map((field) => [field.key, values[field.key as keyof typeof values] ?? field.initial ?? ""])), null);
 const output = constructionOutputSnapshot("roof.rafter-cut", computeConstruction(definition, values, null, []));
 const revision = (revisionNumber: number, revisionInput = input, revisionOutput = output) => ({ revisionId: `r${revisionNumber}`, revisionNumber, createdAt: "2026-10-25T10:00:00Z", input: revisionInput, output: revisionOutput });
 const savedSession: ConstructionSaveSession = { calculationId: "c", name: "DEMO szarufa", revisionNumber: 2, baselineInput: stableJsonStringify(input), savedName: "DEMO szarufa", viewedRevisionNumber: 2, revisions: [revision(2), revision(1)] };
-const render = (session: ConstructionSaveSession, saveable = true, liveOutput = output, extra: Partial<Parameters<typeof ConstructionSavePanel>[0]> = {}) => renderToStaticMarkup(<ConstructionSavePanel organizationId="org" calculatorId="roof.rafter-cut" session={session} input={input} liveOutput={liveOutput} saveable={saveable} onSessionChange={() => undefined} onLoadRevision={() => undefined} {...extra} />);
+const render = (session: ConstructionSaveSession, saveable = true, liveOutput = output, extra: Partial<Parameters<typeof ConstructionSavePanel>[0]> = {}) => renderToStaticMarkup(<ConstructionSavePanel organizationId="org" calculatorId="roof.rafter-cut" definition={definition} session={session} input={input} liveOutput={liveOutput} saveable={saveable} onSessionChange={() => undefined} onLoadRevision={() => undefined} {...extra} />);
 const planLinks = { plans: [{ id: "p1", title: "DEMO napló", projectId: null, updatedAt: "2026-10-25" }], links: [{ linkId: "l1", planId: "p0", planTitle: "DEMO régi napló", origin: "link" as const, documentId: "r1", detail: "V1" }] };
 
 describe("ConstructionSavePanel", () => {
@@ -24,6 +24,7 @@ describe("ConstructionSavePanel", () => {
     expect(render(fresh)).toContain("Nincs mentve · helyi előnézet");
     expect(render(fresh)).toContain(">Kalkuláció mentése</button>");
     expect(render(fresh, false)).toMatch(/<button[^>]*disabled=""[^>]*>.*Kalkuláció mentése/);
+    expect(render(fresh, false)).toContain("Hiányos kalkuláció");
     expect(render(fresh, false)).toContain("Mentéshez teljes, kiszámítható eredmény szükséges.");
   });
 
@@ -34,8 +35,28 @@ describe("ConstructionSavePanel", () => {
     expect(html).toContain("Revíziók · 2");
   });
 
+  it("exposes an explicit older-page control without changing the current revision", () => {
+    const html = render({ ...savedSession, revisions: [revision(50), revision(49)], revisionNumber: 50, viewedRevisionNumber: 50, hasOlderRevisions: true, nextBeforeRevisionNumber: 49 });
+    expect(html).toContain("Revíziók · 2+");
+    expect(html).toContain("Régebbi revíziók betöltése");
+    expect(html).toContain("V50 · aktuális");
+  });
+
+  it("opens unchanged historical V2 as clean, detects an edit, and blocks an unknown legacy field", () => {
+    const historical = { ...input, fields: { horizontalHalfSpanMm: "3000", riseMm: "2000", eaveProjectionMm: "500", seatCutHeightMm: "0" } };
+    const hydrated = constructionInputSnapshot(definition, Object.fromEntries(definition.fields.map((field) => [field.key, historical.fields[field.key as keyof typeof historical.fields] ?? field.initial ?? ""])), null);
+    const session = { ...savedSession, baselineInput: stableJsonStringify(historical), revisions: [revision(2, historical)] };
+    expect(render(session, true, output, { input: hydrated })).toContain("Mentve · V2");
+    expect(render(session, true, output, { input: { ...hydrated, fields: { ...hydrated.fields, riseMm: "2100" } } })).toContain("Mentetlen módosítás · utolsó mentés V2");
+    const incompatible = { ...historical, fields: { ...historical.fields, removedField: "42" } };
+    const html = render({ ...session, revisions: [revision(2, incompatible)] }, true, output, { input: hydrated });
+    expect(html).toContain("Nem kompatibilis mentett revízió");
+    expect(html).toContain("A mentett adat változatlan");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>.*Új revízió mentése/);
+  });
+
   it("marks changed input or name as unsaved", () => {
-    expect(render({ ...savedSession, baselineInput: "{}" })).toContain("Mentetlen módosítás · utolsó mentés V2");
+    expect(render(savedSession, true, output, { input: { ...input, fields: { ...input.fields, riseMm: "2100" } } })).toContain("Mentetlen módosítás · utolsó mentés V2");
     expect(render({ ...savedSession, name: "Új név" })).toContain("Mentetlen módosítás · utolsó mentés V2");
   });
 
@@ -51,10 +72,20 @@ describe("ConstructionSavePanel", () => {
     expect(linked).toContain("Munkanaplóhoz csatolás");
     expect(linked).toContain("DEMO régi napló");
     expect(linked).toContain("· V1");
-    const dirty = render({ ...savedSession, baselineInput: "{}" }, true, output, { planLinks });
+    const dirty = render(savedSession, true, output, { planLinks, input: { ...input, fields: { ...input.fields, riseMm: "2100" } } });
     expect(dirty).toContain("Mentetlen módosítás van. Munkanaplóhoz mindig mentett revízió kapcsolódik");
     expect(dirty).not.toContain("Munkanaplóhoz csatolás");
     expect(render(savedSession, true, output, { planLinksUnavailable: true })).toContain("A munkanaplók most nem tölthetők be");
     expect(render({ ...savedSession, revisionNumber: 0, baselineInput: null, savedName: null, viewedRevisionNumber: null, revisions: [] }, true, output, { planLinks })).not.toContain("Munkanapló");
+  });
+
+  it("blocks quotation and work-log reuse for a historical incomplete revision", () => {
+    const incompleteOutput = { ...output, lines: [] };
+    const incompleteSession = { ...savedSession, revisions: [revision(2, input, incompleteOutput), revision(1)] };
+    const html = render(incompleteSession, false, incompleteOutput, { planLinks });
+    expect(html).toContain("Mentett V2 · hiányos");
+    expect(html).toContain("Hiányos kalkuláció nem adható tovább ajánlatba vagy munkanaplóba.");
+    expect(html).not.toContain("Árajánlat készítése");
+    expect(html).not.toContain("Munkanaplóhoz csatolás");
   });
 });

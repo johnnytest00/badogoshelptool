@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Dashboard } from "@/features/dashboard/dashboard";
+import { Dashboard, ProjectsView } from "@/features/dashboard/dashboard";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { ScalingProvider } from "@/features/preferences/scaling-provider";
 import { vi } from "vitest";
@@ -57,5 +57,12 @@ describe("dashboard foundation", () => {
     expect(html.indexOf("Funkciók")).toBeLessThan(html.indexOf("Aktuális munkák"));
     expect(html).not.toContain('href="/projektek?organization=org-demo"');
     expect(dashboardFunctions.every(({ label }) => html.includes(`>${label}</strong>`))).toBe(true);
+  });
+
+  it("keeps the worklog empty state aligned with supported entry points", () => {
+    const html = renderToStaticMarkup(createElement(ProjectsView, { plans: [], organizationId: "org-demo" }));
+    expect(html).toContain("Munkanaplót önállóan vagy mentett kalkulációból indíthatsz.");
+    expect(html).not.toContain("felmérésből");
+    expect(html).toContain('href="/kivitelezes/uj?organization=org-demo"');
   });
 });

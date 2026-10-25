@@ -1,14 +1,17 @@
-import { getConstructionCalculation } from "@/features/calculations/construction-data";
+import { getConstructionCalculation, getConstructionRevision } from "@/features/calculations/construction-data";
+import { isCompleteConstructionOutput } from "@/features/calculators/construction-computation";
 import { createClient } from "@/infrastructure/supabase/server";
 import { calculationQuoteCandidates, type QuotationCalculationSource } from "./calculation-quotation-source";
 
 /** A saved calculation revision as a quotation source for a new draft (creator-scoped like the calculation itself). */
 export async function getCalculationQuotationSource(organizationId: string, calculationId: string, revisionId?: string): Promise<QuotationCalculationSource | null> {
-  const calculation = await getConstructionCalculation(organizationId, calculationId);
-  const revision = calculation?.revisions.find((candidate) => revisionId ? candidate.revisionId === revisionId : candidate.revisionNumber === calculation.currentRevisionNumber);
-  if (!calculation || !revision) return null;
+  const direct = revisionId ? await getConstructionRevision(organizationId, calculationId, revisionId) : null;
+  const calculation = direct ? null : await getConstructionCalculation(organizationId, calculationId);
+  const sourceCalculation = direct?.calculation ?? calculation;
+  const revision = direct?.revision ?? calculation?.revisions.find((candidate) => candidate.revisionNumber === calculation.currentRevisionNumber);
+  if (!sourceCalculation || !revision || !isCompleteConstructionOutput(revision.output)) return null;
   return {
-    calculationId, calculationRevisionId: revision.revisionId, calculationName: calculation.displayName, calculatorId: calculation.calculatorId,
+    calculationId, calculationRevisionId: revision.revisionId, calculationName: sourceCalculation.displayName, calculatorId: sourceCalculation.calculatorId,
     revisionNumber: revision.revisionNumber, ...calculationQuoteCandidates(revision.output), sourceLineMap: [],
   };
 }

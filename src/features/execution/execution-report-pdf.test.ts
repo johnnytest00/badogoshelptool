@@ -17,4 +17,14 @@ describe("execution report PDF", () => {
     expect(buffer.length).toBeGreaterThan(1000);
     expect(safeExecutionReportFilename("Árvíz / projekt", "Terv #1")).toBe("Kivitelezesi_osszefoglalo_Arviz-projekt-Terv-1.pdf");
   });
+
+  it("renders a multi-page journal with 101 distinct entries", async () => {
+    const timeline = Array.from({ length: 101 }, (_, index) => ({
+      id: `j${index}`, type: "journal" as const, date: "2026-10-13", recordedAt: "2026-10-13T10:00:00.000Z",
+      authorAvailable: true, taskTitle: null, category: "general" as const, content: `DEMO bejegyzés ${index}`, problems: null, nextSteps: null,
+    }));
+    const buffer = await renderExecutionReportPdf({ ...data, plan: { ...data.plan, timeline }, sections: ["journal"] });
+    expect(buffer.subarray(0, 4).toString()).toBe("%PDF");
+    expect((buffer.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length).toBeGreaterThan(1);
+  });
 });

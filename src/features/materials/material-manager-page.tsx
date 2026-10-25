@@ -1,7 +1,7 @@
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
-import { getMaterialCategories, getMaterialManufacturers, getMaterialProductsForOrganization } from "@/features/materials/material-data";
+import { getMaterialCategories, getMaterialManufacturers, getMaterialProductPage } from "@/features/materials/material-data";
 import { MaterialManager } from "@/features/materials/material-manager";
 
 export async function MaterialManagerPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string }> }>) {
@@ -12,9 +12,9 @@ export async function MaterialManagerPage({ searchParams }: Readonly<{ searchPar
 
   const organizationId = selected.organization.id;
   const [products, categories, manufacturers] = await Promise.all([
-    getMaterialProductsForOrganization(organizationId, { includeArchived: true }),
+    getMaterialProductPage(organizationId),
     getMaterialCategories(organizationId),
     getMaterialManufacturers(organizationId),
   ]);
-  return <MaterialManager organizationId={organizationId} products={products} categories={categories} manufacturers={manufacturers} />;
+  return <MaterialManager organizationId={organizationId} initialPage={products} categories={categories} manufacturers={manufacturers} />;
 }

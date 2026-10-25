@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ rpc: vi.fn() }));
+const state = vi.hoisted(() => ({ rpc: vi.fn(), complete: vi.fn() }));
 vi.mock("@/features/auth/auth.server", () => ({ getAuthContext: async () => ({ userId: "u", organizations: [{ id: "00000000-0000-4000-8000-000000000010" }] }) }));
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: async () => ({ rpc: state.rpc }) }));
+vi.mock("@/features/calculations/construction-data", () => ({ isCompleteConstructionRevision: (...args: unknown[]) => state.complete(...args) }));
 
 import { saveStandaloneQuotationDraftAction } from "./standalone-quotation-actions";
 
@@ -18,7 +19,10 @@ function form(lines: unknown[], fields: Record<string, string> = {}) {
 }
 
 describe("standalone quotation calculation source", () => {
-  beforeEach(() => { state.rpc.mockReset().mockResolvedValue({ data: [{ quotation_id: "q", revision_id: "r", revision_number: 1, revision_created: true, totals_snapshot: {} }], error: null }); });
+  beforeEach(() => {
+    state.rpc.mockReset().mockResolvedValue({ data: [{ quotation_id: "q", revision_id: "r", revision_number: 1, revision_created: true, totals_snapshot: {} }], error: null });
+    state.complete.mockReset().mockResolvedValue(true);
+  });
 
   it("routes calculation-sourced lines to the wrapper and keeps the shared line contract unchanged", async () => {
     const result = await saveStandaloneQuotationDraftAction(form([line({ calculationSourceKey: "cut/rafters/0" }), line({ description: "Kézi tétel" })], { calculationRevisionId }));
@@ -46,5 +50,11 @@ describe("standalone quotation calculation source", () => {
   it("explains a calculation source the database rejects", async () => {
     state.rpc.mockResolvedValueOnce({ data: null, error: { code: "22023", message: "only layout quantities can become quotation quantities" } });
     expect(await saveStandaloneQuotationDraftAction(form([line({ calculationSourceKey: "takeoff/0/2" })], { calculationRevisionId }))).toMatchObject({ ok: false, error: expect.stringContaining("kalkulációs forrás") });
+  });
+
+  it("rejects an incomplete calculation before saving an offer", async () => {
+    state.complete.mockResolvedValue(false);
+    expect(await saveStandaloneQuotationDraftAction(form([line({ calculationSourceKey: "cut/rafters/0" })], { calculationRevisionId }))).toMatchObject({ ok: false, error: expect.stringContaining("teljes") });
+    expect(state.rpc).not.toHaveBeenCalled();
   });
 });

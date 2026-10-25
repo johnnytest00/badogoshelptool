@@ -3,6 +3,7 @@ import { SupabaseReadError, readSupabase } from "@/infrastructure/supabase/read-
 import type { ResultLine } from "@/features/calculators/construction-calculator-types";
 import type { DocumentPlanLink } from "./execution-document-links";
 import { loadOptionalExecutionSection, type ExecutionWorkspaceSection } from "./execution-workspace-read";
+import { isCompleteConstructionOutput } from "@/features/calculators/construction-computation";
 
 export type PlanLinkedCalculation = Readonly<{
   linkId: string;
@@ -13,6 +14,7 @@ export type PlanLinkedCalculation = Readonly<{
   calculatorId: string;
   /** Only the creator edits, saves new revisions or removes the link; members read the linked revision. */
   ownedByViewer: boolean;
+  complete: boolean;
   lines: readonly ResultLine[];
 }>;
 
@@ -54,7 +56,8 @@ export async function getPlanLinkedCalculations(organizationId: string, planId: 
       const revision = revisionById.get(link.calculation_revision_id)!;
       return {
         linkId: link.id, calculationId: calculation.id, revisionId: revision.id, revisionNumber: revision.revision_number, name: calculation.display_name,
-        calculatorId: calculation.calculator_type.replace(/^construction\./, ""), ownedByViewer: calculation.created_by === viewerId, lines: outputLines(revision.output_snapshot),
+        calculatorId: calculation.calculator_type.replace(/^construction\./, ""), ownedByViewer: calculation.created_by === viewerId,
+        complete: isCompleteConstructionOutput(revision.output_snapshot), lines: outputLines(revision.output_snapshot),
       };
     }).sort((a, b) => a.name.localeCompare(b.name, "hu") || a.revisionNumber - b.revisionNumber);
   });

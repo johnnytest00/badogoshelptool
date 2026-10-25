@@ -1,5 +1,108 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## QA-09 — RPC migrációintegráció, Auth E2E és release readiness (2026-10-25)
+
+Státusz: **COMPLETE az elkülönített helyi hatókörre; READY FOR CONTROLLED STAGING ROLLOUT; fő helyi/hostolt DB NOT APPLIED**. A [részletes bizonyíték](QA09_MIGRATION_INTEGRATION_READINESS.md) szerint a teljes 119 migrációs lánc, a restricted writer, a privát attesztáció, a downstream guardok és a tényleges Next.js + Supabase Auth workflow egy külön helyi Supabase-projektben működik. A fő helyi DB továbbra is `20261025140000`, attesztációs tábla nélkül; a meglévő dev szerver nem állt le.
+
+- TDD-ben bizonyított backfill-hiba: a korábbi `server_recomputed` metaadat + struktúra egy ledger nélküli hamis fixture-t is attesztált (**5/5**). A migráció most csak pontos immutable revízió ↔ korábbi restricted-writer operation-ledger egyezést fogad; GREEN: **4 legitim, 0 hamisított, 0 mismatch**. Az új globális pgTAP állítás miatt a teljes DB suite **62 fájl / 1319 PASS**.
+- Valódi authenticated böngészős E2E: hiányos mentés tiltott; szarufa V1→V2→történeti V1→V3; új munkanapló és pontos V3-link; vágáslista V1-ből forráskulcsos ajánlati sor, mentés és újranyitás. DB-bizonyíték: **4/4 E2E revízió attesztált + ledgerelt, 1 munkanapló-link, 1 ajánlatforrás, 0 attesztáció/ledger eltérés**.
+- Régi upgrade-snapshot: 4/4 korábbi writer-revízió backfillelt; régi revízió authenticated olvasása/új linkje és aktív történeti kapcsolat leválasztása rollbackelt tranzakcióban sikeres. Teljes Vitest **183 PASS / 8 SKIP fájl, 1101 PASS / 19 SKIP teszt**; lint, izolált typecheck és Next 16.4.2 webpack build PASS; DB lint 0 error, korábbi független warningokkal.
+- Hostolt rollout továbbra is blokkolt a backfill dry-run kézi jóváhagyásáig, igazolt backup/PITR restore-ig, szerveroldali writer credential preflightig és többtagú staging Auth/RLS smoke-ig. A rollback nem tekinthető veszteségmentesnek; fail-closed + roll-forward az elsődleges recovery.
+- Javasolt Conventional Commit: `fix(QA-09): harden RPC backfill and prove release readiness`.
+
+## QA08-RPC-01 — Calculation RPC trust boundary (2026-10-25)
+
+Státusz: **COMPLETE a helyi forrásra és izolált DB-bizonyítékra; hostolt/megosztott migráció NOT APPLIED**. A [részletes bizonyíték](QA08_RPC01_TRUST_BOUNDARY.md) szerint a tényleges rés nem a már korlátozott konstrukciós writer közvetlen hívhatósága, hanem a downstream `authenticated` RPC-k eredetellenőrzés nélküli bizalma volt. A restricted writer most csak strukturálisan teljes snapshotot fogad el, atomikus privát attesztációt készít, a munkanapló- és ajánlatforrás-guard pedig kizárólag ilyen pontos org/kalkuláció/revízió hármast fogad el.
+
+- A böngésző továbbra is csak inputot küld; a Server Action meglévő TypeScript motorja újraszámít és teljességet ellenőriz. Az `authenticated` és `service_role` nem hívhatja a writert; kizárólag a minimális `tetopro_covering_writer` szerepkör. RLS-lazítás, service-role általánosítás és SQL-ben újraírt geometriai motor nincs.
+- TDD RED: **10/26 FAIL** a régi sémán, rollbackelve. GREEN az eldobható DB-klónon: célzott pgTAP `057/058/060` **63/63 PASS**, teljes pgTAP **62 fájl / 1318 PASS**. Két párhuzamos V2 mentésből pontosan egy sikerült, a másik `40001`; 2 revízióhoz 2 attesztáció tartozott.
+- Célzott Vitest **24/24 PASS**; teljes Vitest **183 PASS / 8 SKIP fájl, 1101 PASS / 19 SKIP teszt**; lint és Next typegen + TypeScript PASS. Alkalmazáskód nem változott, ezért production build nem futott. A régi immutable snapshotok nem változtak; a későbbi QA-09 hardening a backfillt pontos restricted-writer operation-ledger egyezéshez kötötte, mert a `server_recomputed` metaadat önmagában nem bizonyult elégségesnek.
+- Új migráció: `20261025154642_qa08_rpc_trust_boundary.sql`; hostolt és megosztott helyi adatbázisra nem alkalmazva. Javasolt Conventional Commit: `fix(QA08-RPC-01): attest trusted calculation revisions`.
+
+## QA-08 — Teljes end-to-end és integrációs ellenőrzés (2026-10-25)
+
+Státusz: **PASS WITH LIMITATIONS; az akkori P2 integritási finding helyi follow-upban lezárva**. A [részletes QA-08 bizonyíték](QA08_FULL_E2E_VERIFICATION.md) szerint a helyi teljes Vitest **183 fájl PASS / 8 SKIP, 1101 PASS / 19 SKIP teszt**, a helyi pgTAP **61 fájl / 1292 PASS**, lint, typecheck, izolált webpack build és a célzott PDF/kalkulátor suite (**5 fájl / 28 teszt**) zöld. Hitelesített helyi Brave-ban a 31 kalkulátor-katalógus 4/17/10 kategóriás selector-mátrixa, mentett kalkuláció, munkanapló, ajánlat, anyaglista és anyagkezelő olvasási útvonala ellenőrzött.
+
+- Teljes tartós A–F E2E nem minősíthető COMPLETE-nek: nem volt igazoltan elkülönített eldobható auth/fixture; új mentés, fotófeltöltés, PDF-generálás, 101/201/525/51/125-ös böngészős adatmennyiség és mobil viewport-mátrix nem futott.
+- A közvetlen authenticated `link_execution_plan_document` RPC tranzakciós próbája üres konstrukciós `output_snapshot`-ot **`created: true`** eredménnyel elfogadott; a `ROLLBACK` után a fixture és link 0/0 maradt. Ez nyitotta a QA08-RPC-01 findingot; a későbbi célzott javítás helyi forrásban és izolált DB-klónon **lezárta**, de hostolt/megosztott migráció nélkül ott még nem aktív.
+- Nincs adatbázis-, RLS-, kalkulációs-, mentési- vagy történeti snapshot-módosítás. Javasolt Conventional Commit: `docs(QA-08): record full end-to-end integration verification`.
+
+## QA-07 — Munkanapló-üresállapot és navigációs konzisztencia (2026-10-25)
+
+Státusz: **COMPLETE a QA-07 célzott mérföldkőre**. A munkanapló-lista és a dashboard üres munkanapló-állapota már nem ígér felmérésből indított, kivezetett létrehozási folyamatot. Az új szöveg: „Munkanaplót önállóan vagy mentett kalkulációból indíthatsz.”
+
+- Az „Új munkanapló” CTA továbbra is a tényleges `/kivitelezes/uj?organization=…` útvonalra mutat; a nem üres lista meglévő `/kivitelezes/:planId?organization=…` navigációja változatlan.
+- Célzott red→green UI-regresszió: üres és nem üres `ExecutionIndexPage`, dashboard-üresállapot, régi „felmérésből” szöveg hiánya és CTA-célútvonalak: **8/8 PASS**.
+- Nincs adatbázis-, RLS-, kalkulációs-, mentési- vagy történeti felmérés-snapshot módosítás. A történeti felmérés-olvasók és a meglévő felmérés→munkanapló kapcsolási útvonalak érintetlenek.
+- Javasolt Conventional Commit: `fix(QA-07): align worklog empty-state navigation copy`.
+
+## QA-06 — Teljes kalkulációs revíziótörténet és lapozás (2026-10-25)
+
+Státusz: **COMPLETE a QA-06 célzott mérföldkőre**. A [részletes bizonyíték](QA06_CALCULATION_REVISION_HISTORY.md) szerint a korábbi 50-es lekérdezési korlát helyett 50-es szerveroldali oldalak és látható „Régebbi revíziók betöltése” vezérlő működik. Az első oldal 51 sort kér a további oldal detektálásához; V51/V125 és a legrégebbi snapshot kurzorozott lapon érhető el.
+
+- A revíziók `revision_number DESC, id DESC` sorrendben, szervezet + kalkuláció szűréssel töltődnek; a lapok rekord-ID szerint deduplikálva, async elavulásvédelemmel kerülnek a munkamenetbe. A direkt revízióforrás-olvasás nem függ az első oldaltól.
+- Célzott adat/action/panel: **21/21 PASS**; teljes Vitest **182 fájl PASS / 8 SKIP, 1098 PASS / 19 SKIP teszt**; lint, typecheck, izolált webpack build, `git diff --check` PASS; helyi pgTAP **61 fájl / 1292 PASS**. Hitelesített browser E2E nem futott: nem volt futó helyi szerver és 51/125-ös tartós fixture.
+- Nincs séma-, RLS-, snapshot-, formula- vagy migrációmódosítás. Javasolt Conventional Commit: `fix(QA-06): paginate complete calculation revision history`.
+
+## QA-04 — Kalkulációteljesség és biztonságos továbbadás (2026-10-25)
+
+Státusz: **PASS WITH LIMITATIONS**. A [részletes bizonyíték](QA04_CALCULATION_COMPLETENESS.md) szerint a menthetőség most a kért eredmény teljességéből következik, nem pusztán az érvényes tetőgeometriából. A teljes, hiányos, érvénytelen és nem támogatott állapot külön kezelt; a kliens és a szerver ugyanazzal a domain-szabállyal dönt. Történeti hiányos revízió megnyitható, de az alkalmazás normál szerveres útvonalán nem adható tovább ajánlatba vagy új munkanapló-kapcsolatba.
+
+- Hitelesített helyi Brave: faanyag-kalkulátor kiosztás nélkül „Hiányos”, konkrét hiánylistával és tiltott mentéssel; 80 cm szarufakiosztás után „Teljes” és engedélyezett mentés. Desktop és DevTools iPhone SE 375×667; tartós mentés nélkül.
+- Végső célzott regresszió **11 fájl / 61 PASS**; teljes Vitest **181 PASS / 8 SKIP fájl, 1085 PASS / 19 SKIP teszt**; lint, közvetlen tsc, izolált `npm run typecheck`/`npm run build`, teljes helyi pgTAP **61 fájl / 1292 PASS** és `git diff --check` PASS. Nincs migráció, RLS-változás vagy képletmódosítás.
+- Korlát: tartós piszkozat külön migrációt és teljes RPC/downstream státuszszerződést igényel, ezért csak a QA-03 munkamenet-draft maradt. A QA-04 idején a downstream RPC-k közvetlen hívása még nem ismerte a teljességi szabályt; ezt a QA08-RPC-01 helyi follow-up attesztációs kapuval lezárta, hostolt/megosztott migráció nélkül ott még nem aktív. Javasolt commit: `fix(QA-04): gate calculation saving and downstream use on completeness`.
+
+## QA-03.1 — Történeti revízió és browser back/forward (2026-10-25)
+
+Státusz: **PASS WITH LIMITATIONS**; mindkét hiba helyben reprodukálva és javítva. A [részletes bizonyíték](QA03_1_COMPATIBILITY_NAVIGATION.md) szerint a régi DEMO szarufa V2 változatlan megnyitáskor „Mentve · V2”, a tényleges szerkesztés dirty. A mentett snapshot változatlan; ismeretlen régi mező explicit inkompatibilitási állapot. A kliensoldali browser back/forward felhasználó-, szervezet- és számításkulcsos munkamenetmemóriából visszaállítja a draftot, a kifejezett elvetés törli azt.
+
+- Hitelesített helyi Brave: V2 200→210 cm, back→forward után 210 cm; „Kilépés mentés nélkül” után 200 cm; új kalkuláció 300 cm back→forward és A→B→A után megmaradt. Puszta 200 cm→2 m egységváltás nem kérdezett rá. Teljes dokumentumos backnél a `beforeunload` figyelmeztetés megszakítható volt.
+- Teljes Vitest **180 PASS / 8 SKIP fájl, 1074 PASS / 19 SKIP teszt**; lint, közvetlen tsc, izolált `npm run typecheck`/`npm run build` és `git diff --check` PASS. DB-séma, RLS és mentett adat nem változott.
+- Korlát: teljes újratöltés/lapbezárás böngészőfüggő `beforeunload`; élő második szervezet és tartós böngészős revíziómentés nem tesztelt. Javasolt commit: `fix(QA-03.1): compare historical snapshots and retain navigation drafts`.
+
+## QA-03 — Kalkulátor-draft megőrzése és biztonságos váltás (2026-10-25)
+
+Státusz: **PASS WITH LIMITATIONS**. A [részletes bizonyíték](QA03_CALCULATOR_DRAFT_PRESERVATION.md) szerint a kalkulátoronkénti, csak memóriában élő mező- és mértékegység-draft A→B→C→A/B váltáskor megmarad; azonos választás nem töröl. A mentett revízió explicit felülírása és az új kalkuláció megerősített, a szervezeti kontextus új munkateret kap. A számítás és rajz a visszaállított kanonikus mm-adatból számolódik.
+
+- Hitelesített asztali és 375×667 mobil DEMO: 400/300 cm szarufa → visszaváltás után 5000 mm; részleges B és opcionális A értékek, 4 m kijelzés megmaradt; új kalkuláció törlése/cancel és V2→V1 revízióválasztás ellenőrzött, tartós írás nélkül.
+- Teljes Vitest **179 PASS / 8 SKIP fájl, 1070 PASS / 19 SKIP teszt**; lint, közvetlen tsc, izolált typecheck/build és `git diff --check` PASS. DB-séma/RLS/migráció nem változott.
+- Korlát: a meglévő guard nem védi a SPA browser back/forward eseményt; valódi érintőkészülék és élő szervezeti váltás nem tesztelt. Régi DEMO M2 V2 snapshot megnyitáskor már dirty státuszt mutat, külön történeti kompatibilitási vizsgálat kell. Javasolt commit: `fix(QA-03): preserve calculator drafts across in-session switching`.
+
+## QA-05 — pgTAP tesztizoláció és teljes helyi regresszió (2026-10-25)
+
+Státusz: **COMPLETE a helyi QA-05 mérföldkőre**. A [részletes bizonyíték](QA05_PGTAP_TEST_ISOLATION.md) szerint a `040` teszt korábbi, teljes táblát számláló negatív RLS-állítása helyett kizárólag a saját két privát link-ID-jét ellenőrzi. Új pozitív állítás bizonyítja, hogy a létrehozó mindkét helyes fixture-rekordot látja. A korábban hibát okozó, M3 szerint jogszerű aktív kalkulációs kapcsolat továbbra is látható a szervezeti tagnak.
+
+- Red→green: eredeti `040` **23/24 PASS, 1 FAIL**; javított `040` **25/25 PASS**. M3 `057`-tel együtt mindkét sorrendben **46/46 PASS**; teljes `npm run db:test` két egymást követő futásban **61 fájl / 1292 PASS**.
+- `npm test` **178 PASS / 8 SKIP fájl, 1067 PASS / 19 SKIP teszt**; lint és `git diff --check` PASS. SQL-teszten és dokumentáción kívül nincs módosítás; typecheck/build ezért nem futott. Nincs migráció, reset, hosted DB-művelet vagy tartós tesztadat.
+- Javasolt Conventional Commit: `test(QA-05): scope document-link RLS assertions to owned fixtures`.
+
+## QA-02 — Anyagkatalógus teljessége és közvetlen termékmegnyitás (2026-10-25)
+
+Státusz: **PASS WITH LIMITATIONS**. A [részletes bizonyíték](QA02_MATERIAL_CATALOG_COMPLETENESS.md) szerint a termékrészlet pontos, szervezetre szűrt ID-lekérdezést használ; az Anyagkezelő 50-es szerveroldali lapokat és keresést kapott. Az ajánlat/anyaglista induláskor 50 terméket és a mentett variánsokat tölti, a közös kiválasztó kereséssel és további oldalakkal minden aktív termékhez hozzáfér. A teljes katalógust igénylő kimutatás/kalkulátor/szerverfogyasztó ellenőrzött lapozást használ; az árverziók sem csonkolódnak.
+
+- Red→green mock-regresszió: 0/1/199/200/201/525 termék, direkt ID és szervezeti izoláció, archivált hozzáférés, 11. oldal, keresés/rendezési tie-breaker, 201. kalkulátorprofil és tetőfedési opció, 1101 árverzió. Az 525 elemű szintetikus fixture-ben az első katalógusoldal 200 helyett 50 terméksort küld (terméksor-JSON: 77 939 → 19 489 byte); valós DB-mérés nem történt.
+- Célzott tesztek PASS; teljes Vitest **178 PASS / 8 SKIP fájl, 1067 PASS / 19 SKIP teszt**; lint PASS; izolált typecheck/build PASS; `git diff --check` PASS. DB-migráció és tartós adatírás nincs.
+- Korlát: élő, autentikált 201+ termékes böngészős E2E és production teljesítménymérés nem futott; a helyi dev oldal betöltőhéjnál maradt. A korábban ismert QA-05 pgTAP hibát nem érintettük.
+- Javasolt Conventional Commit: `fix(QA-02): page complete material catalog and open products by exact ID`.
+
+## QA-01 — Munkanapló és PDF teljes adatbetöltése (2026-10-25)
+
+Státusz: **PASS WITH LIMITATIONS**. A [részletes bizonyíték](QA01_EXECUTION_DATA_COMPLETENESS.md) szerint a közös munkanapló-loader globális 100-as napló/esemény/fotó limitje helyett ellenőrzött, 100 soros lapozás működik; a terv és feladat is teljesen lapozott. A PDF a kért tervet olvassa, hiányos adatnál 502-t ad dokumentum helyett. A szándékosan limitált áttekintő lista nem változott.
+
+- Red→green, kétterves 0/1/100/101/275 rekordos azonosító-, sorrend- és kapcsolatteszt; második laphiba, `42501`, duplikált lap, megváltozott számlálás és 40 soros szerverlimit. A PDF-route 101 ID-t ad a renderelőnek; a valódi renderer 101 bejegyzésből többoldalas PDF-et készít. Signed URL-kérések legfeljebb 16 párhuzamos hívásban.
+- Teljes Vitest **176 PASS / 8 SKIP fájl, 1053 PASS / 19 SKIP teszt**; lint PASS; izolált `npm run typecheck` és `npm run build` PASS. DB-migráció, tartós adatírás nincs.
+- Nem futott: élő 101+ rekordos DB/browser E2E, hostolt RLS és teljes pgTAP; a QA-05 miatt korábban ismert pgTAP FAIL továbbra sincs kijavítva. Párhuzamos adatváltozásnál nincs több HTTP-queryre kiterjedő tranzakciós snapshot.
+- Javasolt Conventional Commit: `fix(QA-01): load complete execution history for work logs and PDF`.
+
+## QA-2026.10 — Teljes rendszer QA audit (2026-10-25)
+
+Státusz: **PARTIAL / javítást igényel**. A [részletes audit](FULL_SYSTEM_QA_AUDIT.md) 31 kalkulátort és 10 fő funkciócsoportot leltároz; 2 kalkulátoron történt nem mentő böngészős részpróba. P0: 0, P1: 2, P2: 4, P3: 1. Fő hibák: munkanapló/PDF csendes 100 soros csonkolása, anyagkatalógus 200-as korlátja miatti elérhetetlen termék, kalkulátorváltáskori mentetlenadat-vesztés. Az alkalmazáskód és a DB nem változott.
+
+- Friss ellenőrzések: teljes Vitest **175 PASS / 8 SKIP fájl, 1039 PASS / 19 SKIP teszt**; ESLint PASS; közvetlen `tsc` PASS; elkülönített Next.js production build PASS; `git diff --check` az audit elején és a dokumentációs módosítás után PASS.
+- Helyi pgTAP **61 fájl / 1291 állítás / 1 FAIL** (`040`, 13. állítás). A teszt az egész táblát számolja, és egy korábbi, M3 szerint látható aktív kalkulációs link miatt bukik; a két saját privát link másik tag számára nem látszott. Ideiglenes, saját rekordokra szűkített diagnosztikai másolat 24/24 PASS. Az eredeti teljes DB suite **nem PASS**.
+- Nem igazolt: teljes A–E E2E mentés/újranyitás, mobil viewportok, hostolt Supabase/Storage, exportok képi paritása és production teljesítmény. Tartós tesztírást az elkülönített tesztadat hiánya miatt nem végeztünk.
+- Javasolt Conventional Commit: `docs(QA-2026.10): record full-system audit findings and verification gaps`.
+
 ## M8 — Szarufa-részletrajz a két anyagos kalkulátorban
 
 Státusz: **PASS WITH LIMITATIONS** (kiosztási nézet kész; csomóponti bevágás nem, szakmai adat/döntés hiányában).
@@ -108,6 +211,35 @@ Státusz: **PASS WITH LIMITATIONS.** A kalkulátor-központú terv ([0. fázis](
 - **Böngésző (helyi, authenticated DEMO, 375×812 sötét/világos és 320 px): PASS.** `roof.rafter-cut`: 300/200/50 cm → 3605,551 / 600,925 / 4206,476 mm, 33,69° (független számítással egyező); cm→m→mm→cm váltás 300→3→3000→300, eredmény változatlan; `2,001 m` → 2001 mm; `2,3,4` → hibaüzenet, `aria-invalid`, eredmény elrejtve. `roof.timber-cutlist`: `12,34 cm` egész-mm mezőn elutasítva; 1000×800 cm, 35°, 90 cm osztás → 26 szarufa, 4883 mm, 126,961 m; a kiosztási mezőn 90 cm→900 mm→0,9 m mellett is azonos eredmény. 44 px-es egységgombok, vízszintes túlcsordulás nincs; konzolhiba és React-figyelmeztetés nincs. Az ellenőrzés során talált gyenge sötét témás kiemelést (csak színkülönbség) kerettel javítottam. Tablet/desktop és fizikai eszköz nem futott.
 - **Javasolt Conventional Commit:** `feat(M1): add mm/cm/m length input with cm default to calculators`.
 
+## F9.73.1 — Munkanapló betöltési hibáinak izolálása
+
+Státusz: **PASS WITH LIMITATIONS.** Az anyaglista, a kapcsolt dokumentumtípusok és az önálló ajánlatjelöltek hibája a saját panelt/forrást érinti; az egymástól független munkanapló-részek tovább használhatók. A jogosultsági hiba külön állapot; hiányzó cél, current revision vagy exact felmérésforrás nem lesz üres/teljes adatként vagy másik revízióval bemutatva. A kötelező workspace- és immutable ajánlatforrás hard failure maradt.
+
+- **Ellenőrzés:** célzott 6 fájl / 44 teszt PASS; lint PASS; teljes Vitest 164 fájl PASS / 8 SKIP, 975 PASS / 19 SKIP; izolált typecheck és Next.js 16.4.2 Webpack build PASS (32 statikus oldal); `git diff --check` PASS.
+- Authenticated DEMO browser smoke: az első betöltés error boundary állapotot adott; manuális reload után az üres anyaglista-panel és két kapcsolt dokumentum betöltött. Az első hiba oka ismeretlen. Hosted DB/RLS és böngészős hibaszcenárió nem futott.
+- Ismert, e körön kívüli blokkoló lehetőség: a projekt-metaadat ugyanabban a page-level `Promise.all`-ban maradt. Részletes határok, tesztmátrix és bizonyíték: [`WORKSPACE_FAULT_ISOLATION_F9.73.1.md`](WORKSPACE_FAULT_ISOLATION_F9.73.1.md).
+- **Javasolt Conventional Commit:** `fix(F9.73.1): isolate optional workspace read failures`.
+
+## F9.73 — Workspace betöltés és kapcsolt rekordok hibatűrése
+
+Státusz: **PASS WITH LIMITATIONS.** A hibás vagy hiányzó kapcsolt felmérési revízió már nem állítja le a munkanapló oldalát: a helyes testvérrekordok megmaradnak, a hiányos forrás külön figyelmeztetést kap. A felmérési olvasási hiba, jogosultság-megtagadás és valóban üres kapcsolat külön állapot. A felmérési fotó aláírási hibája csak a fotót érinti. Az immutable ajánlati forrás exact quotation/revision olvasási vagy párosítási hibája hard failure marad; így az oldal/PDF nem mutat hiányos forrást teljesként.
+
+- A lekérdezések szervezeti szűrése, exact revision matching, read-only F9.70.1 kompatibilitás és migrációs FK/RLS-szerződés megmaradt; adatbázis- vagy hostolt RLS-változás nem történt.
+- Célzott execution tesztek: **7 fájl / 30 PASS**; teljes Vitest: **161 fájl PASS / 8 SKIP, 949 PASS / 19 SKIP**; lint PASS; izolált typecheck PASS; izolált Next.js 16.4.2 Webpack build PASS (32 statikus oldal).
+- Helyi, authenticated DEMO böngészősmoke: munkanaplólista és egy exact linked survey card megjelent a részletoldalon. Hibaállapotok tesztkomponenssel ellenőrizve; hosted DB/RLS és storage-hiba nem futott. `git diff --check` PASS; az új, még nem tracked szövegfájlokban sincs záró whitespace.
+- Ismert korlát: az execution részlet shared `Promise.all`-jában az anyaglista-, kapcsoltdokumentum- és ajánlatjelölt-betöltés hibája továbbra is blokkolhatja az oldalt. Részletes besorolás és bizonyíték: [`WORKSPACE_RELIABILITY_F9.73.md`](WORKSPACE_RELIABILITY_F9.73.md).
+- **Javasolt Conventional Commit:** `fix(F9.73): isolate related workspace failures`.
+
+## F9.70.1 — Történeti felmérési pillanatképek kompatibilitása
+
+Státusz: **PASS WITH LIMITATIONS.** A F9.70 utáni reader megerősített regresszióját javítottam: a migrációk által érvényesnek tekintett, `semanticType` nélküli régi mérés most explicit `custom` alapértéket kap kizárólag az execution olvasási határán. A hiányzó/nullable `sections` flat fallbackje, a pontos revízió és a szervezeti szűrés megmaradt. A teljes `surveySectionsSchema` most az üres/hibás section-listát is elutasítja; az immutable forrásadatot nem módosítja.
+
+- Az érintett fogyasztó a `/kivitelezes/[planId]` kapcsolt felmérés panelje; a kivitelezési PDF nem olvas felmérési sectionöket. A sérült linked revision explicit reader-hibát okoz, és a lap közös `Promise.all` betöltése miatt továbbra is blokkolhatja a teljes tervoldalt; az app error boundary újrapróbálást ad.
+- **Ellenőrzések:** execution **6 fájl / 22 PASS**; lint PASS; teljes Vitest **160 fájl PASS / 8 SKIP, 941 PASS / 19 SKIP**; izolált `npm run typecheck` PASS; izolált `npm run build` PASS (Next.js 16.4.2 Webpack, 32 statikus oldal); `git diff --check` PASS.
+- Az aktív Next.js szerverfolyamat ellenőrzését a rendszer megtagadta (`ps` permission denied), ezért typegen és build ideiglenes, külön `.next` kimenetű másolaton futott. DB/pgTAP, hosted RLS/Storage és böngésző nem futott; hosted adatot nem érintettem.
+- Részletes szerződés-összevetés, előtte/utána viselkedés és nem igazolt régi formátumok: [`HISTORICAL_SNAPSHOT_COMPATIBILITY_F9.70.1.md`](HISTORICAL_SNAPSHOT_COMPATIBILITY_F9.70.1.md).
+- **Javasolt Conventional Commit:** `fix(F9.70.1): preserve historical survey snapshots`.
+
 ## F9.72.2 — AI fejlesztői útmutatók pontosítása
 
 Státusz: **dokumentáció-only módosítás kész.** Az `AGENTS.md` pontosítja a mérföldkő-hatókört, az implementáció bizonyítékait, a közös `.next` védelem feltételeit és a kockázatalapú böngészőellenőrzést. A `CLAUDE.md` készségválasztási szabálya rugalmasabb, az útmutatók közös részei az `AGENTS.md`-re támaszkodnak.
@@ -139,7 +271,7 @@ Javasolt Conventional Commit: `docs(F9.72): consolidate project documentation`.
 - Az utolsó befejezett mérföldkő az F9.71 URL-architektúra-audit; az alkalmazáskódban nem talált igazolt, hardcode-olt production app-origin hibát.
 - Az alkalmazás URL-stratégiája azonos hosthoz relatív; hosted Auth, proxy/CDN, deployment és pilot-ready működés továbbra sincs igazolva.
 - A felmérési fotó feltöltés Sharp segítségével újrakódolja a képet, ezért az EXIF/GPS metaadatok eltávolításra kerülnek. Az alkalmazási méretkorlát bizonyított (10 MiB/fájl, 11 MiB/kérés), a hosting ingress korlátja nem.
-- Az F9.70 generált Supabase-típusokhoz kötött execution read-modelje a korábbi valid snapshot alakot használja; eltérő vagy hibás történeti JSON snapshot kompatibilitása nyitott korlát.
+- Az F9.70.1 igazolta és javította a régi, `semanticType` nélküli felmérési mérések olvasását. A hibás linked section teljes oldalt blokkoló hibáját az F9.73 izolálta; hosted snapshotok és további, nem bizonyított történeti alakok továbbra sem voltak ellenőrizve.
 - Pilotblokkolók: hosted környezet, cross-org staging, backup/restore, RPO/RTO, adatvédelmi és retention döntések, valamint szakmai/jogi review. Lásd [pilot readiness](PILOT_READINESS.md).
 
 A legutóbbi mérföldkövek teljes, ellenőrzési részletekkel ellátott bejegyzései alább maradnak. A korábbi teljes bejegyzések változatlan tartalommal az [archívumban](archive/PROGRESS_HISTORY.md); a fejezetcímek megmaradtak, hogy a meglévő hivatkozások továbbra is oda navigáljanak.

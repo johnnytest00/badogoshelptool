@@ -2,28 +2,38 @@
 
 import dynamic from "next/dynamic";
 import { useState, type SyntheticEvent } from "react";
+import { useRouter } from "next/navigation";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { buildGableSurveyPreview } from "@/features/field-surveys/gable-survey-preview";
 import { geometryFromSurveyMeasurements } from "@/domain/field-surveys/roof-geometry";
 import { calculateRoofGeometry } from "@/domain/calculations/roof-geometry";
 import { fieldSurveyUnitLabels } from "@/domain/field-surveys/contracts";
 import { completeSectionMeasurements, type SurveySection } from "@/domain/field-surveys/workspace";
-import type { ExecutionLinkedSurvey } from "./execution-data";
+import type { ExecutionLinkedSurvey, ExecutionLinkedSurveysResult } from "./execution-data";
 
 const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-drawing").then((module) => module.TechnicalDrawing), {
   ssr: false,
   loading: () => <p className="missing-data">A műszaki rajz betöltése…</p>,
 });
 
-export function ExecutionLinkedSurveys({ surveys }: Readonly<{ organizationId: string; surveys: readonly ExecutionLinkedSurvey[] }>) {
-  // M5: surveys can no longer be created, so an empty list is not offered as a next step.
-  if (surveys.length === 0) return null;
-  return <GlassDisclosure className="execution-linked-surveys" summary={`Csatolt felmérések · ${surveys.length}`}>
-    <div className="execution-linked-survey-list">{surveys.map((survey) => <LinkedSurveyCard key={survey.id} survey={survey} />)}</div>
+export function ExecutionLinkedSurveys({ result }: Readonly<{ organizationId: string; result: ExecutionLinkedSurveysResult }>) {
+  const router = useRouter();
+  // M5: surveys can no longer be created, so an empty list is not offered as a next step; errors stay visible.
+  if (result.status === "loaded" && result.items.length === 0) return null;
+  const available = result.status === "loaded" ? result.items.filter((item): item is Extract<ExecutionLinkedSurvey, { status: "available" }> => item.status === "available") : [];
+  const unavailable = result.status === "loaded" ? result.items.filter((item): item is Extract<ExecutionLinkedSurvey, { status: "unavailable" }> => item.status === "unavailable") : [];
+  const summary = result.status === "loaded"
+    ? `Csatolt felmérések · ${result.items.length}${unavailable.length ? ` · ${unavailable.length} ellenőrzést igényel` : ""}`
+    : `Csatolt felmérések · ${result.status === "access_denied" ? "nincs hozzáférés" : "nem tölthető be"}`;
+  return <GlassDisclosure className="execution-linked-surveys" summary={summary}>
+    {result.status === "access_denied" && <p className="missing-data" role="alert">Nincs hozzáférés a munkanaplóhoz kapcsolt felmérésekhez. A munkanapló többi adata külön is elérhető.</p>}
+    {result.status === "unavailable" && <p className="missing-data" role="alert">A kapcsolt felmérések átmenetileg nem tölthetők be. Próbáld újra az oldal frissítésével. <button className="text-action" type="button" onClick={() => router.refresh()}>Újrapróbálás</button></p>}
+    {result.status === "loaded" && available.length > 0 && <div className="execution-linked-survey-list">{available.map((survey) => <LinkedSurveyCard key={survey.id} survey={survey} />)}</div>}
+    {result.status === "loaded" && unavailable.map((item) => <p className="missing-data" role="alert" key={item.linkId}>{item.reason === "invalid_snapshot" ? "Egy kapcsolt felmérés mentett változata hibás vagy nem támogatott; a többi felmérés adatai elérhetők." : "Egy kapcsolt felmérés pontos forrásváltozata nem érhető el; másik változattal nem helyettesítettük."}</p>)}
   </GlassDisclosure>;
 }
 
-function LinkedSurveyCard({ survey }: Readonly<{ survey: ExecutionLinkedSurvey }>) {
+function LinkedSurveyCard({ survey }: Readonly<{ survey: Extract<ExecutionLinkedSurvey, { status: "available" }> }>) {
   const [open, setOpen] = useState(false);
   const title = survey.sections.find((section) => section.name)?.name ?? "Felmérés";
   return <article className="execution-linked-survey">

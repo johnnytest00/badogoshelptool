@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { userFacingActionError } from "@/lib/user-facing-action-error";
+import { isCompleteConstructionRevision } from "@/features/calculations/construction-data";
 
 export type DocumentLinkResult = { ok: true; planId?: string; created?: boolean } | { ok: false; error: string };
 type Rpc = { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<Record<string, unknown>> | null; error: { code?: string; message?: string } | null }> };
@@ -39,6 +40,9 @@ export async function linkExecutionPlanDocumentAction(raw: z.input<typeof linkIn
   if (!parsed.success) return { ok: false, error: "Válassz érvényes munkanaplót és dokumentumot." };
   const input = parsed.data;
   if (!await allowed(input.organizationId)) return { ok: false, error: "Nincs hozzáférésed ehhez a műhelyhez." };
+  if (input.kind === "calculation" && !await isCompleteConstructionRevision(input.organizationId, input.documentId)) {
+    return { ok: false, error: "Csak teljes, elérhető kalkulációs revízió kapcsolható munkanaplóhoz." };
+  }
   const db = await createClient() as unknown as Rpc;
   const { data, error } = await db.rpc("link_execution_plan_document", {
     p_organization_id: input.organizationId, p_execution_plan_id: input.planId, p_document_kind: input.kind,
@@ -67,6 +71,9 @@ export async function createExecutionPlanAndLinkDocumentAction(raw: z.input<type
   if (!parsed.success) return { ok: false, error: "Adj meg egy érvényes munkanapló-nevet." };
   const input = parsed.data;
   if (!await allowed(input.organizationId)) return { ok: false, error: "Nincs hozzáférésed ehhez a műhelyhez." };
+  if (input.kind === "calculation" && !await isCompleteConstructionRevision(input.organizationId, input.documentId)) {
+    return { ok: false, error: "Csak teljes, elérhető kalkulációs revízió kapcsolható munkanaplóhoz." };
+  }
   const db = await createClient() as unknown as Rpc;
   const plan = await db.rpc("create_execution_plan", {
     p_organization_id: input.organizationId, p_project_id: null, p_title: input.title, p_description: null,

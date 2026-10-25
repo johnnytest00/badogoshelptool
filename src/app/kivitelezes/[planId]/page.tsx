@@ -4,15 +4,16 @@ import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { ExecutionPlanning } from "@/features/execution/execution-planning";
 import { ExecutionLinkedSurveys } from "@/features/execution/execution-linked-surveys";
 import { getExecutionPlanForOrganization, getExecutionPlanLinkedSurveys, getExecutionPlanningWorkspace } from "@/features/execution/execution-data";
-import { getPlanLinkedDocuments, getStandaloneQuotationCandidates, type LinkCandidate } from "@/features/execution/execution-document-links";
+import { getPlanLinkedDocuments, getStandaloneQuotationCandidates } from "@/features/execution/execution-document-links";
 import { ExecutionPlanDocumentLinks } from "@/features/execution/execution-plan-document-links";
+import { ExecutionPlanMaterialLists } from "@/features/execution/execution-plan-material-lists";
 import { getPlanLinkedCalculations } from "@/features/execution/execution-calculation-links";
 import { ExecutionPlanCalculations } from "@/features/execution/execution-plan-calculations";
+import { loadOptionalExecutionSection } from "@/features/execution/execution-workspace-read";
 import { getWorkflowMaterialLists } from "@/features/material-takeoffs/material-preparation-data";
 import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
-import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 
 export default async function ExecutionPlanPage({ params, searchParams }: Readonly<{ params: Promise<{ planId: string }>; searchParams: Promise<{ organization?: string }> }>) {
@@ -30,27 +31,23 @@ export default async function ExecutionPlanPage({ params, searchParams }: Readon
     getExecutionPlanningWorkspace(organizationId, planOption.projectId, planId),
     planOption.projectId ? getProjectForOrganization(organizationId, planOption.projectId) : Promise.resolve(null),
     getExecutionPlanLinkedSurveys(organizationId, planId),
-    getWorkflowMaterialLists(organizationId),
+    loadOptionalExecutionSection(() => getWorkflowMaterialLists(organizationId)),
     getPlanLinkedDocuments(organizationId, planId),
-    getStandaloneQuotationCandidates(organizationId),
+    loadOptionalExecutionSection(() => getStandaloneQuotationCandidates(organizationId)),
     getPlanLinkedCalculations(organizationId, planId, selected.auth.userId),
   ]);
   const plan = workspace.plans[0];
   if (!plan) return <NotFound organizationId={organizationId} />;
-  const planMaterialLists = materialLists.filter((list) => list.executionPlanId === plan.id);
-  const listCandidates: LinkCandidate[] = materialLists.filter((list) => list.executionPlanId !== plan.id).map((list) => ({ kind: "material_list", documentId: list.id, name: list.name, detail: `Anyaglista · V${list.version}` }));
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
     <BackNavigation href={`/kivitelezes?organization=${organizationId}`} label="Vissza a munkanaplókhoz" />
     <GlassPageHeader title={plan.title} context="Munkanapló" />
     <ExecutionPlanning organizationId={organizationId} projectId={planOption.projectId} projectName={project?.name ?? ""} clientName={project?.clientName ?? null} location={project?.location ?? null} plans={workspace.plans} acceptedQuotations={workspace.acceptedQuotations} timelineByPlan={workspace.timelineByPlan} initialPlanId={plan.id} showHeading={false} showDescription={false} showPlanTabs={false} />
-    <GlassDisclosure className="execution-workflow-links" summary={`Ebben a naplóban készült anyaglisták · ${planMaterialLists.length}`}>
-      {planMaterialLists.length > 0 && <ul>{planMaterialLists.map((list) => <li key={list.id}><Link href={`/anyaglistak/${list.id}?organization=${organizationId}`}><strong>{list.name}</strong><span>V{list.version} · {list.currentRevision?.items.length ?? 0} tétel</span></Link>{list.currentRevisionId && <Link className="text-action" href={`/ajanlatok/uj?organization=${organizationId}&plan=${plan.id}&materialList=${list.id}&materialRevision=${list.currentRevisionId}`}>Árajánlat ebből</Link>}</li>)}</ul>}
-      {planMaterialLists.length === 0 && <p className="missing-data">Ebben a munkanaplóban még nem készült anyaglista. Máshol készült listát lent kapcsolhatsz hozzá.</p>}
-      <div className="execution-workflow-actions"><Link className="secondary-button" href={`/anyaglistak/uj?organization=${organizationId}&plan=${plan.id}`}>Anyaglista készítése</Link><Link className="text-action" href={`/ajanlatok/uj?organization=${organizationId}&plan=${plan.id}`}>Árajánlat készítése</Link></div>
-    </GlassDisclosure>
-    <ExecutionPlanDocumentLinks organizationId={organizationId} planId={plan.id} documents={linkedDocuments} candidates={[...listCandidates, ...quotationCandidates]} />
+    <ExecutionPlanMaterialLists organizationId={organizationId} planId={plan.id} result={materialLists} />
+    <ExecutionPlanDocumentLinks organizationId={organizationId} planId={plan.id} documents={linkedDocuments}
+      materialListCandidates={materialLists.status === "loaded" ? { status: "loaded", data: materialLists.data.filter((list) => list.executionPlanId !== plan.id).map((list) => ({ kind: "material_list" as const, documentId: list.id, name: list.name, detail: `Anyaglista · V${list.version}` })) } : materialLists}
+      quotationCandidates={quotationCandidates} />
     <ExecutionPlanCalculations organizationId={organizationId} planId={plan.id} result={linkedCalculations} />
-    <ExecutionLinkedSurveys organizationId={organizationId} surveys={linkedSurveys} />
+    <ExecutionLinkedSurveys organizationId={organizationId} result={linkedSurveys} />
   </div></main>;
 }
 

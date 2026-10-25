@@ -8,7 +8,7 @@ import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { GlassSectionHeader } from "@/components/ui/glass-section-header";
 import { materialPriceKindLabels, materialPurchasingUnitLabels } from "@/domain/materials/contracts";
 import type { MaterialActionResult } from "./material-actions";
-import { createMaterialCategoryAction, renameMaterialCategoryAction, setMaterialCategoryActiveAction } from "./material-actions";
+import { createMaterialCategoryAction, renameMaterialCategoryAction, searchMaterialProductsAction, setMaterialCategoryActiveAction } from "./material-actions";
 import type { MaterialCategoryRecord, MaterialManufacturerRecord, MaterialProductRecord } from "./material-data";
 import { ManufacturerForm, MaterialManagerProductForm, ProductStatusForm } from "./material-forms";
 import { BackNavigation } from "@/components/navigation/back-navigation";
@@ -28,12 +28,12 @@ function priceText(product: MaterialProductRecord, variantIndex: number) {
 export function MaterialManager({
   organizationId,
   categories,
-  products,
+  initialPage,
   manufacturers,
 }: Readonly<{
   organizationId: string;
   categories: readonly MaterialCategoryRecord[];
-  products: readonly MaterialProductRecord[];
+  initialPage: Awaited<ReturnType<typeof searchMaterialProductsAction>>;
   manufacturers: readonly MaterialManufacturerRecord[];
 }>) {
   const router = useRouter();
@@ -47,6 +47,26 @@ export function MaterialManager({
   const [productSearch, setProductSearch] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [pageData, setPageData] = useState(initialPage);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const initialLoad = useRef(true);
+
+  useEffect(() => {
+    if (initialLoad.current) { initialLoad.current = false; return; }
+    let cancelled = false;
+    setLoading(true); setLoadError("");
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await searchMaterialProductsAction(organizationId, { search: productSearch, categoryId: selectedCategoryId ?? undefined, includeArchived: showArchived, page });
+        if (!cancelled) setPageData(result);
+      } catch {
+        if (!cancelled) setLoadError("A terméklista betöltése nem sikerült.");
+      } finally { if (!cancelled) setLoading(false); }
+    }, productSearch ? 250 : 0);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [organizationId, productSearch, selectedCategoryId, showArchived, page, initialPage]);
 
   useEffect(() => {
     const dialogElement = dialogRef.current;
@@ -70,12 +90,7 @@ export function MaterialManager({
 
   const activeCategories = useMemo(() => categories.filter((category) => category.isActive), [categories]);
   const visibleCategories = useMemo(() => categories.filter((category) => category.name.toLocaleLowerCase("hu-HU").includes(categorySearch.trim().toLocaleLowerCase("hu-HU"))), [categories, categorySearch]);
-  const visibleProducts = useMemo(() => products.filter((product) => {
-    if (!showArchived && product.status !== "active") return false;
-    if (selectedCategoryId && product.categoryId !== selectedCategoryId) return false;
-    const query = productSearch.trim().toLocaleLowerCase("hu-HU");
-    return !query || product.name.toLocaleLowerCase("hu-HU").includes(query) || (product.productCode ?? "").toLocaleLowerCase("hu-HU").includes(query);
-  }), [products, productSearch, selectedCategoryId, showArchived]);
+  const visibleProducts = pageData.products;
 
   function saveCategory(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -125,18 +140,20 @@ export function MaterialManager({
     </>} />
 
     <nav className="material-manager-categories" aria-label="Termékkategóriák">
-      <button className={selectedCategoryId === null ? "is-selected" : ""} type="button" aria-pressed={selectedCategoryId === null} onClick={() => setSelectedCategoryId(null)}>Minden kategória <span>{products.filter((product) => showArchived || product.status === "active").length}</span></button>
-      {activeCategories.map((category) => <button className={selectedCategoryId === category.id ? "is-selected" : ""} key={category.id} type="button" aria-pressed={selectedCategoryId === category.id} onClick={() => setSelectedCategoryId(category.id)}>{category.name} <span>{products.filter((product) => product.categoryId === category.id && (showArchived || product.status === "active")).length}</span></button>)}
+      <button className={selectedCategoryId === null ? "is-selected" : ""} type="button" aria-pressed={selectedCategoryId === null} onClick={() => { setSelectedCategoryId(null); setPage(1); }}>Minden kategória</button>
+      {activeCategories.map((category) => <button className={selectedCategoryId === category.id ? "is-selected" : ""} key={category.id} type="button" aria-pressed={selectedCategoryId === category.id} onClick={() => { setSelectedCategoryId(category.id); setPage(1); }}>{category.name}</button>)}
     </nav>
 
     <section className="material-manager-catalog" aria-labelledby="material-manager-products-title">
-      <GlassSectionHeader id="material-manager-products-title" title="Termékek" actions={<span>{visibleProducts.length} találat</span>} />
+      <GlassSectionHeader id="material-manager-products-title" title="Termékek" actions={<span>{pageData.total} találat</span>} />
       <div className="material-manager-toolbar">
-        <label className="material-manager-search"><Search aria-hidden="true" /><span className="sr-only">Keresés terméknév vagy termékkód szerint</span><input type="search" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Termék keresése név vagy kód alapján" /></label>
-        <label className="material-manager-archived"><input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} /> Archivált termékek</label>
+        <label className="material-manager-search"><Search aria-hidden="true" /><span className="sr-only">Keresés terméknév vagy termékkód szerint</span><input type="search" value={productSearch} onChange={(event) => { setProductSearch(event.target.value); setPage(1); }} maxLength={100} placeholder="Termék keresése név vagy kód alapján" /></label>
+        <label className="material-manager-archived"><input type="checkbox" checked={showArchived} onChange={(event) => { setShowArchived(event.target.checked); setPage(1); }} /> Archivált termékek</label>
       </div>
+      {loading && <p role="status">Termékek betöltése…</p>}
+      {loadError && <p role="alert">{loadError}</p>}
 
-      {visibleProducts.length ? <>
+      {!loading && visibleProducts.length ? <>
         <div className="material-manager-table-wrap">
           <table className="material-manager-table">
             <caption className="sr-only">Anyagtermékek egységgel, egységárral és szerkesztési művelettel</caption>
@@ -157,7 +174,8 @@ export function MaterialManager({
           {!product.categoryActive && <p className="material-manager-inactive-note">A kategória inaktív; a termék és előzmények megmaradtak.</p>}
           <ProductStatusForm organizationId={organizationId} product={product} />
         </article>)}</div>
-      </> : <div className="empty-state"><span className="empty-state-icon"><Search className="size-5" /></span><div><h3>{products.length === 0 ? "Még nincs termék a katalógusban" : "Nincs találat"}</h3><p>{products.length === 0 ? "Hozd létre az első terméket, és add meg az egységét." : "Módosítsd a keresést vagy válassz másik kategóriát."}</p></div>{products.length === 0 && <button className="primary-button" type="button" onClick={() => setProductDialogOpen(true)}><Plus className="size-4" /> Új termék</button>}</div>}
+      </> : !loading && <div className="empty-state"><span className="empty-state-icon"><Search className="size-5" /></span><div><h3>{pageData.total === 0 && !productSearch && !selectedCategoryId ? "Még nincs termék a katalógusban" : "Nincs találat"}</h3><p>{pageData.total === 0 && !productSearch && !selectedCategoryId ? "Hozd létre az első terméket, és add meg az egységét." : "Módosítsd a keresést vagy válassz másik kategóriát."}</p></div>{pageData.total === 0 && !productSearch && !selectedCategoryId && <button className="primary-button" type="button" onClick={() => setProductDialogOpen(true)}><Plus className="size-4" /> Új termék</button>}</div>}
+      {pageData.total > pageData.pageSize && <nav aria-label="Termékoldalak" className="material-manager-pagination"><button type="button" className="secondary-button" disabled={loading || page <= 1} onClick={() => setPage(page - 1)}>Előző</button><span>{page}. oldal / {Math.ceil(pageData.total / pageData.pageSize)}</span><button type="button" className="secondary-button" disabled={loading || !pageData.hasNext} onClick={() => setPage(page + 1)}>Következő</button></nav>}
     </section>
 
     <details className="material-manager-category-settings">

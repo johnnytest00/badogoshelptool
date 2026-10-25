@@ -33,9 +33,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ proj
   if (photoIds.some((id) => !validId(id)) || photoIds.length > maxPhotos) return badRequest(`Legfeljebb ${maxPhotos} fénykép választható a riporthoz.`);
   const project = await getProjectForOrganization(organizationId, projectId);
   if (!project) return badRequest("A projekt nem található ebben a műhelyben.", 404);
-  const workspace = await getExecutionPlanningWorkspace(organizationId, projectId);
+  let workspace: Awaited<ReturnType<typeof getExecutionPlanningWorkspace>>;
+  try {
+    workspace = await getExecutionPlanningWorkspace(organizationId, projectId, planId);
+  } catch {
+    return badRequest("A munkanapló teljes adata nem tölthető be; a PDF nem készíthető el.", 502);
+  }
   const plan = workspace.plans.find((candidate) => candidate.id === planId);
-  if (!plan) return badRequest("A munkanapló nem található ebben a projektben.", 404);
+  if (!plan || plan.projectId !== projectId) return badRequest("A munkanapló nem található ebben a projektben.", 404);
   const selectedPhotos = photoIds.map((id) => plan.photos.find((photo) => photo.id === id)).filter((photo) => photo !== undefined);
   if (selectedPhotos.length !== photoIds.length) return badRequest("A kiválasztott fénykép nem tartozik ehhez a munkanaplóhoz.", 403);
   let totalBytes = 0;

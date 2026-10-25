@@ -35,6 +35,8 @@ type Props = LengthInputOptions & Readonly<{
   disabled?: boolean;
   placeholder?: string;
   defaultUnit?: LengthUnit;
+  draftState?: LengthFieldState;
+  onDraftStateChange?: (state: LengthFieldState) => void;
   /** Validation message from the form's own contract; the field's parse error takes precedence. */
   error?: string;
   /** Extra description (help text) element id. */
@@ -45,9 +47,9 @@ type Props = LengthInputOptions & Readonly<{
 }>;
 
 /** Linear length input with a per-field mm / cm / m switch; the parent only ever sees millimetres. */
-export function LengthField({ id, name, value, onChange, label, required, disabled, placeholder, defaultUnit = DEFAULT_LENGTH_UNIT, mmDecimals, maxMm, error, describedBy, onFocus, onBlur, onKeyDown }: Props) {
+export function LengthField({ id, name, value, onChange, label, required, disabled, placeholder, defaultUnit = DEFAULT_LENGTH_UNIT, draftState, onDraftStateChange, mmDecimals, maxMm, error, describedBy, onFocus, onBlur, onKeyDown }: Props) {
   const options = { mmDecimals, maxMm };
-  const [state, setState] = useState(() => ({ ...lengthStateFromCanonical(value, defaultUnit), synced: value }));
+  const [state, setState] = useState(() => ({ ...(draftState ?? lengthStateFromCanonical(value, defaultUnit)), synced: value }));
   const generatedId = useId();
   const errorId = `${id ?? generatedId}-error`;
   // The parent may reset or replace the value (calculator switch, product pick); follow it, keeping the unit.
@@ -58,6 +60,7 @@ export function LengthField({ id, name, value, onChange, label, required, disabl
     const canonical = canonicalLength(next, options);
     const emit = !sameCanonical(canonical, value);
     setState({ ...next, synced: emit ? canonical : value });
+    onDraftStateChange?.(next);
     if (emit) onChange(canonical);
   };
   return <span className="length-field">

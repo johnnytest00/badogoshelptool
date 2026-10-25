@@ -29,6 +29,6 @@ export default async function CalculatorsPage({ searchParams }: Readonly<{ searc
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
     <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
     <GlassPageHeader title="Kalkulátorok" actions={<Link className="secondary-button" href={`/kalkulatorok/mentett?organization=${organizationId}`}>Mentett számításaim →</Link>} />
-    <ConstructionCalculatorSuite initialCalculatorId={saved?.calculatorId ?? query.calculator} catalogProfiles={catalog.profiles} catalogError={catalog.error} organizationId={organizationId} saved={saved} planLinks={planLinks} />
+    <ConstructionCalculatorSuite key={`${selected.auth.userId}:${organizationId}`} initialCalculatorId={saved?.calculatorId ?? query.calculator} catalogProfiles={catalog.profiles} catalogError={catalog.error} organizationId={organizationId} userId={selected.auth.userId} saved={saved} planLinks={planLinks} />
   </div></main>;
 }

@@ -4,15 +4,16 @@ const org = "123e4567-e89b-42d3-a456-426614174000";
 const plan = "123e4567-e89b-42d3-a456-426614174001";
 const document = "123e4567-e89b-42d3-a456-426614174002";
 const key = "123e4567-e89b-42d3-a456-426614174003";
-const state = vi.hoisted(() => ({ auth: null as { userId: string; organizations: { id: string }[] } | null, rpc: vi.fn() }));
+const state = vi.hoisted(() => ({ auth: null as { userId: string; organizations: { id: string }[] } | null, rpc: vi.fn(), complete: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/features/auth/auth.server", () => ({ getAuthContext: async () => state.auth }));
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: async () => ({ rpc: state.rpc }) }));
+vi.mock("@/features/calculations/construction-data", () => ({ isCompleteConstructionRevision: (...args: unknown[]) => state.complete(...args) }));
 
 import { createExecutionPlanAndLinkDocumentAction, linkExecutionPlanDocumentAction, unlinkExecutionPlanDocumentAction } from "./execution-document-link-actions";
 
 describe("work log document link actions", () => {
-  beforeEach(() => { vi.clearAllMocks(); state.auth = { userId: "user-1", organizations: [{ id: org }] }; });
+  beforeEach(() => { vi.clearAllMocks(); state.auth = { userId: "user-1", organizations: [{ id: org }] }; state.complete.mockResolvedValue(true); });
 
   it("rejects callers outside the organization before touching the database", async () => {
     state.auth = { userId: "user-1", organizations: [{ id: "00000000-0000-4000-8000-000000000999" }] };
@@ -40,6 +41,20 @@ describe("work log document link actions", () => {
     expect(await linkExecutionPlanDocumentAction({ organizationId: org, planId: plan, kind: "calculation", documentId: document, requestKey: key })).toMatchObject({ ok: false, error: expect.stringContaining("saját, mentett kalkulációd") });
   });
 
+  it("rejects an incomplete calculation revision before calling the link RPC", async () => {
+    state.complete.mockResolvedValue(false);
+    expect(await linkExecutionPlanDocumentAction({ organizationId: org, planId: plan, kind: "calculation", documentId: document, requestKey: key })).toMatchObject({ ok: false, error: expect.stringContaining("teljes") });
+    expect(state.complete).toHaveBeenCalledWith(org, document);
+    expect(state.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects an incomplete calculation before creating a work log", async () => {
+    state.complete.mockResolvedValue(false);
+    expect(await createExecutionPlanAndLinkDocumentAction({ organizationId: org, title: "DEMO", kind: "calculation", documentId: document, planRequestKey: key, linkRequestKey: plan })).toMatchObject({ ok: false, error: expect.stringContaining("teljes") });
+    expect(state.complete).toHaveBeenCalledWith(org, document);
+    expect(state.rpc).not.toHaveBeenCalled();
+  });
+
   it("maps database access and duplicate errors to Hungarian user messages", async () => {
     state.rpc.mockResolvedValueOnce({ data: null, error: { code: "42501" } });
     expect(await linkExecutionPlanDocumentAction({ organizationId: org, planId: plan, kind: "quotation", documentId: document, requestKey: key })).toMatchObject({ ok: false, error: expect.stringContaining("hozzáférés") });
@@ -51,6 +66,14 @@ describe("work log document link actions", () => {
     state.rpc.mockResolvedValue({ data: [{ link_id: key, removed: true }], error: null });
     expect(await unlinkExecutionPlanDocumentAction({ organizationId: org, linkId: key, planId: plan, kind: "quotation", documentId: document })).toEqual({ ok: true, planId: plan });
     expect(state.rpc).toHaveBeenCalledTimes(1);
+    expect(state.rpc).toHaveBeenCalledWith("unlink_execution_plan_document", { p_organization_id: org, p_link_id: key });
+  });
+
+  it("allows a historical incomplete calculation link to be removed", async () => {
+    state.complete.mockResolvedValue(false);
+    state.rpc.mockResolvedValue({ data: [{ link_id: key, removed: true }], error: null });
+    expect(await unlinkExecutionPlanDocumentAction({ organizationId: org, linkId: key, planId: plan, kind: "calculation", documentId: document })).toEqual({ ok: true, planId: plan });
+    expect(state.complete).not.toHaveBeenCalled();
     expect(state.rpc).toHaveBeenCalledWith("unlink_execution_plan_document", { p_organization_id: org, p_link_id: key });
   });
 

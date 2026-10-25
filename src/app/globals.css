@@ -3798,6 +3798,7 @@ html[data-glass-frame-free="true"] :is(
 .workflow-material-add-error { margin: .55rem 0 0; }
 
 .construction-suite { display: grid; gap: 1rem; margin-top: 1rem; min-width: 0; }
+.construction-suite > .secondary-button { justify-self: end; }
 .construction-suite-category-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
 .construction-suite-category-tabs button { min-height: 2.9rem; border: 1px solid var(--glass-border); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-glass) 50%, transparent); color: var(--foreground); padding: .55rem .7rem; font: inherit; font-weight: 700; cursor: pointer; }
 .construction-suite-category-tabs button.is-active { border-color: color-mix(in srgb, var(--brand) 55%, var(--glass-border)); background: color-mix(in srgb, var(--brand) 10%, var(--surface-glass)); color: var(--brand-ink); }

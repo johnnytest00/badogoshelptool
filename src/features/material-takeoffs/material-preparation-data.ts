@@ -1,4 +1,5 @@
 import { createClient } from "@/infrastructure/supabase/server";
+import { readSupabase, SupabaseReadError } from "@/infrastructure/supabase/read-error";
 import type { Json } from "@/infrastructure/supabase/database";
 import type { MaterialPreparationItem, PreparationSourceSnapshot } from "@/domain/material-preparations/contracts";
 import type { SurveyMaterialProvenanceItem } from "@/domain/material-takeoffs/survey-material-suggestions";
@@ -111,38 +112,36 @@ export async function getWorkflowMaterialLists(organizationId: string, onlyListI
   const listQuery = supabase.from("material_preparation_lists")
     .select("id, organization_id, project_id, execution_plan_id, name, current_revision_id, version, updated_at")
     .eq("organization_id", organizationId).is("project_id", null);
-  const { data: lists, error: listError } = await (onlyListId ? listQuery.eq("id", onlyListId) : listQuery)
-    .order("updated_at", { ascending: false }).limit(200);
-  if (listError) throw new Error("Az anyaglisták betöltése nem sikerült.");
+  const { data: lists } = await readSupabase((onlyListId ? listQuery.eq("id", onlyListId) : listQuery)
+    .order("updated_at", { ascending: false }).limit(200), "Az anyaglisták betöltése nem sikerült.");
   if (!lists?.length) return [];
-  const { data: revisions, error: revisionError } = await supabase.from("material_preparation_revisions")
+  const { data: revisions } = await readSupabase(supabase.from("material_preparation_revisions")
     .select("id, list_id, revision_number, preparation_state, source_takeoffs_snapshot, items_snapshot, created_at, created_by")
     .eq("organization_id", organizationId).in("list_id", lists.map((list) => list.id))
-    .order("revision_number", { ascending: false }).limit(2000);
-  if (revisionError) throw new Error("Az anyaglista korábbi változatai nem tölthetők be.");
+    .order("revision_number", { ascending: false }).limit(2000), "Az anyaglista korábbi változatai nem tölthetők be.");
   const rows = (revisions ?? []) as PreparationRevisionRow[];
   const listIds = lists.map((list) => list.id);
-  const { data: sourceRows, error: sourceError } = rows.length ? await supabase.from("material_preparation_survey_sources")
+  const { data: sourceRows } = await readSupabase(rows.length ? supabase.from("material_preparation_survey_sources")
     .select("organization_id,material_list_id,material_revision_id,survey_id,survey_revision_id,survey_version,source_items_snapshot,created_by,created_at")
-    .eq("organization_id", organizationId).in("material_list_id", listIds) : { data: [], error: null };
-  if (sourceError) throw new Error("Az anyaglista felmérésforrásai nem tölthetők be.");
+    .eq("organization_id", organizationId).in("material_list_id", listIds) : Promise.resolve({ data: [], error: null }), "Az anyaglista felmérésforrásai nem tölthetők be.");
   const surveyIds = [...new Set((sourceRows ?? []).map((source) => source.survey_id))];
   const surveyRevisionIds = [...new Set((sourceRows ?? []).map((source) => source.survey_revision_id))];
   const [surveyResult, sourceRevisionResult] = await Promise.all([
-    surveyIds.length ? supabase.from("field_surveys")
-      .select("id,version").eq("organization_id", organizationId).in("id", surveyIds) : Promise.resolve({ data: [], error: null }),
-    surveyRevisionIds.length ? supabase.from("field_survey_revisions")
-      .select("id,survey_id,work_type,sections").eq("organization_id", organizationId).in("id", surveyRevisionIds) : Promise.resolve({ data: [], error: null }),
+    readSupabase(surveyIds.length ? supabase.from("field_surveys")
+      .select("id,version").eq("organization_id", organizationId).in("id", surveyIds) : Promise.resolve({ data: [], error: null }), "A felmérésforrások frissessége nem ellenőrizhető."),
+    readSupabase(surveyRevisionIds.length ? supabase.from("field_survey_revisions")
+      .select("id,survey_id,work_type,sections").eq("organization_id", organizationId).in("id", surveyRevisionIds) : Promise.resolve({ data: [], error: null }), "A pontos forrásfelmérés neve nem tölthető be."),
   ]);
-  const { data: surveys, error: surveyError } = surveyResult;
-  if (surveyError) throw new Error("A felmérésforrások frissessége nem ellenőrizhető.");
-  const { data: sourceRevisions, error: sourceRevisionError } = sourceRevisionResult;
-  if (sourceRevisionError) throw new Error("A pontos forrásfelmérés neve nem tölthető be.");
+  const surveys = surveyResult.data ?? [];
+  const sourceRevisions = sourceRevisionResult.data ?? [];
   const currentSurveyVersions = new Map((surveys ?? []).map((survey) => [survey.id, survey.version]));
   const sourceSurveyNames = new Map((sourceRevisions ?? []).map((revision) => [revision.id, {
     surveyId: revision.survey_id,
     name: surveyNameFromRevision(revision.work_type, revision.sections),
   }] as const));
+  if ((sourceRows ?? []).some((row) => !currentSurveyVersions.has(row.survey_id) || sourceSurveyNames.get(row.survey_revision_id)?.surveyId !== row.survey_id)) {
+    throw new SupabaseReadError("Az anyaglista pontos felmérési forrása nem érhető el.", "unavailable");
+  }
   const sourceByRevision = new Map((sourceRows ?? []).map((row) => {
     const currentSurveyVersion = currentSurveyVersions.get(row.survey_id) ?? null;
     const exactRevision = sourceSurveyNames.get(row.survey_revision_id);
@@ -150,7 +149,7 @@ export async function getWorkflowMaterialLists(organizationId: string, onlyListI
       surveyId: row.survey_id,
       surveyRevisionId: row.survey_revision_id,
       surveyVersion: row.survey_version,
-      surveyName: exactRevision?.surveyId === row.survey_id ? exactRevision.name : "Felmérés",
+      surveyName: exactRevision!.name,
       currentSurveyVersion,
       stale: currentSurveyVersion !== null && currentSurveyVersion > row.survey_version,
       items: jsonArray<SurveyMaterialProvenanceItem>(row.source_items_snapshot),

@@ -29,11 +29,12 @@ export function filterMaterialProductOptions(options: readonly WorkflowMaterialP
   return options.filter((option) => normalizeMaterialProductSearch(`${option.name} ${option.searchText}`).includes(normalizedQuery));
 }
 
-export function WorkflowMaterialProductPicker({ options, value, disabled, onSelect, idPrefix = "workflow-material-product", label = "Termék kiválasztása", copy = {} }: Readonly<{
+export function WorkflowMaterialProductPicker({ options, value, disabled, onSelect, loadOptions, idPrefix = "workflow-material-product", label = "Termék kiválasztása", copy = {} }: Readonly<{
   options: readonly WorkflowMaterialProductOption[];
   value: string;
   disabled: boolean;
   onSelect: (id: string) => void;
+  loadOptions?: (query: string, page: number) => Promise<{ options: WorkflowMaterialProductOption[]; hasNext: boolean }>;
   idPrefix?: string;
   label?: string;
   copy?: MaterialProductPickerCopy;
@@ -43,13 +44,49 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
   const inputRef = useRef<HTMLInputElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [remoteOptions, setRemoteOptions] = useState<WorkflowMaterialProductOption[]>([]);
+  const [remotePage, setRemotePage] = useState(0);
+  const [remoteHasNext, setRemoteHasNext] = useState(false);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState("");
+  const loadOptionsRef = useRef(loadOptions);
+  const queryVersion = useRef(0);
+  loadOptionsRef.current = loadOptions;
   const [activeId, setActiveId] = useState<string | null>(null);
   // While true the search field is skipped by native initial focus; restored right after so Tab/keyboard access stays intact.
   const [skipInitialFocus, setSkipInitialFocus] = useState(false);
   const [position, setPosition] = useState<PickerPosition>({ left: 12, top: 12, width: 320, maxHeight: 420 });
-  const filteredOptions = useMemo(() => filterMaterialProductOptions(options, query), [options, query]);
-  const selectedOption = options.find((option) => option.id === value);
+  const filteredOptions = useMemo(() => loadOptions ? remoteOptions : filterMaterialProductOptions(options, query), [loadOptions, options, query, remoteOptions]);
+  const selectedOption = options.find((option) => option.id === value) ?? remoteOptions.find((option) => option.id === value);
   const listId = `${idPrefix}-options`;
+
+  useLayoutEffect(() => {
+    if (!isOpen || !loadOptionsRef.current) return;
+    const version = ++queryVersion.current;
+    let cancelled = false;
+    setRemoteOptions([]); setRemotePage(0); setRemoteHasNext(false); setRemoteError(""); setRemoteLoading(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await loadOptionsRef.current!(query, 1);
+        if (!cancelled && version === queryVersion.current) { setRemoteOptions(result.options); setRemotePage(1); setRemoteHasNext(result.hasNext); }
+      } catch { if (!cancelled) setRemoteError("A katalógus keresése nem sikerült."); }
+      finally { if (!cancelled) setRemoteLoading(false); }
+    }, query ? 250 : 0);
+    return () => { cancelled = true; queryVersion.current += 1; window.clearTimeout(timer); };
+  }, [isOpen, query]);
+
+  async function loadNextPage() {
+    if (!loadOptionsRef.current || remoteLoading || !remoteHasNext) return;
+    const version = queryVersion.current;
+    setRemoteLoading(true); setRemoteError("");
+    try {
+      const result = await loadOptionsRef.current(query, remotePage + 1);
+      if (version !== queryVersion.current) return;
+      setRemoteOptions((current) => [...current, ...result.options]);
+      setRemotePage(remotePage + 1); setRemoteHasNext(result.hasNext);
+    } catch { if (version === queryVersion.current) setRemoteError("A következő oldal betöltése nem sikerült."); }
+    finally { if (version === queryVersion.current) setRemoteLoading(false); }
+  }
 
   const close = useCallback((restoreFocus = true) => {
     if (dialogRef.current?.open) dialogRef.current.close();
@@ -158,14 +195,14 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
       onKeyDown={(event) => {
         if (event.key === "ArrowDown") { event.preventDefault(); moveActive(1); }
         else if (event.key === "ArrowUp") { event.preventDefault(); moveActive(-1); }
-        else if (event.key === "Enter") {
+        else if (event.key === "Enter" && (event.target as HTMLElement).tagName !== "BUTTON") {
           event.preventDefault();
           if (activeId && filteredOptions.some((option) => option.id === activeId)) select(activeId);
         } else if (event.key === "Escape" || event.key === "Esc") {
           event.preventDefault();
           event.stopPropagation();
           close();
-        } else if (event.key === "Tab") close(false);
+        } else if (event.key === "Tab" && !loadOptions) close(false);
       }}
     >
       <div className="workflow-material-product-search-row">
@@ -181,6 +218,7 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
           aria-controls={listId}
           aria-activedescendant={activeId ? optionId(idPrefix, activeId) : undefined}
           value={query}
+          maxLength={100}
           onChange={(event) => { setQuery(event.target.value); setActiveId(null); }}
           placeholder="Termék keresése…"
         />
@@ -195,7 +233,10 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
           onClick={() => select(option.id)}
         >
           <span>{option.name}</span><small>{option.detail}</small>
-        </div></Fragment>) : <p className="workflow-material-product-empty" role="status">{copy.emptyText ?? "Nincs ilyen termék ebben a kategóriában."}</p>}
+        </div></Fragment>) : !remoteLoading && <p className="workflow-material-product-empty" role="status">{copy.emptyText ?? "Nincs ilyen termék ebben a kategóriában."}</p>}
+        {remoteLoading && <p role="status">Termékek betöltése…</p>}
+        {remoteError && <p role="alert">{remoteError}</p>}
+        {remoteHasNext && <button className="secondary-button" type="button" disabled={remoteLoading} onClick={() => void loadNextPage()}>További termékek</button>}
       </div>
     </dialog>
   </>;

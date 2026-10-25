@@ -48,6 +48,7 @@ export function ExecutionPlanCalculations({ organizationId, planId, result }: Re
       <div>
         <strong><Calculator aria-hidden="true" size={15} /> {calculation.name}</strong>
         <span>{isSaveableConstructionCalculator(calculation.calculatorId) ? constructionCalculatorLabels[calculation.calculatorId] : calculation.calculatorId} · V{calculation.revisionNumber} · rögzített revízió</span>
+        {!calculation.complete && <p className="form-message is-error" role="alert">Hiányos történeti kalkuláció · nem tekinthető teljes, kivitelezésre kész eredménynek.</p>}
         {calculation.lines.length > 0 && <GlassDisclosure summary={`Eredmény · V${calculation.revisionNumber}`}><dl>{calculation.lines.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{formatValue(line.value)} {line.unit}</dd></div>)}</dl></GlassDisclosure>}
         {!calculation.ownedByViewer && <small>Csak olvasható · a kalkulációt a létrehozója szerkesztheti.</small>}
       </div>

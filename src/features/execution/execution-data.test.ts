@@ -4,44 +4,71 @@ import { getExecutionOverviewForOrganization, getExecutionPlanLinkedSurveys, get
 
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: vi.fn() }));
 
-type QueryResult = { data: unknown[]; error: null };
+type QueryResult = { data: unknown[]; error: unknown; count: number };
 type Filter = { kind: "eq" | "in" | "is" | "not"; column: string; value: unknown };
 
 let rows: Record<string, unknown[]>;
-let queryLog: Array<{ table: string; filters: Filter[]; limit: number | null }>;
+let queryErrors: Record<string, unknown>;
+let queryLog: Array<{ table: string; filters: Filter[]; limit: number | null; range: [number, number] | null }>;
+let pageErrors: Record<string, { from: number; code: string }>;
+let duplicatePage: Record<string, number>;
+let changedCountPage: Record<string, number>;
+let responseCap: number;
+let signedUrlThrows: boolean;
+let activeSignings: number;
+let peakSignings: number;
 
 function makeClient() {
   return {
     from(table: string) {
       const filters: Filter[] = [];
       let limit: number | null = null;
-      const record: { table: string; filters: Filter[]; limit: number | null } = { table, filters, limit };
+      let range: [number, number] | null = null;
+      const orders: Array<{ column: string; ascending: boolean }> = [];
+      const record: { table: string; filters: Filter[]; limit: number | null; range: [number, number] | null } = { table, filters, limit, range };
       queryLog.push(record);
-      const result = (): QueryResult => ({
-        data: (rows[table] ?? []).filter((value) => {
+      const result = (): QueryResult => {
+        const filtered = (rows[table] ?? []).filter((value) => {
           const row = value as Record<string, unknown>;
           return filters.every((filter) => {
             if (filter.kind === "in") return (filter.value as unknown[]).includes(row[filter.column]);
             if (filter.kind === "not") return row[filter.column] !== filter.value;
             return row[filter.column] === filter.value;
           });
-        }),
-        error: null,
-      });
+        }).sort((left, right) => {
+          for (const { column, ascending } of orders) {
+            const comparison = String((left as Record<string, unknown>)[column] ?? "").localeCompare(String((right as Record<string, unknown>)[column] ?? ""), undefined, { numeric: true });
+            if (comparison) return ascending ? comparison : -comparison;
+          }
+          return 0;
+        });
+        const from = range?.[0] ?? 0;
+        const to = Math.min(range?.[1] ?? (limit === null ? filtered.length : limit - 1), from + responseCap - 1);
+        const data = duplicatePage[table] === from ? filtered.slice(0, Math.min(responseCap, to - from + 1)) : filtered.slice(from, to + 1);
+        return { data, error: queryErrors[table] ?? (pageErrors[table]?.from === from ? { code: pageErrors[table].code, message: "page failure" } : null), count: filtered.length + (changedCountPage[table] === from ? 1 : 0) };
+      };
       const query = {
         select: () => query,
         eq: (column: string, value: unknown) => { filters.push({ kind: "eq", column, value }); return query; },
         in: (column: string, value: unknown) => { filters.push({ kind: "in", column, value }); return query; },
         is: (column: string, value: unknown) => { filters.push({ kind: "is", column, value }); return query; },
         not: (column: string, _operator: string, value: unknown) => { filters.push({ kind: "not", column, value }); return query; },
-        order: () => query,
+        order: (column: string, options?: { ascending?: boolean }) => { orders.push({ column, ascending: options?.ascending !== false }); return query; },
         limit: (value: number) => { limit = value; record.limit = value; return query; },
-        maybeSingle: async () => ({ data: result().data[0] ?? null, error: null }),
+        range: (from: number, to: number) => { range = [from, to]; record.range = range; return query; },
+        maybeSingle: async () => ({ data: result().data[0] ?? null, error: queryErrors[table] ?? null }),
         then: (resolve: (value: QueryResult) => unknown) => Promise.resolve(resolve(result())),
       };
       return query;
     },
-    storage: { from: () => ({ createSignedUrl: async (key: string) => ({ data: { signedUrl: `signed:${key}` } }) }) },
+    storage: { from: () => ({ createSignedUrl: async (key: string) => {
+      if (signedUrlThrows) throw new Error("temporary signing failure");
+      activeSignings += 1;
+      peakSignings = Math.max(peakSignings, activeSignings);
+      await Promise.resolve();
+      activeSignings -= 1;
+      return { data: { signedUrl: `signed:${key}` } };
+    } }) },
   };
 }
 
@@ -52,7 +79,15 @@ const plan = (id: string, project_id: string | null = "project") => ({
 
 beforeEach(() => {
   rows = {};
+  queryErrors = {};
+  pageErrors = {};
+  duplicatePage = {};
+  changedCountPage = {};
+  responseCap = 1000;
   queryLog = [];
+  signedUrlThrows = false;
+  activeSignings = 0;
+  peakSignings = 0;
   vi.mocked(createClient).mockResolvedValue(makeClient() as unknown as Awaited<ReturnType<typeof createClient>>);
 });
 
@@ -64,10 +99,73 @@ describe("execution data characterization", () => {
     expect(queryLog.map(({ table }) => table)).toEqual(["execution_plans", "execution_plans"]);
   });
 
+  it.each([0, 1, 100, 101, 275])("loads every journal, event and photo identity across two interleaved plans (%i each)", async (count) => {
+    rows.execution_plans = [plan("p1"), plan("p2")];
+    const id = (prefix: string, index: number) => `${prefix}${String(index).padStart(3, "0")}`;
+    rows.execution_tasks = ["p1", "p2"].map((planId) => ({ id: `task-${planId}`, plan_id: planId, title: planId, description: null, status: "todo", priority: "normal", due_date: null, sort_order: 0, version: 1, created_at: "2026-10-01", organization_id: "org" }));
+    rows.execution_journal_entries = Array.from({ length: count }, (_, index) => ({ id: id("j", index), plan_id: index % 2 ? "p2" : "p1", task_id: `task-${index % 2 ? "p2" : "p1"}`, work_date: index === 0 ? "2026-10-01" : "2026-10-02", category: "general", content: id("journal-", index), problems: null, next_steps: null, created_by: "user", created_at: "2026-10-02T10:00:00Z", organization_id: "org" }));
+    rows.execution_task_events = Array.from({ length: count }, (_, index) => ({ id: id("e", index), plan_id: index % 2 ? "p2" : "p1", task_id: `task-${index % 2 ? "p2" : "p1"}`, from_status: "todo", to_status: "done", changed_by: "user", changed_at: "2026-10-02T11:00:00Z", organization_id: "org" }));
+    rows.execution_photos = Array.from({ length: count }, (_, index) => ({ id: id("ph", index), plan_id: index % 2 ? "p2" : "p1", project_id: "project", task_id: `task-${index % 2 ? "p2" : "p1"}`, journal_entry_id: id("j", index), object_key: `photo-${index}`, display_filename: `photo-${index}.jpg`, mime_type: "image/jpeg", file_size: 10, caption: null, category: "during", uploaded_by: "user", uploaded_at: "2026-10-02T12:00:00Z", organization_id: "org" }));
+    rows.execution_journal_entries.push({ id: "unrelated-j", plan_id: "other-plan", organization_id: "org" }, { id: "other-org-j", plan_id: "p1", organization_id: "other-org" });
+    rows.execution_task_events.push({ id: "unrelated-e", plan_id: "other-plan", organization_id: "org" }, { id: "other-org-e", plan_id: "p1", organization_id: "other-org" });
+    rows.execution_photos.push({ id: "unrelated-ph", plan_id: "other-plan", organization_id: "org" }, { id: "other-org-ph", plan_id: "p1", organization_id: "other-org" });
+
+    const workspace = await getExecutionPlanningWorkspace("org", "project");
+    for (const [planId, parity] of [["p1", 0], ["p2", 1]] as const) {
+      const indices = Array.from({ length: count }, (_, index) => index).filter((index) => index % 2 === parity).reverse();
+      const expectedJournal = indices.filter((index) => index !== 0).map((index) => id("j", index));
+      if (parity === 0 && count) expectedJournal.push("j000");
+      expect(workspace.timelineByPlan.get(planId)?.filter((item) => item.type === "journal").map((item) => item.id)).toEqual(expectedJournal);
+      expect(workspace.timelineByPlan.get(planId)?.filter((item) => item.type === "task_event").map((item) => item.id)).toEqual(indices.map((index) => id("e", index)));
+      expect(workspace.plans.find((item) => item.id === planId)?.photos.map((photo) => photo.id)).toEqual(indices.map((index) => id("ph", index)));
+      expect(workspace.plans.find((item) => item.id === planId)?.photos.map((photo) => photo.journalContent)).toEqual(indices.map((index) => id("journal-", index)));
+    }
+    if (count > 100) expect(queryLog.filter(({ table }) => ["execution_journal_entries", "execution_task_events", "execution_photos"].includes(table)).some(({ range }) => range?.[0] === 100)).toBe(true);
+    if (count > 250) expect(queryLog.filter(({ table }) => ["execution_journal_entries", "execution_task_events", "execution_photos"].includes(table))).toHaveLength(9);
+    if (count > 250) expect(peakSignings).toBeLessThanOrEqual(16);
+  });
+
+  it("fails the required workspace when a later page cannot be read", async () => {
+    rows.execution_plans = [plan("p1")];
+    rows.execution_journal_entries = Array.from({ length: 101 }, (_, index) => ({ id: `j${index}`, plan_id: "p1", organization_id: "org", work_date: "2026-10-02", created_at: "2026-10-02T10:00:00Z" }));
+    pageErrors.execution_journal_entries = { from: 100, code: "XX000" };
+    await expect(getExecutionPlanningWorkspace("org", "project", "p1")).rejects.toThrow("A munkanaplók részletei nem tölthetők be.");
+  });
+
+  it("continues when the server caps a page below the requested size", async () => {
+    responseCap = 40;
+    rows.execution_plans = [plan("p1")];
+    rows.execution_task_events = Array.from({ length: 101 }, (_, index) => ({ id: `e${String(index).padStart(3, "0")}`, plan_id: "p1", task_id: null, from_status: "todo", to_status: "done", changed_by: "user", changed_at: "2026-10-02T11:00:00Z", organization_id: "org" }));
+    const workspace = await getExecutionPlanningWorkspace("org", "project", "p1");
+    expect(workspace.timelineByPlan.get("p1")?.map((item) => item.id)).toEqual(Array.from({ length: 101 }, (_, index) => `e${String(100 - index).padStart(3, "0")}`));
+    expect(queryLog.filter(({ table }) => table === "execution_task_events").map(({ range }) => range?.[0])).toEqual([0, 40, 80]);
+  });
+
+  it("rejects duplicate later pages instead of presenting incomplete history", async () => {
+    rows.execution_plans = [plan("p1")];
+    rows.execution_task_events = Array.from({ length: 101 }, (_, index) => ({ id: `e${index}`, plan_id: "p1", organization_id: "org" }));
+    duplicatePage.execution_task_events = 100;
+    await expect(getExecutionPlanningWorkspace("org", "project", "p1")).rejects.toThrow("A munkanaplók részletei nem tölthetők be.");
+  });
+
+  it("rejects a changing row count across pages instead of silently omitting data", async () => {
+    rows.execution_plans = [plan("p1")];
+    rows.execution_task_events = Array.from({ length: 101 }, (_, index) => ({ id: `e${index}`, plan_id: "p1", organization_id: "org" }));
+    changedCountPage.execution_task_events = 100;
+    await expect(getExecutionPlanningWorkspace("org", "project", "p1")).rejects.toThrow("A munkanaplók részletei nem tölthetők be.");
+  });
+
+  it("does not turn a later-page permission denial into an empty timeline", async () => {
+    rows.execution_plans = [plan("p1")];
+    rows.execution_journal_entries = Array.from({ length: 101 }, (_, index) => ({ id: `j${index}`, plan_id: "p1", organization_id: "org" }));
+    pageErrors.execution_journal_entries = { from: 100, code: "42501" };
+    await expect(getExecutionPlanningWorkspace("org", "project", "p1")).rejects.toThrow("A munkanaplók részletei nem tölthetők be.");
+  });
+
   it("preserves ordered associations, nullable links, missing relations and signed URLs", async () => {
     rows.execution_plans = [{ ...plan("p1"), source_quotation_id: "q1", source_revision_id: "r1" }, plan("p2")];
     rows.quotations = [{ id: "q1", name: "Accepted quotation", finalized_revision_id: "r1", status: "accepted", project_id: "project", updated_at: "2026-10-02", organization_id: "org" }];
-    rows.quotation_revisions = [{ id: "r1", revision_number: 3, subtotal: 12345, organization_id: "org" }];
+    rows.quotation_revisions = [{ id: "r1", quotation_id: "q1", revision_number: 3, subtotal: 12345, organization_id: "org" }];
     rows.execution_tasks = [
       { id: "t1", plan_id: "p1", title: "Task 1", description: null, status: "todo", priority: "normal", due_date: null, sort_order: 1, version: 2, created_at: "2026-10-01", organization_id: "org" },
       { id: "t2", plan_id: "p1", title: "Task 2", description: "Detail", status: "done", priority: "high", due_date: "2026-10-05", sort_order: 2, version: 1, created_at: "2026-10-01", organization_id: "org" },
@@ -122,7 +220,7 @@ describe("execution data characterization", () => {
     ]);
     expect(workspace.acceptedQuotations).toEqual([{ id: "q1", name: "Accepted quotation", finalizedRevisionId: "r1", subtotal: null }]);
     expect(queryLog.find(({ table }) => table === "execution_photos")?.filters).toContainEqual({ kind: "eq", column: "organization_id", value: "org" });
-    expect(queryLog.find(({ table }) => table === "execution_photos")?.limit).toBe(100);
+    expect(queryLog.find(({ table }) => table === "execution_photos")?.range).toEqual([0, 99]);
     expect(queryLog.filter(({ table }) => table !== "profiles").every(({ filters }) => filters.some((filter) => filter.kind === "eq" && filter.column === "organization_id" && filter.value === "org"))).toBe(true);
   });
 
@@ -141,6 +239,22 @@ describe("execution data characterization", () => {
     expect(queryLog.find(({ table }) => table === "execution_plans")?.limit).toBe(200);
   });
 
+  it("does not return a workspace as source-complete when its exact quotation revision cannot be read", async () => {
+    rows.execution_plans = [{ ...plan("p1"), source_quotation_id: "q1", source_revision_id: "r1" }];
+    rows.quotations = [{ id: "q1", name: "Accepted", finalized_revision_id: "r1", status: "accepted", organization_id: "org" }];
+    queryErrors.quotation_revisions = { code: "XX000", message: "temporary read failure" };
+
+    await expect(getExecutionPlanningWorkspace("org", "project", "p1")).rejects.toThrow("A munkanapló pontos ajánlati forrása nem ellenőrizhető.");
+  });
+
+  it("rejects an inconsistent source revision instead of exporting an empty quotation section", async () => {
+    rows.execution_plans = [{ ...plan("p1"), source_quotation_id: "q1", source_revision_id: "r1" }];
+    rows.quotations = [{ id: "q1", name: "Accepted", finalized_revision_id: "r1", status: "accepted", organization_id: "org" }];
+    rows.quotation_revisions = [{ id: "r1", quotation_id: "another-quotation", revision_number: 3, subtotal: 12345, organization_id: "org" }];
+
+    await expect(getExecutionPlanningWorkspace("org", "project", "p1")).rejects.toThrow("A munkanapló pontos ajánlati forrása nem ellenőrizhető.");
+  });
+
   it("keeps exact survey revisions and signed snapshot photos, skipping unavailable links", async () => {
     rows.field_survey_execution_plan_links = [
       { id: "link-1", survey_id: "00000000-0000-4000-8000-000000000002", survey_revision_id: "revision-1", created_at: "2026-10-02T10:00:00Z", organization_id: "org", execution_plan_id: "p1" },
@@ -149,16 +263,90 @@ describe("execution data characterization", () => {
     ];
     rows.field_survey_revisions = [{
       id: "revision-1", survey_id: "00000000-0000-4000-8000-000000000002", version: 3, work_type: "roof", sections: null,
-      measurements: [{ id: "00000000-0000-4000-8000-000000000001", label: "Hossz", value: 10, unit: "m", semanticType: "custom" }], notes: "Snapshot",
+      measurements: [{ id: "00000000-0000-4000-8000-000000000001", label: "Hossz", value: 10, unit: "m" }], notes: "Snapshot",
       photos_snapshot: [{ objectKey: "survey-photo.jpg", displayFilename: "Tető.jpg", description: "Régi fotó" }], organization_id: "org",
     }];
     rows.field_surveys = [{ id: "00000000-0000-4000-8000-000000000002", version: 5, organization_id: "org" }];
 
-    await expect(getExecutionPlanLinkedSurveys("org", "p1")).resolves.toEqual([
-      { id: "link-1", surveyId: "00000000-0000-4000-8000-000000000002", surveyVersion: 3, currentVersion: 5, revisionId: "revision-1", sections: [{ id: "00000000-0000-4000-8000-000000000002", name: "Felmérés", workType: "roof", measurements: [{ id: "00000000-0000-4000-8000-000000000001", label: "Hossz", value: 10, unit: "m", semanticType: "custom" }], notes: "Snapshot", photoIds: [] }], notes: "Snapshot", photos: [{ id: "revision-1-0", displayFilename: "Tető.jpg", description: "Régi fotó", signedUrl: "signed:survey-photo.jpg" }] },
-      { id: "link-2", surveyId: "00000000-0000-4000-8000-000000000002", surveyVersion: 3, currentVersion: 5, revisionId: "revision-1", sections: [{ id: "00000000-0000-4000-8000-000000000002", name: "Felmérés", workType: "roof", measurements: [{ id: "00000000-0000-4000-8000-000000000001", label: "Hossz", value: 10, unit: "m", semanticType: "custom" }], notes: "Snapshot", photoIds: [] }], notes: "Snapshot", photos: [{ id: "revision-1-0", displayFilename: "Tető.jpg", description: "Régi fotó", signedUrl: "signed:survey-photo.jpg" }] },
-    ]);
+    await expect(getExecutionPlanLinkedSurveys("org", "p1")).resolves.toEqual({ status: "loaded", items: [
+      { status: "available", id: "link-1", surveyId: "00000000-0000-4000-8000-000000000002", surveyVersion: 3, currentVersion: 5, revisionId: "revision-1", sections: [{ id: "00000000-0000-4000-8000-000000000002", name: "Felmérés", workType: "roof", measurements: [{ id: "00000000-0000-4000-8000-000000000001", label: "Hossz", value: 10, unit: "m", semanticType: "custom" }], notes: "Snapshot", photoIds: [] }], notes: "Snapshot", photos: [{ id: "revision-1-0", displayFilename: "Tető.jpg", description: "Régi fotó", signedUrl: "signed:survey-photo.jpg" }] },
+      { status: "available", id: "link-2", surveyId: "00000000-0000-4000-8000-000000000002", surveyVersion: 3, currentVersion: 5, revisionId: "revision-1", sections: [{ id: "00000000-0000-4000-8000-000000000002", name: "Felmérés", workType: "roof", measurements: [{ id: "00000000-0000-4000-8000-000000000001", label: "Hossz", value: 10, unit: "m", semanticType: "custom" }], notes: "Snapshot", photoIds: [] }], notes: "Snapshot", photos: [{ id: "revision-1-0", displayFilename: "Tető.jpg", description: "Régi fotó", signedUrl: "signed:survey-photo.jpg" }] },
+      { status: "unavailable", linkId: "link-missing", reason: "source_unavailable" },
+    ] });
     expect(queryLog.filter(({ table }) => ["field_survey_execution_plan_links", "field_survey_revisions", "field_surveys"].includes(table)).every(({ filters }) => filters.some((filter) => filter.kind === "eq" && filter.column === "organization_id" && filter.value === "org"))).toBe(true);
+  });
+
+  it("reads historical section measurements without semanticType as custom", async () => {
+    rows.field_survey_execution_plan_links = [{ id: "link", survey_id: "survey", survey_revision_id: "revision", created_at: "2026-10-02", organization_id: "org", execution_plan_id: "p1" }];
+    rows.field_survey_revisions = [{
+      id: "revision", survey_id: "survey", version: 1, work_type: "roof", notes: null, photos_snapshot: [], organization_id: "org",
+      sections: [{ id: "00000000-0000-4000-8000-000000000001", name: "Régi szakasz", workType: "roof", measurements: [{ id: "00000000-0000-4000-8000-000000000002", label: "Hossz", value: 10, unit: "m" }], notes: "", photoIds: [] }],
+    }];
+    rows.field_surveys = [{ id: "survey", version: 1, organization_id: "org" }];
+
+    await expect(getExecutionPlanLinkedSurveys("org", "p1")).resolves.toMatchObject({
+      status: "loaded", items: [{ status: "available", revisionId: "revision", sections: [{ measurements: [{ id: "00000000-0000-4000-8000-000000000002", value: 10, unit: "m", semanticType: "custom" }] }] }],
+    });
+  });
+
+  it("isolates one malformed survey snapshot from its valid siblings", async () => {
+    rows.field_survey_execution_plan_links = [
+      { id: "link-invalid", survey_id: "survey-invalid", survey_revision_id: "revision-invalid", created_at: "2026-10-02", organization_id: "org", execution_plan_id: "p1" },
+      { id: "link-valid", survey_id: "survey-valid", survey_revision_id: "revision-valid", created_at: "2026-10-01", organization_id: "org", execution_plan_id: "p1" },
+    ];
+    rows.field_survey_revisions = [{
+      id: "revision-invalid", survey_id: "survey-invalid", version: 1, work_type: "roof", notes: null, photos_snapshot: [], organization_id: "org",
+      sections: [{ id: "00000000-0000-4000-8000-000000000001", name: "Hibás szakasz", workType: "roof", measurements: [], notes: "", photoIds: [], unexpected: true }],
+    }, {
+      id: "revision-valid", survey_id: "survey-valid", version: 2, work_type: "gutter", notes: null, photos_snapshot: [], organization_id: "org",
+      sections: [{ id: "00000000-0000-4000-8000-000000000003", name: "Érvényes szakasz", workType: "gutter", measurements: [], notes: "", photoIds: [] }],
+    }];
+    rows.field_surveys = [{ id: "survey-invalid", version: 1, organization_id: "org" }, { id: "survey-valid", version: 2, organization_id: "org" }];
+
+    await expect(getExecutionPlanLinkedSurveys("org", "p1")).resolves.toEqual({
+      status: "loaded",
+      items: [
+        { status: "unavailable", linkId: "link-invalid", reason: "invalid_snapshot" },
+        { status: "available", id: "link-valid", surveyId: "survey-valid", surveyVersion: 2, currentVersion: 2, revisionId: "revision-valid", sections: [{ id: "00000000-0000-4000-8000-000000000003", name: "Érvényes szakasz", workType: "gutter", measurements: [], notes: "", photoIds: [] }], notes: null, photos: [] },
+      ],
+    });
+  });
+
+  it("marks empty section arrays unavailable instead of rejecting the whole list", async () => {
+    rows.field_survey_execution_plan_links = [{ id: "link", survey_id: "survey", survey_revision_id: "revision", created_at: "2026-10-02", organization_id: "org", execution_plan_id: "p1" }];
+    rows.field_survey_revisions = [{ id: "revision", survey_id: "survey", version: 1, work_type: "roof", sections: [], measurements: [], notes: null, photos_snapshot: [], organization_id: "org" }];
+    rows.field_surveys = [{ id: "survey", version: 1, organization_id: "org" }];
+
+    await expect(getExecutionPlanLinkedSurveys("org", "p1")).resolves.toEqual({ status: "loaded", items: [{ status: "unavailable", linkId: "link", reason: "invalid_snapshot" }] });
+  });
+
+  it("returns an explicit access-denied survey-panel state for an RLS read error", async () => {
+    queryErrors.field_survey_execution_plan_links = { code: "42501", message: "permission denied" };
+
+    await expect(getExecutionPlanLinkedSurveys("org", "p1")).resolves.toEqual({ status: "access_denied" });
+  });
+
+  it("keeps an optional survey query failure recoverable and retries on the next load", async () => {
+    queryErrors.field_survey_execution_plan_links = { code: "XX000", message: "temporary database failure" };
+    await expect(getExecutionPlanLinkedSurveys("org", "p1")).resolves.toEqual({ status: "unavailable" });
+
+    queryErrors = {};
+    await expect(getExecutionPlanLinkedSurveys("org", "p1")).resolves.toEqual({ status: "loaded", items: [] });
+  });
+
+  it("keeps a linked photo failure local to that photo", async () => {
+    signedUrlThrows = true;
+    rows.field_survey_execution_plan_links = [{ id: "link", survey_id: "survey", survey_revision_id: "revision", created_at: "2026-10-02", organization_id: "org", execution_plan_id: "p1" }];
+    rows.field_survey_revisions = [{
+      id: "revision", survey_id: "survey", version: 1, work_type: "roof", notes: null, organization_id: "org",
+      sections: [{ id: "00000000-0000-4000-8000-000000000001", name: "Szakasz", workType: "roof", measurements: [], notes: "", photoIds: [] }],
+      photos_snapshot: [{ objectKey: "private.jpg", displayFilename: "Fotó.jpg" }],
+    }];
+    rows.field_surveys = [{ id: "survey", version: 1, organization_id: "org" }];
+
+    await expect(getExecutionPlanLinkedSurveys("org", "p1")).resolves.toMatchObject({
+      status: "loaded", items: [{ status: "available", photos: [{ displayFilename: "Fotó.jpg", signedUrl: null }] }],
+    });
   });
 
   it("maps deterministic 1/50/200-plan collections with the expected row and request counts", async () => {
@@ -181,7 +369,11 @@ describe("execution data characterization", () => {
         expect(result.plans.reduce((total, item) => total + item.tasks.length, 0)).toBe(count * 2);
         expect(result.plans.reduce((total, item) => total + item.photos.length, 0)).toBe(count * 3);
         expect([...result.timelineByPlan.values()].reduce((total, item) => total + item.length, 0)).toBe(count * 3);
-        expect(queryLog.map(({ table }) => table)).toEqual(["execution_plans", "execution_tasks", "quotations", "execution_journal_entries", "execution_task_events", "execution_photos", "profiles"]);
+        expect(queryLog.filter(({ table }) => table === "execution_plans")).toHaveLength(Math.ceil(count / 100));
+        expect(queryLog.filter(({ table }) => table === "execution_tasks" || table === "execution_journal_entries")).toHaveLength(2 * Math.ceil(count * 2 / 100));
+        expect(queryLog.filter(({ table }) => table === "execution_task_events")).toHaveLength(Math.ceil(count / 100));
+        expect(queryLog.filter(({ table }) => table === "execution_photos")).toHaveLength(Math.ceil(count * 3 / 100));
+        expect(queryLog.filter(({ table }) => table === "quotations" || table === "profiles")).toHaveLength(2);
       }
       samples.sort((a, b) => a - b);
       timings.push({ plans: count, medianMs: Number(samples[10].toFixed(3)) });

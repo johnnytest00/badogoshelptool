@@ -9,6 +9,20 @@ type CategoryRow = Database["public"]["Tables"]["material_categories"]["Row"];
 type ProductRow = Database["public"]["Tables"]["material_products"]["Row"];
 type VariantRow = Database["public"]["Tables"]["material_variants"]["Row"];
 type PriceRow = Database["public"]["Tables"]["material_prices"]["Row"];
+const productColumns = "id, organization_id, manufacturer_id, category, category_id, name, description, product_code, status, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at, updated_at";
+const batches = <T,>(items: readonly T[], size = 100) => Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
+
+async function readAllPages<T extends { id: string }>(load: (from: number, to: number) => PromiseLike<{ data: T[] | null; count: number | null; error: unknown }>, message: string): Promise<T[]> {
+  const rows: T[] = []; const seen = new Set<string>(); let count: number | null = null;
+  while (true) {
+    const result = await load(rows.length, rows.length + 199);
+    if (result.error || !result.data || result.count === null || (count !== null && count !== result.count)) throw new Error(message);
+    count = result.count;
+    for (const row of result.data) { if (seen.has(row.id)) throw new Error(message); seen.add(row.id); rows.push(row); }
+    if (rows.length === count) return rows;
+    if (!result.data.length || rows.length > count) throw new Error(message);
+  }
+}
 
 export type MaterialManufacturerRecord = { id: string; name: string; website: string | null; notes: string | null; createdAt: string; updatedAt: string };
 export type MaterialCategoryRecord = { id: string; organizationId: string; name: string; legacyCategory: MaterialCategory; isDefault: boolean; isActive: boolean; createdAt: string; updatedAt: string };
@@ -27,20 +41,22 @@ function materialCategoryFallback(category: MaterialCategory) { return ({ roof_c
 
 async function loadRelated(supabase: Awaited<ReturnType<typeof createClient>>, organizationId: string, products: ProductRow[]) {
   const productIds = products.map((item) => item.id);
-  const [{ data: manufacturers, error: manufacturerError }, { data: variants, error: variantError }, { data: categories, error: categoryError }] = await Promise.all([
+  const [{ data: manufacturers, error: manufacturerError }, variantGroups, { data: categories, error: categoryError }] = await Promise.all([
     supabase.from("material_manufacturers").select("id, organization_id, name, website, notes, created_by, created_at, updated_at").eq("organization_id", organizationId).order("name"),
-    productIds.length ? supabase.from("material_variants").select("id, organization_id, product_id, name, sku, purchasing_unit, nominal_width_mm, effective_width_mm, thickness_mm, length_mm, packaging_quantity, technical_specs, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at, updated_at").eq("organization_id", organizationId).in("product_id", productIds).order("name") : Promise.resolve({ data: [], error: null }),
+    Promise.all(batches(productIds).map((ids) => readAllPages((from, to) => supabase.from("material_variants").select("id, organization_id, product_id, name, sku, purchasing_unit, nominal_width_mm, effective_width_mm, thickness_mm, length_mm, packaging_quantity, technical_specs, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at, updated_at", { count: "exact" }).eq("organization_id", organizationId).in("product_id", ids).order("name").order("id").range(from, to), "Az anyagváltozatok betöltése nem sikerült."))),
     supabase.from("material_categories").select("id, organization_id, name, legacy_category, is_default, is_active, created_by, created_at, updated_at").eq("organization_id", organizationId),
   ]);
-  if (manufacturerError || variantError || categoryError) throw new Error("Az anyagkapcsolatok betöltése nem sikerült.");
-  const variantIds = (variants ?? []).map((item) => item.id);
-  const { data: prices, error: priceError } = variantIds.length ? await supabase.from("material_prices").select("id, organization_id, variant_id, option_id, amount, currency, purchasing_unit, price_kind, price_source, effective_date, recorded_at, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at").eq("organization_id", organizationId).in("variant_id", variantIds).order("effective_date", { ascending: false }).order("recorded_at", { ascending: false }).order("id", { ascending: false }) : { data: [], error: null };
-  if (priceError) throw new Error("Az árverziók betöltése nem sikerült.");
-  const { data: optionData, error: optionError } = variantIds.length ? await supabase.from("material_price_options").select("id, variant_id, label, status").eq("organization_id", organizationId).in("variant_id", variantIds) : { data: [], error: null };
-  if (optionError) throw new Error("Az áropciók betöltése nem sikerült.");
-  const optionMap = new Map<string, PriceOptionRow[]>(); for (const row of optionData ?? []) { const list = optionMap.get(row.variant_id) ?? []; list.push({ id: row.id, label: row.label, status: row.status === "archived" ? "archived" : "active" }); optionMap.set(row.variant_id, list); }
-  const priceMap = new Map<string, MaterialPriceRecord[]>(); for (const row of prices ?? []) { const list = priceMap.get(row.variant_id) ?? []; list.push(mapPrice(row)); priceMap.set(row.variant_id, list); }
-  const variantRecords = new Map<string, MaterialVariantRecord>(); for (const row of variants ?? []) variantRecords.set(row.id, mapVariant(row, priceMap.get(row.id) ?? [], optionMap.get(row.id) ?? []));
+  if (manufacturerError || categoryError) throw new Error("Az anyagkapcsolatok betöltése nem sikerült.");
+  const variants = variantGroups.flat();
+  const variantIds = variants.map((item) => item.id);
+  const [priceGroups, optionGroups] = await Promise.all([
+    Promise.all(batches(variantIds).map((ids) => readAllPages((from, to) => supabase.from("material_prices").select("id, organization_id, variant_id, option_id, amount, currency, purchasing_unit, price_kind, price_source, effective_date, recorded_at, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at", { count: "exact" }).eq("organization_id", organizationId).in("variant_id", ids).order("effective_date", { ascending: false }).order("recorded_at", { ascending: false }).order("id", { ascending: false }).range(from, to), "Az árverziók betöltése nem sikerült."))),
+    Promise.all(batches(variantIds).map((ids) => readAllPages((from, to) => supabase.from("material_price_options").select("id, variant_id, label, status", { count: "exact" }).eq("organization_id", organizationId).in("variant_id", ids).order("id").range(from, to), "Az áropciók betöltése nem sikerült."))),
+  ]);
+  const prices = priceGroups.flat(); const optionData = optionGroups.flat();
+  const optionMap = new Map<string, PriceOptionRow[]>(); for (const row of optionData) { const list = optionMap.get(row.variant_id) ?? []; list.push({ id: row.id, label: row.label, status: row.status === "archived" ? "archived" : "active" }); optionMap.set(row.variant_id, list); }
+  const priceMap = new Map<string, MaterialPriceRecord[]>(); for (const row of prices) { const list = priceMap.get(row.variant_id) ?? []; list.push(mapPrice(row)); priceMap.set(row.variant_id, list); }
+  const variantRecords = new Map<string, MaterialVariantRecord>(); for (const row of variants) variantRecords.set(row.id, mapVariant(row, priceMap.get(row.id) ?? [], optionMap.get(row.id) ?? []));
   return { manufacturers: new Map((manufacturers ?? []).map((row) => { const item = mapManufacturer(row); return [item.id, item] as const; })), categories: new Map((categories ?? []).map((row) => { const item = mapCategory(row); return [item.id, item] as const; })), variantRecords };
 }
 
@@ -49,34 +65,57 @@ export async function getMaterialManufacturers(organizationId: string) { const s
 export async function getMaterialCategories(organizationId: string, includeInactive = true) { const supabase = await createClient(); let query = supabase.from("material_categories").select("id, organization_id, name, legacy_category, is_default, is_active, created_by, created_at, updated_at").eq("organization_id", organizationId).order("name"); if (!includeInactive) query = query.eq("is_active", true); const { data, error } = await query; if (error) throw new Error("Az anyagkategóriák betöltése nem sikerült."); return (data ?? []).map(mapCategory); }
 
 export async function getMaterialProductsForOrganization(organizationId: string, rawFilters: unknown = {}) {
-  const filters = materialFilterSchema.parse(rawFilters); const supabase = await createClient(); let query = supabase.from("material_products").select("id, organization_id, manufacturer_id, category, category_id, name, description, product_code, status, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at, updated_at").eq("organization_id", organizationId).order("updated_at", { ascending: false }).limit(200);
-  if (filters.search) query = query.or(`name.ilike.%${filters.search}%,product_code.ilike.%${filters.search}%`); if (filters.category) query = query.eq("category", filters.category); if (filters.categoryId) query = query.eq("category_id", filters.categoryId); if (filters.manufacturerId) query = query.eq("manufacturer_id", filters.manufacturerId); if (!filters.includeArchived) query = query.eq("status", "active");
-  const { data, error } = await query; if (error) throw new Error("Az anyagkatalógus betöltése nem sikerült."); const products = data ?? []; const related = await loadRelated(supabase, organizationId, products); return products.map((row) => mapProduct(row, related.manufacturers, related.categories, related.variantRecords ? [...related.variantRecords.values()].filter((item) => item.productId === row.id) : []));
+  const filters = materialFilterSchema.parse(rawFilters); const supabase = await createClient();
+  const products = await readAllPages((from, to) => {
+    let query = supabase.from("material_products").select(productColumns, { count: "exact" }).eq("organization_id", organizationId).order("updated_at", { ascending: false }).order("id", { ascending: false });
+    if (filters.search) query = query.or(`name.ilike.%${filters.search}%,product_code.ilike.%${filters.search}%`); if (filters.category) query = query.eq("category", filters.category); if (filters.categoryId) query = query.eq("category_id", filters.categoryId); if (filters.manufacturerId) query = query.eq("manufacturer_id", filters.manufacturerId); if (!filters.includeArchived) query = query.eq("status", "active");
+    return query.range(from, to);
+  }, "Az anyagkatalógus betöltése nem sikerült.");
+  const related = await loadRelated(supabase, organizationId, products);
+  return products.map((row) => mapProduct(row, related.manufacturers, related.categories, [...related.variantRecords.values()].filter((item) => item.productId === row.id)));
+}
+
+export async function getMaterialProductPage(organizationId: string, rawFilters: unknown = {}) {
+  const parsed = materialFilterSchema.parse(rawFilters);
+  const rawPage = typeof rawFilters === "object" && rawFilters !== null && "page" in rawFilters ? Number(rawFilters.page) : 1;
+  const page = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  const supabase = await createClient();
+  let query = supabase.from("material_products").select(productColumns, { count: "exact" }).eq("organization_id", organizationId).order("updated_at", { ascending: false }).order("id", { ascending: false });
+  if (parsed.search) query = query.or(`name.ilike.%${parsed.search}%,product_code.ilike.%${parsed.search}%`);
+  if (parsed.category) query = query.eq("category", parsed.category);
+  if (parsed.categoryId) query = query.eq("category_id", parsed.categoryId);
+  if (parsed.manufacturerId) query = query.eq("manufacturer_id", parsed.manufacturerId);
+  if (!parsed.includeArchived) query = query.eq("status", "active");
+  const { data, count, error } = await query.range((page - 1) * 50, page * 50 - 1);
+  if (error || count === null || !data) throw new Error("Az anyagkatalógus betöltése nem sikerült.");
+  const related = await loadRelated(supabase, organizationId, data);
+  const products = data.map((row) => mapProduct(row, related.manufacturers, related.categories, [...related.variantRecords.values()].filter((item) => item.productId === row.id)));
+  return { products, total: count, page, pageSize: 50, hasNext: page * 50 < count };
 }
 
 /** Calculator profiles need technical catalog fields, but never material price history. */
 export async function getCalculatorMaterialProfiles(organizationId: string) {
   const supabase = await createClient();
-  const { data: products, error: productError } = await supabase.from("material_products")
-    .select("id, manufacturer_id, category, category_id, name, status, data_provenance, source_name")
-    .eq("organization_id", organizationId).eq("status", "active").order("updated_at", { ascending: false }).limit(200);
-  if (productError) throw new Error("Az anyagkatalógus betöltése nem sikerült.");
-  if (!products?.length) return [];
+  const products = await readAllPages((from, to) => supabase.from("material_products")
+    .select("id, manufacturer_id, category, category_id, name, status, data_provenance, source_name", { count: "exact" })
+    .eq("organization_id", organizationId).eq("status", "active").order("updated_at", { ascending: false }).order("id", { ascending: false }).range(from, to), "Az anyagkatalógus betöltése nem sikerült.");
+  if (!products.length) return [];
 
   const manufacturerIds = [...new Set(products.flatMap((product) => product.manufacturer_id ? [product.manufacturer_id] : []))];
   const categoryIds = [...new Set(products.map((product) => product.category_id))];
   const productIds = products.map((product) => product.id);
-  const [{ data: manufacturers, error: manufacturerError }, { data: categories, error: categoryError }, { data: variants, error: variantError }] = await Promise.all([
+  const [{ data: manufacturers, error: manufacturerError }, { data: categories, error: categoryError }, variantGroups] = await Promise.all([
     manufacturerIds.length ? supabase.from("material_manufacturers").select("id, name").eq("organization_id", organizationId).in("id", manufacturerIds) : Promise.resolve({ data: [], error: null }),
     supabase.from("material_categories").select("id, name, is_active").eq("organization_id", organizationId).in("id", categoryIds),
-    supabase.from("material_variants").select("id, product_id, name, sku, purchasing_unit, nominal_width_mm, effective_width_mm, length_mm, technical_specs, data_provenance, source_name").eq("organization_id", organizationId).in("product_id", productIds).order("name"),
+    Promise.all(batches(productIds).map((ids) => readAllPages((from, to) => supabase.from("material_variants").select("id, product_id, name, sku, purchasing_unit, nominal_width_mm, effective_width_mm, length_mm, technical_specs, data_provenance, source_name", { count: "exact" }).eq("organization_id", organizationId).in("product_id", ids).order("name").order("id").range(from, to), "Az anyagváltozatok betöltése nem sikerült."))),
   ]);
-  if (manufacturerError || categoryError || variantError) throw new Error("Az anyagkapcsolatok betöltése nem sikerült.");
+  if (manufacturerError || categoryError) throw new Error("Az anyagkapcsolatok betöltése nem sikerült.");
+  const variants = variantGroups.flat();
 
   const manufacturerNames = new Map((manufacturers ?? []).map((item) => [item.id, item.name]));
   const categoryById = new Map((categories ?? []).map((item) => [item.id, item]));
   const variantsByProduct = new Map<string, CatalogProductInput["variants"][number][]>();
-  for (const variant of variants ?? []) {
+  for (const variant of variants) {
     const technicalSpecs = variant.technical_specs && typeof variant.technical_specs === "object" && !Array.isArray(variant.technical_specs) ? variant.technical_specs as Record<string, string> : {};
     const list = variantsByProduct.get(variant.product_id) ?? [];
     list.push({ id: variant.id, name: variant.name, sku: variant.sku, purchasingUnit: variant.purchasing_unit, nominalWidthMm: variant.nominal_width_mm === null ? null : Number(variant.nominal_width_mm), effectiveWidthMm: variant.effective_width_mm === null ? null : Number(variant.effective_width_mm), lengthMm: variant.length_mm === null ? null : Number(variant.length_mm), technicalSpecs, provenance: variant.data_provenance, sourceName: variant.source_name });
@@ -94,10 +133,7 @@ export async function getMaterialProductsForCategories(organizationId: string, r
   if (!categories.length) return [];
   const supabase = await createClient();
   const productGroups = await Promise.all(categories.map(async (category) => {
-    const query = supabase.from("material_products").select("id, organization_id, manufacturer_id, category, category_id, name, description, product_code, status, data_provenance, source_name, source_url, source_date, source_notes, created_by, created_at, updated_at").eq("organization_id", organizationId).eq("category", category).eq("status", "active").order("updated_at", { ascending: false }).limit(200);
-    const { data, error } = await query;
-    if (error) throw new Error("Az anyagkatalógus betöltése nem sikerült.");
-    return data ?? [];
+    return readAllPages((from, to) => supabase.from("material_products").select(productColumns, { count: "exact" }).eq("organization_id", organizationId).eq("category", category).eq("status", "active").order("updated_at", { ascending: false }).order("id", { ascending: false }).range(from, to), "Az anyagkatalógus betöltése nem sikerült.");
   }));
   const products = productGroups.flat();
   if (!products.length) return [];
@@ -105,4 +141,25 @@ export async function getMaterialProductsForCategories(organizationId: string, r
   return products.map((row) => mapProduct(row, related.manufacturers, related.categories, related.variantRecords ? [...related.variantRecords.values()].filter((item) => item.productId === row.id) : []));
 }
 
-export async function getMaterialProductForOrganization(organizationId: string, productId: string) { const products = await getMaterialProductsForOrganization(organizationId, { includeArchived: true }); return products.find((item) => item.id === productId) ?? null; }
+export async function getMaterialProductForOrganization(organizationId: string, productId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("material_products").select(productColumns).eq("organization_id", organizationId).eq("id", productId).maybeSingle();
+  if (error) throw new Error("Az anyag betöltése nem sikerült.");
+  if (!data) return null;
+  const related = await loadRelated(supabase, organizationId, [data]);
+  return mapProduct(data, related.manufacturers, related.categories, [...related.variantRecords.values()].filter((item) => item.productId === data.id));
+}
+
+export async function getMaterialProductsForVariantIds(organizationId: string, variantIds: readonly string[]) {
+  if (!variantIds.length) return [];
+  const supabase = await createClient();
+  const variantGroups = await Promise.all(batches([...new Set(variantIds)]).map((ids) => supabase.from("material_variants").select("id, product_id").eq("organization_id", organizationId).in("id", ids)));
+  if (variantGroups.some((group) => group.error)) throw new Error("Az anyagváltozatok betöltése nem sikerült.");
+  const productIds = [...new Set(variantGroups.flatMap((group) => (group.data ?? []).map((variant) => variant.product_id)))];
+  if (!productIds.length) return [];
+  const productGroups = await Promise.all(batches(productIds).map((ids) => supabase.from("material_products").select(productColumns).eq("organization_id", organizationId).in("id", ids)));
+  if (productGroups.some((group) => group.error)) throw new Error("Az anyagkatalógus betöltése nem sikerült.");
+  const products = productGroups.flatMap((group) => group.data ?? []);
+  const related = await loadRelated(supabase, organizationId, products);
+  return products.map((row) => mapProduct(row, related.manufacturers, related.categories, [...related.variantRecords.values()].filter((item) => item.productId === row.id)));
+}

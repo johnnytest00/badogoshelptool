@@ -16,6 +16,7 @@ import { resolveStandaloneQuotationCatalogItemAction, saveStandaloneQuotationDra
 import type { MaterialProductRecord } from "@/features/materials/material-data";
 import { defaultPrice, priceChoices, priceChoiceLabel, selectablePrices, supplierLabel } from "@/domain/pricing";
 import type { MaterialCategoryRecord } from "@/features/materials/material-data";
+import { searchMaterialProductsAction } from "@/features/materials/material-actions";
 import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "@/features/material-takeoffs/workflow-material-product-picker";
 import { catalogReplacementNeedsConfirmation, changeQuotationMaterialCategory, quotationMaterialLinkState, quotationPricesEqual, quotationPurchasingUnitLabel, quotationPurchasingUnitsMatch } from "./quotation-material-state";
 import { emptyQuotationDocumentDraft, validateQuotationDocumentReadiness, type DocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
@@ -61,12 +62,22 @@ function revisionDocument(revision?: CurrentRevision): { draft: QuotationDocumen
 
 export type QuotationMaterialSource = Readonly<{ materialListId: string; materialRevisionId: string; listName: string; revisionNumber: number; currentRevisionId: string | null; currentVersion: number; executionPlanId: string | null; sourceLineMap: ReadonlyArray<{ materialItemId: string; quotationLineIndex: number }> }>;
 
-export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products, categories, documentSources, materialSource = null, calculationSource = null, initialLines = [], laborRates = [], laborBases = [] }: Readonly<{
+function quotationProductOptions(products: readonly MaterialProductRecord[], categoryId: string): WorkflowMaterialProductOption[] {
+  return products.filter((product) => product.categoryId === categoryId && product.categoryActive && product.status === "active").flatMap((product) => product.variants.map((variant) => {
+    const knownPrice = variant.latestPrice?.priceKind === "net" ? variant.latestPrice : null;
+    const supplierCount = selectablePrices(variant.priceOptions, variant.purchasingUnit).length;
+    const priceDetail = knownPrice ? `${knownPrice.amount.toLocaleString("hu-HU")} Ft/${materialPurchasingUnitLabels[knownPrice.purchasingUnit]} · ${provenanceLabel(knownPrice.provenance)} · ${knownPrice.effectiveDate}${supplierLabel(knownPrice) ? ` · ${supplierLabel(knownPrice)}` : ""}` : supplierCount > 1 ? `${supplierCount} beszállítói ár · válassz` : "Ár nincs megadva";
+    return { id: variant.id, name: `${product.name} · ${variant.name}`, detail: [`Egység ${materialPurchasingUnitLabels[variant.purchasingUnit]}`, product.manufacturerName, priceDetail].filter(Boolean).join(" · "), searchText: [product.productCode, product.description, product.manufacturerName, variant.sku, variant.name].filter(Boolean).join(" ") };
+  }));
+}
+
+export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products: initialProducts, categories, documentSources, materialSource = null, calculationSource = null, initialLines = [], laborRates = [], laborBases = [] }: Readonly<{
   userId: string; organizationId: string; quotationId: string | null; name?: string; version: number; currentRevisionId: string | null;
   currentRevision?: CurrentRevision; revisions: Revision[]; selectedRevisionId?: string; products: MaterialProductRecord[]; categories: MaterialCategoryRecord[]; documentSources: StandaloneDocumentSources;
   materialSource?: QuotationMaterialSource | null; calculationSource?: QuotationCalculationSource | null; initialLines?: Line[]; laborRates?: readonly LaborRate[]; laborBases?: readonly LaborBase[];
 }>) {
   const router = useRouter();
+  const [products, setProducts] = useState(initialProducts);
   const { requestConfirmation } = useAppInteraction();
   const lineKeyCounter = useRef(0);
   const makeLocalId = () => { lineKeyCounter.current += 1; return `line-${lineKeyCounter.current}`; };
@@ -412,17 +423,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
           const selected = line.variantId ? catalogVariant(line.variantId) : undefined;
           const categoryId = line.categoryId || selected?.product.categoryId || "";
           const category = categories.find((candidate) => candidate.id === categoryId);
-          const categoryProducts = products.filter((product) => product.categoryId === categoryId && product.categoryActive && product.status === "active");
-          const productOptions: WorkflowMaterialProductOption[] = categoryProducts.flatMap((product) => product.variants.map((variant) => {
-            const knownPrice = variant.latestPrice?.priceKind === "net" ? variant.latestPrice : null; const supplierCount = selectablePrices(variant.priceOptions, variant.purchasingUnit).length;
-            const priceDetail = knownPrice ? `${knownPrice.amount.toLocaleString("hu-HU")} Ft/${materialPurchasingUnitLabels[knownPrice.purchasingUnit]} · ${provenanceLabel(knownPrice.provenance)} · ${knownPrice.effectiveDate}${supplierLabel(knownPrice) ? ` · ${supplierLabel(knownPrice)}` : ""}` : supplierCount > 1 ? `${supplierCount} beszállítói ár · válassz` : "Ár nincs megadva";
-            return {
-              id: variant.id,
-              name: `${product.name} · ${variant.name}`,
-              detail: [`Egység ${materialPurchasingUnitLabels[variant.purchasingUnit]}`, product.manufacturerName, priceDetail].filter(Boolean).join(" · "),
-              searchText: [product.productCode, product.description, product.manufacturerName, variant.sku, variant.name].filter(Boolean).join(" "),
-            };
-          }));
+          const productOptions = quotationProductOptions(products, categoryId);
           const currentPrice = selected?.variant.prices.find((price) => price.id === line.priceId);
           const knownPrices = selected ? selectablePrices(selected.variant.priceOptions, selected.variant.purchasingUnit).filter((price) => price.priceKind === "net") : [];
           const linkState = quotationMaterialLinkState(line);
@@ -461,7 +462,11 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
                     const next = changeQuotationMaterialCategory(line, event.target.value, selected?.product.categoryId ?? null);
                     update(index, next);
                   }}><option value="">Nincs kategória</option>{categories.filter((entry) => entry.isActive || entry.id === categoryId).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}{entry.isActive ? "" : " · inaktív"}</option>)}</select></label>
-                  <div className="standalone-catalog-product-field" role="group" aria-label="Katalógustermék"><span>Katalógustermék</span><WorkflowMaterialProductPicker idPrefix={`quotation-${line.localId}-catalog`} label="Katalógustermék" options={productOptions} value={line.variantId} disabled={!categoryId} onSelect={(variantId) => { if (variantId) void resolvePrice(index, variantId, "", true); }} /></div>
+                  <div className="standalone-catalog-product-field" role="group" aria-label="Katalógustermék"><span>Katalógustermék</span><WorkflowMaterialProductPicker idPrefix={`quotation-${line.localId}-catalog`} label="Katalógustermék" options={productOptions} value={line.variantId} disabled={!categoryId} loadOptions={async (search, page) => {
+                    const result = await searchMaterialProductsAction(organizationId, { categoryId, search, page });
+                    setProducts((current) => [...new Map([...current, ...result.products].map((product) => [product.id, product])).values()]);
+                    return { options: quotationProductOptions(result.products, categoryId), hasNext: result.hasNext };
+                  }} onSelect={(variantId) => { if (variantId) void resolvePrice(index, variantId, "", true); }} /></div>
                 </>}
                 <label htmlFor={`${line.localId}-description`}>Megnevezés<input id={`${line.localId}-description`} maxLength={240} value={line.description} onChange={(event) => update(index, { description: event.target.value })} /></label>
                 <label htmlFor={`${line.localId}-unit`}>Egység<input id={`${line.localId}-unit`} maxLength={40} value={line.variantId ? unitLabel : line.unit} readOnly={Boolean(line.variantId)} aria-describedby={`${line.localId}-unit-help`} onChange={(event) => update(index, { unit: event.target.value, priceId: "", priceProvenance: line.priceId ? "catalog_snapshot" : line.priceProvenance })} /></label>

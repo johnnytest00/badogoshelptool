@@ -78,7 +78,7 @@ describe("survey material list editor", () => {
     expect(html).toContain("<strong>m</strong>");
     expect(html).toContain("Ár nincs megadva");
     expect(html).toContain("DEMO tető: hiányzik az ellenőrzött geometriai számítás.");
-    expect(html).toContain("Nincs ilyen egységű katalógustermék. A mért mennyiséget nem alakítjuk át darabra.");
+    expect(html).toContain("Keress a teljes katalógusban. A mért mennyiséget nem alakítjuk át darabra.");
   });
 
   it("reopens immutable source provenance, shows quantity edits, and marks unsourced manual items accurately", () => {

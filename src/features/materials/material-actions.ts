@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
+import { getMaterialProductPage } from "./material-data";
 import { roofTechnicalSpecFields, materialPriceOptionInputSchema, materialPriceOptionUpdateSchema, materialCategoryNameSchema, materialManagerProductInputSchema, materialManufacturerInputSchema, materialPriceInputSchema, materialProductInputSchema, materialVariantInputSchema, parseOptionalNumber } from "@/domain/materials/contracts";
 import { validatePriceUnit } from "@/domain/pricing";
 import { decimalToScaled, scaledToDecimal } from "@/domain/quotations/money";
@@ -16,6 +17,12 @@ async function authorizeOrganization(organizationId: string) {
   const organization = auth.organizations.find((item) => item.id === organizationId);
   if (!organization) return { error: "Ehhez a műhelyhez nincs hozzáférésed." } as const;
   return { auth, organization } as const;
+}
+
+export async function searchMaterialProductsAction(organizationId: string, filters: { search?: string; categoryId?: string; includeArchived?: boolean; page?: number }) {
+  const access = await authorizeOrganization(organizationId);
+  if ("error" in access) throw new Error(access.error);
+  return getMaterialProductPage(organizationId, filters);
 }
 
 function validationError(error: { issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string }> }): MaterialActionResult {

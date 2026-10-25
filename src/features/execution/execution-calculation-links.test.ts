@@ -30,7 +30,7 @@ beforeEach(() => {
     execution_plan_document_links: [link, { ...link, id: "other-kind", document_kind: "quotation", calculation_id: null, calculation_revision_id: null }],
     calculations: [{ id: "calc", organization_id: "org", display_name: "DEMO szarufa", calculator_type: "construction.roof.rafter-cut", created_by: "creator" }],
     calculation_revisions: [
-      { id: "rev1", organization_id: "org", calculation_id: "calc", revision_number: 1, output_snapshot: { lines: [{ label: "Szarufa teljes hossza", value: 4206.476, unit: "mm" }, { bad: true }] } },
+      { id: "rev1", organization_id: "org", calculation_id: "calc", revision_number: 1, output_snapshot: { schemaVersion: "construction-suite.output.v1", calculatorId: "roof.rafter-cut", lines: [{ label: "Szarufa teljes hossza", value: 4206.476, unit: "mm" }, { bad: true }] } },
       { id: "rev2", organization_id: "org", calculation_id: "calc", revision_number: 2, output_snapshot: { lines: [] } },
     ],
     execution_plans: [{ id: "plan", organization_id: "org", title: "DEMO napló" }],
@@ -41,8 +41,13 @@ beforeEach(() => {
 describe("calculation work log links", () => {
   it("shows the exact linked revision with its stored result and who may edit it", async () => {
     const result = await getPlanLinkedCalculations("org", "plan", "member");
-    expect(result).toEqual({ status: "loaded", data: [{ linkId: "link", calculationId: "calc", revisionId: "rev1", revisionNumber: 1, name: "DEMO szarufa", calculatorId: "roof.rafter-cut", ownedByViewer: false, lines: [{ label: "Szarufa teljes hossza", value: 4206.476, unit: "mm" }] }] });
+    expect(result).toEqual({ status: "loaded", data: [{ linkId: "link", calculationId: "calc", revisionId: "rev1", revisionNumber: 1, name: "DEMO szarufa", calculatorId: "roof.rafter-cut", ownedByViewer: false, complete: true, lines: [{ label: "Szarufa teljes hossza", value: 4206.476, unit: "mm" }] }] });
     expect(await getPlanLinkedCalculations("org", "plan", "creator")).toMatchObject({ status: "loaded", data: [{ ownedByViewer: true }] });
+  });
+
+  it("keeps a historical incomplete link visible but marks it unsafe", async () => {
+    rows.calculation_revisions[0].output_snapshot = { schemaVersion: "construction-suite.output.v1", calculatorId: "roof.rafter-cut", lines: [] };
+    expect(await getPlanLinkedCalculations("org", "plan", "creator")).toMatchObject({ status: "loaded", data: [{ complete: false }] });
   });
 
   it("reports a missing or mismatched linked revision instead of showing another one", async () => {

@@ -57,4 +57,13 @@ describe("LengthField markup", () => {
   it("shows saved values with more decimals exactly instead of rounding them", () => {
     expect(renderToStaticMarkup(<LengthField label="Szélesség" value="1100.25" mmDecimals={2} onChange={() => undefined} />)).toContain('value="110,025"');
   });
+
+  it("restores an in-progress draft's text and unit when remounted", () => {
+    const valid = renderToStaticMarkup(<LengthField label="Fél fesztáv" value="4000" draftState={{ text: "4", unit: "m" }} onChange={() => undefined} />);
+    expect(valid).toContain('value="4"');
+    expect(valid).toContain('aria-label="Fél fesztáv, m"');
+    const incomplete = renderToStaticMarkup(<LengthField label="Fél fesztáv" value="" draftState={{ text: ",", unit: "cm" }} onChange={() => undefined} />);
+    expect(incomplete).toContain('value=","');
+    expect(incomplete).toContain('aria-label="Fél fesztáv, cm"');
+  });
 });

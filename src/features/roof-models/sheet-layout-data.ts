@@ -1,7 +1,7 @@
 import { metalSheetLayoutCalculator, type MetalSheetLayoutOutput } from "@/domain/calculations/metal-sheet-layout";
 import { gableRoofCalculator, type GableRoofOutput } from "@/domain/calculations/gable-roof";
 import { hasRelevantMaterialSpecificationChanged, mapCatalogVariantToSheetLayout, storedSheetLayoutInputSchema, type SheetLayoutMaterialCatalog, type StoredSheetLayoutInput } from "@/domain/calculations/sheet-layout-material";
-import { getMaterialProductsForOrganization, type MaterialProductRecord } from "@/features/materials/material-data";
+import { getMaterialProductsForCategories, type MaterialProductRecord } from "@/features/materials/material-data";
 import { createClient } from "@/infrastructure/supabase/server";
 
 export type SheetLayoutMaterialOption = Readonly<{
@@ -43,8 +43,8 @@ export function toSheetLayoutMaterialOptions(products: readonly MaterialProductR
 }
 
 export async function getSheetLayoutMaterials(organizationId: string) {
-  const products = await getMaterialProductsForOrganization(organizationId);
-  return toSheetLayoutMaterialOptions(products.filter((product) => product.category === "roof_covering" || product.category === "sheet_metal"));
+  const products = await getMaterialProductsForCategories(organizationId, ["roof_covering", "sheet_metal"]);
+  return toSheetLayoutMaterialOptions(products);
 }
 
 export async function getSavedSheetLayout(organizationId: string, projectId: string, roofModelId: string, currentRoofRevisionId: string | null): Promise<SavedSheetLayout | null> {

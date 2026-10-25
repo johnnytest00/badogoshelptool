@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { ChevronDown, Search } from "lucide-react";
+import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
-import { LengthField } from "@/components/ui/length-field";
+import { LengthField, canonicalLength, type LengthFieldState } from "@/components/ui/length-field";
 import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
 import { MeasurementGuidance, measurementGuideFor } from "@/features/roof-models/measurement-guidance";
 import { constructionCalculatorCatalog, type ConstructionCalculatorCategory, type ConstructionReference } from "@/domain/calculations/construction/catalog";
@@ -21,9 +23,11 @@ import { RafterJointsPanel } from "./rafter-joints-panel";
 import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition } from "./construction-calculator-loading";
 import type { CalculatorDefinition, Field } from "./construction-calculator-types";
 import { computeConstruction, constructionInputSnapshot, constructionOutputSnapshot, inputRecord, isFieldVisible, isSaveableComputation, isSaveableConstructionCalculator, materialStateFromSnapshot, roofGeometryTypeForDefinition, roofShapeOf } from "./construction-computation";
-import { ConstructionSavePanel, newConstructionSession, type ConstructionPlanLinks, type ConstructionSaveSession } from "./construction-save-panel";
+import { ConstructionSavePanel, newConstructionSession, savedInputComparison, type ConstructionPlanLinks, type ConstructionSaveSession } from "./construction-save-panel";
 import type { SavedConstructionCalculation, SavedConstructionRevision } from "@/features/calculations/construction-data";
 import { stableJsonStringify } from "@/features/roof-models/stable-json";
+import { initializeCalculatorDraft, replaceCalculatorDraft, updateCalculatorDraft, type CalculatorDrafts } from "./construction-drafts";
+import { forgetWorkspace, rememberWorkspace, rememberedWorkspace, workspaceKey } from "./construction-workspace-memory";
 
 const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-drawing").then((module) => module.TechnicalDrawing), {
   ssr: false,
@@ -139,45 +143,108 @@ const fieldValuesFrom = (definition: CalculatorDefinition, fields: Readonly<Reco
 
 function sessionFromSaved(saved: SavedConstructionCalculation): ConstructionSaveSession {
   const current = saved.revisions.find((revision) => revision.revisionNumber === saved.currentRevisionNumber)!;
-  return { calculationId: saved.calculationId, name: saved.displayName, revisionNumber: saved.currentRevisionNumber, baselineInput: stableJsonStringify(current.input), savedName: saved.displayName, viewedRevisionNumber: saved.currentRevisionNumber, revisions: saved.revisions };
+  return { calculationId: saved.calculationId, name: saved.displayName, revisionNumber: saved.currentRevisionNumber, baselineInput: stableJsonStringify(current.input), savedName: saved.displayName, viewedRevisionNumber: saved.currentRevisionNumber, revisions: saved.revisions, hasOlderRevisions: saved.hasOlderRevisions, nextBeforeRevisionNumber: saved.nextBeforeRevisionNumber };
 }
 
-export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter-cut", catalogProfiles = [], catalogError = false, organizationId, saved = null, planLinks = null }: Readonly<{ initialCalculatorId?: string; catalogProfiles?: readonly MaterialProfile[]; catalogError?: boolean; organizationId?: string; saved?: SavedConstructionCalculation | null; planLinks?: ConstructionPlanLinks | null }>) {
+export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter-cut", catalogProfiles = [], catalogError = false, organizationId, userId, saved = null, planLinks = null }: Readonly<{ initialCalculatorId?: string; catalogProfiles?: readonly MaterialProfile[]; catalogError?: boolean; organizationId?: string; userId?: string; saved?: SavedConstructionCalculation | null; planLinks?: ConstructionPlanLinks | null }>) {
+  const router = useRouter();
+  const { requestConfirmation } = useAppInteraction();
   const profiles = useMemo(() => [...catalogProfiles, ...DEMO_MATERIAL_PROFILES], [catalogProfiles]);
   const initialId = initialConstructionCalculatorId(initialCalculatorId);
   const initialReference = constructionCalculatorCatalog.find((item) => item.id === initialId)!;
-  const [category, setCategory] = useState<ConstructionCalculatorCategory>(() => initialReference.category === "auxiliary" ? "concrete" : initialReference.category);
-  const [selectedId, setSelectedId] = useState(initialId);
+  const memoryKey = userId && organizationId ? workspaceKey(userId, organizationId, saved?.calculationId ?? null) : null;
+  const recalled = memoryKey ? rememberedWorkspace(memoryKey) : null;
+  const [category, setCategory] = useState<ConstructionCalculatorCategory>(() => recalled?.category ?? (initialReference.category === "auxiliary" ? "concrete" : initialReference.category));
+  const [selectedId, setSelectedId] = useState(recalled?.selectedId ?? initialId);
   const [search, setSearch] = useState("");
   const [mobileSelectionOpen, setMobileSelectionOpen] = useState(false);
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [drafts, setDrafts] = useState<CalculatorDrafts>(recalled?.drafts ?? {});
+  const [lengthDrafts, setLengthDrafts] = useState<Record<string, Record<string, LengthFieldState>>>(recalled?.lengthDrafts ?? {});
+  const [draftEpoch, setDraftEpoch] = useState(recalled?.draftEpoch ?? 0);
+  const [dirtyDrafts, setDirtyDrafts] = useState<Record<string, boolean>>(recalled?.dirtyDrafts ?? {});
+  const [savePending, setSavePending] = useState(false);
   const [focusedDimension, setFocusedDimension] = useState<string | null>(null);
-  const [materialByCalculator, setMaterialByCalculator] = useState<Record<string, RoofMaterialUiState>>({});
+  const [materialByCalculator, setMaterialByCalculator] = useState<Record<string, RoofMaterialUiState>>(recalled?.materialByCalculator ?? {});
   const [loadedDefinition, setLoadedDefinition] = useState<{ id: string; definition: CalculatorDefinition } | null>(null);
   const [loadErrorId, setLoadErrorId] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
-  const [sessions, setSessions] = useState<Record<string, ConstructionSaveSession>>(() => saved ? { [saved.calculatorId]: sessionFromSaved(saved) } : {});
+  const [sessions, setSessions] = useState<Record<string, ConstructionSaveSession>>(() => recalled?.sessions ?? (saved ? { [saved.calculatorId]: sessionFromSaved(saved) } : {}));
   // The saved revision is applied once, when its calculator definition first loads; later prop updates only refresh the revision list.
-  const pendingSavedInput = useRef(saved?.revisions.find((revision) => revision.revisionNumber === saved.currentRevisionNumber) ?? null);
+  const pendingSavedInput = useRef(recalled ? null : saved?.revisions.find((revision) => revision.revisionNumber === saved.currentRevisionNumber) ?? null);
+  const loadedCalculationId = useRef(saved?.calculationId ?? null);
+  const locallySavedCalculationId = useRef<string | null>(null);
+  const routeCalculatorId = useRef(initialCalculatorId);
+  const loadGeneration = useRef(0);
+  const persistedKey = useRef(memoryKey);
+  const suppressedMemoryKey = useRef<string | null>(null);
+  useEffect(() => {
+    const nextId = saved?.calculationId ?? null;
+    if (loadedCalculationId.current === nextId) return;
+    const justSavedHere = loadedCalculationId.current === null && saved && locallySavedCalculationId.current === nextId;
+    loadedCalculationId.current = nextId;
+    routeCalculatorId.current = initialCalculatorId;
+    locallySavedCalculationId.current = null;
+    suppressedMemoryKey.current = null;
+    if (justSavedHere) {
+      if (memoryKey) {
+        const previous = workspaceKey(userId!, organizationId!, null);
+        const workspace = rememberedWorkspace(previous);
+        if (workspace) rememberWorkspace(memoryKey, workspace);
+      }
+      return;
+    }
+    loadGeneration.current += 1;
+    const remembered = memoryKey ? rememberedWorkspace(memoryKey) : null;
+    const nextCalculatorId = remembered?.selectedId ?? initialConstructionCalculatorId(saved?.calculatorId ?? initialCalculatorId);
+    const nextCategory = constructionCalculatorCatalog.find((item) => item.id === nextCalculatorId)!.category;
+    setSelectedId(nextCalculatorId);
+    setCategory(remembered?.category ?? (nextCategory === "auxiliary" ? "concrete" : nextCategory));
+    setDrafts(remembered?.drafts ?? {});
+    setLengthDrafts(remembered?.lengthDrafts ?? {});
+    setDraftEpoch(remembered?.draftEpoch ?? 0);
+    setDirtyDrafts(remembered?.dirtyDrafts ?? {});
+    setMaterialByCalculator(remembered?.materialByCalculator ?? {});
+    setSessions(remembered?.sessions ?? (saved ? { [saved.calculatorId]: sessionFromSaved(saved) } : {}));
+    pendingSavedInput.current = remembered ? null : saved?.revisions.find((revision) => revision.revisionNumber === saved.currentRevisionNumber) ?? null;
+    setLoadedDefinition(null);
+    setLoadAttempt((attempt) => attempt + 1);
+  }, [saved?.calculationId, initialCalculatorId, saved, memoryKey, userId, organizationId]);
+  useLayoutEffect(() => {
+    if (!memoryKey) return;
+    if (persistedKey.current !== memoryKey) { persistedKey.current = memoryKey; return; }
+    if (suppressedMemoryKey.current === memoryKey) return;
+    rememberWorkspace(memoryKey, { selectedId, category, drafts, lengthDrafts, dirtyDrafts, materialByCalculator, sessions, draftEpoch });
+  }, [memoryKey, selectedId, category, drafts, lengthDrafts, dirtyDrafts, materialByCalculator, sessions, draftEpoch]);
+  useEffect(() => {
+    if (routeCalculatorId.current === initialCalculatorId) return;
+    routeCalculatorId.current = initialCalculatorId;
+    if (saved) return;
+    const nextId = initialConstructionCalculatorId(initialCalculatorId);
+    setSelectedId(nextId);
+    const nextCategory = constructionCalculatorCatalog.find((item) => item.id === nextId)!.category;
+    setCategory(nextCategory === "auxiliary" ? "concrete" : nextCategory);
+  }, [initialCalculatorId, saved]);
   const selectedReference = constructionCalculatorCatalog.find((item) => item.id === selectedId)!;
+  const values = drafts[selectedId] ?? {};
   const definitionLoaded = loadedDefinition?.id === selectedId;
   const definition: CalculatorDefinition = definitionLoaded ? loadedDefinition.definition : {
     reference: selectedReference, fields: [], draw: "roof", note: "", calculate: () => [],
   };
   useEffect(() => {
     let current = true;
+    const generation = loadGeneration.current;
     setLoadErrorId(null);
     void loadConstructionCalculatorDefinition(selectedId).then((next) => {
-      if (!current) return;
+      if (!current || generation !== loadGeneration.current) return;
       if (!next) throw new Error(`No calculator definition for ${selectedId}`);
       setLoadedDefinition({ id: selectedId, definition: next });
       const savedRevision = pendingSavedInput.current?.input.calculatorId === selectedId ? pendingSavedInput.current : null;
-      pendingSavedInput.current = null;
-      setValues(fieldValuesFrom(next, savedRevision?.input.fields));
+      if (savedRevision) pendingSavedInput.current = null;
+      setDrafts((current) => initializeCalculatorDraft(current, selectedId, fieldValuesFrom(next, savedRevision?.input.fields)));
       const savedMaterial = savedRevision && materialStateFromSnapshot(savedRevision.input);
       if (savedMaterial) setMaterialByCalculator((current) => ({ ...current, [selectedId]: savedMaterial }));
     }).catch(() => {
-      if (current) setLoadErrorId(selectedId);
+      if (current && generation === loadGeneration.current) setLoadErrorId(selectedId);
     });
     return () => { current = false; };
   }, [selectedId, loadAttempt]);
@@ -195,19 +262,17 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const raw = useMemo(() => inputRecord(definition.fields, values), [definition.fields, values]);
   const overhangNotice = roofShapeOf(values) === "gable" && usesMaterials && [nullableMm(raw, "frontGableOverhangMm"), nullableMm(raw, "rearGableOverhangMm")].some((value) => overhangFromField(value).state === "not-provided");
   const selectCalculator = (item: ConstructionReference) => {
-    if (item.status !== "verified") return;
-    if (item.id === selectedId && definitionLoaded) {
-      setValues(Object.fromEntries(loadedDefinition.definition.fields.map((field) => [field.key, field.initial ?? ""])));
-      setFocusedDimension(null);
-      setMobileSelectionOpen(false);
-      return;
-    }
+    if (item.status !== "verified" || savePending) return;
+    if (item.id === selectedId) { setMobileSelectionOpen(false); return; }
     setSelectedId(item.id);
-    setValues({});
     setFocusedDimension(null);
     setMobileSelectionOpen(false);
   };
-  const updateValue = (key: string, value: string) => setValues((current) => ({ ...current, [key]: value }));
+  const markDirty = () => setDirtyDrafts((current) => ({ ...current, [selectedId]: true }));
+  const updateValue = (key: string, value: string) => {
+    setDrafts((current) => updateCalculatorDraft(current, selectedId, key, value));
+    markDirty();
+  };
   const basicFields = definition.fields.filter((field) => !field.advanced && isFieldVisible(field, values));
   const advancedFields = definition.fields.filter((field) => field.advanced && isFieldVisible(field, values));
   const renderField = (field: Field) => {
@@ -215,14 +280,14 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     const isLength = !field.kind && field.unit === "mm";
     return <label className={`construction-suite-field${field.kind === "checkbox" ? " is-checkbox" : ""}`} key={field.key}>
       <span>{field.label}{field.unit && !isLength && <small>{field.unit}</small>}</span>
-      {isLength ? <LengthField id={field.key} label={field.label} value={values[field.key] ?? ""} onChange={(value) => updateValue(field.key, value)} mmDecimals={field.integer ? 0 : 1} required={isRequired} placeholder={field.placeholder} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} /> : field.kind === "select" ? <select id={field.key} required={isRequired} value={values[field.key] ?? field.initial ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, event.target.value)} aria-label={field.label}>{field.initial === undefined && <option value="">Válasszon…</option>}{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input id={field.key} placeholder={field.placeholder} type={field.kind === "checkbox" ? "checkbox" : field.kind === "text" ? "text" : "number"} inputMode={field.kind === "text" ? "text" : field.kind === "checkbox" ? undefined : "decimal"} min={!field.kind ? "0" : undefined} step={field.integer ? "1" : "any"} required={isRequired} checked={field.kind === "checkbox" ? values[field.key] === "true" : undefined} value={field.kind === "checkbox" ? undefined : values[field.key] ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, field.kind === "checkbox" ? String(event.target.checked) : event.target.value)} aria-label={`${field.label}${field.unit ? `, ${field.unit}` : ""}`} />}
+      {isLength ? <LengthField key={`${selectedId}:${draftEpoch}:${field.key}`} id={field.key} label={field.label} value={values[field.key] ?? ""} draftState={lengthDrafts[selectedId]?.[field.key]} onDraftStateChange={(state) => { setLengthDrafts((current) => ({ ...current, [selectedId]: { ...current[selectedId], [field.key]: state } })); if (state.text.trim() && !canonicalLength(state, { mmDecimals: field.integer ? 0 : 1 })) markDirty(); }} onChange={(value) => updateValue(field.key, value)} mmDecimals={field.integer ? 0 : 1} required={isRequired} placeholder={field.placeholder} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} /> : field.kind === "select" ? <select id={field.key} required={isRequired} value={values[field.key] ?? field.initial ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, event.target.value)} aria-label={field.label}>{field.initial === undefined && <option value="">Válasszon…</option>}{field.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select> : <input id={field.key} placeholder={field.placeholder} type={field.kind === "checkbox" ? "checkbox" : field.kind === "text" ? "text" : "number"} inputMode={field.kind === "text" ? "text" : field.kind === "checkbox" ? undefined : "decimal"} min={!field.kind ? "0" : undefined} step={field.integer ? "1" : "any"} required={isRequired} checked={field.kind === "checkbox" ? values[field.key] === "true" : undefined} value={field.kind === "checkbox" ? undefined : values[field.key] ?? ""} onFocus={() => setFocusedDimension(field.key)} onBlur={() => setFocusedDimension(null)} onChange={(event) => updateValue(field.key, field.kind === "checkbox" ? String(event.target.checked) : event.target.value)} aria-label={`${field.label}${field.unit ? `, ${field.unit}` : ""}`} />}
     </label>;
   };
   const headingContent = <header className="construction-suite-title"><div><p className="section-eyebrow">ELLENŐRZÖTT GEOMETRIAI SZÁMÍTÁS</p><h2>{definition.reference.title}</h2></div></header>;
   const noteContent = <><p className="construction-suite-note">{definition.note}</p>{activeGuide && <MeasurementGuidance compact guide={activeGuide} />}</>;
   const fieldsContent = <>
     <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>
-    {usesMaterials && <RoofMaterialInputs timberOnly={timberOnly} profiles={profiles} catalogError={catalogError} state={materialState} onChange={(next) => setMaterialByCalculator((current) => ({ ...current, [selectedId]: next }))} />}
+    {usesMaterials && <RoofMaterialInputs timberOnly={timberOnly} profiles={profiles} catalogError={catalogError} state={materialState} onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: next })); markDirty(); }} />}
     {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="Részletes számítás · opcionális">{definition.advancedHelp && <p className="construction-suite-note">{definition.advancedHelp}</p>}{!definition.advancedHelp && <p className="construction-suite-note">Ezek az adatok további mennyiségi eredményt vagy ellenőrzést kapcsolnak be. Az alapgeometriai számításhoz nem szükségesek.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}
   </>;
   // Joint values are saved with the result lines but shown in their own section.
@@ -234,9 +299,20 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const stepRuleValue = typeof stepRuleLine?.value === "number" ? stepRuleLine.value : null;
   const echoedInputs = definition.fields.filter((field) => isFieldVisible(field, values) && (values[field.key] ?? "").trim() !== "" && field.kind !== "checkbox");
   const cutList = calculation.cutList;
+  const completenessTitle = calculation.completeness.status === "complete" ? "Teljes kalkulációs eredmény"
+    : calculation.completeness.status === "incomplete" ? "Hiányos kalkuláció" : "Nem számítható";
+  const completenessCopy = calculation.completeness.status === "complete"
+    ? "A kért kalkulátoreredmény elkészült. Ez nem statikai, gyártói vagy kivitelezési jóváhagyás."
+    : calculation.completeness.status === "incomplete"
+      ? "A már számítható részértékek előnézetek; teljes eredményként nem menthetők és nem adhatók tovább."
+      : "Az érintett eredmény és rajz nem használható. Javítsd a hibás vagy nem támogatott adatot.";
   const cutListSection = (title: string, rows: readonly { lengthMm: number; count: number }[]) => rows.length === 0 ? null
     : <div key={title}><h4>{title}</h4><ol className="construction-suite-cut-list">{rows.map((row, index) => <li key={row.lengthMm}><span>{index + 1}.</span><strong>{formatNumber(row.lengthMm)} mm</strong><span>{row.count} db</span></li>)}</ol></div>;
   const resultsContent = <>
+    <section className={`form-message${calculation.completeness.status === "invalid" || calculation.completeness.status === "unsupported" ? " is-error" : ""}`} role={calculation.completeness.status === "invalid" || calculation.completeness.status === "unsupported" ? "alert" : "status"}>
+      <strong>{completenessTitle}</strong> · {completenessCopy}
+      {calculation.completeness.status !== "complete" && calculation.completeness.reasons.length > 0 && <ul>{calculation.completeness.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
+    </section>
     {inputsReady && calculation.error && <p className="form-message is-error" role="alert">{calculation.error}</p>}
     {inputsReady && echoedInputs.length > 0 && <section className="construction-suite-echo"><h3>Kiindulási adatok</h3><dl>{echoedInputs.map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.kind === "select" ? field.options?.find((option) => option.value === values[field.key])?.label ?? values[field.key] : values[field.key]} {field.unit && <span>{field.unit}</span>}</dd></div>)}</dl></section>}
     {calculation.geometry && <><RoofGeometryResults geometry={calculation.geometry} heading="Geometriai eredmények" provenanceLabel="Kézi bemenetek · számított geometriai eredmények." />{overhangNotice && <p className="construction-suite-limit">Homlokzati kiülés nincs megadva · 0 mm-rel számolva. Add meg a „Részletes számítás” alatt, ha a tető túlnyúlik a homlokzaton.</p>}{isTakeoff && materialTakeoff && <RoofMaterialTakeoffSummary takeoff={materialTakeoff} />}</>}
@@ -266,18 +342,48 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const storedSession = sessions[selectedId];
   const fallbackSession = useMemo(() => newConstructionSession(selectedReference.title), [selectedReference.title]);
   const baseSession = storedSession ?? fallbackSession;
-  const session = saved && saved.calculationId === baseSession.calculationId ? { ...baseSession, revisions: saved.revisions } : baseSession;
+  const session = saved && saved.calculationId === baseSession.calculationId ? (() => {
+    const byId = new Map(saved.revisions.map((revision) => [revision.revisionId, revision]));
+    baseSession.revisions.forEach((revision) => byId.set(revision.revisionId, revision));
+    const paginatedSession = baseSession.nextBeforeRevisionNumber === undefined ? { hasOlderRevisions: saved.hasOlderRevisions, nextBeforeRevisionNumber: saved.nextBeforeRevisionNumber } : { hasOlderRevisions: baseSession.hasOlderRevisions, nextBeforeRevisionNumber: baseSession.nextBeforeRevisionNumber };
+    return { ...baseSession, revisions: [...byId.values()].sort((a, b) => b.revisionNumber - a.revisionNumber), ...paginatedSession };
+  })() : baseSession;
   const snapshotInput = useMemo(() => constructionInputSnapshot(definition, values, usesMaterials ? materialState : null), [definition, values, usesMaterials, materialState]);
   const liveOutput = useMemo(() => constructionOutputSnapshot(selectedId, calculation), [selectedId, calculation]);
-  const loadRevision = (revision: SavedConstructionRevision) => {
-    setValues(fieldValuesFrom(definition, revision.input.fields));
+  const baseline = savedInputComparison(definition, session);
+  const activeDirty = session.revisionNumber > 0 && (baseline.incompatible || stableJsonStringify(snapshotInput) !== baseline.baseline || session.name.trim() !== session.savedName);
+  const anyDraftDirty = Object.values(dirtyDrafts).some(Boolean);
+  const discardMemory = useCallback(() => { if (memoryKey) forgetWorkspace(memoryKey); }, [memoryKey]);
+  useUnsavedChangeGuard({ dirty: anyDraftDirty, discard: discardMemory });
+  const loadRevision = async (revision: SavedConstructionRevision) => {
+    if (savePending) return;
+    if ((dirtyDrafts[selectedId] || activeDirty) && !await requestConfirmation({ title: "Mentetlen módosítások", message: "A kiválasztott mentett revízió betöltése felülírja ennek a kalkulátornak a jelenlegi, nem mentett adatait.", cancelLabel: "Maradok", actions: [{ label: "Revízió betöltése", tone: "danger", run: () => undefined }] })) return;
+    setDrafts((current) => replaceCalculatorDraft(current, selectedId, fieldValuesFrom(definition, revision.input.fields)));
+    setLengthDrafts((current) => ({ ...current, [selectedId]: {} }));
+    setDraftEpoch((epoch) => epoch + 1);
     const revisionMaterial = materialStateFromSnapshot(revision.input);
-    if (revisionMaterial) setMaterialByCalculator((current) => ({ ...current, [selectedId]: revisionMaterial }));
+    setMaterialByCalculator((current) => ({ ...current, [selectedId]: revisionMaterial ?? initialMaterialState(profiles, timberOnly) }));
+    setDirtyDrafts((current) => ({ ...current, [selectedId]: false }));
     setSessions((current) => ({ ...current, [selectedId]: { ...session, viewedRevisionNumber: revision.revisionNumber } }));
   };
+  const startNewCalculation = async () => {
+    if (savePending) return;
+    if ((anyDraftDirty || activeDirty) && !await requestConfirmation({ title: "Új kalkuláció", message: "Az új kalkuláció indítása elveti a munkamenet összes mentetlen kalkulátoradatát.", cancelLabel: "Maradok", actions: [{ label: "Új kalkuláció indítása", tone: "danger", run: () => undefined }] })) return;
+    suppressedMemoryKey.current = saved ? memoryKey : null;
+    discardMemory();
+    if (userId && organizationId) forgetWorkspace(workspaceKey(userId, organizationId, null));
+    setDrafts(definitionLoaded ? { [selectedId]: fieldValuesFrom(definition) } : {});
+    setLengthDrafts({});
+    setDraftEpoch((epoch) => epoch + 1);
+    setMaterialByCalculator({});
+    setDirtyDrafts({});
+    setSessions({});
+    pendingSavedInput.current = null;
+    if (saved && organizationId) router.replace(`/kalkulatorok?organization=${encodeURIComponent(organizationId)}&calculator=${encodeURIComponent(selectedId)}`, { scroll: false });
+  };
   const independentContent = canSave && organizationId
-    ? <ConstructionSavePanel organizationId={organizationId} calculatorId={selectedId} session={session} input={snapshotInput} liveOutput={liveOutput} saveable={isSaveableComputation(calculation)}
-      onSessionChange={(next) => setSessions((current) => ({ ...current, [selectedId]: next }))} onLoadRevision={loadRevision}
+    ? <ConstructionSavePanel organizationId={organizationId} calculatorId={selectedId} definition={definition} session={session} input={snapshotInput} liveOutput={liveOutput} saveable={isSaveableComputation(calculation)} onDiscard={discardMemory}
+      onSessionChange={(next) => { if (next.revisionNumber > session.revisionNumber) locallySavedCalculationId.current = next.calculationId; setSessions((current) => ({ ...current, [selectedId]: next })); setDirtyDrafts((current) => ({ ...current, [selectedId]: next.revisionNumber > session.revisionNumber ? false : next.name.trim() !== session.savedName || Boolean(current[selectedId]) })); }} onLoadRevision={loadRevision} onPendingChange={setSavePending}
       planLinks={saved && saved.calculationId === session.calculationId ? planLinks : null} planLinksUnavailable={Boolean(saved && saved.calculationId === session.calculationId && planLinks === null)} />
     : <p className="construction-suite-independent">Az eredmény helyi előnézet. Nem mentődik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>;
   const workspace = !definitionLoaded
@@ -292,7 +398,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
 
   const renderCalculatorOption = (item: ConstructionReference) => {
     const available = item.status === "verified";
-    return <button key={item.id} type="button" disabled={!available} aria-pressed={available ? selectedId === item.id : undefined} aria-label={available ? item.title : `${item.title}. Jelenleg nem érhető el számítás.`} title={available ? item.title : "A számításhoz még nincs függetlenül ellenőrzött geometriai motor."} className={`${selectedId === item.id ? "is-active" : ""}${available ? "" : " is-unavailable"}`} onClick={() => selectCalculator(item)}>
+    return <button key={item.id} type="button" disabled={!available || savePending} aria-pressed={available ? selectedId === item.id : undefined} aria-label={available ? item.title : `${item.title}. Jelenleg nem érhető el számítás.`} title={available ? item.title : "A számításhoz még nincs függetlenül ellenőrzött geometriai motor."} className={`${selectedId === item.id ? "is-active" : ""}${available ? "" : " is-unavailable"}`} onClick={() => selectCalculator(item)}>
       <ConstructionCalculatorThumbnail id={item.id} />
       <span className="construction-suite-option-copy"><span>{item.title}</span>{!available && <small>Nincs ellenőrzött számítás</small>}</span>
     </button>;
@@ -301,8 +407,9 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const optionList = <div className="construction-suite-options">{filtered.map(renderCalculatorOption)}{filtered.length === 0 && <p className="construction-suite-empty">Nincs ilyen kalkulátor.</p>}</div>;
 
   return <section className="construction-suite" aria-label="Önálló építési kalkulátorok">
+    <button type="button" className="secondary-button" disabled={savePending} onClick={() => void startNewCalculation()}>Új kalkuláció</button>
     <div className="construction-suite-category-tabs" role="tablist" aria-label="Kalkulátorkategória">
-      {categoryOrder.map((item) => <button key={item.id} type="button" role="tab" aria-selected={category === item.id} className={category === item.id ? "is-active" : ""} onClick={() => { setCategory(item.id); setSearch(""); const first = constructionCalculatorCatalog.find((reference) => (reference.category === item.id || (item.id === "concrete" && reference.category === "auxiliary")) && reference.status === "verified"); if (first) selectCalculator(first); }}>{item.label}</button>)}
+      {categoryOrder.map((item) => <button key={item.id} type="button" role="tab" disabled={savePending} aria-selected={category === item.id} className={category === item.id ? "is-active" : ""} onClick={() => { setCategory(item.id); setSearch(""); const first = constructionCalculatorCatalog.find((reference) => (reference.category === item.id || (item.id === "concrete" && reference.category === "auxiliary")) && reference.status === "verified"); if (first) selectCalculator(first); }}>{item.label}</button>)}
     </div>
     <div className="construction-suite-layout">
       <aside className="construction-suite-list" aria-label="Kalkulátor kiválasztása">

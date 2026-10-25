@@ -1,12 +1,51 @@
 import { getAuthContext } from "@/features/auth/auth.server";
-import { constructionInputSnapshotSchema, isSaveableConstructionCalculator, normalizedConstructionInput, type ConstructionInputSnapshot, type ConstructionOutputSnapshot } from "@/features/calculators/construction-computation";
+import { constructionInputSnapshotSchema, isCompleteConstructionOutput, isSaveableConstructionCalculator, normalizedConstructionInput, type ConstructionInputSnapshot, type ConstructionOutputSnapshot } from "@/features/calculators/construction-computation";
 import { createClient } from "@/infrastructure/supabase/server";
 
 export type SavedConstructionRevision = Readonly<{ revisionId: string; revisionNumber: number; createdAt: string; input: ConstructionInputSnapshot; output: ConstructionOutputSnapshot }>;
+export const CONSTRUCTION_REVISION_PAGE_SIZE = 50;
+export type ConstructionRevisionPage = Readonly<{
+  revisions: readonly SavedConstructionRevision[];
+  hasOlderRevisions: boolean;
+  nextBeforeRevisionNumber: number | null;
+}>;
 export type SavedConstructionCalculation = Readonly<{
   calculationId: string; calculatorId: string; displayName: string; currentRevisionNumber: number;
   revisions: readonly SavedConstructionRevision[];
+  hasOlderRevisions: boolean;
+  nextBeforeRevisionNumber: number | null;
 }>;
+
+type ConstructionRevisionRow = Readonly<{ id: string; revision_number: number; created_at: string; input_snapshot: unknown; output_snapshot: unknown }>;
+
+function revisionFromRow(row: ConstructionRevisionRow, calculatorId: string): SavedConstructionRevision | null {
+  const input = constructionInputSnapshotSchema.safeParse(row.input_snapshot);
+  return input.success && input.data.calculatorId === calculatorId
+    ? { revisionId: row.id, revisionNumber: row.revision_number, createdAt: row.created_at, input: normalizedConstructionInput(input.data), output: row.output_snapshot as unknown as ConstructionOutputSnapshot }
+    : null;
+}
+
+function revisionPageFromRows(rows: readonly ConstructionRevisionRow[], calculatorId: string): ConstructionRevisionPage {
+  const hasOlderRevisions = rows.length > CONSTRUCTION_REVISION_PAGE_SIZE;
+  const pageRows = rows.slice(0, CONSTRUCTION_REVISION_PAGE_SIZE);
+  return {
+    revisions: pageRows.flatMap((row) => { const revision = revisionFromRow(row, calculatorId); return revision ? [revision] : []; }),
+    hasOlderRevisions,
+    nextBeforeRevisionNumber: hasOlderRevisions ? pageRows.at(-1)?.revision_number ?? null : null,
+  };
+}
+
+/** Read-side guard for downstream actions; immutable revision output makes the decision stable. */
+export async function isCompleteConstructionRevision(organizationId: string, revisionId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: revision, error } = await supabase.from("calculation_revisions").select("calculation_id, output_snapshot")
+    .eq("id", revisionId).eq("organization_id", organizationId).maybeSingle();
+  if (error || !revision) return false;
+  const { data: calculation, error: calculationError } = await supabase.from("calculations").select("calculator_type")
+    .eq("id", revision.calculation_id).eq("organization_id", organizationId).eq("ownership_scope", "standalone").maybeSingle();
+  const calculatorId = calculation?.calculator_type.replace(/^construction\./, "") ?? "";
+  return !calculationError && isSaveableConstructionCalculator(calculatorId) && isCompleteConstructionOutput(revision.output_snapshot);
+}
 
 /** Creator-scoped (RLS) saved suite calculation with its readable revisions, newest first. */
 export async function getConstructionCalculation(organizationId: string, calculationId: string): Promise<SavedConstructionCalculation | null> {
@@ -21,16 +60,48 @@ export async function getConstructionCalculation(organizationId: string, calcula
   if (!calculation || !isSaveableConstructionCalculator(calculatorId)) return null;
   const { data: rows, error: revisionError } = await supabase.from("calculation_revisions")
     .select("id, revision_number, created_at, input_snapshot, output_snapshot")
-    .eq("calculation_id", calculationId).eq("organization_id", organizationId).order("revision_number", { ascending: false }).limit(50);
+    .eq("calculation_id", calculationId).eq("organization_id", organizationId)
+    // revision_number is unique within a calculation; id keeps the order deterministic if legacy data violates that invariant.
+    .order("revision_number", { ascending: false }).order("id", { ascending: false }).limit(CONSTRUCTION_REVISION_PAGE_SIZE + 1);
   if (revisionError) throw new Error("A kalkuláció revíziói nem tölthetők be.");
-  // A revision whose stored input no longer matches the contract stays in the database but is not reopened for editing.
-  const revisions = (rows ?? []).flatMap((row) => {
-    const input = constructionInputSnapshotSchema.safeParse(row.input_snapshot);
-    return input.success && input.data.calculatorId === calculatorId
-      ? [{ revisionId: row.id, revisionNumber: row.revision_number, createdAt: row.created_at, input: normalizedConstructionInput(input.data), output: row.output_snapshot as unknown as ConstructionOutputSnapshot }]
-      : [];
-  });
+  const page = revisionPageFromRows((rows ?? []) as ConstructionRevisionRow[], calculatorId);
+  const revisions = page.revisions;
   const current = revisions.find((revision) => revision.revisionId === calculation.current_revision_id);
   if (!current) return null;
-  return { calculationId: calculation.id, calculatorId, displayName: calculation.display_name, currentRevisionNumber: current.revisionNumber, revisions };
+  return { calculationId: calculation.id, calculatorId, displayName: calculation.display_name, currentRevisionNumber: current.revisionNumber, ...page };
+}
+
+/** Loads one older page without widening the initial saved-calculation query. */
+export async function getConstructionRevisionPage(organizationId: string, calculationId: string, beforeRevisionNumber?: number): Promise<ConstructionRevisionPage | null> {
+  const auth = await getAuthContext();
+  if (!auth?.organizations.some((organization) => organization.id === organizationId)) return null;
+  const supabase = await createClient();
+  const { data: calculation, error: calculationError } = await supabase.from("calculations")
+    .select("id, calculator_type").eq("id", calculationId).eq("organization_id", organizationId).eq("ownership_scope", "standalone").like("calculator_type", "construction.%").maybeSingle();
+  if (calculationError) throw new Error("A mentett kalkuláció nem tölthető be.");
+  const calculatorId = calculation?.calculator_type.slice("construction.".length) ?? "";
+  if (!calculation || !isSaveableConstructionCalculator(calculatorId)) return null;
+  let query = supabase.from("calculation_revisions").select("id, revision_number, created_at, input_snapshot, output_snapshot")
+    .eq("calculation_id", calculationId).eq("organization_id", organizationId);
+  if (beforeRevisionNumber !== undefined) query = query.lt("revision_number", beforeRevisionNumber);
+  const { data: rows, error: revisionError } = await query.order("revision_number", { ascending: false }).order("id", { ascending: false }).limit(CONSTRUCTION_REVISION_PAGE_SIZE + 1);
+  if (revisionError) throw new Error("A kalkuláció régebbi revíziói nem tölthetők be.");
+  return revisionPageFromRows((rows ?? []) as ConstructionRevisionRow[], calculatorId);
+}
+
+/** Direct immutable revision lookup for downstream links; independent of the visible history page. */
+export async function getConstructionRevision(organizationId: string, calculationId: string, revisionId: string): Promise<{ calculation: Pick<SavedConstructionCalculation, "calculationId" | "calculatorId" | "displayName">; revision: SavedConstructionRevision } | null> {
+  const auth = await getAuthContext();
+  if (!auth?.organizations.some((organization) => organization.id === organizationId)) return null;
+  const supabase = await createClient();
+  const { data: calculation, error: calculationError } = await supabase.from("calculations")
+    .select("id, calculator_type, display_name").eq("id", calculationId).eq("organization_id", organizationId).eq("ownership_scope", "standalone").like("calculator_type", "construction.%").maybeSingle();
+  if (calculationError) throw new Error("A mentett kalkuláció nem tölthető be.");
+  const calculatorId = calculation?.calculator_type.slice("construction.".length) ?? "";
+  if (!calculation || !isSaveableConstructionCalculator(calculatorId)) return null;
+  const { data: row, error: revisionError } = await supabase.from("calculation_revisions")
+    .select("id, revision_number, created_at, input_snapshot, output_snapshot").eq("id", revisionId).eq("calculation_id", calculationId).eq("organization_id", organizationId).maybeSingle();
+  if (revisionError) throw new Error("A kalkulációs revízió nem tölthető be.");
+  const revision = row ? revisionFromRow(row as ConstructionRevisionRow, calculatorId) : null;
+  return revision ? { calculation: { calculationId: calculation.id, calculatorId, displayName: calculation.display_name }, revision } : null;
 }

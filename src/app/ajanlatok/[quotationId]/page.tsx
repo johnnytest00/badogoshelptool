@@ -1,7 +1,7 @@
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
-import { getMaterialCategories, getMaterialProductsForOrganization } from "@/features/materials/material-data";
+import { getMaterialCategories, getMaterialProductPage, getMaterialProductsForVariantIds } from "@/features/materials/material-data";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { getStandaloneDocumentSourcesAction, getStandaloneQuotationHeaderAction, getStandaloneQuotationMaterialSourceAction, listStandaloneQuotationRevisionsAction, readStandaloneQuotationAction } from "@/features/quotations/standalone-quotation-actions";
 import { StandaloneQuotationEditor } from "@/features/quotations/standalone-quotation-editor";
@@ -36,10 +36,12 @@ export default async function StandaloneQuotationPage({ params, searchParams }: 
   if (header.data.status !== "draft") return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><BackNavigation href={`/ajanlatok?organization=${organizationId}`} label="Vissza az ajánlatokhoz" /><section className="detail-surface"><p className="section-eyebrow">Önálló ajánlat</p><h1>{header.data.name}</h1><p>Állapot: {header.data.status}. Ehhez az állapothoz nincs standalone művelet támogatva.</p></section></div></main>;
   const [planLinks, plans] = await Promise.all([getPlanLinksForDocument(organizationId, "quotation", quotationId), getExecutionPlanOptionsForOrganization(organizationId)]);
   const planLinkControl = <section className="glass-bubble material-quotation-card quotation-plan-links"><ExecutionPlanLinkControl organizationId={organizationId} kind="quotation" documentId={quotationId} links={planLinks} plans={plans} /></section>;
-  const [products, categories, documentSources, materialSourceResponse] = await Promise.all([
-    getMaterialProductsForOrganization(organizationId), getMaterialCategories(organizationId, false), getStandaloneDocumentSourcesAction(organizationId),
+  const savedVariantIds = Array.isArray(activeRevision?.line_items_snapshot) ? activeRevision.line_items_snapshot.flatMap((line) => typeof line === "object" && line !== null && "variantId" in line && typeof line.variantId === "string" ? [line.variantId] : []) : [];
+  const [productPage, savedProducts, categories, documentSources, materialSourceResponse] = await Promise.all([
+    getMaterialProductPage(organizationId), getMaterialProductsForVariantIds(organizationId, savedVariantIds), getMaterialCategories(organizationId, false), getStandaloneDocumentSourcesAction(organizationId),
     requestedRevisionId ? getStandaloneQuotationMaterialSourceAction(organizationId, quotationId, requestedRevisionId) : Promise.resolve({ ok: true as const, data: null }),
   ]);
+  const products = [...new Map([...productPage.products, ...savedProducts].map((product) => [product.id, product])).values()];
   if (!documentSources.ok) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">{documentSources.error}</p></div></main>;
   if (!materialSourceResponse.ok) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">{materialSourceResponse.error}</p></div></main>;
   const calculationSource = activeRevision ? await getQuotationRevisionCalculationSource(organizationId, activeRevision.id).then((source) => ({ ok: true as const, source }), () => ({ ok: false as const, source: null })) : { ok: true as const, source: null };

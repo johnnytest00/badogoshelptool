@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
 import { getProjectOrganization } from "@/features/projects/organization";
-import { getMaterialCategories, getMaterialProductsForOrganization } from "@/features/materials/material-data";
+import { getMaterialCategories, getMaterialProductPage } from "@/features/materials/material-data";
 import { getExecutionPlanOptionsForOrganization } from "@/features/execution/execution-data";
 import { getFieldSurvey, getFieldSurveyRevision } from "@/features/field-surveys/field-survey-data";
 import { getSurveyRoofGeometrySources } from "@/features/field-surveys/survey-geometry-source-data";
@@ -17,7 +17,8 @@ export default async function NewMaterialListPage({ searchParams }: Readonly<{ s
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
   if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt az anyaglistához.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const organizationId = selected.organization.id;
-  const [products, plans, categories] = await Promise.all([getMaterialProductsForOrganization(organizationId), getExecutionPlanOptionsForOrganization(organizationId), getMaterialCategories(organizationId, false)]);
+  const [productPage, plans, categories] = await Promise.all([getMaterialProductPage(organizationId), getExecutionPlanOptionsForOrganization(organizationId), getMaterialCategories(organizationId, false)]);
+  const products = productPage.products;
   let surveySource: SurveyMaterialSource | null = null;
   let defaultName = "";
   if (query.surveyId || query.surveyVersion) {

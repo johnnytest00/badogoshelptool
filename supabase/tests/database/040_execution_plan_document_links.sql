@@ -59,10 +59,17 @@ select throws_ok($$select * from public.link_execution_plan_document(
 select set_config('test.quotation_link', (select link_id::text from public.link_execution_plan_document(
   '00000000-0000-4000-8000-000000000010', current_setting('test.plan')::uuid, 'quotation', current_setting('test.quotation')::uuid, '00000000-0000-4000-8000-000000984214')), true);
 select ok(current_setting('test.quotation_link') <> '', 'a standalone quotation can be linked to a work log');
+select is((select count(*)::integer from public.execution_plan_document_links
+  where organization_id='00000000-0000-4000-8000-000000000010' and (
+    (id=current_setting('test.link')::uuid and document_kind='material_list' and material_list_id=current_setting('test.list')::uuid)
+    or (id=current_setting('test.quotation_link')::uuid and document_kind='quotation' and quotation_id=current_setting('test.quotation')::uuid)
+  )), 2, 'the creator sees both exact private fixture links before the RLS check');
 
 -- Another member cannot see or touch private standalone documents.
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
-select is((select count(*)::integer from public.execution_plan_document_links), 0, 'links to creator-scoped documents are invisible to other members');
+select is((select count(*)::integer from public.execution_plan_document_links
+  where id in (current_setting('test.link')::uuid, current_setting('test.quotation_link')::uuid)),
+  0, 'the two creator-scoped fixture links are invisible to another member');
 select throws_ok($$select * from public.link_execution_plan_document(
   '00000000-0000-4000-8000-000000000010', current_setting('test.plan_two')::uuid, 'quotation', current_setting('test.quotation')::uuid, '00000000-0000-4000-8000-000000984215')$$,
   '42501', null, 'another member cannot link a private quotation');

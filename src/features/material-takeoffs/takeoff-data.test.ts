@@ -5,11 +5,11 @@ import { getMaterialProductsForOrganization } from "@/features/materials/materia
 
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: vi.fn() }));
 
-type QueryCall = { table: string; columns: string; filters: Array<[string, string, unknown]>; orders: Array<[string, unknown]>; limit: number | null; rows: number; bytes: number };
+type QueryCall = { table: string; columns: string; filters: Array<[string, string, unknown]>; orders: Array<[string, unknown]>; limit: number | null; range: [number, number] | null; rows: number; bytes: number };
 function configureCatalog(rows: Record<string, Record<string, unknown>[]>) {
   const calls: QueryCall[] = [];
   vi.mocked(createClient).mockResolvedValue({ from(table: string) {
-    const call: QueryCall = { table, columns: "", filters: [], orders: [], limit: null, rows: 0, bytes: 0 };
+    const call: QueryCall = { table, columns: "", filters: [], orders: [], limit: null, range: null, rows: 0, bytes: 0 };
     calls.push(call);
     let queryRows = rows[table] ?? [];
     const builder: Record<string, unknown> = {};
@@ -18,11 +18,13 @@ function configureCatalog(rows: Record<string, Record<string, unknown>[]>) {
     builder.in = (column: string, values: unknown[]) => { call.filters.push(["in", column, values]); queryRows = queryRows.filter((row) => values.includes(row[column])); return builder; };
     builder.order = (column: string, options: unknown) => { call.orders.push([column, options]); return builder; };
     builder.limit = (value: number) => { call.limit = value; return builder; };
+    builder.range = (from: number, to: number) => { call.range = [from, to]; return builder; };
     builder.then = (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
-      const data = queryRows.map((row) => Object.fromEntries(call.columns.split(", ").map((column) => [column, row[column]])));
+      const selected = call.range ? queryRows.slice(call.range[0], call.range[1] + 1) : queryRows;
+      const data = selected.map((row) => Object.fromEntries(call.columns.split(", ").map((column) => [column, row[column]])));
       call.rows = data.length;
       call.bytes = Buffer.byteLength(JSON.stringify(data));
-      return Promise.resolve({ data, error: null }).then(resolve, reject);
+      return Promise.resolve({ data, count: queryRows.length, error: null }).then(resolve, reject);
     };
     return builder;
   } } as never);
@@ -85,7 +87,7 @@ describe("gable covering takeoff options", () => {
     expect(calls.filter(({ table }) => table === "material_price_options")).toHaveLength(1);
     expect(calls.filter(({ table }) => table === "material_products").map(({ filters }) => filters.find(([, column]) => column === "category")?.[2])).toEqual(["roof_covering", "sheet_metal"]);
     expect(calls.every(({ filters }) => filters.some(([kind, column, value]) => kind === "eq" && column === "organization_id" && value === "org-a"))).toBe(true);
-    expect(calls.filter(({ table }) => table === "material_products").every(({ orders, limit }) => orders.some(([column, options]) => column === "updated_at" && JSON.stringify(options) === JSON.stringify({ ascending: false })) && limit === 200)).toBe(true);
+    expect(calls.filter(({ table }) => table === "material_products").every(({ orders, range }) => orders.some(([column, options]) => column === "updated_at" && JSON.stringify(options) === JSON.stringify({ ascending: false })) && JSON.stringify(range) === "[0,199]")).toBe(true);
   });
 
   it("returns no options when both requested categories are empty", async () => {

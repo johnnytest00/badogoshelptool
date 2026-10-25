@@ -70,6 +70,7 @@ export type ConstructionComputation = Readonly<{
   underlayLayout: RoofUnderlayLayout | null;
   cutList: Readonly<{ rafters: readonly { lengthMm: number; count: number }[]; battens: readonly { lengthMm: number; count: number }[] }> | null;
   rafterJoints: RafterJoints | null;
+  completeness: Readonly<{ status: "complete" | "incomplete" | "invalid" | "unsupported"; reasons: readonly string[] }>;
 }>;
 
 /** One calculation path for the browser preview and the server-side recomputation before saving. */
@@ -79,6 +80,8 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
   const requiredFields = definition.fields.filter((field) => !field.advanced && field.initial === undefined && field.kind !== "checkbox" && isFieldVisible(field, values));
   const inputsReady = requiredFields.every((field) => (values[field.key] ?? "").trim() !== "");
   const timberOnly = calculatorId === "roof.timber-cutlist";
+  const timberRequested = Boolean(material && (timberOnly || material.requested.timber));
+  const layoutValidation = timberRequested && material ? roofTimberParametersSchema.safeParse(withoutEdgeStrips(material.layout)) : null;
   let takeoffInputs: RoofMaterialTakeoffInputs | undefined;
   if (usesMaterialInputs(calculatorId) && material) {
     const specs = {
@@ -111,7 +114,25 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
   const underlayLayout = materialTakeoff && takeoffInputs?.requested?.underlay ? materialTakeoff.underlay : null;
   const cutList = timberOnly && timberLayout ? { rafters: cutListRows(timberLayout.rafters?.segments ?? []), battens: cutListRows(timberLayout.battens?.segments ?? []) } : null;
   const rafterJoints = calculatorId === "roof.rafter-cut" && rows.length > 0 && error === null ? calculateRafterJoints(rafterJointInputFromFields(raw)) : null;
-  return { inputsReady, rows, error, geometry, takeoffInputs, materialTakeoff, timberLayout, underlayLayout, cutList, rafterJoints };
+  const activeParts = materialTakeoff?.parts.filter((part) => part.requested && part.id !== "geometry") ?? [];
+  const reasons = [...new Set([
+    ...requiredFields.filter((field) => (values[field.key] ?? "").trim() === "").map((field) => field.label),
+    ...(timberRequested && material && material.layout.rafterMaxSpacingMm === undefined && material.layout.battenMaxSpacingMm === undefined
+      ? ["Szarufa · legnagyobb tengelytávolság vagy Léc · legnagyobb sortávolság"] : []),
+    ...(materialTakeoff?.reasons ?? []),
+    ...activeParts.flatMap((part) => part.incompleteQuantities.map((quantity) => `${part.label} · ${quantity.reason}`)),
+    ...activeParts.flatMap((part) => part.invalidInputs.map((issue) => `${part.label} · ${issue}`)),
+  ])];
+  const completeness = error !== null || (layoutValidation && !layoutValidation.success) || materialTakeoff?.status === "INVALID"
+    ? { status: "invalid" as const, reasons: [...new Set([error, ...(layoutValidation && !layoutValidation.success ? layoutValidation.error.issues.map((issue) => validationMessage(issue)) : []), ...reasons].filter((reason): reason is string => Boolean(reason)))] }
+    : materialTakeoff?.status === "UNSUPPORTED"
+      ? { status: "unsupported" as const, reasons }
+      : !inputsReady || (materialTakeoff !== null && (activeParts.length === 0 || materialTakeoff.status === "INCOMPLETE" || activeParts.some((part) => part.incompleteQuantities.length > 0)))
+        ? { status: "incomplete" as const, reasons: activeParts.length === 0 && materialTakeoff ? ["Válassz legalább egy számítandó anyagcsoportot.", ...reasons] : reasons }
+        : rows.length > 0 || geometry !== null
+          ? { status: "complete" as const, reasons: [] }
+          : { status: "invalid" as const, reasons: ["A megadott adatokból nem keletkezett eredmény."] };
+  return { inputsReady, rows, error, geometry, takeoffInputs, materialTakeoff, timberLayout, underlayLayout, cutList, rafterJoints, completeness };
 }
 
 export const CONSTRUCTION_INPUT_SCHEMA = "construction-suite.input.v1";
@@ -134,6 +155,15 @@ export const constructionInputSnapshotSchema = z.object({
   }).strict().nullable(),
 }).strict();
 export type ConstructionInputSnapshot = z.infer<typeof constructionInputSnapshotSchema>;
+
+/** Comparison-only projection. Never persist this over the source revision. */
+export function comparableConstructionInput(definition: CalculatorDefinition, saved: ConstructionInputSnapshot): ConstructionInputSnapshot | null {
+  if (saved.calculatorId !== definition.reference.id) return null;
+  const fields = new Map(definition.fields.map((field) => [field.key, field]));
+  if (Object.keys(saved.fields).some((key) => !fields.has(key))) return null;
+  if (definition.fields.some((field) => !field.advanced && field.initial === undefined && field.kind !== "checkbox" && saved.fields[field.key] === undefined)) return null;
+  return { ...saved, fields: Object.fromEntries(definition.fields.map((field) => [field.key, saved.fields[field.key] ?? field.initial ?? ""])) };
+}
 
 export type ConstructionOutputSnapshot = Readonly<{
   schemaVersion: typeof CONSTRUCTION_OUTPUT_SCHEMA;
@@ -165,9 +195,27 @@ export function constructionOutputSnapshot(calculatorId: string, computation: Co
   };
 }
 
-/** A computation that may be saved: complete input, no engine error and an actual result. */
-export const isSaveableComputation = (computation: ConstructionComputation) =>
-  computation.inputsReady && computation.error === null && (computation.rows.length > 0 || computation.geometry !== null);
+/** A computation that may be saved: every requested result is complete. Professional/statical approval is a separate concern. */
+export const isSaveableComputation = (computation: ConstructionComputation) => computation.completeness.status === "complete";
+
+const outputRecord = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+
+/** Historical and downstream guard: only a complete immutable output may be reused as a calculation source. */
+export function isCompleteConstructionOutput(value: unknown): boolean {
+  const output = outputRecord(value);
+  if (output?.schemaVersion !== CONSTRUCTION_OUTPUT_SCHEMA || typeof output.calculatorId !== "string" || !Array.isArray(output.lines)) return false;
+  if (!usesMaterialInputs(output.calculatorId)) return output.lines.length > 0;
+  const takeoff = outputRecord(output.takeoff);
+  if (takeoff?.status !== "VALID") return false;
+  const groups = outputRecord(outputRecord(output.specifications)?.groups);
+  if (!groups || Object.keys(groups).length === 0) return false;
+  return Object.values(groups).every((rawGroup) => {
+    const group = outputRecord(rawGroup);
+    const issues = outputRecord(group?.issues);
+    return group !== null && issues !== null && Object.keys(issues).length === 0
+      && Array.isArray(group.invalidKeys) && group.invalidKeys.length === 0;
+  });
+}
 
 /** A saved input as the current editor builds it (M6: legacy edge-strip keys dropped), so an unchanged revision does not read as modified. */
 export const normalizedConstructionInput = (snapshot: ConstructionInputSnapshot): ConstructionInputSnapshot =>

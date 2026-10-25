@@ -5,11 +5,11 @@ import { catalogProfilesFromProducts } from "@/domain/calculations/roof-material
 
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: vi.fn() }));
 
-type QueryCall = { table: string; columns: string; filters: Array<[string, string, unknown]>; orders: Array<[string, unknown]>; limit: number | null; rows: number; bytes: number };
+type QueryCall = { table: string; columns: string; filters: Array<[string, string, unknown]>; orders: Array<[string, unknown]>; limit: number | null; range: [number, number] | null; rows: number; bytes: number };
 function configureCatalog(rows: Record<string, Record<string, unknown>[]>, failingTable?: string) {
   const calls: QueryCall[] = [];
   vi.mocked(createClient).mockResolvedValue({ from(table: string) {
-    const call: QueryCall = { table, columns: "", filters: [], orders: [], limit: null, rows: 0, bytes: 0 };
+    const call: QueryCall = { table, columns: "", filters: [], orders: [], limit: null, range: null, rows: 0, bytes: 0 };
     calls.push(call);
     let queryRows = rows[table] ?? [];
     const builder: Record<string, unknown> = {};
@@ -18,11 +18,13 @@ function configureCatalog(rows: Record<string, Record<string, unknown>[]>, faili
     builder.in = (column: string, values: unknown[]) => { call.filters.push(["in", column, values]); queryRows = queryRows.filter((row) => values.includes(row[column])); return builder; };
     builder.order = (column: string, options: unknown) => { call.orders.push([column, options]); return builder; };
     builder.limit = (value: number) => { call.limit = value; return builder; };
+    builder.range = (from: number, to: number) => { call.range = [from, to]; return builder; };
     builder.then = (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) => {
-      const data = failingTable === table ? null : queryRows.map((row) => Object.fromEntries(call.columns.split(", ").map((column) => [column, row[column]])));
+      const selected = call.range ? queryRows.slice(call.range[0], call.range[1] + 1) : queryRows;
+      const data = failingTable === table ? null : selected.map((row) => Object.fromEntries(call.columns.split(", ").map((column) => [column, row[column]])));
       call.rows = data?.length ?? 0;
       call.bytes = Buffer.byteLength(JSON.stringify(data));
-      return Promise.resolve({ data, error: failingTable === table ? { message: "private database detail" } : null }).then(resolve, reject);
+      return Promise.resolve({ data, count: queryRows.length, error: failingTable === table ? { message: "private database detail" } : null }).then(resolve, reject);
     };
     return builder;
   } } as never);
@@ -71,7 +73,7 @@ describe("calculator material profiles data", () => {
     expect(optimizedCalls.find(({ table }) => table === "material_variants")?.columns).toContain("technical_specs");
     expect(optimizedCalls.some(({ table }) => table === "material_prices" || table === "material_price_options")).toBe(false);
     expect(optimizedCalls.find(({ table }) => table === "material_products")?.orders).toContainEqual(["updated_at", { ascending: false }]);
-    expect(optimizedCalls.find(({ table }) => table === "material_products")?.limit).toBe(200);
+    expect(optimizedCalls.find(({ table }) => table === "material_products")?.range).toEqual([0, 199]);
     expect(optimizedCalls.reduce((total, { bytes }) => total + bytes, 0)).toBeLessThan(baselineCalls.reduce((total, { bytes }) => total + bytes, 0));
   });
 
@@ -86,6 +88,6 @@ describe("calculator material profiles data", () => {
 
   it("keeps the calculator catalog failure signal when a selected related read fails", async () => {
     configureCatalog(rows, "material_variants");
-    await expect(getCalculatorMaterialProfiles("org-a")).rejects.toMatchObject({ message: "Az anyagkapcsolatok betöltése nem sikerült." });
+    await expect(getCalculatorMaterialProfiles("org-a")).rejects.toMatchObject({ message: "Az anyagváltozatok betöltése nem sikerült." });
   });
 });

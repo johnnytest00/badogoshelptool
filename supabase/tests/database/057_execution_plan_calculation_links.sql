@@ -21,7 +21,7 @@ create function pg_temp.m3_input(p_half integer) returns jsonb language sql immu
     'fields',pg_catalog.jsonb_build_object('horizontalHalfSpanMm',p_half::text,'riseMm','2000','eaveProjectionMm','0','seatCutHeightMm','0'));
 $$;
 create function pg_temp.m3_output() returns jsonb language sql immutable as $$
-  select '{"schemaVersion":"construction-suite.output.v1","calculatorId":"roof.rafter-cut","lines":[]}'::jsonb;
+  select '{"schemaVersion":"construction-suite.output.v1","calculatorId":"roof.rafter-cut","lines":[{"label":"Szarufa teljes hossza","value":4206.476,"unit":"mm"}]}'::jsonb;
 $$;
 select set_config('test.rev1', (select calculation_revision_id::text from public.save_standalone_construction_calculation('00000000-0000-4000-8000-000000000010',
   '00000000-0000-4000-8000-000000570010','00000000-0000-4000-8000-000000570101',0,'construction.roof.rafter-cut','DEMO M3 szarufa',pg_temp.m3_input(3000),pg_temp.m3_output(),'00000000-0000-4000-8000-000000000001')), true);

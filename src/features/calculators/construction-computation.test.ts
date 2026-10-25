@@ -3,7 +3,7 @@ import { DEMO_MATERIAL_PROFILES, initialSpecState } from "@/domain/calculations/
 import { definitions } from "./roof-calculator-definitions";
 import {
   computeConstruction, constructionInputSnapshot, constructionInputSnapshotSchema, constructionOutputSnapshot, isSaveableComputation,
-  isSaveableConstructionCalculator, materialStateFromSnapshot, normalizedConstructionInput,
+  isCompleteConstructionOutput, isSaveableConstructionCalculator, materialStateFromSnapshot, normalizedConstructionInput, comparableConstructionInput,
 } from "./construction-computation";
 import type { RoofMaterialUiState } from "./material-spec-editor";
 
@@ -32,8 +32,38 @@ describe("computeConstruction", () => {
 
   it("produces the timber layout and cut list from the material state", () => {
     const result = computeConstruction(timber, timberValues, material, DEMO_MATERIAL_PROFILES);
+    expect(isSaveableComputation(result)).toBe(true);
+    expect(result.completeness).toEqual({ status: "complete", reasons: [] });
     expect(result.timberLayout?.rafters?.count).toBe(26);
     expect(result.cutList?.rafters).toEqual([{ lengthMm: 4883, count: 26 }]);
+  });
+
+  it("does not treat roof geometry as a complete timber result without a layout", () => {
+    const result = computeConstruction(timber, timberValues, { ...material, layout: {} }, DEMO_MATERIAL_PROFILES);
+    expect(result.geometry).not.toBeNull();
+    expect(result.materialTakeoff?.status).toBe("INCOMPLETE");
+    expect(result.completeness).toMatchObject({ status: "incomplete", reasons: expect.arrayContaining([expect.stringContaining("Szarufa")]) });
+    expect(isSaveableComputation(result)).toBe(false);
+  });
+
+  it("does not save an incomplete or invalid timber cross-section", () => {
+    const incomplete = { ...material, specs: { ...material.specs, rafter: { mode: "manual" as const, profileId: null, entered: { sectionWidthMm: 80 } } } };
+    const invalid = { ...material, specs: { ...material.specs, rafter: { mode: "manual" as const, profileId: null, entered: { sectionWidthMm: 0, sectionHeightMm: 200 } } } };
+    expect(isSaveableComputation(computeConstruction(timber, timberValues, incomplete, DEMO_MATERIAL_PROFILES))).toBe(false);
+    const invalidResult = computeConstruction(timber, timberValues, invalid, DEMO_MATERIAL_PROFILES);
+    expect(isSaveableComputation(invalidResult)).toBe(false);
+    expect(invalidResult.completeness.status).toBe("invalid");
+  });
+
+  it("marks a requested but unsupported material layout as not calculable", () => {
+    const underlayOnly: RoofMaterialUiState = {
+      requested: { timber: false, underlay: true, covering: false }, layout: {},
+      specs: { ...material.specs, underlay: { mode: "manual", profileId: null, entered: { rollWidthMm: 1500, rollLengthMm: 50000, sideOverlapMm: 100, endOverlapMm: 100, installationDirection: "eave-to-ridge" } } },
+    };
+    const result = computeConstruction(definitions["roof.material-takeoff"], { roofShape: "pyramid", sideMm: "6000", pitchDegrees: "45" }, underlayOnly, []);
+    expect(result.materialTakeoff?.status).toBe("UNSUPPORTED");
+    expect(result.completeness.status).toBe("unsupported");
+    expect(isSaveableComputation(result)).toBe(false);
   });
 
   it("always lays out with a 0 mm edge strip and drops legacy inset keys (M6, 12/1 A)", () => {
@@ -57,6 +87,19 @@ describe("computeConstruction", () => {
 });
 
 describe("construction snapshots", () => {
+  it("compares a historical V2 rafter snapshot with hydrated defaults without changing its stored mm values", () => {
+    const historical = constructionInputSnapshot(rafter, { horizontalHalfSpanMm: "3000", riseMm: "2000", eaveProjectionMm: "600", seatCutHeightMm: "0" }, null);
+    const hydrated = constructionInputSnapshot(rafter, Object.fromEntries(rafter.fields.map((field) => [field.key, historical.fields[field.key] ?? field.initial ?? ""])), null);
+    expect(comparableConstructionInput(rafter, historical)).toEqual(hydrated);
+    const originalResult = computeConstruction(rafter, historical.fields, null, []);
+    const hydratedResult = computeConstruction(rafter, hydrated.fields, null, []);
+    expect(hydratedResult.rows).toEqual(originalResult.rows);
+    expect(hydratedResult.rafterJoints?.joints.map((joint) => joint.status)).toEqual(originalResult.rafterJoints?.joints.map((joint) => joint.status));
+    expect(historical.fields).toEqual({ horizontalHalfSpanMm: "3000", riseMm: "2000", eaveProjectionMm: "600", seatCutHeightMm: "0" });
+    expect(comparableConstructionInput(rafter, { ...historical, fields: { ...historical.fields, removedField: "42" } })).toBeNull();
+    expect(comparableConstructionInput(rafter, { ...historical, fields: { riseMm: "2000" } })).toBeNull();
+  });
+
   it("keeps only defined fields and validates the saved input contract", () => {
     const snapshot = constructionInputSnapshot(timber, { ...timberValues, unrelated: "x" }, material);
     expect(snapshot.fields).not.toHaveProperty("unrelated");
@@ -74,10 +117,13 @@ describe("construction snapshots", () => {
 
   it("records the server-recomputed output with quantity meaning and cut list", () => {
     const output = constructionOutputSnapshot("roof.timber-cutlist", computeConstruction(timber, timberValues, material, DEMO_MATERIAL_PROFILES));
+    expect(isCompleteConstructionOutput(output)).toBe(true);
     expect(output.takeoff?.parts.find((part) => part.id === "rafters")?.quantities.map((quantity) => quantity.meaning)).toContain("LAYOUT");
     expect(output.cutList?.rafters[0]).toEqual({ lengthMm: 4883, count: 26 });
     expect(output.specifications).not.toBeNull();
     expect(JSON.parse(JSON.stringify(output))).toEqual(output);
+    expect(isCompleteConstructionOutput({ ...output, takeoff: { ...output.takeoff!, status: "INCOMPLETE" } })).toBe(false);
+    expect(isCompleteConstructionOutput({ schemaVersion: "construction-suite.output.v1", calculatorId: "roof.rafter-cut", lines: [] })).toBe(false);
   });
 
   it("limits saving to the approved roof scope", () => {

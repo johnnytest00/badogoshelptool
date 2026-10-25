@@ -9,6 +9,7 @@ import { calculateQuotationFinancialContract } from "@/domain/quotations/financi
 import { userFacingActionError } from "@/lib/user-facing-action-error";
 import { z } from "zod";
 import { validateQuotationDocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
+import { isCompleteConstructionRevision } from "@/features/calculations/construction-data";
 
 export type StandaloneQuotationResult<T = undefined> =
   | { ok: true; data: T }
@@ -93,6 +94,9 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
   if (calculationSourceMap.length > 0 && sourceLineMap.length > 0) return failure("VALIDATION", "Egy ajánlati revízió egyszerre csak egy forrásból (anyaglista vagy kalkuláció) vehet át mennyiséget.");
   if (materialListId && (!/^[0-9a-f-]{36}$/i.test(materialListId) || !/^[0-9a-f-]{36}$/i.test(materialRevisionId ?? ""))) {
     return failure("VALIDATION", "A forrás anyaglista vagy revízió azonosítója érvénytelen.");
+  }
+  if (calculationSourceMap.length > 0 && (!calculationRevisionId || !await isCompleteConstructionRevision(organizationId, calculationRevisionId))) {
+    return failure("VALIDATION", "Csak teljes, elérhető kalkulációs revízió használható ajánlati forrásként.");
   }
 
   const supabase = await createClient();

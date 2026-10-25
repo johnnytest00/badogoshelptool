@@ -13,6 +13,7 @@ import type { QuantityKind, SurveyMaterialProvenanceItem, SurveyMaterialSourceRe
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import type { ExecutionPlanOption } from "@/features/execution/execution-data";
 import type { MaterialCategoryRecord, MaterialProductRecord } from "@/features/materials/material-data";
+import { searchMaterialProductsAction } from "@/features/materials/material-actions";
 import type { MaterialPreparationList } from "./material-preparation-data";
 import { saveWorkflowMaterialListAction, type WorkflowMaterialListActionState } from "./workflow-material-list-actions";
 import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "./workflow-material-product-picker";
@@ -66,6 +67,18 @@ const pricePattern = /^\d{1,12}(?:[.,]\d{1,2})?$/;
 
 function verifiedPrice(variant: MaterialProductRecord["variants"][number]) {
   return variant.prices.find((price) => price.provenance === "verified" && price.currency === "HUF" && price.purchasingUnit === variant.purchasingUnit) ?? null;
+}
+
+function listProductOptions(products: readonly MaterialProductRecord[], categoryId: string | null, surveyMode: boolean): WorkflowMaterialProductOption[] {
+  return products.filter((product) => product.status === "active" && product.categoryActive && product.categoryId === categoryId).flatMap((product) => product.variants.map((variant) => {
+    const price = surveyMode ? verifiedPrice(variant) : variant.latestPrice;
+    const supplierCount = selectablePrices(variant.priceOptions, variant.purchasingUnit).length;
+    return { id: variant.id, name: variant.name === "Alap egység" ? product.name : `${product.name} · ${variant.name}`, detail: `${product.categoryName} · ${materialPurchasingUnitLabels[variant.purchasingUnit]}${price ? ` · ${priceLabel(price.amount, variant.purchasingUnit, price.priceKind)}` : supplierCount > 1 ? ` · ${supplierCount} beszállítói ár` : " · Ár nincs megadva"}`, searchText: `${product.name} ${variant.name} ${variant.sku ?? ""}` };
+  }));
+}
+
+function surveyProductOptions(products: readonly MaterialProductRecord[], unit: MaterialPurchasingUnit | undefined): WorkflowMaterialProductOption[] {
+  return products.filter((entry) => entry.status === "active" && entry.categoryActive).flatMap((entry) => entry.variants.filter((candidate) => candidate.purchasingUnit === unit).map((candidate) => ({ id: candidate.id, name: candidate.name === "Alap egység" ? entry.name : `${entry.name} · ${candidate.name}`, detail: `${entry.categoryName} · ${materialPurchasingUnitLabels[candidate.purchasingUnit]}${verifiedPrice(candidate) ? ` · ${priceLabel(verifiedPrice(candidate)!.amount, candidate.purchasingUnit, verifiedPrice(candidate)!.priceKind)}` : " · Ár nincs megadva"}`, searchText: `${entry.name} ${candidate.name} ${candidate.sku ?? ""} ${entry.manufacturerName ?? ""}` })));
 }
 
 function provenanceLabel(source: SurveyMaterialProvenanceItem, version: number) {
@@ -186,7 +199,7 @@ function formatHuf(amount: number) {
   return `${amount.toLocaleString("hu-HU", { maximumFractionDigits: 2 })} Ft`;
 }
 
-export function WorkflowMaterialListEditor({ organizationId, products, plans, categories, list, requestedPlanId = "", surveySource = null, defaultName = "", quotations = [], planLinks = [], takeoffSource = null }: Readonly<{
+export function WorkflowMaterialListEditor({ organizationId, products: initialProducts, plans, categories, list, requestedPlanId = "", surveySource = null, defaultName = "", quotations = [], planLinks = [], takeoffSource = null }: Readonly<{
   organizationId: string;
   products: readonly MaterialProductRecord[];
   plans: readonly ExecutionPlanOption[];
@@ -200,6 +213,7 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
   takeoffSource?: { takeoffId: string; takeoffName: string; takeoffVersion: number } | null;
 }>) {
   const router = useRouter();
+  const [products, setProducts] = useState(initialProducts);
   const { notify, requestConfirmation } = useAppInteraction();
   const [state, action, pending] = useActionState(saveWorkflowMaterialListAction, initialState);
   const [name, setName] = useState(list?.name ?? defaultName);
@@ -233,12 +247,7 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
     .filter((product) => product.status === "active" && product.categoryId === newItem.categoryId && product.categoryActive)
     .flatMap((product) => product.variants.map((variant) => ({ product, variant }))),
   [products, newItem.categoryId]);
-  const productPickerOptions = useMemo<WorkflowMaterialProductOption[]>(() => categoryVariants.map(({ product, variant }) => ({
-    id: variant.id,
-    name: variant.name === "Alap egység" ? product.name : `${product.name} · ${variant.name}`,
-    detail: `${product.categoryName} · ${materialPurchasingUnitLabels[variant.purchasingUnit]}${(surveyMode ? verifiedPrice(variant) : variant.latestPrice) ? ` · ${priceLabel((surveyMode ? verifiedPrice(variant) : variant.latestPrice)!.amount, variant.purchasingUnit, (surveyMode ? verifiedPrice(variant) : variant.latestPrice)!.priceKind)}` : selectablePrices(variant.priceOptions, variant.purchasingUnit).length > 1 ? ` · ${selectablePrices(variant.priceOptions, variant.purchasingUnit).length} beszállítói ár` : " · Ár nincs megadva"}`,
-    searchText: `${product.name} ${variant.name} ${variant.sku ?? ""}`,
-  })), [categoryVariants, surveyMode]);
+  const productPickerOptions = useMemo(() => listProductOptions(products, newItem.categoryId, surveyMode), [products, newItem.categoryId, surveyMode]);
   useUnsavedChangeGuard({ dirty, pending });
 
   useEffect(() => {
@@ -372,14 +381,7 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
           const priceAmountText = hasManualPrice ? line.manualPriceAmount : linePrice ? String(linePrice.amount) : "";
           const lineTotal = linePrice ? calculateMaterialLineTotal(line.quantity, linePrice.amount) : null;
           const selectableCategory = categories.find((category) => category.id === line.categoryId);
-          const sourceProductOptions: WorkflowMaterialProductOption[] = line.sourceRef ? products
-            .filter((entry) => entry.status === "active" && entry.categoryActive)
-            .flatMap((entry) => entry.variants.filter((candidate) => candidate.purchasingUnit === line.sourceUnit).map((candidate) => ({
-              id: candidate.id,
-              name: candidate.name === "Alap egység" ? entry.name : `${entry.name} · ${candidate.name}`,
-              detail: `${entry.categoryName} · ${materialPurchasingUnitLabels[candidate.purchasingUnit]}${verifiedPrice(candidate) ? ` · ${priceLabel(verifiedPrice(candidate)!.amount, candidate.purchasingUnit, verifiedPrice(candidate)!.priceKind)}` : " · Ár nincs megadva"}`,
-              searchText: `${entry.name} ${candidate.name} ${candidate.sku ?? ""} ${entry.manufacturerName ?? ""}`,
-            }))) : [];
+          const sourceProductOptions = line.sourceRef ? surveyProductOptions(products, line.sourceUnit) : [];
           return <article className="workflow-material-row" key={line.id}>
             <div className="workflow-material-row-heading">
               <div className="workflow-material-row-tags"><span className="workflow-material-category">{selectableCategory?.name ?? line.categoryName ?? materialCategoryLabels[line.materialCategory]}</span><span className={`workflow-material-origin${line.sourceRef ? " is-survey" : ""}`}>{line.sourceRef ? "Felmérésből" : line.kind === "catalog" ? "Katalógus" : "Kézi tétel"}</span></div>
@@ -400,7 +402,11 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
                 onManual={(amount, kind) => updateLine(line.id, { priceId: null, priceSnapshot: null, manualPriceAmount: amount.replace(",", "."), manualPriceKind: amount.trim() ? kind : null })} />
               <div className="workflow-material-line-total"><span>Részösszeg</span><strong>{lineTotal === null ? (linePrice ? "Mennyiség ellenőrzendő" : "Ár nincs megadva") : formatHuf(lineTotal)}</strong>{lineTotal !== null && linePrice?.kind && <small>{materialPriceKindLabels[linePrice.kind].toLowerCase()}</small>}</div>
             </div>
-            {line.sourceRef && <div className="workflow-material-row-source-product"><div role="group" aria-label="Katalógustermék · az egység nem változik"><span>Katalógustermék · az egység nem változik</span><WorkflowMaterialProductPicker options={sourceProductOptions} value={line.variantId ?? ""} disabled={!sourceProductOptions.length} idPrefix={`survey-material-${line.id}`} label="Katalógustermék" onSelect={(id) => selectSurveyLineVariant(line, id)} /></div>{line.variantId && <button type="button" className="text-action" onClick={() => selectSurveyLineVariant(line, "")}>Katalóguskapcsolat törlése</button>}{!sourceProductOptions.length && <small>Nincs ilyen egységű katalógustermék. A mért mennyiséget nem alakítjuk át darabra.</small>}</div>}
+            {line.sourceRef && <div className="workflow-material-row-source-product"><div role="group" aria-label="Katalógustermék · az egység nem változik"><span>Katalógustermék · az egység nem változik</span><WorkflowMaterialProductPicker options={sourceProductOptions} value={line.variantId ?? ""} disabled={false} idPrefix={`survey-material-${line.id}`} label="Katalógustermék" loadOptions={async (search, page) => {
+              const result = await searchMaterialProductsAction(organizationId, { search, page });
+              setProducts((current) => [...new Map([...current, ...result.products].map((product) => [product.id, product])).values()]);
+              return { options: surveyProductOptions(result.products, line.sourceUnit), hasNext: result.hasNext };
+            }} onSelect={(id) => selectSurveyLineVariant(line, id)} /></div>{line.variantId && <button type="button" className="text-action" onClick={() => selectSurveyLineVariant(line, "")}>Katalóguskapcsolat törlése</button>}{!sourceProductOptions.length && <small>Keress a teljes katalógusban. A mért mennyiséget nem alakítjuk át darabra.</small>}</div>}
           </article>;
         })}</div> : <div className="workflow-material-empty"><PackageOpen aria-hidden="true" size={22} /><div><strong>Még nincs anyag a listában</strong><p>Válassz katalógusterméket, vagy adj hozzá kézi tételt.</p></div></div>}
 
@@ -411,7 +417,11 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
           </div></div>
           {entryMode === "catalog" ? <div className="workflow-material-add-fields workflow-material-catalog-entry" onKeyDown={(event) => { if (event.key === "Enter" && !event.defaultPrevented) { event.preventDefault(); addLine(); } }}>
             <label className="workflow-material-field"><span>Kategória</span><select aria-label="Anyag kategóriája" value={newItem.categoryId ?? ""} onChange={(event) => { setNewItem((current) => ({ ...current, categoryId: event.target.value || null, categoryName: null, variantId: null, priceId: null, description: "", unit: "piece" })); }}><option value="">Válassz kategóriát…</option>{activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-            <div className="workflow-material-field workflow-material-product-field" ref={catalogPickerFieldRef} role="group" aria-label="Termék keresése"><span>Termék keresése</span><WorkflowMaterialProductPicker options={productPickerOptions} value={newItem.variantId ?? ""} disabled={!newItem.categoryId} label="Termék keresése" onSelect={selectCatalogVariant} /></div>
+            <div className="workflow-material-field workflow-material-product-field" ref={catalogPickerFieldRef} role="group" aria-label="Termék keresése"><span>Termék keresése</span><WorkflowMaterialProductPicker options={productPickerOptions} value={newItem.variantId ?? ""} disabled={!newItem.categoryId} label="Termék keresése" loadOptions={async (search, page) => {
+              const result = await searchMaterialProductsAction(organizationId, { categoryId: newItem.categoryId ?? undefined, search, page });
+              setProducts((current) => [...new Map([...current, ...result.products].map((product) => [product.id, product])).values()]);
+              return { options: listProductOptions(result.products, newItem.categoryId, surveyMode), hasNext: result.hasNext };
+            }} onSelect={selectCatalogVariant} /></div>
             <label className="workflow-material-field"><span>Mennyiség</span><input aria-label="Új tétel mennyisége" inputMode="decimal" value={newItem.quantity} onChange={(event) => setNewItem((current) => ({ ...current, quantity: event.target.value }))} /></label>
             <div className="workflow-material-entry-facts"><span>{newItem.variantId ? `Egység · ${materialPurchasingUnitLabels[newItem.unit]}` : "Az egység a termékből töltődik be"}</span><span>{newItem.priceId ? (() => { const variant = categoryVariants.find(({ variant: item }) => item.id === newItem.variantId)?.variant; const price = variant ? (surveyMode ? verifiedPrice(variant) : variant.latestPrice) : null; return price ? `Ár · ${priceLabel(price.amount, newItem.unit, price.priceKind)}` : "Ár nincs megadva"; })() : "Ár nincs megadva"}</span></div>
             <button className="primary-button workflow-material-add-button" type="button" onClick={addLine} disabled={!newItem.variantId}><Plus aria-hidden="true" size={18} /> Hozzáadás</button>

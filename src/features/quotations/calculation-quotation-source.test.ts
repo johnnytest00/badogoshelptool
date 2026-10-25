@@ -33,6 +33,14 @@ describe("calculationQuoteCandidates", () => {
     expect(calculationQuoteCandidates({ takeoff: { parts: [{ label: "X", quantities: [{ label: "Y", value: "26", unit: "db", meaning: "LAYOUT" }] }] }, cutList: { rafters: [{ lengthMm: 1000, count: 0 }] } }).candidates).toEqual([]);
   });
 
+  it("does not expose partial quantities from an incomplete calculation", () => {
+    const incomplete = {
+      ...timberOutput,
+      takeoff: { ...timberOutput.takeoff!, status: "INCOMPLETE", parts: timberOutput.takeoff!.parts.map((part) => part.id === "rafters" ? { ...part, status: "INCOMPLETE" } : part) },
+    };
+    expect(calculationQuoteCandidates(incomplete)).toEqual({ candidates: [], informational: [] });
+  });
+
   it("rounds the editable line quantity to six decimals", () => {
     expect(quotationQuantity(126.9612434)).toBe("126.961243");
     expect(quotationQuantity(26)).toBe("26");

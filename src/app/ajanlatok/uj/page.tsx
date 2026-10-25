@@ -2,7 +2,7 @@ import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { NoOrganizationAccess } from "@/features/auth/access-state";
 import { OrganizationSelector } from "@/features/auth/auth-controls";
-import { getMaterialCategories, getMaterialProductsForOrganization } from "@/features/materials/material-data";
+import { getMaterialCategories, getMaterialProductPage } from "@/features/materials/material-data";
 import { getWorkflowMaterialLists } from "@/features/material-takeoffs/material-preparation-data";
 import { getProjectOrganization } from "@/features/projects/organization";
 import { StandaloneQuotationEditor, type QuotationMaterialSource } from "@/features/quotations/standalone-quotation-editor";
@@ -19,7 +19,8 @@ export default async function NewStandaloneQuotationPage({ searchParams }: Reado
   if (!selected.organization && !selected.needsSelection) return <NoOrganizationAccess />;
   if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><h1>Válassz műhelyt az ajánlathoz.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const organizationId = selected.organization.id;
-  const [products, categories, documentSources, lists] = await Promise.all([getMaterialProductsForOrganization(organizationId), getMaterialCategories(organizationId, false), getStandaloneDocumentSourcesAction(organizationId), getWorkflowMaterialLists(organizationId)]);
+  const [productPage, categories, documentSources, lists] = await Promise.all([getMaterialProductPage(organizationId), getMaterialCategories(organizationId, false), getStandaloneDocumentSourcesAction(organizationId), getWorkflowMaterialLists(organizationId)]);
+  const products = productPage.products;
   if (!documentSources.ok) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">{documentSources.error}</p></div></main>;
   const list = query.materialList ? lists.find((candidate) => candidate.id === query.materialList) : undefined;
   const selectedRevision = list?.history.find((revision) => revision.id === query.materialRevision);
