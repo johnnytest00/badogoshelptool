@@ -47,8 +47,7 @@ A fenti verziók a jelenlegi lockolt/telepített környezet verziói. Függősé
 |---|---|
 | `/` | Bejelentkezés és explicit szervezetválasztás után műhely-dashboard; funkciók, felmérés-indítás és munkák áttekintése |
 | `/bejelentkezes` | Supabase Auth belépés |
-| `/felmeresek`, `/felmeresek/uj`, `/felmeresek/[surveyId]` | Felméréslista, új felmérés, mentett munkafelület és előzmény |
-| `/felmeresek/[surveyId]/kalkulator/[calculator]` | Kompatibilitási útvonal, a felmérésre irányít; nem beágyazott kalkulátor |
+| `/felmeresek/**` | M5 óta kivezetve: minden felmérés-útvonal a `/kalkulatorok`-ra irányít; a méreteket a kalkulátorokban kell megadni. A meglévő felmérési adatok, revíziók, fotók és kapcsolatok törlés nélkül megmaradtak; új felmérés DB-szinten sem hozható létre. |
 | `/kalkulatorok` | Építési/kalkulátor-katalógus és közvetlen tetőmunkafelületek |
 | `/kalkulatorok/mentett` | Saját, önálló mentett kalkulációk és támogatott revíziók |
 | `/kalkulatorok/nyeregteto`, `/cserepeslemez`, `/ereszcsatorna`, `/lemezprofilok`, `/epitesi` | Közvetlen tető-, fedés-, csatorna-, profil- és építési kalkulátor-útvonalak; az egyes mentési képesség kalkulátoronként eltér |

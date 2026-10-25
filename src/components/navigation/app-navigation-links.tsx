@@ -7,7 +7,7 @@ import { dashboardFunctions, dashboardFunctionRoutes } from "@/features/dashboar
 import { isRouteActive } from "@/components/navigation/routes";
 
 /** Mobilon ez az öt cél fér el kényelmesen az alsó sávban; a többi a Műhelyről érhető el. */
-const mobileIds = new Set(["dashboard", "field-surveys", "calculators", "material-lists", "execution"]);
+const mobileIds = new Set(["dashboard", "calculators", "execution", "quotes", "material-lists"]);
 
 export function AppNavigationLinks({ organizationId }: Readonly<{ organizationId: string | null }>) {
   const pathname = usePathname();

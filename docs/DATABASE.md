@@ -1,5 +1,13 @@
 # F2.1 adatbázis-alap
 
+## M5 — felmérés-létrehozás kivezetése (2026-10-25, csak helyi)
+
+Migráció: `20261025140000_retire_field_survey_creation.sql`; teszt: `059_retire_field_survey_creation.sql` (4 állítás); teljes pgTAP 61 fájl / 1291 PASS (helyi). Hosted DB-re nincs alkalmazva.
+
+- `field_surveys_retired_no_insert` BEFORE INSERT trigger (`private.prevent_new_field_survey`): ha a munkamenet felhasználója nem `postgres`, `55000` hibával elutasítja az új felmérést. Így az alkalmazás útja (PostgREST `authenticator`, illetve a korlátozott író) nem hozhat létre felmérést, a migrációk, helyi teszt-fixture-ök és az adminisztráció igen; a régi felmérési pgTAP-regressziók változatlanul futnak.
+- Meglévő felmérés, revízió, fotó, forrás- és munkanapló-kapcsolat nem változott és nem törlődött; frissítést, törlést a trigger nem érint.
+- Bizonyíték: pgTAP csak a szerkezetet tudja ellenőrizni (a helyi `postgres` nem válthat munkamenet-felhasználót); a valódi útvonalat helyi PostgREST-hívás igazolta helyben aláírt teszt-JWT-vel: `save_field_survey` → `55000`, a felmérések száma változatlan (39).
+
 ## M4 — kalkulációból árajánlat (2026-10-25, csak helyi)
 
 Migrációk: `20261025120000_quotation_calculation_sources.sql`, `20261025130000_calculation_link_visibility.sql` (M3-javítás); teszt: `058_quotation_calculation_sources.sql` (16 állítás), `057` +1 állítás; teljes pgTAP 60 fájl / 1287 PASS (helyi). Hosted DB-re nincs alkalmazva.

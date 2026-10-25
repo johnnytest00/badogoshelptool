@@ -31,6 +31,8 @@ export async function saveFieldSurveyAction(data: FormData): Promise<FieldSurvey
     || !Number.isSafeInteger(expectedVersion) || expectedVersion < 0 || (!surveyId && expectedVersion !== 0)) {
     return { ok: false, error: "A felmérés azonosítója vagy verziója érvénytelen." };
   }
+  // M5: new field surveys are no longer created; dimensions are entered in the calculators (also enforced in the database).
+  if (!surveyId) return { ok: false, error: "Új felmérés már nem hozható létre. A méreteket a Kalkulátorokban add meg." };
 
   const auth = await getAuthContext();
   if (!auth) return { ok: false, error: "A munkamenet lejárt. Jelentkezz be újra." };

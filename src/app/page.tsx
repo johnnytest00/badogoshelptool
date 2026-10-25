@@ -29,5 +29,5 @@ export default async function Home({ searchParams }: Readonly<{ searchParams: Pr
   }
 
   const plans = await getExecutionOverviewForOrganization(selectedOrganization.id);
-  return <Dashboard displayName={auth.displayName} email={auth.email} organizationName={selectedOrganization.name} organizationId={selectedOrganization.id} userId={auth.userId} plans={plans} />;
+  return <Dashboard displayName={auth.displayName} email={auth.email} organizationName={selectedOrganization.name} organizationId={selectedOrganization.id} plans={plans} />;
 }

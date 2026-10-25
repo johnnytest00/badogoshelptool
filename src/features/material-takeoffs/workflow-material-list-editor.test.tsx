@@ -135,8 +135,9 @@ describe("survey material list editor", () => {
       quotations: [{ quotationId: "00000000-0000-4000-8000-000000000018", name: "DEMO ajánlat", status: "draft", sourceListVersion: 2, currentListVersion: 2, createdAt: "" }],
       planLinks: [{ linkId: "00000000-0000-4000-8000-000000000019", planId: "00000000-0000-4000-8000-000000000020", planTitle: "DEMO munkanapló", origin: "link" }],
     }));
-    expect(html).toContain("/felmeresek/" + surveySource.surveyId);
-    expect(html).toContain("Forrásfelmérés megnyitása");
+    // M5: the retired survey page is no longer linked; the exact source identity stays visible.
+    expect(html).not.toContain("/felmeresek/");
+    expect(html).toContain(`Felmérés: ${surveySource.surveyId}`);
     expect(html).toContain("/ajanlatok/00000000-0000-4000-8000-000000000018");
     expect(html).toContain("Újabb piszkozat ugyanebből");
     expect(html).not.toContain("Árajánlat-piszkozat készítése");

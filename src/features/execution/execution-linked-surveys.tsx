@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { useState, type SyntheticEvent } from "react";
-import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { buildGableSurveyPreview } from "@/features/field-surveys/gable-survey-preview";
 import { geometryFromSurveyMeasurements } from "@/domain/field-surveys/roof-geometry";
@@ -16,18 +15,17 @@ const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-
   loading: () => <p className="missing-data">A műszaki rajz betöltése…</p>,
 });
 
-export function ExecutionLinkedSurveys({ organizationId, surveys }: Readonly<{ organizationId: string; surveys: readonly ExecutionLinkedSurvey[] }>) {
+export function ExecutionLinkedSurveys({ surveys }: Readonly<{ organizationId: string; surveys: readonly ExecutionLinkedSurvey[] }>) {
   return <GlassDisclosure className="execution-linked-surveys" summary={`Csatolt felmérések · ${surveys.length}`}>
-    {surveys.length ? <div className="execution-linked-survey-list">{surveys.map((survey) => <LinkedSurveyCard key={survey.id} organizationId={organizationId} survey={survey} />)}</div> : <p className="missing-data">Ehhez a munkanaplóhoz még nincs felmérés csatolva. Felmérésből a pontos mentett változat csatolható.</p>}
+    {surveys.length ? <div className="execution-linked-survey-list">{surveys.map((survey) => <LinkedSurveyCard key={survey.id} survey={survey} />)}</div> : <p className="missing-data">Ehhez a munkanaplóhoz még nincs felmérés csatolva. Felmérésből a pontos mentett változat csatolható.</p>}
   </GlassDisclosure>;
 }
 
-function LinkedSurveyCard({ organizationId, survey }: Readonly<{ organizationId: string; survey: ExecutionLinkedSurvey }>) {
+function LinkedSurveyCard({ survey }: Readonly<{ survey: ExecutionLinkedSurvey }>) {
   const [open, setOpen] = useState(false);
   const title = survey.sections.find((section) => section.name)?.name ?? "Felmérés";
-  const surveyHref = `/felmeresek/${survey.surveyId}?organization=${organizationId}&version=${survey.surveyVersion}`;
   return <article className="execution-linked-survey">
-    <header><div><h3>{title}</h3><p>Felmérés V{survey.surveyVersion} · forrásrevízió: {survey.revisionId}{survey.currentVersion !== survey.surveyVersion ? ` · jelenlegi változat: V${survey.currentVersion}; ez a terv a korábbi forrást őrzi` : " · aktuális forrás"}</p></div><Link className="secondary-button" href={surveyHref}>Teljes felmérés megnyitása</Link></header>
+    <header><div><h3>{title}</h3><p>Felmérés V{survey.surveyVersion} · forrásrevízió: {survey.revisionId}{survey.currentVersion !== survey.surveyVersion ? ` · jelenlegi változat: V${survey.currentVersion}; ez a terv a korábbi forrást őrzi` : " · aktuális forrás"}</p></div></header>
     <details className="execution-linked-survey-data" onToggle={(event: SyntheticEvent<HTMLDetailsElement>) => setOpen(event.currentTarget.open)}>
       <summary>Mérések, rajz és felmérési fotók</summary>
       {survey.sections.map((section) => <SurveySectionSummary key={section.id} section={section} open={open} />)}

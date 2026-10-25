@@ -22,7 +22,7 @@ describe("dashboard shared mobile header and full settings", () => {
     for (const oldIntro of ["TETŐPRÓ · MŰHELY", "Miben segíthetünk ma?", "Gyorsindító", "Munkafolyamatok egy helyen", "Válassz egy területet a következő lépéshez"]) {
       expect(html).not.toContain(oldIntro);
     }
-    const labels = ["Felmérések", "Munkanaplók", "Anyaglisták", "Anyagkezelő", "Árajánlatok", "Kalkulátorok"];
+    const labels = ["Kalkulátorok", "Munkanaplók", "Árajánlatok", "Anyaglisták", "Anyagkezelő"];
     expect(labels.every((label) => html.includes(label))).toBe(true);
     expect(labels.map((label) => html.indexOf(label))).toEqual([...labels.map((label) => html.indexOf(label))].sort((a, b) => a - b));
     expect(html).toContain("Aktuális munkák");

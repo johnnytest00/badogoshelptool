@@ -1,5 +1,16 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M5 — Felmérések kivezetése, kalkulátor-központú navigáció
+
+Státusz: **PASS WITH LIMITATIONS.** Döntések: 12/5 — a meglévő felmérésekre nincs szükség (mind DEMO), ezért nem készült csak olvasható nézet; az adatok törlés nélkül megmaradnak. 12/10 — mobil alsó sáv: Műhely, Kalkulátorok, Munkanaplók, Árajánlatok, Anyaglisták.
+
+- **Navigáció:** a Felmérések kikerült a dashboardról és a menüből; a Kalkulátorok az első funkció; a dashboard felmérés-piszkozat értesítője eltűnt. A `/felmeresek`, `/felmeresek/uj`, `/felmeresek/[surveyId]` és a régi kalkulátor-átadó útvonal a `/kalkulatorok`-ra irányít (`retired-survey-route.ts`).
+- **Új felmérés tiltása:** a `saveFieldSurveyAction` új felmérésnél adatbázis-hívás nélkül elutasít; DB-szinten BEFORE INSERT trigger (`docs/DATABASE.md` M5). A munkanaplóban és az anyaglistában a „felmérés megnyitása” linkek kikerültek, a kapcsolt felmérési adatok és azonosítók továbbra is inline látszanak.
+- **Ellenőrzés:** teljes Vitest **172 fájl PASS / 8 SKIP, 1021 PASS / 19 SKIP** (a felmérés-action, dashboard, útvonal és anyaglista tesztek az új viselkedéshez igazítva, új teszt a tiltásra); `eslint .` PASS; `tsc` PASS. pgTAP `059` 4/4, teljes **61 fájl / 1291 PASS** (helyi). Helyi PostgREST-hívás helyben aláírt teszt-JWT-vel: `save_field_survey` → `55000`, a felmérések száma 39 maradt.
+- **Böngésző (helyi DEMO, 375×812):** alsó sáv: Műhely · Kalkulátorok · Munkanaplók · Árajánlatok · Anyaglisták (Anyagkezelő csak széles nézetben); a dashboard funkciói Kalkulátorokkal kezdődnek, felmérés nélkül; `/felmeresek/uj` és egy felmérés-részletoldal valódi navigációval a `/kalkulatorok`-ra jut. A dev szerver a munka közben leállt, a `launch.json` `tetopro-dev` konfigurációjával indítottam újra.
+- **Korlát / nem ellenőrzött:** a belső felmérés-kód (szerkesztő, actionök, fotó-API, felmérésből indított munkanapló/ajánlat/anyaglista actionök) a helyén maradt, UI-ból nem érhető el; végleges eltávolítása és bármilyen adattörlés külön jóváhagyás. A trigger csak az új felmérést tiltja, a meglévők módosítását nem. Az `execution-linked-surveys.tsx` módosítása a commitolatlan F9.73.1 fájlban történt (vegyes fájl). Hosted DB.
+- **Javasolt Conventional Commit:** `feat(M5): retire field survey creation and make calculators the primary entry`.
+
 ## M4 — Kalkulációból árajánlat
 
 Státusz: **PASS WITH LIMITATIONS.** Mentett suite-kalkulációból közvetlenül ajánlatpiszkozat indítható, munkanapló és anyaglista nélkül. Döntések: 12/8 — ajánlati mennyiségként csak kiosztási (LAYOUT) mennyiség és vágáslista-sor vihető át, minden más tájékoztató; 12/9 — marad a nettó HUF, ÁFA nélkül.

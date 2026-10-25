@@ -345,7 +345,6 @@ export function WorkflowMaterialListEditor({ organizationId, products, plans, ca
       </section>}
       {savedSurveySource && <aside className={`glass-bubble survey-material-source-card${savedSurveySource.stale ? " is-stale" : ""}`} aria-label="Kapcsolt forrásfelmérés">
         <div className="workflow-source-heading"><span className="workflow-source-mark" aria-hidden="true"><PackageOpen size={17} /></span><div><strong>{savedSurveySource.surveyName} · V{savedSurveySource.surveyVersion}</strong><p>{savedSurveySource.stale ? `Korábbi forrásrevízió · jelenlegi felmérés V${savedSurveySource.currentSurveyVersion}` : "Pontos, változtathatatlan felmérésrevízió"}</p></div></div>
-        <Link className="text-action" href={`/felmeresek/${savedSurveySource.surveyId}?organization=${organizationId}${savedSurveySource.stale ? `&version=${savedSurveySource.surveyVersion}` : ""}`}>Forrásfelmérés megnyitása</Link>
         <details className="workflow-source-disclosure"><summary>Forrásazonosítók</summary><p>Felmérés: {savedSurveySource.surveyId}</p><p>Revízió: {savedSurveySource.surveyRevisionId}</p></details>
       </aside>}
       {takeoffSource && <aside className="glass-bubble survey-material-source-card" aria-label="Kapcsolt anyagkimutatás">

@@ -24,7 +24,8 @@ describe("navigációs útvonalak", () => {
 
   it("a főútvonalakat felismeri, a beágyazott oldalakat nem", () => {
     expect(isNavigationTarget("/anyagok?organization=abc")).toBe(true);
-    expect(isNavigationTarget("/felmeresek")).toBe(true);
+    expect(isNavigationTarget("/kalkulatorok")).toBe(true);
+    expect(isNavigationTarget("/felmeresek")).toBe(false);
     expect(isNavigationTarget("/")).toBe(true);
     expect(isNavigationTarget("/anyagok/42")).toBe(false);
     expect(isNavigationTarget("/projektek/123")).toBe(false);

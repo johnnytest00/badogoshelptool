@@ -12,9 +12,10 @@ vi.mock("./survey-geometry-source", () => ({ recordSurveyRoofGeometrySources: re
 import { saveFieldSurveyAction } from "./field-survey-actions";
 
 const values = {
-  organizationId: "123e4567-e89b-42d3-a456-426614174000", surveyId: "", projectId: "", workType: "gutter",
+  // M5: only existing surveys can still be saved; new survey creation is retired.
+  organizationId: "123e4567-e89b-42d3-a456-426614174000", surveyId: "123e4567-e89b-42d3-a456-426614174002", projectId: "", workType: "gutter",
   measurements: JSON.stringify([{ id: "123e4567-e89b-42d3-a456-426614174001", label: "Eresz hossza", value: 8.5, unit: "m" }]),
-  notes: "", expectedVersion: "0",
+  notes: "", expectedVersion: "1",
 };
 const form = (overrides: Partial<typeof values> = {}) => {
   const result = new FormData();
@@ -25,9 +26,14 @@ const form = (overrides: Partial<typeof values> = {}) => {
 describe("field survey server action", () => {
   beforeEach(() => { vi.clearAllMocks(); state.auth = { userId: "user-1", organizations: [{ id: "123e4567-e89b-42d3-a456-426614174000", name: "DEMO", role: "owner" }] }; state.rpc.mockResolvedValue({ data: [{ survey_id: "123e4567-e89b-42d3-a456-426614174002", version: 1 }], error: null }); });
 
-  it("validates and saves a small standalone survey without optional data", async () => {
+  it("no longer creates a new field survey and never reaches the database", async () => {
+    expect(await saveFieldSurveyAction(form({ surveyId: "", expectedVersion: "0" }))).toMatchObject({ ok: false, error: expect.stringContaining("Kalkulátorokban") });
+    expect(state.rpc).not.toHaveBeenCalled();
+  });
+
+  it("validates and saves an existing standalone survey without optional data", async () => {
     expect(await saveFieldSurveyAction(form())).toMatchObject({ ok: true, version: 1 });
-    expect(state.rpc).toHaveBeenCalledWith("save_field_survey", expect.objectContaining({ p_project_id: null, p_notes: null, p_expected_version: 0 }));
+    expect(state.rpc).toHaveBeenCalledWith("save_field_survey", expect.objectContaining({ p_project_id: null, p_notes: null, p_expected_version: 1 }));
   });
 
   it("saves an incomplete workspace without coercing its missing value to zero", async () => {

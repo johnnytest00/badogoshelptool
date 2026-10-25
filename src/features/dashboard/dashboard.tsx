@@ -16,11 +16,10 @@ import { useScaling } from "@/features/preferences/scaling-provider";
 import { useLiquidGlass } from "@/features/preferences/liquid-glass-provider";
 import { dashboardFunctionHref, dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
 import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
-import { SurveyDraftNotice } from "@/features/dashboard/survey-draft-notice";
 import type { DashboardTab } from "@/features/dashboard/dashboard.types";
 type DashboardPlan = { id: string; title: string; updatedAt: string; tasks: { total: number; done: number; inProgress: number; todo: number } };
 
-export function Dashboard({ displayName, email, organizationName, organizationId, userId, plans = [] }: Readonly<{ userId?: string;  displayName?: string | null; email?: string | null; organizationName?: string; organizationId?: string; plans?: readonly DashboardPlan[] }>) {
+export function Dashboard({ displayName, email, organizationName, organizationId, plans = [] }: Readonly<{ displayName?: string | null; email?: string | null; organizationName?: string; organizationId?: string; plans?: readonly DashboardPlan[] }>) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("functions");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
@@ -54,8 +53,6 @@ export function Dashboard({ displayName, email, organizationName, organizationId
         <AccountManagementDialog open={accountDialogOpen} onClose={() => setAccountDialogOpen(false)} />
 
         <h1 className="sr-only">Műhely</h1>
-
-        <SurveyDraftNotice userId={userId} organizationId={organizationId} />
 
         <DashboardTabs activeTab={activeTab} onChange={setActiveTab} />
 
