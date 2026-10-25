@@ -19,7 +19,7 @@ describe("orthogonal landing stair geometry", () => {
     expect(result.flights[1].endRiseMm).toBe(3_000);
     expect(result.pitchDegrees).toBeCloseTo(Math.atan2(187.5, 250) * 180 / Math.PI, 10);
     expect(result.stepRuleMm).toBe(625);
-    expect(result.flightGeometricLengthsMm).toEqual([Math.hypot(1_750, 1_500), Math.hypot(1_750, 1_500)]);
+    expect(result.flightGeometricLengthsMm).toEqual([2_187.5, 2_187.5]);
     expect(result.flightTreadSurfaceAreaM2).toBe(3.15);
     expect(result.landingSurfaceAreaM2).toBe(0.81);
     const scaled = calculateLandingStairGeometry({ layout: "quarter_turn", totalRiseMm: 6_000, stairWidthMm: 1_800, goingMm: 500, landingDepthMm: 1_800, flightRiserCounts: [8, 8], turnDirection: "right" });

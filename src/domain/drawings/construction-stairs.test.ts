@@ -19,7 +19,7 @@ describe("construction staircase drawing geometry", () => {
     const scaled = calculateStraightStairGeometry({ totalRiseMm: 5_600, availableRunMm: 8_400, riserCount: 16, stairWidthMm: 1_600 });
     expect(scaled.riserHeightMm).toBe(original.riserHeightMm * 2);
     expect(scaled.goingMm).toBe(original.goingMm * 2);
-    expect(scaled.stringerLengthMm).toBe(original.stringerLengthMm * 2);
+    expect(scaled.pitchLineLengthMm).toBe(original.pitchLineLengthMm * 2);
     expect(scaled.pitchDegrees).toBe(original.pitchDegrees);
     expect(scaled.stepRuleMm).toBe(original.stepRuleMm * 2);
   });

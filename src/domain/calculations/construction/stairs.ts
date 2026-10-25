@@ -10,17 +10,20 @@ export const straightStairGeometryInputSchema = z.object({
 });
 export type StraightStairGeometryInput = z.infer<typeof straightStairGeometryInputSchema>;
 
-/** The upper floor is the final riser; tread count is therefore riser count minus one. */
+/**
+ * The upper floor is the final riser; tread count is therefore riser count minus one.
+ * Pitch is riser/going. The pitch line runs from the first nosing to the upper floor edge: treadCount·√(r²+g²).
+ */
 export function calculateStraightStairGeometry(rawInput: StraightStairGeometryInput) {
   const input = straightStairGeometryInputSchema.parse(rawInput);
   const treadCount = input.riserCount - 1;
   const riserHeightMm = input.totalRiseMm / input.riserCount;
   const goingMm = input.availableRunMm / treadCount;
-  const stringerLengthMm = Math.hypot(input.totalRiseMm, input.availableRunMm);
-  const pitchDegrees = Math.atan2(input.totalRiseMm, input.availableRunMm) * 180 / Math.PI;
+  const pitchLineLengthMm = treadCount * Math.hypot(riserHeightMm, goingMm);
+  const pitchDegrees = Math.atan2(riserHeightMm, goingMm) * 180 / Math.PI;
   const stepRuleMm = 2 * riserHeightMm + goingMm;
-  assertFiniteResult([riserHeightMm, goingMm, stringerLengthMm, pitchDegrees, stepRuleMm]);
-  return { riserCount: input.riserCount, treadCount, riserHeightMm, goingMm, totalRiseMm: input.totalRiseMm, totalRunMm: input.availableRunMm, stringerLengthMm, pitchDegrees, stepRuleMm };
+  assertFiniteResult([riserHeightMm, goingMm, pitchLineLengthMm, pitchDegrees, stepRuleMm]);
+  return { riserCount: input.riserCount, treadCount, riserHeightMm, goingMm, totalRiseMm: input.totalRiseMm, totalRunMm: input.availableRunMm, pitchLineLengthMm, pitchDegrees, stepRuleMm };
 }
 
 const landingStairBaseSchema = z.object({
@@ -128,7 +131,8 @@ export function calculateLandingStairGeometry(rawInput: LandingStairGeometryInpu
   const normalizedLandings = landings.map((polygon) => polygon.map((point) => normalize(mirrorPoint(point))));
   const planWidthMm = maxX - minX;
   const planDepthMm = maxY - minY;
-  const flightGeometricLengthsMm = flights.map((flight) => Math.hypot(flight.runMm, flight.endRiseMm - flight.startRiseMm));
+  // Pitch line of each flight: first nosing to the landing or floor edge, treadCount·√(r²+g²).
+  const flightGeometricLengthsMm = flights.map((flight) => Math.hypot(flight.runMm, flight.treadCount * riserHeightMm));
   const flightTreadSurfaceAreaM2 = treadCount * input.goingMm * input.stairWidthMm / 1_000_000;
   const polygonAreaMm2 = (polygon: readonly StairPlanPoint[]) => Math.abs(polygon.reduce((sum, point, index) => {
     const next = polygon[(index + 1) % polygon.length];
@@ -155,10 +159,10 @@ export function calculateConcreteStairGeometry(rawInput: ConcreteStairGeometryIn
   const treadCount = input.riserCount - 1;
   const goingMm = input.availableRunMm / treadCount;
   const riserHeightMm = input.totalRiseMm / input.riserCount;
-  const pitchLengthM = Math.hypot(mmToM(input.availableRunMm), mmToM(input.totalRiseMm));
-  const pitchLengthMm = Math.hypot(input.availableRunMm, input.totalRiseMm);
+  const pitchLengthMm = treadCount * Math.hypot(riserHeightMm, goingMm);
+  const pitchLengthM = mmToM(pitchLengthMm);
   const wedgeVolumeM3 = mm3ToM3(input.stairWidthMm * input.availableRunMm * input.totalRiseMm / 2);
-  const pitchDegrees = Math.atan2(input.totalRiseMm, input.availableRunMm) * 180 / Math.PI;
+  const pitchDegrees = Math.atan2(riserHeightMm, goingMm) * 180 / Math.PI;
   const stepRuleMm = 2 * riserHeightMm + goingMm;
   assertFiniteResult([goingMm, riserHeightMm, pitchLengthM, pitchLengthMm, wedgeVolumeM3, pitchDegrees, stepRuleMm]);
   return { totalRiseMm: input.totalRiseMm, availableRunMm: input.availableRunMm, stairWidthMm: input.stairWidthMm, riserCount: input.riserCount, treadCount, goingMm, riserHeightMm, pitchLengthM, pitchLengthMm, pitchDegrees, stepRuleMm, wedgeVolumeM3 };
@@ -186,8 +190,8 @@ export function calculateSpiralStairGeometry(rawInput: SpiralStairGeometryInput)
   const riserHeightMm = input.totalRiseMm / input.riserCount;
   const stepAngleDegrees = input.turnDegrees / treadCount;
   const stepRuleMm = 2 * riserHeightMm + walkingGoingMm;
-  const pitchDegrees = Math.atan2(input.totalRiseMm, walkingLineLengthMm) * 180 / Math.PI;
-  const developedWalkingLengthMm = Math.hypot(input.totalRiseMm, walkingLineLengthMm);
+  const pitchDegrees = Math.atan2(riserHeightMm, walkingGoingMm) * 180 / Math.PI;
+  const developedWalkingLengthMm = treadCount * Math.hypot(riserHeightMm, walkingGoingMm);
   const planAreaM2 = Math.PI * (outerRadiusMm ** 2 - innerRadiusMm ** 2) * input.turnDegrees / 360 / 1_000_000;
   assertFiniteResult([walkingRadiusMm, walkingLineLengthMm, walkingGoingMm, riserHeightMm, stepAngleDegrees, stepRuleMm, pitchDegrees, developedWalkingLengthMm, planAreaM2]);
   return { innerRadiusMm, outerRadiusMm, walkingRadiusMm, walkingLineLengthMm, walkingGoingMm, riserHeightMm, stepAngleDegrees, stepRuleMm, pitchDegrees, developedWalkingLengthMm, planAreaM2, riserCount: input.riserCount, treadCount };

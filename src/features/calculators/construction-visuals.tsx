@@ -38,7 +38,7 @@ function stairLegend(model: StairDrawingModel, view: string): DrawingLegendEntry
   if (model.kind === "straight") {
     const geometry = model.geometry;
     if (view === "plan" && geometry.widthMm) return [legendMeasure("Vízszintes futás", geometry.totalRunMm), legendMeasure("Lépcsőkar szélessége", geometry.widthMm), { tone: "special", name: "Fokosztások", value: geometry.treadCount, unit: "db" }];
-    return [legendMeasure("Teljes emelkedés", geometry.totalRiseMm, "mm", "height"), legendMeasure("Vízszintes futás", geometry.totalRunMm), legendMeasure("Tartótengely geometriai hossza", geometry.stringerLengthMm, "mm", "slope"), legendMeasure("Egy fellépő", geometry.riserHeightMm, "mm", "height"), legendMeasure("Egy belépő", geometry.goingMm)];
+    return [legendMeasure("Teljes emelkedés", geometry.totalRiseMm, "mm", "height"), legendMeasure("Vízszintes futás", geometry.totalRunMm), legendMeasure("Hajlásvonal · első fokéltől a felső szintig", geometry.pitchLineLengthMm, "mm", "slope"), legendMeasure("Egy fellépő", geometry.riserHeightMm, "mm", "height"), legendMeasure("Egy belépő", geometry.goingMm)];
   }
   if (model.kind === "spiral") {
     const geometry = model.geometry;
@@ -51,12 +51,12 @@ function stairLegend(model: StairDrawingModel, view: string): DrawingLegendEntry
   }
   if (model.kind === "winder") {
     const geometry = model.geometry;
-    if (view === "elevation") return [legendMeasure("Teljes emelkedés", geometry.totalRiseMm, "mm", "height"), legendMeasure("Kiterített járóvonal-futás", geometry.developedWalkingRunMm), legendMeasure("Járóvonal ferde hossza", geometry.walkingPitchLengthMm, "mm", "slope"), legendMeasure("Egy fellépő", geometry.riserHeightMm, "mm", "height")];
+    if (view === "elevation") return [legendMeasure("Teljes emelkedés", geometry.totalRiseMm, "mm", "height"), legendMeasure("Kiterített járóvonal-futás", geometry.developedWalkingRunMm), legendMeasure("Járóvonal hajlásvonala", geometry.walkingPitchLengthMm, "mm", "slope"), legendMeasure("Egy fellépő", geometry.riserHeightMm, "mm", "height")];
     return [legendMeasure("Alaprajzi hossz", geometry.planWidthMm), legendMeasure("Alaprajzi szélesség", geometry.planDepthMm), legendMeasure("Belső sugár", geometry.innerRadiusMm, "mm", "special"), legendMeasure("Fordulási szög", geometry.turnDegrees, "°", "special"), { tone: "special", name: "Húzott fokok", value: geometry.treads.filter((tread) => tread.kind === "winder").length, unit: "db" }];
   }
   if (model.kind === "concrete") {
     const geometry = model.geometry;
-    return [legendMeasure("Teljes emelkedés", geometry.totalRiseMm, "mm", "height"), legendMeasure("Vízszintes futás", geometry.availableRunMm), legendMeasure("Ferde vetületi hossz", geometry.pitchLengthMm, "mm", "slope"), legendMeasure("Egy fellépő", geometry.riserHeightMm, "mm", "height")];
+    return [legendMeasure("Teljes emelkedés", geometry.totalRiseMm, "mm", "height"), legendMeasure("Vízszintes futás", geometry.availableRunMm), legendMeasure("Hajlásvonal · első fokéltől a felső szintig", geometry.pitchLengthMm, "mm", "slope"), legendMeasure("Egy fellépő", geometry.riserHeightMm, "mm", "height")];
   }
   const geometry = model.geometry;
   return [
@@ -236,12 +236,12 @@ function StairStepPath({ geometry, activeDimension, onDimensionSelect }: Readonl
     <path className="stair-profile" d={commands.join(" ")} />
     <path className="semantic-line is-width" d={treadLines.join(" ")} />
     <path className="semantic-line is-height" d={riserLines.join(" ")} />
-    <line className="stair-stringer-centerline" x1={x0} y1={baseY} x2={endX} y2={topY} />
+    <line className="stair-stringer-centerline" x1={x0} y1={baseY - rise} x2={endX} y2={topY} />
     <Dimension x1={x0} y1={480} x2={endX} y2={480} extension1={{ x: x0, y: baseY + 4 }} extension2={{ x: endX, y: baseY + 4 }} label={`Vízszintes hely ${formatMm(geometry.totalRunMm)}`} dataKey="availableRunMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={endX + 58} y1={baseY} x2={endX + 58} y2={topY} extension1={{ x: endX + 8, y: baseY }} extension2={{ x: endX + 8, y: topY }} label={`Teljes emelkedés ${formatMm(geometry.totalRiseMm)}`} dataKey="totalRiseMm" rotateLabel activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={x0} y1={baseY - rise - 24} x2={x0 + going} y2={baseY - rise - 24} extension1={{ x: x0, y: baseY - rise }} extension2={{ x: x0 + going, y: baseY - rise }} label={`Belépő ${formatMm(geometry.goingMm)}`} dataKey="availableRunMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={x0 - 38} y1={baseY} x2={x0 - 38} y2={baseY - rise} extension1={{ x: x0 - 5, y: baseY }} extension2={{ x: x0 - 5, y: baseY - rise }} label={`Fellépő ${formatMm(geometry.riserHeightMm)}`} dataKey="riserCount" rotateLabel activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
-    <path className="stair-angle-mark" d={`M ${x0 + 60} ${baseY} A 60 60 0 0 0 ${x0 + 60 * Math.cos(geometry.pitchDegrees * Math.PI / 180)} ${baseY - 60 * Math.sin(geometry.pitchDegrees * Math.PI / 180)}`} />
+    <path className="stair-angle-mark" d={`M ${x0 + 60} ${baseY - rise} A 60 60 0 0 0 ${x0 + 60 * Math.cos(geometry.pitchDegrees * Math.PI / 180)} ${baseY - rise - 60 * Math.sin(geometry.pitchDegrees * Math.PI / 180)}`} />
   </>;
 }
 
@@ -409,7 +409,7 @@ function ConcreteProfile({ geometry, activeDimension, onDimensionSelect }: Reado
     <path className="stair-profile" d={commands.join(" ")} />
     <path className="semantic-line is-width" d={horizontalSteps} />
     <path className="semantic-line is-height" d={verticalSteps} />
-    <line className="semantic-line is-slope" x1={x0} y1={baseY} x2={x1} y2={topY} />
+    <line className="semantic-line is-slope" x1={x0} y1={baseY - rise} x2={x1} y2={topY} />
     <Dimension x1={x0} y1={492} x2={x1} y2={492} extension1={{ x: x0, y: baseY }} extension2={{ x: x1, y: topY }} label={`Vízszintes futás ${formatMm(geometry.availableRunMm)}`} dataKey="availableRunMm" activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
     <Dimension x1={x1 + 62} y1={baseY} x2={x1 + 62} y2={topY} extension1={{ x: x1, y: baseY }} extension2={{ x: x1, y: topY }} label={`Teljes emelkedés ${formatMm(geometry.totalRiseMm)}`} dataKey="totalRiseMm" rotateLabel activeDimension={activeDimension} onDimensionSelect={onDimensionSelect} />
   </>;

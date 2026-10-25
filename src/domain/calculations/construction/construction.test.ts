@@ -143,14 +143,16 @@ describe("independent construction calculations", () => {
   it("checks the reported stair dimensions against independent arithmetic fixtures", () => {
     const straight = calculateStraightStairGeometry({ totalRiseMm: 2_800, availableRunMm: 4_200, riserCount: 16 });
     expect(straight).toMatchObject({ riserHeightMm: 175, treadCount: 15, goingMm: 280, stepRuleMm: 630 });
-    expect(straight.stringerLengthMm).toBeCloseTo(5_047.771786, 5);
+    // Pitch is riser/going (175/280), not total rise/run; the pitch line spans the 15 treads: 15 × √(175² + 280²).
+    expect(straight.pitchDegrees).toBeCloseTo(32.005383208, 8);
+    expect(straight.pitchLineLengthMm).toBeCloseTo(4_952.840094, 5);
 
     const landing = calculateLandingStairGeometry({ layout: "quarter_turn", totalRiseMm: 3_000, stairWidthMm: 900, goingMm: 250, landingDepthMm: 900, flightRiserCounts: [8, 8], turnDirection: "right" });
     expect(landing.riserHeightMm).toBe(187.5);
     expect(landing.treadCount).toBe(14);
     expect(landing.pitchDegrees).toBeCloseTo(Math.atan2(187.5, 250) * 180 / Math.PI, 10);
     expect(landing.stepRuleMm).toBe(625);
-    expect(landing.flightGeometricLengthsMm).toEqual([Math.hypot(1_750, 1_500), Math.hypot(1_750, 1_500)]);
+    expect(landing.flightGeometricLengthsMm).toEqual([2_187.5, 2_187.5]);
     expect(landing.flightTreadSurfaceAreaM2).toBe(3.15);
     expect(landing.landingSurfaceAreaM2).toBe(0.81);
 
@@ -159,11 +161,21 @@ describe("independent construction calculations", () => {
     expect(spiral.walkingLineLengthMm).toBeCloseTo(1_200 * Math.PI, 8);
     expect(spiral.planAreaM2).toBeCloseTo(Math.PI * (1 ** 2 - 0.2 ** 2), 10);
     expect(spiral.stepRuleMm).toBeCloseTo(2 * (3_000 / 18) + (1_200 * Math.PI / 17), 10);
+    expect(spiral.pitchDegrees).toBeCloseTo(Math.atan2(3_000 / 18, 1_200 * Math.PI / 17) * 180 / Math.PI, 10);
+    expect(spiral.developedWalkingLengthMm).toBeCloseTo(17 * Math.hypot(3_000 / 18, 1_200 * Math.PI / 17), 8);
 
     const concreteStair = calculateConcreteStairGeometry({ totalRiseMm: 2_800, availableRunMm: 4_200, stairWidthMm: 1_000, riserCount: 16 });
     expect(concreteStair.wedgeVolumeM3).toBe(5.88);
-    expect(concreteStair.pitchLengthMm).toBeCloseTo(Math.hypot(2_800, 4_200), 10);
+    expect(concreteStair.pitchLengthMm).toBeCloseTo(4_952.840094, 5);
+    expect(concreteStair.pitchDegrees).toBeCloseTo(32.005383208, 8);
     expect(concreteStair.stepRuleMm).toBe(630);
+  });
+
+  it("reports the same riser/going pitch for every stair type with the same steps", () => {
+    const pitch = Math.atan2(175, 280) * 180 / Math.PI;
+    expect(calculateStraightStairGeometry({ totalRiseMm: 2_800, availableRunMm: 4_200, riserCount: 16 }).pitchDegrees).toBeCloseTo(pitch, 10);
+    expect(calculateConcreteStairGeometry({ totalRiseMm: 2_800, availableRunMm: 4_200, stairWidthMm: 1_000, riserCount: 16 }).pitchDegrees).toBeCloseTo(pitch, 10);
+    expect(calculateLandingStairGeometry({ layout: "quarter_turn", totalRiseMm: 2_800, stairWidthMm: 900, goingMm: 280, landingDepthMm: 900, flightRiserCounts: [8, 8], turnDirection: "right" }).pitchDegrees).toBeCloseTo(pitch, 10);
   });
 
   it("reuses the existing gable and metal-tile engines for a product-data-based estimate", () => {

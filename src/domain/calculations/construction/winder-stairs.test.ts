@@ -30,8 +30,9 @@ describe("shared winder staircase geometry", () => {
     expect(result.outerChordMm).toBeCloseTo(2_200 * Math.sin(Math.PI / 12), 10);
     expect(result.developedWalkingRunMm).toBeCloseTo(13 * 700 * Math.PI / 6, 10);
     expect(result.stepRuleMm).toBeCloseTo(2 * 200 + 700 * Math.PI / 6, 10);
-    expect(result.pitchDegrees).toBeCloseTo(Math.atan2(2_800, 13 * 700 * Math.PI / 6) * 180 / Math.PI, 10);
-    expect(result.walkingPitchLengthMm).toBeCloseTo(Math.hypot(2_800, 13 * 700 * Math.PI / 6), 10);
+    // Walking-line pitch is riser/going; the developed pitch line spans the 13 treads only.
+    expect(result.pitchDegrees).toBeCloseTo(Math.atan2(200, 700 * Math.PI / 6) * 180 / Math.PI, 10);
+    expect(result.walkingPitchLengthMm).toBeCloseTo(13 * Math.hypot(200, 700 * Math.PI / 6), 10);
     const independentlyDerivedTreadArea = 10 * 800 * (700 * Math.PI / 6) + 3 * ((1_100 ** 2 - 300 ** 2) * Math.sin(Math.PI / 6) / 2);
     expect(result.treadSurfaceAreaM2).toBeCloseTo(independentlyDerivedTreadArea / 1_000_000, 10);
   });

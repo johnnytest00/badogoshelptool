@@ -1,5 +1,14 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M7.1 — Lépcsőhajlás és hajlásvonal javítása
+
+Státusz: **PASS.** A kalkulátor-átnézés talált szakmai hibája: az egyenes (fa és fém), a csiga-, a húzott fokos és a betonlépcső a hajlást a teljes emelkedés / vízszintes futás arányából számolta, pedig a fokok száma eggyel kevesebb a fellépésekénél; így a hajlás túl nagy volt (például 175/280 mm-nél 33,69° a helyes 32,005° helyett), és eltért a pihenős lépcső értékétől.
+
+- **Javítás:** minden lépcsőtípusnál a hajlás = atan(fellépő / belépő) (csiga- és húzott fokos lépcsőnél a járóvonal-belépővel). A hossz az első fokéltől a felső szint éléig tartó hajlásvonal: fokszám × √(fellépő² + belépő²); a pihenős lépcső karjainál ugyanez karonként. A „Pofafa/tartó tengelyének geometriai hossza” és a „ferde vetületi hossz” felirat helyett „Hajlásvonal hossza · első fokéltől a felső szint éléig”; az egyenes lépcső leírása kimondja, hogy ez nem a pofafa szabási hossza. A rajzon a hajlásvonal és a szögjel a fokéleken fut. A betonék térfogata nem változott (kézzel ellenőrizve egyenlő a fokos tömör test térfogatával).
+- **Ellenőrzés:** független kézi értékek: 15 × √(175² + 280²) = 4952,84 mm; pihenős kar 7 fok × (187,5 / 250) → 3-4-5 háromszög, 2187,5 mm; új teszt: azonos fokméretnél az egyenes, a beton- és a pihenős lépcső ugyanazt a hajlást adja. Teljes Vitest **173 fájl PASS / 8 SKIP, 1031 PASS / 19 SKIP**; `eslint .` PASS; `tsc` PASS. Böngésző (mobil): egyenes 32,005° / 4952,84 mm, beton 32,005° / 5,88 m³, pihenős 36,87° / 2187,5 mm, csiga 36,927°, húzott fokos 28,62° / 5427,97 mm, mind egyezik a kézi számítással.
+- **Korlát:** a pofafa tényleges szabási hossza (pofafa szélessége, csatlakozás) továbbra sem számított. Mentett lépcső-kalkuláció nincs (a lépcsők nem menthetők), így régi eredmény nem változik.
+- **Javasolt Conventional Commit:** `fix(M7.1): use riser/going pitch and pitch-line length for all stair types`.
+
 ## M7 — Integráció, teljes ellenőrzés, dokumentáció
 
 Státusz: **PASS WITH LIMITATIONS.** A kalkulátor-központú munkafolyamat (Kalkulátor → mentett revízió → munkanapló / árajánlat) helyben végig működik.

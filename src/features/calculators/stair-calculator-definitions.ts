@@ -14,10 +14,10 @@ const formatHuNumber = (value: number) => new Intl.NumberFormat("hu-HU", { maxim
 
 const definitions: Record<string, CalculatorDefinition> = {
 "stair.wood.closed_straight": {
-    reference: constructionCalculatorCatalog.find((item) => item.id === "stair.wood.closed_straight")!, draw: "stairs", note: "Fellépőmagasság és belépő a megadott összemelkedésből, vízszintes helyből és fellépőszámból. A kényelmi képlet tájékoztató.",
+    reference: constructionCalculatorCatalog.find((item) => item.id === "stair.wood.closed_straight")!, draw: "stairs", note: "Fellépőmagasság és belépő a megadott összemelkedésből, vízszintes helyből és fellépőszámból. A lépcsőhajlás a fellépő és a belépő aránya; a hajlásvonal az első fokéltől a felső szint éléig tart, és nem a pofafa szabási hossza (ahhoz a pofafa szélessége és csatlakozása kell). A kényelmi képlet tájékoztató.",
     advancedHelp: "A kar szélességének megadásával az alaprajzi nézet is méretarányosan megjelenik. Az oldalnézeti eredményekhez nem szükséges.",
     fields: [{ key: "totalRiseMm", label: "Padlószintek közötti teljes emelkedés", unit: "mm" }, { key: "availableRunMm", label: "Vízszintes helyigény", unit: "mm" }, { key: "riserCount", label: "Fellépések száma", unit: "db", integer: true }, { key: "stairWidthMm", label: "Lépcsőkar szélessége · alaprajzi nézethez", unit: "mm", advanced: true }],
-    calculate: (input) => { const width = nullableMm(input, "stairWidthMm"); const result = calculateStraightStairGeometry({ totalRiseMm: mm(input, "totalRiseMm"), availableRunMm: mm(input, "availableRunMm"), riserCount: mm(input, "riserCount"), ...(width === null ? {} : { stairWidthMm: width }) }); return [{ label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" }, { label: "Fokok száma", value: result.treadCount, unit: "db" }, { label: "Belépő", value: result.goingMm, unit: "mm" }, { label: "Pofafa/tartó tengelyének geometriai hossza", value: result.stringerLengthMm, unit: "mm" }, { label: "Lépcsőhajlás", value: result.pitchDegrees, unit: "°" }, { label: "2 × fellépő + belépő", value: result.stepRuleMm, unit: "mm" }]; },
+    calculate: (input) => { const width = nullableMm(input, "stairWidthMm"); const result = calculateStraightStairGeometry({ totalRiseMm: mm(input, "totalRiseMm"), availableRunMm: mm(input, "availableRunMm"), riserCount: mm(input, "riserCount"), ...(width === null ? {} : { stairWidthMm: width }) }); return [{ label: "Egy fellépő", value: result.riserHeightMm, unit: "mm" }, { label: "Fokok száma", value: result.treadCount, unit: "db" }, { label: "Belépő", value: result.goingMm, unit: "mm" }, { label: "Hajlásvonal hossza · első fokéltől a felső szint éléig", value: result.pitchLineLengthMm, unit: "mm" }, { label: "Lépcsőhajlás", value: result.pitchDegrees, unit: "°" }, { label: "2 × fellépő + belépő", value: result.stepRuleMm, unit: "mm" }]; },
   },
 "stair.wood.spiral": {
     reference: constructionCalculatorCatalog.find((item) => item.id === "stair.wood.spiral")!, draw: "spiral", note: "A járóvonal-sugár a belső és külső sugár számtani közepe. A felső padló az utolsó fellépés, ezért a vízszintes fokok száma eggyel kevesebb.",
@@ -96,9 +96,9 @@ function landingStairDefinition(id: string, layout: "quarter_turn" | "half_turn"
         { label: "Alaprajzi kiterjedés · szélesség", value: result.planDepthMm, unit: "mm" },
         { label: "Fokok alaprajzi felülete", value: result.flightTreadSurfaceAreaM2, unit: "m²" },
         { label: "Pihenők alaprajzi felülete", value: result.landingSurfaceAreaM2, unit: "m²" },
-        { label: "Karfutások geometriai összhossza", value: result.totalGeometricFlightLengthMm, unit: "mm" },
+        { label: "Karok hajlásvonalának összhossza", value: result.totalGeometricFlightLengthMm, unit: "mm" },
         ...result.flights.map((flight) => ({ label: `${flight.index}. kar · vízszintes futás`, value: flight.runMm, unit: "mm" })),
-        ...result.flightGeometricLengthsMm.map((length, index) => ({ label: `${index + 1}. kar · geometriai tengelyhossz`, value: length, unit: "mm" })),
+        ...result.flightGeometricLengthsMm.map((length, index) => ({ label: `${index + 1}. kar · hajlásvonal hossza`, value: length, unit: "mm" })),
       ];
     },
   };
@@ -140,7 +140,7 @@ function winderStairDefinition(id: string, layout: "quarter_turn" | "half_turn" 
         { label: "Kiterített járóvonal-futás", value: result.developedWalkingRunMm, unit: "mm" }, { label: "Fordulás", value: `${result.turnDegrees}° · ${result.turnDirection === "right" ? "jobbra" : "balra"}`, unit: "" },
         { label: "2 × fellépő + járóvonal-belépő", value: result.stepRuleMm, unit: "mm" },
         { label: "Kiterített járóvonalhajlás", value: result.pitchDegrees, unit: "°" },
-        { label: "Járóvonal menti ferde hossz", value: result.walkingPitchLengthMm, unit: "mm" },
+        { label: "Járóvonal hajlásvonalának hossza", value: result.walkingPitchLengthMm, unit: "mm" },
         { label: "Húzott fok belső / külső húrja", value: `${formatHuNumber(result.innerChordMm)} / ${formatHuNumber(result.outerChordMm)}`, unit: "mm" },
         { label: "Fordulófok szögosztása", value: result.stepAngleDegrees, unit: "°" }, { label: "Kiosztott fokok alaprajzi felülete", value: result.treadSurfaceAreaM2, unit: "m²" },
         { label: "Alaprajzi kiterjedés · hossz", value: result.planWidthMm, unit: "mm" }, { label: "Alaprajzi kiterjedés · szélesség", value: result.planDepthMm, unit: "mm" },
@@ -173,7 +173,7 @@ definitions["stair.concrete_straight"] = {
       { label: "Belépő", value: result.goingMm, unit: "mm" },
       { label: "Fokok száma", value: result.treadCount, unit: "db" },
       { label: "Lépcsőhajlás", value: result.pitchDegrees, unit: "°" },
-      { label: "Geometriai ferde vetületi hossz", value: result.pitchLengthMm, unit: "mm" },
+      { label: "Hajlásvonal hossza · első fokéltől a felső szint éléig", value: result.pitchLengthMm, unit: "mm" },
       { label: "2 × fellépő + belépő", value: result.stepRuleMm, unit: "mm" },
     ];
   },

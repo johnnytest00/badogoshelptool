@@ -7,7 +7,7 @@ export type StraightStairDrawingGeometry = Readonly<{
   riserHeightMm: number;
   goingMm: number;
   pitchDegrees: number;
-  stringerLengthMm: number;
+  pitchLineLengthMm: number;
   treads: readonly Readonly<{ xStartMm: number; xEndMm: number; levelMm: number }>[];
 }>;
 
