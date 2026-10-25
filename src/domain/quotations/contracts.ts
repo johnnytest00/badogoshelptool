@@ -13,6 +13,8 @@ export const quotationLineSchema = z.object({
   takeoffItemId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
   sourceMaterialItemId: z.string().uuid().or(z.literal("")).nullish().transform((value) => value ?? undefined),
   takeoffSourceItemIds: z.array(z.string().uuid()).max(100).optional().default([]),
+  // Standalone only: points at a verified calculation quantity; the server resolves it from the saved revision.
+  calculationSourceKey: z.string().regex(/^(?:takeoff\/\d{1,3}\/\d{1,3}|cut\/(?:rafters|battens)\/\d{1,4})$/, "Érvénytelen kalkulációs forrás.").or(z.literal("")).nullish().transform((value) => value || undefined),
   priceProvenance: z.enum(["catalog_snapshot", "takeoff_snapshot", "user_entered", "missing"]).optional(),
   notes: z.string().max(500).nullish().transform((value) => value ?? undefined),
   // Only the ids survive parsing; the server rebuilds the immutable rate snapshot and verified source quantity.

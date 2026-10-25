@@ -74,7 +74,10 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
   if (!parsed.success) return failure("VALIDATION", parsed.error.issues[0]?.message ?? "Ellenőrizd az ajánlati adatokat.");
   const validation = validateStandaloneLines(parsed.data.lines);
   if (!validation.ok) return failure("VALIDATION", validation.error);
-  const lines = validation.lines.map(normalizeLine);
+  const calculationRevisionId = formText(form, "calculationRevisionId") || null;
+  const calculationSourceMap = validation.lines.flatMap((line, quotationLineIndex) => line.calculationSourceKey ? [{ quotationLineIndex, sourceKey: line.calculationSourceKey }] : []);
+  // The source key travels separately; the shared draft RPC keeps its existing line contract.
+  const lines = validation.lines.map(normalizeLine).map(({ calculationSourceKey, ...line }) => { void calculationSourceKey; return line; });
   const materialListId = formText(form, "materialListId") || null;
   const materialRevisionId = formText(form, "materialRevisionId") || null;
   const sourceLineMap = lines.flatMap((line, quotationLineIndex) => line.sourceMaterialItemId ? [{ materialItemId: line.sourceMaterialItemId, quotationLineIndex }] : []);
@@ -83,15 +86,20 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
     || new Set(sourceLineMap.map((source) => source.materialItemId)).size !== sourceLineMap.length) {
     return failure("VALIDATION", "Az anyaglista-forrás és a forrástételek kapcsolata érvénytelen.");
   }
+  if ((calculationSourceMap.length > 0 && !calculationRevisionId)
+    || (calculationRevisionId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(calculationRevisionId))) {
+    return failure("VALIDATION", "A kalkulációs forrás és a forrástételek kapcsolata érvénytelen.");
+  }
+  if (calculationSourceMap.length > 0 && sourceLineMap.length > 0) return failure("VALIDATION", "Egy ajánlati revízió egyszerre csak egy forrásból (anyaglista vagy kalkuláció) vehet át mennyiséget.");
   if (materialListId && (!/^[0-9a-f-]{36}$/i.test(materialListId) || !/^[0-9a-f-]{36}$/i.test(materialRevisionId ?? ""))) {
     return failure("VALIDATION", "A forrás anyaglista vagy revízió azonosítója érvénytelen.");
   }
 
   const supabase = await createClient();
   const db = supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: SavedDraft[] | null; error: { code?: string; message?: string } | null }> };
-  const rpcName = materialListId && sourceLineMap.length > 0
-    ? "save_standalone_quotation_from_material_list"
-    : "save_standalone_quotation_draft_with_document";
+  const rpcName = calculationSourceMap.length > 0 ? "save_standalone_quotation_from_calculation"
+    : materialListId && sourceLineMap.length > 0 ? "save_standalone_quotation_from_material_list"
+      : "save_standalone_quotation_draft_with_document";
   const rpcArgs = {
     p_organization_id: organizationId, p_operation_id: operationId, p_quotation_id: quotationId,
     p_name: parsed.data.name, p_client_id: document.recipientSource === "client" ? document.recipientClientId : null,
@@ -102,12 +110,18 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
       p_material_revision_id: materialRevisionId,
       p_source_line_map: sourceLineMap,
     } : {}),
+    ...(rpcName === "save_standalone_quotation_from_calculation" ? {
+      p_calculation_revision_id: calculationRevisionId,
+      p_source_line_map: calculationSourceMap,
+    } : {}),
   };
   const { data, error } = await db.rpc(rpcName, rpcArgs);
   if (error || !data?.[0]) {
     const issue = error?.code === "23503" && lines.some((line) => line.variantId || line.priceId)
       ? { code: "CATALOG_SOURCE" as const, error: "A kiválasztott katalógus- vagy árforrás nem érvényes ebben a műhelyben." }
-      : classify(error, "Az önálló ajánlat mentése nem sikerült.");
+      : rpcName === "save_standalone_quotation_from_calculation" && /calculation|layout|cut-list/.test(error?.message ?? "")
+        ? { code: "VALIDATION" as const, error: "A kalkulációs forrás nem érhető el, vagy a kiválasztott mennyiség nem szerepel a mentett revízióban." }
+        : classify(error, "Az önálló ajánlat mentése nem sikerült.");
     return failure(issue.code, issue.error);
   }
   return { ok: true, data: data[0] };

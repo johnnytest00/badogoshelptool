@@ -1,5 +1,5 @@
 begin;
-select plan(20);
+select plan(21);
 
 set local role postgres;
 insert into auth.users (id, instance_id, aud, role, email, email_confirmed_at, created_at, updated_at, raw_app_meta_data, raw_user_meta_data, is_sso_user, is_anonymous,
@@ -69,6 +69,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000001
 select is((select removed from public.unlink_execution_plan_document('00000000-0000-4000-8000-000000000010', current_setting('test.link')::uuid)), true, 'the creator removes the link');
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000002', true);
 select is((select count(*)::integer from public.calculations where id='00000000-0000-4000-8000-000000570010'), 0, 'after removal the member no longer reads the calculation');
+select is((select count(*)::integer from public.execution_plan_document_links where id=current_setting('test.link')::uuid), 0, 'a removed calculation link is not visible to other members');
 reset role;
 select is((select count(*)::integer from public.execution_plan_document_links where id=current_setting('test.link')::uuid and unlinked_at is not null), 1, 'the removed link stays as an audit record');
 select throws_ok($$insert into public.execution_plan_document_links(organization_id, execution_plan_id, document_kind, calculation_id, request_key, created_by)

@@ -5,7 +5,7 @@ export type QuotationDraftValues = {
   name: string;
   clientId: string;
   document?: QuotationDocumentDraft;
-  lines: Array<{ type: "MATERIAL" | "LABOR" | "OTHER"; description: string; quantity: string; unit: string; unitPrice: string; priceClass: "net" | "gross"; variantId: string; categoryId?: string; priceId: string; takeoffItemId: string; sourceMaterialItemId?: string; priceProvenance?: "catalog_snapshot" | "takeoff_snapshot" | "user_entered" | "missing"; notes: string; laborSource?: LaborSourceRef }>;
+  lines: Array<{ type: "MATERIAL" | "LABOR" | "OTHER"; description: string; quantity: string; unit: string; unitPrice: string; priceClass: "net" | "gross"; variantId: string; categoryId?: string; priceId: string; takeoffItemId: string; sourceMaterialItemId?: string; calculationSourceKey?: string; priceProvenance?: "catalog_snapshot" | "takeoff_snapshot" | "user_entered" | "missing"; notes: string; laborSource?: LaborSourceRef }>;
 };
 
 export type QuotationRecovery = {

@@ -267,17 +267,29 @@ isOneToOne: false
                   ]
                 },"execution_plan_document_links": {
                   Row: {
-                    "created_at": string,"created_by": string,"document_kind": string,"execution_plan_id": string,"id": string,"material_list_id": string | null,"organization_id": string,"quotation_id": string | null,"request_key": string,"unlinked_at": string | null,"unlinked_by": string | null
+                    "calculation_id": string | null,"calculation_revision_id": string | null,"created_at": string,"created_by": string,"document_kind": string,"execution_plan_id": string,"id": string,"material_list_id": string | null,"organization_id": string,"quotation_id": string | null,"request_key": string,"unlinked_at": string | null,"unlinked_by": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"created_by": string,"document_kind": string,"execution_plan_id": string,"id"?: string,"material_list_id"?: string | null,"organization_id": string,"quotation_id"?: string | null,"request_key": string,"unlinked_at"?: string | null,"unlinked_by"?: string | null
+                    "calculation_id"?: string | null,"calculation_revision_id"?: string | null,"created_at"?: string,"created_by": string,"document_kind": string,"execution_plan_id": string,"id"?: string,"material_list_id"?: string | null,"organization_id": string,"quotation_id"?: string | null,"request_key": string,"unlinked_at"?: string | null,"unlinked_by"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"created_by"?: string,"document_kind"?: string,"execution_plan_id"?: string,"id"?: string,"material_list_id"?: string | null,"organization_id"?: string,"quotation_id"?: string | null,"request_key"?: string,"unlinked_at"?: string | null,"unlinked_by"?: string | null
+                    "calculation_id"?: string | null,"calculation_revision_id"?: string | null,"created_at"?: string,"created_by"?: string,"document_kind"?: string,"execution_plan_id"?: string,"id"?: string,"material_list_id"?: string | null,"organization_id"?: string,"quotation_id"?: string | null,"request_key"?: string,"unlinked_at"?: string | null,"unlinked_by"?: string | null
                   }
                   Relationships: [
                     {
+      foreignKeyName: "execution_plan_document_links_calculation_fk"
+      columns: ["calculation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "calculations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "execution_plan_document_links_calculation_revision_fk"
+      columns: ["calculation_revision_id","calculation_id"]
+isOneToOne: false
+      referencedRelation: "calculation_revisions"
+      referencedColumns: ["id","calculation_id"]
+    },{
       foreignKeyName: "execution_plan_document_links_list_fk"
       columns: ["material_list_id","organization_id"]
 isOneToOne: false
@@ -1183,6 +1195,50 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"quotation_calculation_sources": {
+                  Row: {
+                    "calculation_id": string,"calculation_revision_id": string,"created_at": string,"created_by": string,"id": string,"organization_id": string,"quotation_id": string,"quotation_revision_id": string,"request_key": string,"source_line_map": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "calculation_id": string,"calculation_revision_id": string,"created_at"?: string,"created_by": string,"id"?: string,"organization_id": string,"quotation_id": string,"quotation_revision_id": string,"request_key": string,"source_line_map": NonNullable<Json>
+                  }
+                  Update: {
+                    "calculation_id"?: string,"calculation_revision_id"?: string,"created_at"?: string,"created_by"?: string,"id"?: string,"organization_id"?: string,"quotation_id"?: string,"quotation_revision_id"?: string,"request_key"?: string,"source_line_map"?: NonNullable<Json>
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quotation_calculation_sources_calculation_fk"
+      columns: ["calculation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "calculations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "quotation_calculation_sources_calculation_revision_fk"
+      columns: ["calculation_revision_id","calculation_id"]
+isOneToOne: false
+      referencedRelation: "calculation_revisions"
+      referencedColumns: ["id","calculation_id"]
+    },{
+      foreignKeyName: "quotation_calculation_sources_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quotation_calculation_sources_quote_fk"
+      columns: ["quotation_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "quotations"
+      referencedColumns: ["id","organization_id"]
+    },{
+      foreignKeyName: "quotation_calculation_sources_quote_revision_fk"
+      columns: ["quotation_revision_id","organization_id"]
+isOneToOne: false
+      referencedRelation: "quotation_revisions"
+      referencedColumns: ["id","organization_id"]
+    }
+                  ]
                 },"quotation_document_sequences": {
                   Row: {
                     "created_at": string,"last_issued_number": number,"organization_id": string,"updated_at": string
@@ -1438,6 +1494,26 @@ isOneToOne: false
       columns: ["roof_model_id"]
 isOneToOne: false
       referencedRelation: "roof_models"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"standalone_construction_save_operations": {
+                  Row: {
+                    "calculation_id": string,"calculation_revision_id": string,"created_at": string,"created_by": string,"operation_id": string,"organization_id": string,"request_payload": NonNullable<Json>,"revision_number": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "calculation_id": string,"calculation_revision_id": string,"created_at"?: string,"created_by": string,"operation_id": string,"organization_id": string,"request_payload": NonNullable<Json>,"revision_number": number
+                  }
+                  Update: {
+                    "calculation_id"?: string,"calculation_revision_id"?: string,"created_at"?: string,"created_by"?: string,"operation_id"?: string,"organization_id"?: string,"request_payload"?: NonNullable<Json>,"revision_number"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "standalone_construction_save_operations_organization_id_fkey"
+      columns: ["organization_id"]
+isOneToOne: false
+      referencedRelation: "organizations"
       referencedColumns: ["id"]
     }
                   ]
@@ -1811,6 +1887,11 @@ isOneToOne: false
               "calculation_id": string,"calculation_revision_id": string,"revision_number": number
             }[]
                            },
+"save_standalone_construction_calculation":
+{ Args: { "p_actor_id": string,"p_calculation_id": string,"p_calculator_type": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_output_data": Json }; Returns: {
+              "calculation_id": string,"calculation_revision_id": string,"reused": boolean,"revision_number": number
+            }[]
+                           },
 "save_standalone_flashing_calculation":
 { Args: { "p_calculation_id": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_organization_id": string,"p_output_data": Json }; Returns: {
               "calculation_id": string,"calculation_revision_id": string,"revision_number": number
@@ -1836,6 +1917,11 @@ isOneToOne: false
               "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number,"totals_snapshot": Json
             }[]
                            },
+"save_standalone_quotation_from_calculation":
+{ Args: { "p_calculation_revision_id": string,"p_client_id": string,"p_document": Json,"p_expected_version": number,"p_lines": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_quotation_id": string,"p_source_line_map": Json }; Returns: {
+              "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number,"totals_snapshot": Json
+            }[]
+                           },
 "save_standalone_quotation_from_material_list":
 { Args: { "p_client_id": string,"p_document": Json,"p_expected_version": number,"p_lines": Json,"p_material_list_id": string,"p_material_revision_id": string,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_quotation_id": string,"p_source_line_map": Json }; Returns: {
               "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number,"totals_snapshot": Json
@@ -1846,8 +1932,23 @@ isOneToOne: false
               "calculation_id": string,"calculation_revision_id": string,"reused": boolean,"revision_number": number
             }[]
                            },
+"save_survey_detailed_gable_geometry_source_secure":
+{ Args: { "p_actor_id": string,"p_input": Json,"p_organization_id": string,"p_output": Json,"p_section_id": string,"p_survey_id": string,"p_survey_revision_id": string }; Returns: {
+              "combined_roof_m2": number,"reused": boolean,"source_id": string
+            }[]
+                           },
 "save_survey_multi_roof_geometry_source_secure":
 { Args: { "p_actor_id": string,"p_input": Json,"p_organization_id": string,"p_output": Json,"p_roof_type": string,"p_section_id": string,"p_survey_id": string,"p_survey_revision_id": string }; Returns: {
+              "combined_roof_m2": number,"reused": boolean,"source_id": string
+            }[]
+                           },
+"save_survey_quick_gable_geometry_source_secure":
+{ Args: { "p_actor_id": string,"p_input": Json,"p_organization_id": string,"p_output": Json,"p_section_id": string,"p_survey_id": string,"p_survey_revision_id": string }; Returns: {
+              "combined_roof_m2": number,"reused": boolean,"source_id": string
+            }[]
+                           },
+"save_survey_quick_shed_geometry_source_secure":
+{ Args: { "p_actor_id": string,"p_input": Json,"p_organization_id": string,"p_output": Json,"p_section_id": string,"p_survey_id": string,"p_survey_revision_id": string }; Returns: {
               "combined_roof_m2": number,"reused": boolean,"source_id": string
             }[]
                            },

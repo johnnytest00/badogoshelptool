@@ -1,5 +1,13 @@
 # F2.1 adatbázis-alap
 
+## M4 — kalkulációból árajánlat (2026-10-25, csak helyi)
+
+Migrációk: `20261025120000_quotation_calculation_sources.sql`, `20261025130000_calculation_link_visibility.sql` (M3-javítás); teszt: `058_quotation_calculation_sources.sql` (16 állítás), `057` +1 állítás; teljes pgTAP 60 fájl / 1287 PASS (helyi). Hosted DB-re nincs alkalmazva.
+
+- `quotation_calculation_sources`: változtathatatlan (trigger 55000) kapcsolat önálló ajánlati revízió ↔ pontos `construction.%` kalkulációs revízió; összetett FK-k, egy forrássor ajánlati revíziónként, request_key idempotencia. RLS-olvasás: szervezeti tag és az önálló ajánlat létrehozója.
+- `save_standalone_quotation_from_calculation`: egy tranzakcióban ellenőrzi a forrást, meghívja a meglévő `save_standalone_quotation_draft_with_document`-et (pénzügyi szabályok változatlanok, 12/9: nettó HUF), majd rögzíti a normalizált forrástérképet. Forráskulcs csak `takeoff/<rész>/<mennyiség>` LAYOUT jelentéssel vagy `cut/(rafters|battens)/<sor>` lehet (12/8); a címkét, a mennyiséget és az egységet az SQL a kalkulációs output-snapshotból veszi, nem a klienstől. Csak MATERIAL sorra mutathat, soronként egy forrás; a sor mennyisége szerkeszthető, az eredeti forrásmennyiség megmarad. Változatlan tartalmú újramentésnél a meglévő forrássor marad, eltérő forrás 40001.
+- M3-javítás: a többi tag csak aktív kalkulációs linket lát; leválasztott kalkulációs linksort csak a létrehozója.
+
 ## M3 — kalkuláció ↔ munkanapló kapcsolat (2026-10-25, csak helyi)
 
 Migráció: `20261025110000_execution_plan_calculation_links.sql`; teszt: `supabase/tests/database/057_execution_plan_calculation_links.sql` (20 állítás, helyi PASS; teljes pgTAP 59 fájl / 1270 PASS, benne a `040` link-regresszió). Hosted DB-re nincs alkalmazva.

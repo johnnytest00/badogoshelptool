@@ -10,8 +10,9 @@ import { getStandaloneDocumentSourcesAction } from "@/features/quotations/standa
 import { getLaborContext } from "@/features/quotations/labor-rate-data";
 import { quotationLinesFromMaterialList } from "@/features/quotations/material-list-quotation-import";
 import { BackNavigation } from "@/components/navigation/back-navigation";
+import { getCalculationQuotationSource } from "@/features/quotations/calculation-quotation-data";
 
-export default async function NewStandaloneQuotationPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string; plan?: string; materialList?: string; materialRevision?: string }> }>) {
+export default async function NewStandaloneQuotationPage({ searchParams }: Readonly<{ searchParams: Promise<{ organization?: string; plan?: string; materialList?: string; materialRevision?: string; calculation?: string; calculationRevision?: string }> }>) {
   const query = await searchParams;
   const selected = await getProjectOrganization(query.organization);
   if (!selected) return null;
@@ -39,6 +40,13 @@ export default async function NewStandaloneQuotationPage({ searchParams }: Reado
     initialLines = quotationLinesFromMaterialList(selectedRevision, products);
     initialName = `${list.name} – ajánlata`.slice(0, 200);
   }
+  const calculationSource = query.calculation && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query.calculation) && (!query.calculationRevision || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query.calculationRevision))
+    ? await getCalculationQuotationSource(organizationId, query.calculation, query.calculationRevision) : null;
+  if (query.calculation && !calculationSource) {
+    return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><section className="empty-state" role="alert"><div><h1>A kalkulációs forrás nem érhető el</h1><p>Az ajánlat a saját, mentett kalkulációd pontos revíziójából készülhet. Nyisd meg újra a kalkulációt, és onnan indítsd az ajánlatot.</p><Link className="secondary-button" href={`/kalkulatorok/mentett?organization=${organizationId}`}>Mentett számításaim</Link></div></section></div></main>;
+  }
+  if (calculationSource && materialSource) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">Egy ajánlat egyszerre csak egy forrásból (anyaglista vagy kalkuláció) indulhat.</p></div></main>;
+  if (calculationSource) initialName = `${calculationSource.calculationName} – ajánlata`.slice(0, 200);
   const labor = await getLaborContext(organizationId, materialSource);
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor userId={selected.auth.userId} organizationId={organizationId} quotationId={null} name={initialName} version={0} currentRevisionId={null} revisions={[]} products={products} categories={categories} documentSources={documentSources.data} materialSource={materialSource} laborRates={labor.rates} laborBases={labor.bases} initialLines={initialLines} /></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor userId={selected.auth.userId} organizationId={organizationId} quotationId={null} name={initialName} version={0} currentRevisionId={null} revisions={[]} products={products} categories={categories} documentSources={documentSources.data} materialSource={materialSource} calculationSource={calculationSource} laborRates={labor.rates} laborBases={labor.bases} initialLines={initialLines} /></div></main>;
 }

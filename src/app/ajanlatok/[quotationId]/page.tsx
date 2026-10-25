@@ -7,6 +7,7 @@ import { getStandaloneDocumentSourcesAction, getStandaloneQuotationHeaderAction,
 import { StandaloneQuotationEditor } from "@/features/quotations/standalone-quotation-editor";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 import { getLaborContext } from "@/features/quotations/labor-rate-data";
+import { getQuotationRevisionCalculationSource } from "@/features/quotations/calculation-quotation-data";
 import { ExecutionPlanLinkControl } from "@/features/execution/execution-plan-link-control";
 import { getPlanLinksForDocument } from "@/features/execution/execution-document-links";
 import { getExecutionPlanOptionsForOrganization } from "@/features/execution/execution-data";
@@ -41,6 +42,8 @@ export default async function StandaloneQuotationPage({ params, searchParams }: 
   ]);
   if (!documentSources.ok) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">{documentSources.error}</p></div></main>;
   if (!materialSourceResponse.ok) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">{materialSourceResponse.error}</p></div></main>;
+  const calculationSource = activeRevision ? await getQuotationRevisionCalculationSource(organizationId, activeRevision.id).then((source) => ({ ok: true as const, source }), () => ({ ok: false as const, source: null })) : { ok: true as const, source: null };
+  if (!calculationSource.ok) return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><p className="form-message is-error" role="alert">Az ajánlat kalkulációs forrása nem tölthető be. A forrás nélküli megnyitás elveszítené a kapcsolatot, ezért próbáld újra később.</p></div></main>;
   const labor = await getLaborContext(organizationId, materialSourceResponse.data);
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor key={`${quotationId}:${activeRevision?.id ?? "empty"}`} userId={selected.auth.userId} organizationId={organizationId} quotationId={quotationId} name={header.data.name} version={header.data.version} currentRevisionId={header.data.currentRevisionId} currentRevision={activeRevision} revisions={revisions} selectedRevisionId={requestedRevisionId} products={products} categories={categories} documentSources={documentSources.data} materialSource={materialSourceResponse.data} laborRates={labor.rates} laborBases={labor.bases} />{planLinkControl}</div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><StandaloneQuotationEditor key={`${quotationId}:${activeRevision?.id ?? "empty"}`} userId={selected.auth.userId} organizationId={organizationId} quotationId={quotationId} name={header.data.name} version={header.data.version} currentRevisionId={header.data.currentRevisionId} currentRevision={activeRevision} revisions={revisions} selectedRevisionId={requestedRevisionId} products={products} categories={categories} documentSources={documentSources.data} materialSource={materialSourceResponse.data} calculationSource={calculationSource.source} laborRates={labor.rates} laborBases={labor.bases} />{planLinkControl}</div></main>;
 }

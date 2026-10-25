@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
+import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { generateSecureUuid } from "@/lib/secure-uuid";
@@ -104,6 +105,10 @@ export function ConstructionSavePanel({ organizationId, calculatorId, session, i
         V{revision.revisionNumber}{revision.revisionNumber === session.revisionNumber ? " · aktuális" : ""} · {new Date(revision.createdAt).toLocaleString("hu-HU")}
       </button>)}</div>
     </GlassDisclosure>}
+    {saved && latestRevisionId && <section className="construction-save-quotation" aria-label="Árajánlat"><strong>Árajánlat</strong>
+      {dirty ? <p className="plan-link-note">Mentetlen módosítás van. Ajánlat mindig mentett revízióból készül; mentsd el előbb.</p>
+        : <Link className="secondary-button" href={`/ajanlatok/uj?organization=${organizationId}&calculation=${session.calculationId}&calculationRevision=${latestRevisionId}`}>Árajánlat készítése a V{session.revisionNumber} revízióból</Link>}
+    </section>}
     {saved && latestRevisionId && planLinks && <ExecutionPlanLinkControl organizationId={organizationId} kind="calculation" documentId={latestRevisionId} links={planLinks.links} plans={planLinks.plans}
       linkBlockedReason={dirty ? `Mentetlen módosítás van. Munkanaplóhoz mindig mentett revízió kapcsolódik; mentsd el előbb, vagy a mentett V${session.revisionNumber} marad kapcsolható a módosítás elvetése után.` : undefined} />}
     {saved && planLinksUnavailable && <p className="construction-suite-limit">A munkanaplók most nem tölthetők be, ezért a kapcsolás átmenetileg nem érhető el. A kalkuláció ettől függetlenül mentve van.</p>}

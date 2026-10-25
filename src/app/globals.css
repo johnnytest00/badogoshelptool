@@ -2828,6 +2828,16 @@ body { position: relative; isolation: isolate; }
 .quotation-material-source { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .75rem; margin-block: .6rem; padding: .75rem .9rem; }
 .quotation-material-source > span { color: var(--muted); font-size: .82rem; }
 .quotation-material-source > p { flex: 1 0 100%; margin: 0; color: var(--muted); font-size: .82rem; }
+.quotation-calculation-source > ul, .quotation-calculation-source > details { flex: 1 0 100%; }
+.quotation-calculation-candidates { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.quotation-calculation-candidates li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem .75rem; border-top: 1px solid var(--glass-border); padding-top: .4rem; }
+.quotation-calculation-candidates li > span { display: grid; gap: .1rem; min-width: 0; }
+.quotation-calculation-candidates small { color: var(--muted); font-size: .8rem; }
+.quotation-calculation-candidates .secondary-button { min-height: 2.75rem; }
+.quotation-calculation-source dl > div { display: flex; justify-content: space-between; gap: .75rem; font-size: .82rem; }
+.quotation-calculation-source dd { margin: 0; font-weight: 600; }
+.construction-save-quotation { display: grid; gap: .4rem; }
+.construction-save-quotation > .secondary-button { justify-self: start; }
 .quotation-source-line { grid-column: 1 / -1; color: var(--brand-ink); font-weight: 700; }
 .workflow-list-quote-link { margin-top: .8rem; }
 .quotation-document-disclosure { padding: 0; overflow: clip; }
@@ -4616,7 +4626,8 @@ main[id="main-content"]:focus { outline: none; }
 
 /* F9.40.4 — quotation save bar (in-flow sticky, replaces the floating save pill) and neutral/missing states. */
 .quotation-savebar {
-  position: sticky; bottom: max(.5rem, env(safe-area-inset-bottom)); z-index: 12;
+  /* --app-nav-bar is the fixed mobile bottom navigation (already incl. the safe area); 0 on wider layouts. */
+  position: sticky; bottom: max(calc(var(--app-nav-bar) + .5rem), env(safe-area-inset-bottom)); z-index: 12;
   display: flex; min-height: 3.35rem; align-items: center; justify-content: space-between; gap: .75rem;
   border: 1px solid var(--glass-border); border-radius: 999px; padding: .4rem .45rem .4rem 1rem;
   background: var(--surface-popover);
