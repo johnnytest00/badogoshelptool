@@ -11,8 +11,9 @@ describe("rafter detail drawing", () => {
   it("labels domain values, draws three axes and no notch geometry", () => {
     const html = renderToStaticMarkup(<RafterDetailDrawing geometry={geometry} timberLayout={layout} section={null} />);
     expect(html.match(/class="rafter-detail-axis/g)).toHaveLength(3);
-    expect(html).toContain("L = 5000 mm");
-    expect(html).toContain("osztás 588,2 mm"); // 10 000 / 17
+    // Default unit is cm (5000 mm, 10 000 / 17 = 588,2 mm).
+    expect(html).toContain("L = 500 cm");
+    expect(html).toContain("osztás 58,8 cm");
     expect(html).toContain("C · További adat szükséges");
     expect(html).toContain("Szarufa magassága (keresztmetszet)");
     // Only the roof-plane outlines are polygons; no cut outline is drawn.

@@ -6,11 +6,12 @@ import { GlassToolbar } from "@/components/ui/glass-toolbar";
 import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
 import type { RoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
 import { createRafterDetailModel, RAFTER_DETAIL_PROFESSIONAL, RAFTER_DETAIL_VIEWBOX, type ScreenPoint } from "@/domain/drawings/rafter-detail";
-import { formatLength, LENGTH_UNITS, type LengthUnit } from "@/domain/measurements/length-input";
+import { LENGTH_UNITS, type LengthUnit } from "@/domain/measurements/length-input";
+import { formatDrawingLength } from "./rafter-joints-panel";
 import { clampDrawingZoom, clientPointToViewBox, drawingInitialViewport, panViewport, pinchViewport, rebasePanGesture, type ViewportPoint } from "@/features/roof-models/drawing-viewport";
 
 const { width: W, height: H } = RAFTER_DETAIL_VIEWBOX;
-const show = (mm: number, unit: LengthUnit) => `${formatLength(Math.round(mm * 10) / 10, unit)} ${unit}`;
+const show = (mm: number, unit: LengthUnit) => `${formatDrawingLength(mm, unit)} ${unit}`;
 const pts = (points: readonly ScreenPoint[]) => points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
 const KEY_PAN = 40;
 
@@ -19,7 +20,7 @@ type Gesture = { kind: "pan" | "pinch"; startPoint?: ViewportPoint; startPan: Vi
 /** Close-up axonometric view of 2–3 rafters from the computed timber layout; joints are shown as data states, never as notches. */
 export function RafterDetailDrawing({ geometry, timberLayout, section }: Readonly<{ geometry: RoofGeometry; timberLayout: RoofTimberLayout; section: Readonly<{ widthMm: number; heightMm: number }> | null }>) {
   const model = useMemo(() => createRafterDetailModel(geometry, timberLayout, section), [geometry, timberLayout, section]);
-  const [unit, setUnit] = useState<LengthUnit>("mm");
+  const [unit, setUnit] = useState<LengthUnit>("cm");
   const [viewport, setViewportState] = useState(drawingInitialViewport as { zoom: number; pan: ViewportPoint });
   const current = useRef(viewport);
   const svgRef = useRef<SVGSVGElement | null>(null);

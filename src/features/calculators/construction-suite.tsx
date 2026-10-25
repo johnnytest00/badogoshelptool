@@ -19,6 +19,7 @@ import { DEMO_MATERIAL_PROFILES, type MaterialProfile, overhangFromField } from 
 import { RoofMaterialInputs, initialMaterialState, type RoofMaterialUiState } from "./material-spec-editor";
 import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-results";
 import { ConstructionCalculatorThumbnail } from "./construction-thumbnails";
+import { RafterJointDrawing } from "./rafter-joint-drawing";
 import { RafterJointsPanel } from "./rafter-joints-panel";
 import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition } from "./construction-calculator-loading";
 import type { CalculatorDefinition, Field } from "./construction-calculator-types";
@@ -336,6 +337,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
       ? <ConstructionStairDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
       : definition.reference.category === "concrete" || definition.reference.category === "auxiliary"
         ? <ConstructionMaterialDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
+      : calculation.rafterJoints ? <RafterJointDrawing joints={calculation.rafterJoints} />
       : <>{rafterDetail}<ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={timberLayout} underlayLayout={underlayLayout} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} /></>
     : undefined;
   const canSave = Boolean(organizationId) && definitionLoaded && isSaveableConstructionCalculator(selectedId);

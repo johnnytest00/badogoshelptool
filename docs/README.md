@@ -13,6 +13,7 @@ Az implementált működéshez a kód, az adatbázis-migrációk és a ténylege
 ## Részletes, aktív referenciák
 
 - Adatbázis, RLS és migrációk: [DATABASE.md](DATABASE.md)
+- QA-10 staging release preflight: [QA10_STAGING_RELEASE_VALIDATION.md](QA10_STAGING_RELEASE_VALIDATION.md)
 - QA-09 migrációintegráció és release readiness: [QA09_MIGRATION_INTEGRATION_READINESS.md](QA09_MIGRATION_INTEGRATION_READINESS.md)
 - Konstrukciós RPC trust boundary: [QA08_RPC01_TRUST_BOUNDARY.md](QA08_RPC01_TRUST_BOUNDARY.md)
 - Számítási alapok: [CALCULATION_ENGINE.md](CALCULATION_ENGINE.md), [ROOF_CALCULATION_SPECIFICATION.md](ROOF_CALCULATION_SPECIFICATION.md)

@@ -5082,3 +5082,60 @@ main[id="main-content"]:focus { outline: none; }
 .rafter-detail-joints p { margin: .15rem 0 0; color: var(--muted); }
 .rafter-detail-svg .technical-dimension text { font-size: 30px; stroke-width: 8px; }
 .rafter-detail-svg .technical-dimension line { stroke-width: 3; }
+
+/* Szarufarajz szelemen-csatlakozásokkal: px-alapú vászon, a feliratok nagyításkor sem skálázódnak. */
+.rafter-joint-canvas { height: clamp(15rem, 72vw, 26rem); touch-action: none; }
+.rafter-joint-canvas.is-detail { height: clamp(17rem, 80vw, 24rem); touch-action: pan-y; }
+.rafter-joint-svg { display: block; width: 100%; height: 100%; color: var(--foreground); }
+.rafter-joint-svg.is-interactive { cursor: grab; touch-action: none; }
+.rafter-joint-svg.is-interactive:active { cursor: grabbing; }
+.rafter-joint-svg:focus-visible { outline: 3px solid var(--brand); outline-offset: -3px; }
+.rafter-joint-wood { fill: color-mix(in srgb, var(--warning) 22%, transparent); stroke: var(--foreground); stroke-width: 2.25; stroke-linejoin: round; }
+.rafter-joint-original { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.rafter-joint-axis { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 14 4 2 4; }
+.rafter-joint-support polyline { fill: none; stroke: var(--muted); stroke-width: 3; stroke-linecap: round; }
+.rafter-joint-support polyline.is-schematic { stroke-width: 1.5; stroke-dasharray: 5 4; }
+.rafter-joint-support.is-selected polyline { stroke: var(--foreground); }
+.rafter-joint-cut { stroke: var(--drawing-highlight); stroke-width: 3.5; stroke-linecap: round; }
+.rafter-joint-offcut { stroke: none; }
+.rafter-joint-leader { stroke: var(--brand); stroke-width: 1; }
+.rafter-joint-hatch { stroke: var(--drawing-highlight); stroke-width: 1.2; opacity: .55; }
+.rafter-joint-mark { stroke: var(--foreground); stroke-width: 1; stroke-dasharray: 2 3; }
+.rafter-joint-point circle, .rafter-joint-origin circle { fill: var(--surface-strong); stroke: var(--foreground); stroke-width: 1.5; }
+.rafter-joint-origin circle { fill: var(--foreground); }
+.rafter-joint-point text, .rafter-joint-origin text, .rafter-joint-edge-tag text { fill: var(--foreground); font-size: calc(11px * var(--tp-text-scale)); font-weight: 700; paint-order: stroke; stroke: var(--surface-strong); stroke-width: 3px; stroke-linejoin: round; }
+.rafter-joint-edge-tag text { fill: var(--muted); font-weight: 600; font-style: italic; }
+.rafter-joint-rows { display: grid; margin: 0; font-size: calc(.9rem * var(--tp-text-scale)); }
+.rafter-joint-rows div { display: flex; justify-content: space-between; gap: .75rem; padding: .25rem 0; border-bottom: 1px solid var(--border); }
+.rafter-joint-rows dt { min-width: 0; color: var(--foreground); }
+.rafter-joint-rows dt small { margin-left: .35rem; color: var(--muted); }
+.rafter-joint-rows dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rafter-joint-cutlist { display: grid; gap: .35rem; }
+.rafter-joint-cutlist h3 { margin: 0; font-size: calc(.95rem * var(--tp-text-scale)); }
+.rafter-joint-cutlist p { margin: 0; }
+.rafter-joint-unit { fill: var(--muted); font-size: calc(12px * var(--tp-text-scale)); font-weight: 700; }
+.rafter-joint-legend { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin: 0; padding: 0; list-style: none; font-size: calc(.8rem * var(--tp-text-scale)); }
+.rafter-joint-legend li { display: inline-flex; align-items: center; gap: .4rem; }
+.rafter-joint-legend i { display: inline-block; width: 1.4rem; height: .8rem; }
+.rafter-joint-legend .is-cut { border-bottom: 4px solid var(--drawing-highlight); height: 0; }
+.rafter-joint-legend .is-offcut { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--drawing-highlight) 55%, transparent) 0 1.5px, transparent 1.5px 5px); }
+.rafter-joint-legend .is-mark { border-bottom: 1.5px dotted var(--foreground); height: 0; }
+.rafter-joint-legend .is-dim { border-bottom: 1.5px solid var(--brand); height: 0; }
+.rafter-joint-svg .technical-dimension text, .rafter-joint-svg .technical-angle text { font-size: calc(13px * var(--tp-text-scale)); stroke-width: 4px; }
+.rafter-joint-svg .technical-dimension line { stroke-width: 1; }
+.rafter-joint-svg .technical-angle path { stroke-width: 1.25; }
+.rafter-joint-badge { cursor: pointer; }
+.rafter-joint-badge line { stroke: var(--muted); stroke-width: 1; }
+.rafter-joint-badge rect { fill: var(--surface-strong); stroke: var(--foreground); stroke-width: 1.5; }
+.rafter-joint-badge text { fill: var(--foreground); font-size: calc(12px * var(--tp-text-scale)); font-weight: 700; }
+.rafter-joint-badge.is-selected rect { fill: var(--drawing-highlight); stroke: var(--drawing-highlight); }
+.rafter-joint-badge.is-selected text { fill: var(--surface-strong); }
+.rafter-joint-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
+.rafter-joint-slots button { display: grid; gap: .05rem; min-height: 3.6rem; min-width: 0; padding: .45rem .5rem; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-strong); color: var(--foreground); text-align: left; }
+.rafter-joint-slots button[aria-pressed="true"] { border-color: var(--drawing-highlight); box-shadow: inset 0 0 0 2px var(--drawing-highlight); }
+.rafter-joint-slots span { font-size: calc(.7rem * var(--tp-text-scale)); overflow-wrap: break-word; }
+.rafter-joint-slots small { color: var(--muted); font-size: calc(.68rem * var(--tp-text-scale)); }
+.rafter-joint-slots button:is([data-status="incomplete"], [data-status="invalid"]) small { color: var(--warning); font-weight: 700; }
+.rafter-joint-detail { display: grid; gap: .5rem; min-width: 0; }
+.rafter-joint-detail h3 { margin: 0; font-size: calc(.95rem * var(--tp-text-scale)); }
+.rafter-joint-detail h3 small { color: var(--muted); font-weight: 600; }

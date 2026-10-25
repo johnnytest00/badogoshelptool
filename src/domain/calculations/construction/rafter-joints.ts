@@ -29,7 +29,7 @@ export type RafterJointResult = Readonly<{
   reason?: string;
 }>;
 type Point = Readonly<{ xMm: number; yMm: number }>;
-export type RafterJointDrawing = Readonly<{ outline: readonly Point[]; supports: readonly Readonly<{ id: string; label: string; face: Point; seatEnd: Point }>[] }>;
+export type RafterJointDrawing = Readonly<{ outline: readonly Point[]; supports: readonly Readonly<{ id: string; label: string; face: Point; seatEnd: Point }>[]; rafterDepthMm: number; ridgeAxisXMm: number; ridgeJoint: RidgeJoint }>;
 export type RafterJoints = Readonly<{ pitchDegrees: number; joints: readonly RafterJointResult[]; drawing: RafterJointDrawing | null }>;
 
 const RIDGE_JOINTS: readonly RidgeJoint[] = ["opposed", "board", "purlin"];
@@ -144,12 +144,12 @@ export function calculateRafterJoints(input: RafterJointInput): RafterJoints {
   })();
 
   const joints = [seat, ...(purlin ? [purlin] : []), ridge];
-  const drawing = s.plumbDepth === null || joints.some((joint) => joint.status === "invalid") ? null : outline(s, -input.eaveProjectionMm, ridgeEndX, supports);
+  const drawing = depth === undefined || joints.some((joint) => joint.status === "invalid") ? null : outline(s, -input.eaveProjectionMm, ridgeEndX, supports, input.ridgeJoint, depth);
   return { pitchDegrees: base.pitchDegrees, joints, drawing };
 }
 
 /** Rafter section outline with the seat notches, shared by the table values and the SVG detail. */
-function outline(s: Section, eaveX: number, ridgeX: number, supports: readonly { id: string; label: string; face: Point; seatEnd: Point }[]): RafterJointDrawing {
+function outline(s: Section, eaveX: number, ridgeX: number, supports: readonly { id: string; label: string; face: Point; seatEnd: Point }[], ridgeJoint: RidgeJoint, rafterDepthMm: number): RafterJointDrawing {
   const bottom: Point[] = [{ xMm: ridgeX, yMm: lowerEdge(s, ridgeX) }];
   for (const support of [...supports].sort((a, b) => b.face.xMm - a.face.xMm)) {
     const cut = notch(s, support.face.xMm, support.face.yMm);
@@ -157,5 +157,5 @@ function outline(s: Section, eaveX: number, ridgeX: number, supports: readonly {
     bottom.push(support.seatEnd, support.face, { xMm: support.face.xMm, yMm: lowerEdge(s, support.face.xMm) });
   }
   bottom.push({ xMm: eaveX, yMm: lowerEdge(s, eaveX) });
-  return { outline: [{ xMm: eaveX, yMm: upperEdge(s, eaveX) }, { xMm: ridgeX, yMm: upperEdge(s, ridgeX) }, ...bottom], supports };
+  return { outline: [{ xMm: eaveX, yMm: upperEdge(s, eaveX) }, { xMm: ridgeX, yMm: upperEdge(s, ridgeX) }, ...bottom], supports, rafterDepthMm, ridgeAxisXMm: s.halfSpan, ridgeJoint };
 }
