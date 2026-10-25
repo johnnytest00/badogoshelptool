@@ -16,6 +16,7 @@ export type RafterJointInput = RafterGeometryInput & Readonly<{
   ridgePurlinTopMm?: number;
   purlinFaceMm?: number;
   purlinTopMm?: number;
+  plateWidthMm?: number;
 }>;
 /** A: from existing data, B: from additional user input. C (missing) and D (professional) are text lists. */
 export type JointValue = Readonly<{ label: string; value: number; unit: "mm" | "°"; classification: "A" | "B" }>;
@@ -28,9 +29,16 @@ export type RafterJointResult = Readonly<{
   professional: readonly string[];
   reason?: string;
 }>;
+/** Geometric check only: does the horizontal seat fit on a wall plate of the given width? Never a structural verdict. */
+export type PlateFit = Readonly<{ plateWidthMm: number; seatMm: number; fits: boolean; overhangMm: number }>;
+export function plateFitOf(seat: RafterJointResult, plateWidthMm: number | undefined): PlateFit | null {
+  const seatMm = seat.values.find((item) => item.label === "Vízszintes ülékhossz")?.value;
+  if (seatMm === undefined || plateWidthMm === undefined || !Number.isFinite(plateWidthMm) || plateWidthMm <= 0) return null;
+  return { plateWidthMm, seatMm, fits: seatMm <= plateWidthMm + SEAT_TOLERANCE_MM, overhangMm: Math.max(0, seatMm - plateWidthMm) };
+}
 type Point = Readonly<{ xMm: number; yMm: number }>;
 export type RafterJointDrawing = Readonly<{ outline: readonly Point[]; supports: readonly Readonly<{ id: string; label: string; face: Point; seatEnd: Point }>[]; rafterDepthMm: number; ridgeAxisXMm: number; ridgeJoint: RidgeJoint }>;
-export type RafterJoints = Readonly<{ pitchDegrees: number; joints: readonly RafterJointResult[]; drawing: RafterJointDrawing | null }>;
+export type RafterJoints = Readonly<{ pitchDegrees: number; joints: readonly RafterJointResult[]; drawing: RafterJointDrawing | null; plateFit: PlateFit | null }>;
 
 const RIDGE_JOINTS: readonly RidgeJoint[] = ["opposed", "board", "purlin"];
 const optionalMm = (value: unknown) => value === undefined || value === null || value === "" || !Number.isFinite(Number(value)) ? undefined : Number(value);
@@ -42,7 +50,7 @@ export function rafterJointInputFromFields(fields: Record<string, unknown>): Raf
     eaveProjectionMm: Number(fields.eaveProjectionMm ?? 0), seatCutHeightMm: optionalMm(fields.seatCutHeightMm) ?? 0,
     rafterDepthMm: optionalMm(fields.rafterDepthMm), ridgeJoint: RIDGE_JOINTS.includes(ridge) ? ridge : "opposed",
     ridgeBoardThicknessMm: optionalMm(fields.ridgeBoardThicknessMm), ridgePurlinWidthMm: optionalMm(fields.ridgePurlinWidthMm), ridgePurlinTopMm: optionalMm(fields.ridgePurlinTopMm),
-    purlinFaceMm: optionalMm(fields.purlinFaceMm), purlinTopMm: optionalMm(fields.purlinTopMm),
+    purlinFaceMm: optionalMm(fields.purlinFaceMm), purlinTopMm: optionalMm(fields.purlinTopMm), plateWidthMm: optionalMm(fields.plateWidthMm),
   };
 }
 
@@ -145,7 +153,7 @@ export function calculateRafterJoints(input: RafterJointInput): RafterJoints {
 
   const joints = [seat, ...(purlin ? [purlin] : []), ridge];
   const drawing = depth === undefined || joints.some((joint) => joint.status === "invalid") ? null : outline(s, -input.eaveProjectionMm, ridgeEndX, supports, input.ridgeJoint, depth);
-  return { pitchDegrees: base.pitchDegrees, joints, drawing };
+  return { pitchDegrees: base.pitchDegrees, joints, drawing, plateFit: seat.status === "computed" ? plateFitOf(seat, input.plateWidthMm) : null };
 }
 
 /** Rafter section outline with the seat notches, shared by the table values and the SVG detail. */

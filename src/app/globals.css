@@ -5105,15 +5105,40 @@ main[id="main-content"]:focus { outline: none; }
 .rafter-joint-origin circle { fill: var(--foreground); }
 .rafter-joint-point text, .rafter-joint-origin text, .rafter-joint-edge-tag text { fill: var(--foreground); font-size: calc(11px * var(--tp-text-scale)); font-weight: 700; paint-order: stroke; stroke: var(--surface-strong); stroke-width: 3px; stroke-linejoin: round; }
 .rafter-joint-edge-tag text { fill: var(--muted); font-weight: 600; font-style: italic; }
-.rafter-joint-rows { display: grid; margin: 0; font-size: calc(.9rem * var(--tp-text-scale)); }
+.rafter-joint-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); column-gap: 1.5rem; margin: 0; font-size: calc(.92rem * var(--tp-text-scale)); }
 .rafter-joint-rows div { display: flex; justify-content: space-between; gap: .75rem; padding: .25rem 0; border-bottom: 1px solid var(--border); }
 .rafter-joint-rows dt { min-width: 0; color: var(--foreground); }
 .rafter-joint-rows dt small { margin-left: .35rem; color: var(--muted); }
-.rafter-joint-rows dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rafter-joint-rows dd { margin: 0; font-weight: 800; font-size: 1.05em; color: var(--foreground); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rafter-joint-cutlist { display: grid; gap: .35rem; }
+.rafter-layout-canvas { touch-action: pan-y; }
+.rafter-layout-plane { fill: color-mix(in srgb, var(--warning) 12%, transparent); stroke: var(--foreground); stroke-width: 1.5; stroke-linejoin: round; }
+.rafter-layout-rafter { stroke: var(--drawing-highlight); stroke-width: 3; stroke-linecap: round; }
+.rafter-layout-number, .rafter-layout-edge, .rafter-layout-unit { fill: var(--foreground); font-size: var(--rj-font, 13px); font-weight: 800; font-variant-numeric: tabular-nums; }
+.rafter-layout-edge, .rafter-layout-unit { fill: var(--muted); font-weight: 700; }
+.rafter-layout-controls { display: flex; flex-wrap: wrap; gap: .4rem; }
+.rafter-layout-controls select { min-height: 2.75rem; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-strong); color: var(--foreground); padding: 0 .6rem; }
+.rafter-layout-ends { display: grid; gap: .3rem; margin: 0; padding-left: 1.1rem; font-size: calc(.88rem * var(--tp-text-scale)); line-height: 1.45; }
+.rafter-joint-cutlist dd small { color: var(--muted); font-weight: 600; }
+.rafter-joint-guide { display: grid; gap: .55rem; padding: .8rem .9rem; border: 1px solid color-mix(in srgb, var(--drawing-highlight) 45%, var(--border)); border-radius: var(--radius-surface); background: color-mix(in srgb, var(--drawing-highlight) 7%, var(--surface-strong)); }
+.rafter-joint-fit { margin: 0; font-size: calc(.88rem * var(--tp-text-scale)); font-weight: 600; }
+.rafter-joint-fit.is-warning { color: var(--warning); font-weight: 800; }
+.rafter-joint-guide-lead { margin: 0; font-weight: 800; font-size: calc(1rem * var(--tp-text-scale)); }
+.rafter-joint-guide li { display: list-item; }
+.rafter-joint-step circle { fill: var(--drawing-highlight); }
+.rafter-joint-step text { fill: var(--surface-strong); font-size: var(--rj-font, 13px); font-weight: 800; }
+.rafter-joint-guide li::marker { color: var(--drawing-highlight); font-weight: 800; }
+.rafter-joint-guide h4 { margin: .2rem 0 0; font-size: calc(.88rem * var(--tp-text-scale)); }
+.rafter-joint-guide ol { display: grid; gap: .35rem; margin: 0; padding-left: 1.5rem; list-style: decimal; font-size: calc(.9rem * var(--tp-text-scale)); line-height: 1.45; }
+.rafter-joint-guide-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; margin: 0; }
+.rafter-joint-guide-figures div { display: grid; align-content: start; gap: .1rem; min-width: 0; }
+.rafter-joint-guide-figures dt { color: var(--muted); font-size: calc(.74rem * var(--tp-text-scale)); font-weight: 700; }
+.rafter-joint-guide-figures dd { margin: 0; font-size: calc(1.35rem * var(--tp-text-scale)); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rafter-joint-guide-figures small { color: var(--muted); font-size: calc(.7rem * var(--tp-text-scale)); line-height: 1.3; }
+.rafter-joint-all summary { cursor: pointer; font-weight: 700; font-size: calc(.85rem * var(--tp-text-scale)); }
+.rafter-joint-all[open] summary { margin-bottom: .35rem; }
 .rafter-joint-cutlist h3 { margin: 0; font-size: calc(.95rem * var(--tp-text-scale)); }
 .rafter-joint-cutlist p { margin: 0; }
-.rafter-joint-unit { fill: var(--muted); font-size: calc(12px * var(--tp-text-scale)); font-weight: 700; }
 .rafter-joint-legend { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin: 0; padding: 0; list-style: none; font-size: calc(.8rem * var(--tp-text-scale)); }
 .rafter-joint-legend li { display: inline-flex; align-items: center; gap: .4rem; }
 .rafter-joint-legend i { display: inline-block; width: 1.4rem; height: .8rem; }
@@ -5121,7 +5146,14 @@ main[id="main-content"]:focus { outline: none; }
 .rafter-joint-legend .is-offcut { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--drawing-highlight) 55%, transparent) 0 1.5px, transparent 1.5px 5px); }
 .rafter-joint-legend .is-mark { border-bottom: 1.5px dotted var(--foreground); height: 0; }
 .rafter-joint-legend .is-dim { border-bottom: 1.5px solid var(--brand); height: 0; }
-.rafter-joint-svg .technical-dimension text, .rafter-joint-svg .technical-angle text { font-size: calc(13px * var(--tp-text-scale)); stroke-width: 4px; }
+.rafter-joint-svg .technical-dimension text, .rafter-joint-svg .technical-angle text { font-size: var(--rj-font, 13px); stroke: none; }
+.rafter-joint-tag rect { fill: var(--surface-strong); stroke: color-mix(in srgb, var(--brand) 55%, transparent); stroke-width: 1; }
+.rafter-joint-tag text { fill: var(--foreground); font-size: var(--rj-font, 13px); font-weight: 700; font-variant-numeric: tabular-nums; }
+.rafter-joint-tag.is-angle rect { stroke-dasharray: 3 2; }
+.rafter-joint-tag.is-origin rect { fill: var(--foreground); stroke: none; }
+.rafter-joint-tag.is-origin text { fill: var(--surface-strong); }
+.drawing-toolbar .rafter-joint-unit-tag { margin-left: auto; color: var(--muted); font-size: calc(.78rem * var(--tp-text-scale)); font-weight: 700; white-space: nowrap; }
+.rafter-joint-svg :is(.rafter-joint-point, .rafter-joint-origin, .rafter-joint-edge-tag, .rafter-joint-badge) text { font-size: var(--rj-font, 13px); }
 .rafter-joint-svg .technical-dimension line { stroke-width: 1; }
 .rafter-joint-svg .technical-angle path { stroke-width: 1.25; }
 .rafter-joint-badge { cursor: pointer; }

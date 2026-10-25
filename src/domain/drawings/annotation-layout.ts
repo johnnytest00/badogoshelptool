@@ -116,3 +116,9 @@ export function placeDimensions(items: readonly DimensionInput[], box: ScreenBox
     return dimensionScreenGeometry(item.kind, item.start, item.end, item.offset, { distance: distances[index], baseline });
   });
 }
+
+/** Filled arrowhead at `tip`, pointing away from `toward`; px-sized for screen-space dimension lines. */
+export function arrowheadPath(tip: AnnotationPoint, toward: AnnotationPoint, length = 8, halfWidth = 3.2): string {
+  const dx = toward.x - tip.x, dy = toward.y - tip.y, n = Math.hypot(dx, dy) || 1, ux = dx / n, uy = dy / n;
+  return `M${tip.x},${tip.y} L${tip.x + ux * length - uy * halfWidth},${tip.y + uy * length + ux * halfWidth} L${tip.x + ux * length + uy * halfWidth},${tip.y + uy * length - ux * halfWidth} Z`;
+}

@@ -86,6 +86,52 @@ describe("computeConstruction", () => {
   });
 });
 
+describe("birdsmouth in the roof calculators (M9.3 phase 1)", () => {
+  // 35°, h 200, HAP 100: H = 200/cos35; plumb = H − 100; seat = plumb / tan35 (same formula as the rafter-cut calculator).
+  const rad = 35 * Math.PI / 180, plumb = 200 / Math.cos(rad) - 100, seat = plumb / Math.tan(rad);
+  const withSection: RoofMaterialUiState = { ...material, specs: { ...material.specs, rafter: { mode: "manual", profileId: null, entered: { sectionWidthMm: 80, sectionHeightMm: 200 } } } };
+  const line = (rows: readonly { label: string; value: unknown }[], end: string) => rows.find((row) => row.label.startsWith("Madárszáj · 35°") && row.label.endsWith(end))?.value;
+
+  it("adds the notch lines when requested and keeps the result complete", () => {
+    const result = computeConstruction(timber, { ...timberValues, birdsmouth: "true", seatCutHeightMm: "100" }, withSection, DEMO_MATERIAL_PROFILES);
+    expect(result.completeness).toEqual({ status: "complete", reasons: [] });
+    expect(line(result.rows, "Függővágás magassága")).toBeCloseTo(plumb, 9);
+    expect(line(result.rows, "Vízszintes ülékhossz")).toBeCloseTo(seat, 9);
+    expect(result.birdsmouths?.every((plane) => plane.status === "computed")).toBe(true);
+  });
+
+  it("is incomplete while the seat cut height or the rafter depth is missing", () => {
+    const noSeat = computeConstruction(timber, { ...timberValues, birdsmouth: "true", seatCutHeightMm: "" }, withSection, DEMO_MATERIAL_PROFILES);
+    expect(noSeat.completeness).toMatchObject({ status: "incomplete", reasons: expect.arrayContaining([expect.stringContaining("Madárszáj vízszintes vágásának magassága")]) });
+    const noDepth = computeConstruction(timber, { ...timberValues, birdsmouth: "true", seatCutHeightMm: "100" }, material, DEMO_MATERIAL_PROFILES);
+    expect(noDepth.completeness).toMatchObject({ status: "incomplete", reasons: expect.arrayContaining([expect.stringContaining("Szarufa keresztmetszet magassága")]) });
+    expect(isSaveableComputation(noDepth)).toBe(false);
+  });
+
+  it("leaves results and old revisions unchanged when the notch is not requested", () => {
+    const before = computeConstruction(timber, timberValues, withSection, DEMO_MATERIAL_PROFILES);
+    const off = computeConstruction(timber, { ...timberValues, birdsmouth: "", seatCutHeightMm: "100" }, withSection, DEMO_MATERIAL_PROFILES);
+    expect(off.rows).toEqual(before.rows);
+    expect(off.birdsmouths).toBeNull();
+    // A pre-M9.3 revision stores every field of its time ("" when empty) but none of the three new keys.
+    const newKeys = ["birdsmouth", "seatCutHeightMm", "plateWidthMm"];
+    const current = Object.fromEntries(timber.fields.map((field) => [field.key, (timberValues as Record<string, string>)[field.key] ?? field.initial ?? ""]));
+    const historical = { ...constructionInputSnapshot(timber, current, material), fields: Object.fromEntries(Object.entries(current).filter(([key]) => !newKeys.includes(key))) };
+    const hydrated = comparableConstructionInput(timber, historical)!;
+    // Reopened, the editor holds the same values plus "" for the new keys, so the revision is not shown as modified.
+    expect(JSON.stringify(hydrated)).toBe(JSON.stringify(constructionInputSnapshot(timber, Object.fromEntries(timber.fields.map((field) => [field.key, (hydrated.fields as Record<string, string>)[field.key]])), material)));
+    expect(hydrated.fields).toMatchObject({ birdsmouth: "", seatCutHeightMm: "", plateWidthMm: "" });
+  });
+
+  it("ignores the notch in the material takeoff when rafters are not requested", () => {
+    const takeoff = definitions["roof.material-takeoff"];
+    const coveringOnly: RoofMaterialUiState = { ...withSection, requested: { timber: false, underlay: true, covering: false } };
+    const result = computeConstruction(takeoff, { ...timberValues, birdsmouth: "true", seatCutHeightMm: "" }, coveringOnly, DEMO_MATERIAL_PROFILES);
+    expect(result.birdsmouths).toBeNull();
+    expect(result.completeness.reasons.some((reason) => reason.includes("Madárszáj"))).toBe(false);
+  });
+});
+
 describe("construction snapshots", () => {
   it("compares a historical V2 rafter snapshot with hydrated defaults without changing its stored mm values", () => {
     const historical = constructionInputSnapshot(rafter, { horizontalHalfSpanMm: "3000", riseMm: "2000", eaveProjectionMm: "600", seatCutHeightMm: "0" }, null);

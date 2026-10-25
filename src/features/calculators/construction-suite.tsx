@@ -20,6 +20,7 @@ import { RoofMaterialInputs, initialMaterialState, type RoofMaterialUiState } fr
 import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-results";
 import { ConstructionCalculatorThumbnail } from "./construction-thumbnails";
 import { RafterJointDrawing } from "./rafter-joint-drawing";
+import { RafterLayoutDrawing } from "./rafter-layout-drawing";
 import { RafterJointsPanel } from "./rafter-joints-panel";
 import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition } from "./construction-calculator-loading";
 import type { CalculatorDefinition, Field } from "./construction-calculator-types";
@@ -330,7 +331,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const sectionWidthMm = rafterInput?.sectionWidthMm, sectionHeightMm = rafterInput?.sectionHeightMm;
   const rafterSection = useMemo(() => sectionWidthMm && sectionHeightMm ? { widthMm: sectionWidthMm, heightMm: sectionHeightMm } : null, [sectionWidthMm, sectionHeightMm]);
   const rafterDetail = !(timberOnly || (isTakeoff && materialState.requested.timber)) || !calculation.geometry ? null
-    : timberLayout?.rafters ? <RafterDetailDrawing geometry={calculation.geometry} timberLayout={timberLayout} section={rafterSection} />
+    : timberLayout?.rafters ? <><RafterLayoutDrawing geometry={calculation.geometry} timberLayout={timberLayout} birdsmouths={calculation.birdsmouths} /><RafterDetailDrawing geometry={calculation.geometry} timberLayout={timberLayout} section={rafterSection} /></>
     : <section className="technical-drawing is-compact rafter-detail" role="status"><div className="technical-drawing-header"><h2>Szarufa-részlet · közeli nézet</h2></div><p className="construction-suite-limit">{materialTakeoff?.timber.status === "unavailable" && rafterInput ? `A szarufa-részlet nem rajzolható: ${materialTakeoff.timber.reason}` : "A szarufa-részlethez adj meg érvényes legnagyobb szarufa-tengelytávolságot."}</p></section>;
   const drawingContent = calculation.geometry !== null || calculation.rows.length > 0
     ? definition.reference.category === "stair"

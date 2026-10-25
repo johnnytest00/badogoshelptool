@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { calculateExistingRoofGeometry } from "@/domain/calculations/construction/roofs";
 import { calculateRafterJoints, rafterJointInputFromFields, type RafterJoints } from "@/domain/calculations/construction/rafter-joints";
+import { planeBirdsmouthsFor, type PlaneBirdsmouth } from "@/domain/calculations/construction/plane-birdsmouth";
 import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoff, type RoofMaterialTakeoffInputs } from "@/domain/calculations/roof-material-takeoff";
 import type { RoofGeometry, RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/roof-geometry";
 import { roofTimberInputFromParameters, roofTimberParametersSchema, type RoofTimberLayout, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
@@ -70,6 +71,8 @@ export type ConstructionComputation = Readonly<{
   underlayLayout: RoofUnderlayLayout | null;
   cutList: Readonly<{ rafters: readonly { lengthMm: number; count: number }[]; battens: readonly { lengthMm: number; count: number }[] }> | null;
   rafterJoints: RafterJoints | null;
+  /** Per roof plane notch in the roof calculators; null when not asked for or without a rafter layout. */
+  birdsmouths: readonly PlaneBirdsmouth[] | null;
   completeness: Readonly<{ status: "complete" | "incomplete" | "invalid" | "unsupported"; reasons: readonly string[] }>;
 }>;
 
@@ -114,6 +117,8 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
   const underlayLayout = materialTakeoff && takeoffInputs?.requested?.underlay ? materialTakeoff.underlay : null;
   const cutList = timberOnly && timberLayout ? { rafters: cutListRows(timberLayout.rafters?.segments ?? []), battens: cutListRows(timberLayout.battens?.segments ?? []) } : null;
   const rafterJoints = calculatorId === "roof.rafter-cut" && rows.length > 0 && error === null ? calculateRafterJoints(rafterJointInputFromFields(raw)) : null;
+  const birdsmouths = geometry && timberRequested ? planeBirdsmouthsFor(raw, takeoffInputs, geometry, timberLayout) : null;
+  const birdsmouthIssues = (status: PlaneBirdsmouth["status"]) => (birdsmouths ?? []).filter((plane) => plane.status === status);
   const activeParts = materialTakeoff?.parts.filter((part) => part.requested && part.id !== "geometry") ?? [];
   const reasons = [...new Set([
     ...requiredFields.filter((field) => (values[field.key] ?? "").trim() === "").map((field) => field.label),
@@ -122,17 +127,19 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
     ...(materialTakeoff?.reasons ?? []),
     ...activeParts.flatMap((part) => part.incompleteQuantities.map((quantity) => `${part.label} · ${quantity.reason}`)),
     ...activeParts.flatMap((part) => part.invalidInputs.map((issue) => `${part.label} · ${issue}`)),
+    ...birdsmouthIssues("incomplete").flatMap((plane) => plane.missing.map((label) => `Madárszáj · ${label}`)),
+    ...birdsmouthIssues("invalid").flatMap((plane) => plane.reason ? [`Madárszáj · ${plane.reason}`] : []),
   ])];
-  const completeness = error !== null || (layoutValidation && !layoutValidation.success) || materialTakeoff?.status === "INVALID"
+  const completeness = error !== null || (layoutValidation && !layoutValidation.success) || materialTakeoff?.status === "INVALID" || birdsmouthIssues("invalid").length > 0
     ? { status: "invalid" as const, reasons: [...new Set([error, ...(layoutValidation && !layoutValidation.success ? layoutValidation.error.issues.map((issue) => validationMessage(issue)) : []), ...reasons].filter((reason): reason is string => Boolean(reason)))] }
     : materialTakeoff?.status === "UNSUPPORTED"
       ? { status: "unsupported" as const, reasons }
-      : !inputsReady || (materialTakeoff !== null && (activeParts.length === 0 || materialTakeoff.status === "INCOMPLETE" || activeParts.some((part) => part.incompleteQuantities.length > 0)))
+      : !inputsReady || birdsmouthIssues("incomplete").length > 0 || (materialTakeoff !== null && (activeParts.length === 0 || materialTakeoff.status === "INCOMPLETE" || activeParts.some((part) => part.incompleteQuantities.length > 0)))
         ? { status: "incomplete" as const, reasons: activeParts.length === 0 && materialTakeoff ? ["Válassz legalább egy számítandó anyagcsoportot.", ...reasons] : reasons }
         : rows.length > 0 || geometry !== null
           ? { status: "complete" as const, reasons: [] }
           : { status: "invalid" as const, reasons: ["A megadott adatokból nem keletkezett eredmény."] };
-  return { inputsReady, rows, error, geometry, takeoffInputs, materialTakeoff, timberLayout, underlayLayout, cutList, rafterJoints, completeness };
+  return { inputsReady, rows, error, geometry, takeoffInputs, materialTakeoff, timberLayout, underlayLayout, cutList, rafterJoints, birdsmouths, completeness };
 }
 
 export const CONSTRUCTION_INPUT_SCHEMA = "construction-suite.input.v1";

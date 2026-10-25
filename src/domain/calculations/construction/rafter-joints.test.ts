@@ -60,6 +60,13 @@ describe("rafter joints (upper edge reference, seat cut lowers the effective ris
     expect(drawing?.supports.map((support) => support.id)).toEqual(["seat", "purlin"]);
   });
 
+  it("checks only geometrically whether the 200 mm seat fits on the given wall plate", () => {
+    expect(calculateRafterJoints({ ...base, plateWidthMm: 160 }).plateFit).toEqual({ plateWidthMm: 160, seatMm: expect.closeTo(200, 9), fits: false, overhangMm: expect.closeTo(40, 9) });
+    expect(calculateRafterJoints({ ...base, plateWidthMm: 220 }).plateFit).toMatchObject({ fits: true, overhangMm: 0 });
+    expect(calculateRafterJoints(base).plateFit).toBeNull();
+    expect(rafterJointInputFromFields({ horizontalHalfSpanMm: 4000, riseMm: 3100, plateWidthMm: 160 }).plateWidthMm).toBe(160);
+  });
+
   it("reads suite field strings and falls back to an opposed ridge", () => {
     expect(rafterJointInputFromFields({ horizontalHalfSpanMm: 4000, riseMm: 3100, eaveProjectionMm: 0, seatCutHeightMm: undefined, rafterDepthMm: "", ridgeJoint: "x" }))
       .toMatchObject({ seatCutHeightMm: 0, rafterDepthMm: undefined, ridgeJoint: "opposed" });

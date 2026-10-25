@@ -1,5 +1,6 @@
 import type { RoofGeometry, RoofGeometryEdge, RoofPoint } from "@/domain/calculations/roof-geometry";
 import type { RoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
+import { edgeKindAt } from "@/domain/calculations/roof-geometry-edges";
 
 /**
  * Close-up of a few rafters from the existing timber layout, in one orthographic axonometric view.
@@ -48,7 +49,6 @@ const REFERENCE_LABEL = "A tetősík viszonya a szarufa felső éléhez (mérés
 const YAW = 60 * Math.PI / 180;
 const ELEVATION = 25 * Math.PI / 180;
 const PADDING = 70;
-const EDGE_PRIORITY: readonly RoofGeometryEdge["kind"][] = ["ridge", "hip", "valley", "break", "upper", "eave", "rake"];
 
 /** Rotation about the vertical axis then tilt; the depth coordinate is dropped. Linear, so midpoints are preserved. */
 export function projectAxonometric(point: RoofPoint, frame: AxonometricFrame): ScreenPoint {
@@ -56,19 +56,6 @@ export function projectAxonometric(point: RoofPoint, frame: AxonometricFrame): S
   const a = dx * frame.t.x + dy * frame.t.y, b = dx * frame.u.x + dy * frame.u.y, c = point.zMm - frame.origin.zMm;
   const depth = -a * Math.sin(YAW) + b * Math.cos(YAW);
   return { x: a * Math.cos(YAW) + b * Math.sin(YAW), y: -(c * Math.cos(ELEVATION) + depth * Math.sin(ELEVATION)) };
-}
-
-function onEdge(point: RoofPoint, edge: RoofGeometryEdge): boolean {
-  const ex = edge.end.xMm - edge.start.xMm, ey = edge.end.yMm - edge.start.yMm, ez = edge.end.zMm - edge.start.zMm;
-  const length2 = ex * ex + ey * ey + ez * ez;
-  if (length2 <= 0) return false;
-  const ratio = Math.min(1, Math.max(0, ((point.xMm - edge.start.xMm) * ex + (point.yMm - edge.start.yMm) * ey + (point.zMm - edge.start.zMm) * ez) / length2));
-  return Math.hypot(edge.start.xMm + ex * ratio - point.xMm, edge.start.yMm + ey * ratio - point.yMm, edge.start.zMm + ez * ratio - point.zMm) < 1;
-}
-
-function edgeKindAt(geometry: RoofGeometry, point: RoofPoint): RafterDetailJoint["edgeKind"] {
-  const kinds = new Set(geometry.edges.filter((edge) => onEdge(point, edge)).map((edge) => edge.kind));
-  return EDGE_PRIORITY.find((kind) => kinds.has(kind)) ?? "unknown";
 }
 
 function joint(position: RafterDetailJoint["position"], edgeKind: RafterDetailJoint["edgeKind"], hasDepth: boolean, point: RoofPoint, screen: ScreenPoint): RafterDetailJoint {

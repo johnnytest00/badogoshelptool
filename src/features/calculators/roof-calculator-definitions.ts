@@ -6,6 +6,8 @@ import { calculateRafterJoints, rafterJointInputFromFields } from "@/domain/calc
 
 import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoffInputs } from "@/domain/calculations/roof-material-takeoff";
 
+import { birdsmouthLines, planeBirdsmouthsFor } from "@/domain/calculations/construction/plane-birdsmouth";
+
 import type { RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/roof-geometry";
 
 import { roofGeometryInputFromFields } from "@/domain/calculations/roof-calculation-snapshot";
@@ -47,10 +49,22 @@ export const roofShapeOf = (values: Record<string, unknown>): RoofGeometryType =
 
 const roofGeometryInputFor = (values: Record<string, unknown>): RoofGeometryInput => roofGeometryInputFromFields(roofShapeOf(values), values);
 
+/** Birdsmouth fields (M9.3 phase 1): only when asked for, and only with a rafter layout (D1 reference, see plane-birdsmouth.ts). */
+const birdsmouthFields: readonly Field[] = [
+  { key: "birdsmouth", label: "Madárszáj számítása a szarufákhoz", unit: "", kind: "checkbox", advanced: true },
+  { key: "seatCutHeightMm", label: "Madárszáj vízszintes vágásának magassága", unit: "mm", advanced: true, visibleWhen: { key: "birdsmouth", values: ["true"] } },
+  { key: "plateWidthMm", label: "Talpszelemen szélessége · ellenőrzéshez", unit: "mm", advanced: true, placeholder: "nincs megadva", visibleWhen: { key: "birdsmouth", values: ["true"] } },
+];
+
 export function takeoffLines(input: Record<string, unknown>, context: RoofMaterialTakeoffInputs | undefined): ResultLine[] {
   if (!context) return [];
-  const takeoff = calculateRoofMaterialTakeoff(calculateExistingRoofGeometry(roofGeometryInputFor(input)), context);
-  return takeoff.parts.filter((part) => part.requested && part.id !== "geometry").flatMap((part) => part.quantities.map((quantity) => ({ label: `${part.label} · ${quantity.label}`, value: quantity.value, unit: quantity.unit })));
+  const geometry = calculateExistingRoofGeometry(roofGeometryInputFor(input));
+  const takeoff = calculateRoofMaterialTakeoff(geometry, context);
+  const timber = takeoff.timber.status === "available" ? takeoff.timber : null;
+  return [
+    ...takeoff.parts.filter((part) => part.requested && part.id !== "geometry").flatMap((part) => part.quantities.map((quantity) => ({ label: `${part.label} · ${quantity.label}`, value: quantity.value, unit: quantity.unit }))),
+    ...birdsmouthLines(planeBirdsmouthsFor(input, context, geometry, timber) ?? []),
+  ];
 }
 
 export const definitions: Record<string, CalculatorDefinition> = {
@@ -64,7 +78,8 @@ export const definitions: Record<string, CalculatorDefinition> = {
       { key: "ridgePurlinWidthMm", label: "Gerincszelemen szélessége", unit: "mm", advanced: true, visibleWhen: { key: "ridgeJoint", values: ["purlin"] } },
       { key: "ridgePurlinTopMm", label: "Gerincszelemen felső síkja · a talpszelemen felső síkja felett", unit: "mm", advanced: true, visibleWhen: { key: "ridgeJoint", values: ["purlin"] } },
       { key: "purlinFaceMm", label: "Derékszelemen ereszoldali síkja · vízszintesen a talpszelemen külső síkjától", unit: "mm", advanced: true, placeholder: "nincs derékszelemen" },
-      { key: "purlinTopMm", label: "Derékszelemen felső síkja · a talpszelemen felső síkja felett", unit: "mm", advanced: true, placeholder: "nincs derékszelemen" }],
+      { key: "purlinTopMm", label: "Derékszelemen felső síkja · a talpszelemen felső síkja felett", unit: "mm", advanced: true, placeholder: "nincs derékszelemen" },
+      { key: "plateWidthMm", label: "Talpszelemen szélessége · ellenőrzéshez", unit: "mm", advanced: true, placeholder: "nincs megadva" }],
     calculate: (input) => {
       const result = calculateRafterGeometry({ horizontalHalfSpanMm: mm(input, "horizontalHalfSpanMm"), riseMm: mm(input, "riseMm"), eaveProjectionMm: mm(input, "eaveProjectionMm"), seatCutHeightMm: mm(input, "seatCutHeightMm") });
       // Joint values from extra input (class B) are saved with the revision; the angles are already in the base lines.
@@ -75,13 +90,13 @@ export const definitions: Record<string, CalculatorDefinition> = {
 "roof.material-takeoff": {
     reference: reference("roof.material-takeoff"), draw: "roof", note: "Válaszd ki a tetőformát, add meg a méreteket, majd jelöld, mely anyagokat számolja. Az anyagot kiválaszthatod terméklistából vagy kézzel is megadhatod.",
     advancedHelp: "A homlokzati kiülés üresen hagyva 0 mm-nek számít, és az eredmény ezt jelzi; a 0 beírása kifejezetten megadott érték.",
-    fields: roofShapeFields,
+    fields: [...roofShapeFields, ...birdsmouthFields],
     calculate: (input, context) => takeoffLines(input, context),
   },
 "roof.timber-cutlist": {
     reference: reference("roof.timber-cutlist"), draw: "roof", note: "Szarufa- és léckiosztás elemenkénti vágáslistával. A hosszak névleges geometriai hosszak, vágási ráhagyás nélkül.",
     advancedHelp: "A homlokzati kiülés üresen hagyva 0 mm-nek számít, és az eredmény ezt jelzi; a 0 beírása kifejezetten megadott érték.",
-    fields: roofShapeFields,
+    fields: [...roofShapeFields, ...birdsmouthFields],
     calculate: (input, context) => takeoffLines(input, context && { ...context, requested: { timber: true, underlay: false, covering: false } }),
   },
 "roof.truss-members": {

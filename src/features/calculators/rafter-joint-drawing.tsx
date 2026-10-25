@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Maximize2, Minus, Move, Plus, RotateCcw } from "lucide-react";
 import { GlassToolbar } from "@/components/ui/glass-toolbar";
-import type { RafterJoints } from "@/domain/calculations/construction/rafter-joints";
-import { dimensionScreenGeometry, resolveAnnotationLabelPositions, technicalAnnotationRules, type AnnotationPoint } from "@/domain/drawings/annotation-layout";
+import type { PlateFit, RafterJoints } from "@/domain/calculations/construction/rafter-joints";
+import { arrowheadPath, dimensionScreenGeometry, resolveAnnotationLabelPositions, technicalAnnotationRules, type AnnotationPoint } from "@/domain/drawings/annotation-layout";
 import { createRafterJointDrawingModel, fitCamera, nudgeOffSegments, panCamera, projectPoint, zoomCameraAt, type CanvasSize, type DrawingCamera, type JointAngle, type JointDimension, type JointSlot, type JointSlotId, type MmBounds, type MmPoint, type RafterJointDrawingModel } from "@/domain/drawings/rafter-joint-drawing";
 import { LENGTH_UNITS, type LengthUnit } from "@/domain/measurements/length-input";
+import { useCanvasSize, useFontSize } from "./drawing-canvas-hooks";
 import { formatDrawingLength, formatJointValue } from "./rafter-joints-panel";
 
 type Section = NonNullable<RafterJointDrawingModel["section"]>;
-const FALLBACK_SIZE: CanvasSize = { width: 360, height: 280 };
 const STATUS_TEXT = { computed: "számított", incomplete: "további adat szükséges", invalid: "nem számítható", absent: "nincs megadva" } as const;
 const DOUBLE_TAP_MS = 320;
 const ANGLE_RADIUS = 28;
@@ -23,38 +23,20 @@ const DETAIL_NAME: Record<string, string> = {
 const ANGLE_NAME: Record<string, string> = { "plumb-angle": "Függővágás szöge a szarufa éléhez", "seat-angle": "Ülékvágás szöge a szarufa éléhez" };
 const suffix = (id: string) => id.replace(/^S\d-/, "");
 
-function useCanvasSize() {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [size, setSize] = useState<CanvasSize>(FALLBACK_SIZE);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(([entry]) => {
-      const width = Math.round(entry.contentRect.width), height = Math.round(entry.contentRect.height);
-      if (width > 0 && height > 0) setSize((current) => current.width === width && current.height === height ? current : { width, height });
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, size] as const;
+const arrow = (tip: AnnotationPoint, toward: AnnotationPoint) => arrowheadPath(tip, toward);
+/** A value label on a filled tag, so it stays readable over wood, hatching and dimension lines. */
+export function Tag({ x, y, text, anchor, fontSize, className }: Readonly<{ x: number; y: number; text: string; anchor: "start" | "middle" | "end"; fontSize: number; className?: string }>) {
+  const width = text.length * fontSize * .6 + 10, left = anchor === "start" ? x - 5 : anchor === "end" ? x - width + 5 : x - width / 2;
+  return <g className={`rafter-joint-tag${className ? ` ${className}` : ""}`}>
+    <rect x={left} y={y - fontSize * .78} width={width} height={fontSize * 1.56} rx={fontSize * .45} />
+    <text x={x} y={y} textAnchor={anchor} dominantBaseline="central">{text}</text>
+  </g>;
 }
-
-/** Label font size in px follows the app's adaptive text scale, so the collision estimate matches what is drawn. */
-function useFontSize() {
-  const [fontSize, setFontSize] = useState(13);
-  useEffect(() => { setFontSize(13 * (Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tp-text-scale")) || 1)); }, []);
-  return fontSize;
-}
-
-const arrow = (tip: AnnotationPoint, toward: AnnotationPoint) => {
-  const dx = toward.x - tip.x, dy = toward.y - tip.y, n = Math.hypot(dx, dy) || 1, ux = dx / n, uy = dy / n;
-  return `M${tip.x},${tip.y} L${tip.x + ux * 8 - uy * 3.2},${tip.y + uy * 8 + ux * 3.2} L${tip.x + ux * 8 + uy * 3.2},${tip.y + uy * 8 - ux * 3.2} Z`;
-};
 const pts = (points: readonly AnnotationPoint[]) => points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
 const expand = (box: MmBounds, by: number): MmBounds => ({ minX: box.minX - by, minY: box.minY - by, maxX: box.maxX + by, maxY: box.maxY + by });
 
 /** One dimensioned view of the section; overview shows the cutting chain from O and S badges, detail one joint's notch. */
-function SectionView({ section, slots, camera, size, fontSize, unit, mode, selected, onSelect }: Readonly<{ section: Section; slots: readonly JointSlot[]; camera: DrawingCamera; size: CanvasSize; fontSize: number; unit: LengthUnit; mode: "overview" | "detail"; selected: JointSlotId; onSelect?: (slot: JointSlotId) => void }>) {
+function SectionView({ section, slots, camera, size, fontSize, unit, mode, selected, onSelect, hideOrigin = false }: Readonly<{ section: Section; slots: readonly JointSlot[]; camera: DrawingCamera; size: CanvasSize; fontSize: number; unit: LengthUnit; mode: "overview" | "detail"; selected: JointSlotId; onSelect?: (slot: JointSlotId) => void; hideOrigin?: boolean }>) {
   const project = (point: MmPoint) => projectPoint(camera, size, point);
   const toScreenVector = (vector: MmPoint) => ({ x: vector.xMm, y: -vector.yMm });
   const active = slots.find((slot) => slot.slot === selected);
@@ -136,7 +118,7 @@ function SectionView({ section, slots, camera, size, fontSize, unit, mode, selec
           <line x1={geometry.extensionEnd.x} y1={geometry.extensionEnd.y} x2={geometry.end.x} y2={geometry.end.y} className="technical-extension" /></>}
         <line x1={geometry.start.x} y1={geometry.start.y} x2={geometry.end.x} y2={geometry.end.y} />
         <path className="technical-dimension-arrow" d={arrow(geometry.start, geometry.end)} /><path className="technical-dimension-arrow" d={arrow(geometry.end, geometry.start)} />
-        {inView && <text x={label.x} y={label.y} textAnchor={geometry.labelAnchor} dominantBaseline="middle">{text}</text>}
+        {inView && <Tag x={label.x} y={label.y} text={text} anchor={geometry.labelAnchor} fontSize={fontSize} />}
       </g>;
     })}
     {angleLabels.map(({ angle, geometry, sweep, text, move }) => {
@@ -144,11 +126,18 @@ function SectionView({ section, slots, camera, size, fontSize, unit, mode, selec
       return <g key={angle.id} className="technical-angle rafter-joint-angle">
         <path d={`M${geometry.start.x},${geometry.start.y} A${ANGLE_RADIUS},${ANGLE_RADIUS} 0 0 ${sweep} ${geometry.end.x},${geometry.end.y}`} />
         <line className="rafter-joint-leader" x1={geometry.leader[0].x} y1={geometry.leader[0].y} x2={geometry.leader[1].x} y2={geometry.leader[1].y} />
-        <text x={label.x} y={label.y} textAnchor="middle" dominantBaseline="middle">{text}</text>
+        <Tag x={label.x} y={label.y} text={text} anchor="middle" fontSize={fontSize} className="is-angle" />
       </g>;
     })}
-    <g className="rafter-joint-origin"><circle cx={origin.x} cy={origin.y} r={4}><title>0-pont: innen mérj a szarufa felső élén (a talpszelemen függővágásának vonala)</title></circle><text x={origin.x + 8} y={origin.y - 8} textAnchor="start">0</text></g>
-    <text className="rafter-joint-unit" x={size.width - 8} y={fontSize + 4} textAnchor="end">méretek: {unit}</text>
+    {mode === "detail" && active?.cut?.offcut && (() => {
+      // Marking order, matching the numbered steps under the drawing: 1 mark on the upper edge, 2 plumb line, 3 corner, 4 seat.
+      const at = (id: string) => project(active.cut!.points.find((point) => point.id === id)!.at);
+      const m = at("M"), b = at("B"), c = at("C");
+      const r = fontSize * .8;
+      const steps = [{ x: m.x - r * 1.6, y: m.y - r * 1.4 }, { x: (m.x + b.x) / 2 + r * 1.5, y: (m.y + b.y) / 2 }, { x: b.x - r * 1.5, y: b.y - r * 1.5 }, { x: (b.x + c.x) / 2, y: b.y + r * 1.6 }];
+      return steps.map((point, index) => <g key={index} className="rafter-joint-step"><circle cx={point.x} cy={point.y} r={r} /><text x={point.x} y={point.y} textAnchor="middle" dominantBaseline="central">{index + 1}</text></g>);
+    })()}
+    {!hideOrigin && <g className="rafter-joint-origin"><circle cx={origin.x} cy={origin.y} r={4}><title>0-pont: innen mérj a szarufa felső élén (a talpszelemen függővágásának vonala)</title></circle><Tag x={origin.x + 10} y={origin.y - fontSize} text="0" anchor="start" fontSize={fontSize} className="is-origin" /></g>}
     {mode === "overview" && slots.map((slot) => {
       if (!slot.anchor) return null;
       const point = project(slot.anchor), y = Math.min(size.height - 16, point.y + 28);
@@ -166,9 +155,10 @@ function SectionView({ section, slots, camera, size, fontSize, unit, mode, selec
  * Zoomable, pannable canvas shared by the overview and the detail. The default camera fits `focus` with room reserved for
  * labels; manual zoom is kept until `resetKey` changes (other supports, ridge type or selected joint).
  */
-function InteractiveCanvas({ section, slots, focus, full, mode, selected, unit, resetKey, resetLabel, title, onSelect, onDoubleTap, className }: Readonly<{ section: Section; slots: readonly JointSlot[]; focus: MmBounds; full?: MmBounds; mode: "overview" | "detail"; selected: JointSlotId; unit: LengthUnit; resetKey: string; resetLabel: string; title: string; onSelect?: (slot: JointSlotId) => void; onDoubleTap?: (point: AnnotationPoint, camera: DrawingCamera, size: CanvasSize) => DrawingCamera | null; className?: string }>) {
+function InteractiveCanvas({ section, slots, focus, full, mode, selected, unit, resetKey, resetLabel, title, onSelect, onDoubleTap, className, hideOrigin }: Readonly<{ hideOrigin?: boolean; section: Section; slots: readonly JointSlot[]; focus: MmBounds; full?: MmBounds; mode: "overview" | "detail"; selected: JointSlotId; unit: LengthUnit; resetKey: string; resetLabel: string; title: string; onSelect?: (slot: JointSlotId) => void; onDoubleTap?: (point: AnnotationPoint, camera: DrawingCamera, size: CanvasSize) => DrawingCamera | null; className?: string }>) {
   const [canvasRef, size] = useCanvasSize();
-  const fontSize = useFontSize();
+  // Wide (desktop) canvases get larger labels; the phone size stays compact.
+  const fontSize = useFontSize() * (size.width >= 600 ? 1.2 : 1);
   // Reserved label room: two dimension tiers plus a line of text in the overview, one tier and a wide label in the detail.
   const padding = Math.round(mode === "overview" ? 2.4 * fontSize + 8 : 4 * fontSize + 10);
   const fitted = useMemo(() => fitCamera(focus, size, padding), [focus, size, padding]);
@@ -251,20 +241,64 @@ function InteractiveCanvas({ section, slots, focus, full, mode, selected, unit, 
         {full && <button type="button" title="Teljes rajz" aria-label="Teljes rajz" onClick={() => setUserCamera(fitCamera(full, size, padding))}><Maximize2 aria-hidden="true" className="size-4" /></button>}
         <button type="button" title={resetLabel} aria-label={resetLabel} onClick={() => setUserCamera(null)}><RotateCcw aria-hidden="true" className="size-4" /></button>
       </div>
+      <span className="rafter-joint-unit-tag">Méretek: {unit}</span>
       {mode === "overview" && <span className="drawing-toolbar-hint"><Move aria-hidden="true" className="size-4" /> Húzd, csippentsd; dupla koppintás: részlet.</span>}
     </GlassToolbar>
     <div className={`drawing-canvas rafter-joint-canvas${mode === "detail" ? " is-detail" : ""}`} ref={canvasRef}>
-      <svg ref={svgRef} className="rafter-joint-svg is-interactive" viewBox={`0 0 ${size.width} ${size.height}`} width={size.width} height={size.height} role="group" tabIndex={0} aria-labelledby={titleId}
+      <svg ref={svgRef} style={{ "--rj-font": `${fontSize}px` } as React.CSSProperties} className="rafter-joint-svg is-interactive" viewBox={`0 0 ${size.width} ${size.height}`} width={size.width} height={size.height} role="group" tabIndex={0} aria-labelledby={titleId}
         onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={(event) => pointers.current.delete(event.pointerId)}>
         <title id={titleId}>{title}</title>
-        <SectionView section={section} slots={slots} camera={camera} size={size} fontSize={fontSize} unit={unit} mode={mode} selected={selected} onSelect={onSelect} />
+        <SectionView section={section} slots={slots} camera={camera} size={size} fontSize={fontSize} unit={unit} mode={mode} selected={selected} onSelect={onSelect} hideOrigin={hideOrigin} />
       </svg>
     </div>
   </div>;
 }
 
+/**
+ * "How much to cut" in the order a carpenter marks a birdsmouth on the rafter's side face: position from the 0-point,
+ * plumb line at the cut angle, plumb height from the lower edge, seat at right angles to it. Only the joint's own values.
+ */
+function CutGuide({ slot, show, plateFit = null, fromLowerEndMm }: Readonly<{ slot: JointSlot; show: (mm: number) => string; plateFit?: PlateFit | null; fromLowerEndMm?: number }>) {
+  const value = (key: string) => slot.dimensions.find((item) => suffix(item.id) === key)?.valueMm;
+  const angle = slot.angles.find((item) => suffix(item.id) === "plumb-angle")?.valueDegrees;
+  const [plumb, seat, depth, remaining] = [value("plumb"), value("seat"), value("depth"), value("remaining")];
+  if (slot.positionMm === null || slot.status !== "computed") return null;
+  // In the roof calculators there is no 0-point on screen: the mark is measured from the rafter's lower (eave) end.
+  const place = fromLowerEndMm !== undefined
+    ? fromLowerEndMm < .5 ? <>A jelölés helye <strong>a szarufa alsó végén</strong>, a felső élen.</> : <>A szarufa alsó végétől a felső élen mérj <strong>{show(fromLowerEndMm)}</strong>-t, és jelöld meg.</>
+    : slot.positionMm === 0 ? <>A jelölés helye maga a <strong>0-pont</strong> a felső élen.</> : <>A felső élen a 0-ponttól mérj <strong>{show(slot.positionMm)}</strong>-t, és jelöld meg.</>;
+  const line = angle === undefined ? null : <>Innen húzz vonalat lefelé az alsó élig úgy, hogy az <strong>eresz felőli oldalon {formatJointValue(angle)}°</strong>-ot zárjon be a felső éllel. Beépítve ez a vonal függőleges.</>;
+  const notched = plumb !== undefined && seat !== undefined && depth !== undefined && remaining !== undefined;
+  if (!notched) {
+    const isEnd = slot.cut?.edges.some((edge) => edge.id === "end");
+    return <div className="rafter-joint-guide">
+      <p className="rafter-joint-guide-lead">{isEnd ? "Itt nincs bevágás: a szarufa végét kell levágni." : "Itt nincs bevágás: a szarufa alsó éle a szelemenen fekszik."}</p>
+      <ol>{[place, line, isEnd ? <>Ezen a vonalon vágd le a szarufát.</> : null].filter(Boolean).map((step, index) => <li key={index}>{step}</li>)}</ol>
+    </div>;
+  }
+  return <div className="rafter-joint-guide">
+    <p className="rafter-joint-guide-lead">Ennyit kell bevágni</p>
+    <dl className="rafter-joint-guide-figures">
+      <div><dt>Függővágás</dt><dd>{show(plumb)}</dd><small>az alsó éltől, a függővonalon</small></div>
+      <div><dt>Ülék</dt><dd>{show(seat)}</dd><small>a sarokból, merőlegesen</small></div>
+      <div><dt>Bevágás mélysége</dt><dd>{show(depth)}</dd><small>{show(remaining)} marad a szarufából</small></div>
+    </dl>
+    {plateFit && <p className={`rafter-joint-fit${plateFit.fits ? "" : " is-warning"}`} role={plateFit.fits ? "status" : "alert"}>{plateFit.fits
+      ? <>Az ülék ({show(plateFit.seatMm)}) ráfér a {show(plateFit.plateWidthMm)} széles talpszelemenre.</>
+      : <>Az ülék ({show(plateFit.seatMm)}) nem fér rá a {show(plateFit.plateWidthMm)} széles talpszelemenre: {show(plateFit.overhangMm)}-rel túlnyúlik. Ellenőrizd a madárszáj magasságát vagy a szelemen méretét (geometriai ellenőrzés, nem statikai).</>}</p>}
+    <h4>Kijelölés lépésről lépésre</h4>
+    <ol>
+      <li>{place}</li>
+      {line && <li>{line}</li>}
+      <li>Ezen a vonalon az <strong>alsó éltől mérj fel {show(plumb)}</strong>-t: ez a bevágás sarka.</li>
+      <li>A sarokból húzz a vonalra <strong>merőlegest a gerinc felé</strong>, amíg eléri az alsó élt: ennek hossza <strong>{show(seat)}</strong> (ülék).</li>
+      <li>Fűrészeld ki a két vonal közti háromszöget. Ellenőrzés: a saroktól a felső élig merőlegesen <strong>{show(remaining)}</strong> marad.</li>
+    </ol>
+  </div>;
+}
+
 /** CAD-style rafter drawing for the rafter-cut calculator: cutting overview from O and a dimensioned, zoomable close-up per joint. */
-export function RafterJointDrawing({ joints }: Readonly<{ joints: RafterJoints }>) {
+export function RafterJointDrawing({ joints, compact }: Readonly<{ joints: RafterJoints; compact?: Readonly<{ title: string; markFromLowerEndMm: number }> }>) {
   const model = useMemo(() => createRafterJointDrawingModel(joints), [joints]);
   const [selected, setSelected] = useState<JointSlotId>("S1");
   const [unit, setUnit] = useState<LengthUnit>("cm");
@@ -287,16 +321,17 @@ export function RafterJointDrawing({ joints }: Readonly<{ joints: RafterJoints }
 
   return <section className="technical-drawing is-compact rafter-joint-drawing" aria-labelledby={headingId}>
     <div className="technical-drawing-header">
-      <div className="technical-drawing-title"><h2 id={headingId}>Szarufarajz · kiszabás és bevágások</h2></div>
+      <div className="technical-drawing-title"><h2 id={headingId}>{compact?.title ?? "Szarufarajz · kiszabás és bevágások"}</h2></div>
       <label className="rafter-detail-unit"><span className="sr-only">Méretek kijelzési egysége</span>
         <select value={unit} onChange={(event) => setUnit(event.target.value as LengthUnit)} aria-label="Méretek kijelzési egysége">{LENGTH_UNITS.map((item) => <option key={item} value={item}>{item}</option>)}</select>
       </label>
     </div>
-    {section ? <InteractiveCanvas section={section} slots={model.slots} focus={section.focus} full={section.bounds} mode="overview" selected={selected} unit={unit} resetKey={structure} resetLabel="Nézet visszaállítása"
+    {/* Compact (roof calculators): only the wall-plate notch, its close-up and the marking steps. */}
+    {compact ? null : section ? <InteractiveCanvas section={section} slots={model.slots} focus={section.focus} full={section.bounds} mode="overview" selected={selected} unit={unit} resetKey={structure} resetLabel="Nézet visszaállítása"
       title="Szarufa kiszabási rajza: vágásélek, 0-pont, méretek a felső él mentén és az S1–S3 csatlakozás" onSelect={setSelected} onDoubleTap={focusNearest} />
       : <div className="form-message" role="status"><strong>A méretezett szarufarajz nem készíthető.</strong> Bevágást csak igazolt geometriával rajzolunk.
         <ul>{blocked.map((item) => <li key={item.slot}>{item.slot} · {item.name}: {item.joint?.reason ?? (item.joint?.missing.length ? `hiányzó adat: ${item.joint.missing.join(", ")}` : STATUS_TEXT[item.status])}</li>)}</ul></div>}
-    {section && <div className="rafter-joint-cutlist">
+    {section && !compact && <div className="rafter-joint-cutlist">
       <h3>Mit hol jelölj a szarufán</h3>
       <p className="construction-suite-limit">Minden hosszt a <strong>0-ponttól</strong> mérj, a szarufa <strong>felső élén</strong>. A 0-pont a talpszelemen függővágásának vonala.</p>
       <dl className="rafter-joint-rows">
@@ -305,23 +340,24 @@ export function RafterJointDrawing({ joints }: Readonly<{ joints: RafterJoints }
         {section.stations.map((station) => <div key={station.id}><dt>{station.positionMm < 0 ? "Ereszvég · a 0-ponttól visszafelé" : station.positionMm === 0 ? `${station.label} · ez a 0-pont` : station.label.charAt(0).toUpperCase() + station.label.slice(1)}</dt><dd>{show(Math.abs(station.positionMm))}</dd></div>)}
       </dl>
     </div>}
-    <div className="rafter-joint-slots" role="group" aria-label="Csatlakozás részletnézete">
+    {!compact && <div className="rafter-joint-slots" role="group" aria-label="Csatlakozás részletnézete">
       {model.slots.map((item) => <button key={item.slot} type="button" aria-pressed={item.slot === selected} data-status={item.status} onClick={() => setSelected(item.slot)}>
         <strong>{item.slot}</strong><span>{item.name}</span><small>{STATUS_TEXT[item.status]}</small>
       </button>)}
-    </div>
+    </div>}
     <div className="rafter-joint-detail" aria-live="polite">
       <h3>{slot.slot} · {slot.name} <small>részletrajz</small></h3>
-      {section && slot.focus ? <InteractiveCanvas section={section} slots={model.slots} focus={slot.focus} mode="detail" selected={slot.slot} unit={unit} resetKey={`${structure}:${slot.slot}`} resetLabel="Részlet visszaállítása"
+      {section && slot.focus ? <InteractiveCanvas section={section} slots={model.slots} focus={slot.focus} mode="detail" selected={slot.slot} unit={unit} resetKey={`${structure}:${slot.slot}`} resetLabel="Részlet visszaállítása" hideOrigin={Boolean(compact)}
         title={`${slot.slot} · ${slot.name} részletrajza: vágásélek, kieső rész, méretek és vágási szögek`} /> : null}
       {slot.joint?.reason && <p className="material-takeoff-incomplete is-invalid" role="alert">{slot.joint.reason}</p>}
       {slot.joint && slot.joint.missing.length > 0 && <p className="material-takeoff-incomplete" role="status"><strong>C · hiányzó adat:</strong> {slot.joint.missing.join(", ")}</p>}
       {slot.note && <p className="construction-suite-limit">{slot.note}</p>}
-      {(slot.dimensions.length > 0 || slot.angles.length > 0 || slot.positionMm !== null) && <dl className="rafter-joint-rows">
+      <CutGuide slot={slot} show={show} plateFit={slot.slot === "S1" ? joints.plateFit : null} fromLowerEndMm={compact?.markFromLowerEndMm} />
+      {(slot.dimensions.length > 0 || slot.angles.length > 0 || slot.positionMm !== null) && <details className="rafter-joint-all"><summary>Összes méret és szög</summary><dl className="rafter-joint-rows">
         {slot.positionMm !== null && <div><dt>Jelölés helye a 0-ponttól</dt><dd>{show(slot.positionMm)}</dd></div>}
         {slot.dimensions.map((item) => <div key={item.id}><dt>{DETAIL_NAME[suffix(item.id)] ?? item.label}</dt><dd>{show(item.valueMm)}</dd></div>)}
         {slot.angles.map((angle) => <div key={angle.id}><dt>{ANGLE_NAME[suffix(angle.id)] ?? angle.label}</dt><dd>{formatJointValue(angle.valueDegrees)}°</dd></div>)}
-      </dl>}
+      </dl></details>}
     </div>
     <ul className="rafter-joint-legend">
       <li><i className="is-cut" aria-hidden="true" />Itt kell vágni</li>
