@@ -79,13 +79,14 @@ function notch(s: Section, faceX: number, topY: number) {
   return { plumbCutHeight, seatLength, perpendicularDepth: plumbCutHeight * s.cos };
 }
 
-function notchValues(s: Section, depthMm: number, faceX: number, topY: number, prefix: string): { values: JointValue[]; reason?: string; seatEnd: Point } {
+// The joint names itself wherever a reason is shown or saved, so the reason text never repeats the name.
+function notchValues(s: Section, depthMm: number, faceX: number, topY: number): { values: JointValue[]; reason?: string; seatEnd: Point } {
   const cut = notch(s, faceX, topY);
   const seatEnd = { xMm: faceX + Math.max(cut.seatLength, 0), yMm: topY };
-  if (topY >= upperEdge(s, faceX)) return { values: [], reason: `${prefix}: a támasz felső síkja eléri a szarufa felső élét.`, seatEnd };
-  if (cut.plumbCutHeight < -SEAT_TOLERANCE_MM) return { values: [{ label: "Hézag a szarufa alsó éle alatt · függőleges", value: -cut.plumbCutHeight, unit: "mm", classification: "B" }], reason: `${prefix}: a szarufa alsó éle a támasz fölött van, bevágás nem jön létre; a hézagot alátétezéssel kell megoldani.`, seatEnd };
-  if (cut.perpendicularDepth >= depthMm) return { values: [], reason: `${prefix}: a bevágás a teljes szarufa-magasságot elvágná.`, seatEnd };
-  if (seatEnd.xMm > s.halfSpan + SEAT_TOLERANCE_MM) return { values: [], reason: `${prefix}: az ülék túlnyúlik a gerinctengelyen; ellenőrizd a támasz helyét és magasságát.`, seatEnd };
+  if (topY >= upperEdge(s, faceX)) return { values: [], reason: "A támasz felső síkja eléri a szarufa felső élét.", seatEnd };
+  if (cut.plumbCutHeight < -SEAT_TOLERANCE_MM) return { values: [{ label: "Hézag a szarufa alsó éle alatt · függőleges", value: -cut.plumbCutHeight, unit: "mm", classification: "B" }], reason: "A szarufa alsó éle a támasz fölött van, bevágás nem jön létre; a hézagot alátétezéssel kell megoldani.", seatEnd };
+  if (cut.perpendicularDepth >= depthMm) return { values: [], reason: "A bevágás a teljes szarufa-magasságot elvágná.", seatEnd };
+  if (seatEnd.xMm > s.halfSpan + SEAT_TOLERANCE_MM) return { values: [], reason: "Az ülék túlnyúlik a gerinctengelyen; ellenőrizd a támasz helyét és magasságát.", seatEnd };
   const touching = Math.abs(cut.plumbCutHeight) <= SEAT_TOLERANCE_MM;
   return {
     values: touching ? [{ label: "Bevágás", value: 0, unit: "mm", classification: "B" }] : [
@@ -111,7 +112,7 @@ export function calculateRafterJoints(input: RafterJointInput): RafterJoints {
     const angles: JointValue[] = [plumbAngle, { label: "Ülékvágás szöge a szarufa tengelyéhez", value: base.pitchDegrees, unit: "°", classification: "A" }];
     if (depth === undefined) return { ...common, status: "incomplete", values: angles, missing: [DEPTH_LABEL] };
     if (s.hap <= 0) return { ...common, status: "invalid", values: angles, missing: [], reason: "A HAP 0: a szarufa felső éle a talpszelemen felső síkjában állna. Add meg a szarufa felső élének magasságát a talpszelemen felett." };
-    const result = notchValues(s, depth, 0, 0, "Alsó felfekvés");
+    const result = notchValues(s, depth, 0, 0);
     supports.push({ id: "seat", label: "Talpszelemen", face: { xMm: 0, yMm: 0 }, seatEnd: result.seatEnd });
     return { ...common, status: result.reason ? "invalid" : "computed", values: [...angles, ...result.values], missing: [], ...(result.reason ? { reason: result.reason } : {}) };
   })();
@@ -126,8 +127,9 @@ export function calculateRafterJoints(input: RafterJointInput): RafterJoints {
     ];
     if (missing.length || depth === undefined || input.purlinFaceMm === undefined || input.purlinTopMm === undefined) return { ...common, status: "incomplete", values: [], missing };
     if (input.purlinFaceMm <= 0 || input.purlinFaceMm >= s.halfSpan) return { ...common, status: "invalid", values: [], missing: [], reason: "A derékszelemen a talpszelemen és a gerinctengely között legyen." };
-    const result = notchValues(s, depth, input.purlinFaceMm, input.purlinTopMm, "Derékszelemen");
-    supports.push({ id: "purlin", label: "Derékszelemen", face: { xMm: input.purlinFaceMm, yMm: input.purlinTopMm }, seatEnd: result.seatEnd });
+    const result = notchValues(s, depth, input.purlinFaceMm, input.purlinTopMm);
+    // An invalid notch has no drawable support: the rafter is still drawn without it, the slot reports why.
+    if (!result.reason) supports.push({ id: "purlin", label: "Derékszelemen", face: { xMm: input.purlinFaceMm, yMm: input.purlinTopMm }, seatEnd: result.seatEnd });
     const distance: JointValue = { label: "Felfekvés távolsága a szarufa felső éle mentén · a talpszelemen függővágásától", value: input.purlinFaceMm / s.cos, unit: "mm", classification: "B" };
     return { ...common, status: result.reason ? "invalid" : "computed", values: [distance, ...result.values], missing: [], ...(result.reason ? { reason: result.reason } : {}) };
   })();
@@ -157,13 +159,15 @@ export function calculateRafterJoints(input: RafterJointInput): RafterJoints {
     if (missing.length || depth === undefined || input.ridgePurlinWidthMm === undefined || input.ridgePurlinTopMm === undefined) return { ...common, status: "incomplete", values: [plumbAngle], missing };
     const faceX = s.halfSpan - input.ridgePurlinWidthMm / 2;
     if (input.ridgePurlinWidthMm <= 0 || faceX <= 0) return { ...common, status: "invalid", values: [plumbAngle], missing: [], reason: "A gerincszelemen szélessége legyen pozitív és kisebb a teljes fesztávnál." };
-    const result = notchValues(s, depth, faceX, input.ridgePurlinTopMm, "Gerincszelemen");
+    const result = notchValues(s, depth, faceX, input.ridgePurlinTopMm);
     supports.push({ id: "ridge", label: "Gerincszelemen", face: { xMm: faceX, yMm: input.ridgePurlinTopMm }, seatEnd: result.seatEnd });
     return { ...common, status: result.reason ? "invalid" : "computed", values: [plumbAngle, ...result.values], missing: [], ...(result.reason ? { reason: result.reason } : {}) };
   })();
 
   const joints = [seat, ...(purlin ? [purlin] : []), ridge];
-  const drawing = depth === undefined || joints.some((joint) => joint.status === "invalid") ? null : outline(s, -input.eaveProjectionMm, ridgeEndX, supports, input.ridgeJoint, depth);
+  // The seat and the ridge anchor the section (0-point, upper end), so an invalid one leaves nothing to draw. The
+  // intermediate purlin is only a support in the middle: without it the rafter and its other joints are still exact.
+  const drawing = depth === undefined || joints.some((joint) => joint.id !== "purlin" && joint.status === "invalid") ? null : outline(s, -input.eaveProjectionMm, ridgeEndX, supports, input.ridgeJoint, depth);
   return { pitchDegrees: base.pitchDegrees, ridgeJoint: input.ridgeJoint, joints, drawing, plateFit: seat.status === "computed" ? plateFitOf(seat, input.plateWidthMm) : null };
 }
 

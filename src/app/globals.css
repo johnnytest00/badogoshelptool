@@ -5164,6 +5164,7 @@ main[id="main-content"]:focus { outline: none; }
 .rafter-joint-badge text { fill: var(--foreground); font-size: calc(12px * var(--tp-text-scale)); font-weight: 700; }
 .rafter-joint-badge.is-selected rect { fill: var(--drawing-highlight); stroke: var(--drawing-highlight); }
 .rafter-joint-badge.is-selected text { fill: var(--surface-strong); }
+.rafter-joint-svg .rafter-joint-badge rect.rafter-joint-hit { fill: transparent; stroke: none; }
 .rafter-joint-slots, .rafter-joint-sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr)); gap: .4rem; }
 .rafter-joint-sides button { min-height: 2.75rem; padding: .35rem .6rem; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-strong); color: var(--foreground); font-weight: 700; }
 .rafter-joint-sides button[aria-pressed="true"] { border-color: var(--drawing-highlight); box-shadow: inset 0 0 0 2px var(--drawing-highlight); }

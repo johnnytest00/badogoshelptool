@@ -51,9 +51,14 @@ describe("rafter joint drawing model (S1/S2/S3 from calculateRafterJoints only)"
     expect(missing.section).toBeNull();
     expect(missing.slots.map((slot) => slot.status)).toEqual(["incomplete", "incomplete", "incomplete"]);
     expect(missing.slots.every((slot) => slot.dimensions.length === 0 && slot.focus === null)).toBe(true);
+    // An invalid intermediate purlin loses its own support only: the rafter and its proven joints are still drawn.
     const invalid = createRafterJointDrawingModel(calculateRafterJoints({ ...three, purlinTopMm: 1300 }));
-    expect(invalid.section).toBeNull();
-    expect(invalid.slots[1]).toMatchObject({ status: "invalid", joint: { reason: expect.stringContaining("alátétezés") } });
+    expect(invalid.slots[1]).toMatchObject({ status: "invalid", joint: { reason: expect.stringContaining("alátétezés") }, anchor: null, focus: null, cut: null });
+    expect(invalid.section!.supports.map((support) => support.slot)).toEqual(["S1", "S3"]);
+    expect(invalid.slots[0].status).toBe("computed");
+    expect(invalid.section!.stations.map((station) => station.id)).not.toContain("S2");
+    // An invalid seat has no 0-point to measure from, so nothing is drawn.
+    expect(createRafterJointDrawingModel(calculateRafterJoints({ ...three, seatCutHeightMm: 0 })).section).toBeNull();
     // Unknown support extents are schematic; only the top plane over the seat (or a ridge purlin's given width) is solid.
     const { supports } = createRafterJointDrawingModel(calculateRafterJoints(three)).section!;
     expect(supports.find((item) => item.slot === "S1")!.bearing).toEqual([{ xMm: 0, yMm: 0 }, { xMm: 200, yMm: 0 }]);

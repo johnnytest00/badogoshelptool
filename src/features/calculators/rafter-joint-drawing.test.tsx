@@ -83,8 +83,11 @@ describe("roof joint drawing (M9.5)", () => {
     const content = text(html);
     for (const part of ["Szarufák és támaszok · áttekintő", "Szarufa- és szelemenkapcsolat · részlet", "bal oldal", "jobb oldal", "Bal oldal · 1. tetősík", "Jobb oldal · 2. tetősík", "geometriai szarufavonal",
       "Nem teljes tetőszerkezeti (framing) terv", "Ennyit kell bevágni · Talpszelemen", "Függővágás 15 cm", "Ülék 20 cm", "Bevágás mélysége 12 cm", "8 cm marad", "A szarufa alsó végétől a felső élen mérj 50 cm", "ráfér a 25 cm"]) expect(content).toContain(part);
-    // Two mirrored sides with equal values: badges and dimensions once (no stacked duplicates), both outlines drawn; each side's pitch from its own plane.
+    // Two mirrored sides with equal values: dimensions and badges once, no stacked duplicates. This is the unmeasured
+    // (phone-width fallback) canvas; on a measured canvas of 600 px or more the mirrored side draws its own badges too,
+    // so both sides are selectable from the drawing. Both outlines are drawn either way.
     expect(html.match(/class="rafter-joint-badge/g)).toHaveLength(2);
+    expect(html.match(/Talpszelemen részlet · (bal|jobb) oldal/g)).toHaveLength(1);
     expect((html.match(/teljes hossz 550/g) ?? []).length).toBeLessThanOrEqual(1);
     // Every overview value is also in the list from the rafter's lower end (eave length 400/cos α = 500 mm).
     for (const part of ["Mit hol jelölj a szarufán · bal oldal", "Szarufa teljes hossza 550 cm", "Talpszelemen 50 cm"]) expect(content).toContain(part);

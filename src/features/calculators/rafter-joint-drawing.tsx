@@ -22,6 +22,8 @@ const DETAIL_NAME: Record<string, string> = {
   remaining: "Megmaradó magasság · a szarufára merőlegesen", board: "Gerincdeszka fele (t/2) · vízszintesen",
 };
 const ANGLE_NAME: Record<string, string> = { "plumb-angle": "Függővágás szöge a szarufa éléhez", "seat-angle": "Ülékvágás szöge a szarufa éléhez" };
+/** Badge text on a phone-width canvas, where the full ridge name would take half the drawing. */
+const SHORT_BADGE: Record<string, string> = { "Szembefutó szarufák": "Szembefutó" };
 const suffix = (id: string) => id.replace(/^S\d-/, "");
 
 const arrow = (tip: AnnotationPoint, toward: AnnotationPoint) => arrowheadPath(tip, toward);
@@ -33,15 +35,18 @@ export function Tag({ x, y, text, anchor, fontSize, className }: Readonly<{ x: n
     <text x={x} y={y} textAnchor={anchor} dominantBaseline="central">{text}</text>
   </g>;
 }
+type LabelBox = Readonly<{ left: number; right: number; top: number; bottom: number }>;
+const hitsAny = (box: LabelBox, boxes: readonly LabelBox[]) => boxes.some((other) => !(box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom));
 const pts = (points: readonly AnnotationPoint[]) => points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
 const expand = (box: MmBounds, by: number): MmBounds => ({ minX: box.minX - by, minY: box.minY - by, maxX: box.maxX + by, maxY: box.maxY + by });
 
 /** One dimensioned view of the section; overview shows the cutting chain from O and S badges, detail one joint's notch. */
 /**
  * secondary: the mirrored side of a common cross-section. The shared ridge badge and the edge names are drawn once; its
- * dimensions and badges only when its values differ from the first side's, so equal sides do not stack duplicate labels.
+ * dimensions only when its values differ from the first side's, so equal sides do not stack duplicate labels. Its own
+ * joint badges stay, at mirrored positions, so both roof sides are selectable from the drawing.
  */
-function SectionView({ section, slots, camera, size, fontSize, unit, mode, selected, onSelect, hideOrigin = false, side = null, secondary = false }: Readonly<{ section: Section; slots: readonly JointSlot[]; camera: DrawingCamera; size: CanvasSize; fontSize: number; unit: LengthUnit; mode: "overview" | "detail"; selected: JointSlotId | null; onSelect?: (slot: JointSlotId) => void; hideOrigin?: boolean; side?: string | null; secondary?: boolean | "duplicate" }>) {
+function SectionView({ section, slots, camera, size, fontSize, unit, mode, selected, onSelect, hideOrigin = false, side = null, secondary = false, drawn = [] }: Readonly<{ section: Section; slots: readonly JointSlot[]; camera: DrawingCamera; size: CanvasSize; fontSize: number; unit: LengthUnit; mode: "overview" | "detail"; selected: JointSlotId | null; onSelect?: (slot: JointSlotId) => void; hideOrigin?: boolean; side?: string | null; secondary?: boolean | "duplicate"; drawn?: LabelBox[] }>) {
   const project = (point: MmPoint) => projectPoint(camera, size, point);
   const toScreenVector = (vector: MmPoint) => ({ x: vector.xMm, y: -vector.yMm });
   const active = slots.find((slot) => slot.slot === selected);
@@ -58,8 +63,26 @@ function SectionView({ section, slots, camera, size, fontSize, unit, mode, selec
     const m = at("M"), b = at("B"), c = at("C"), r = stepRadius;
     return [{ x: m.x - r * 1.6, y: m.y - r * 1.4 }, { x: (m.x + b.x) / 2 + r * 1.5, y: (m.y + b.y) / 2 }, { x: b.x - r * 1.5, y: b.y - r * 1.5 }, { x: (b.x + c.x) / 2, y: b.y + r * 1.6 }];
   })() : [];
-  // A step number is an obstacle for value labels like a cut edge (its box diagonals), so no value hides under a number.
-  const labelObstacles = [...cutSegments, ...stepPoints.flatMap((p) => [[{ x: p.x - stepRadius, y: p.y - stepRadius }, { x: p.x + stepRadius, y: p.y + stepRadius }], [{ x: p.x - stepRadius, y: p.y + stepRadius }, { x: p.x + stepRadius, y: p.y - stepRadius }]] as const)];
+  // Joint badges are the drawing's controls, so they are placed first and the values make room for them. The mirrored
+  // side keeps its own badges (at mirrored positions, so they do not stack); the shared ridge badge is drawn once, and
+  // on a phone canvas, which cannot hold both sides' badges side by side, the mirrored side keeps only the selected
+  // one — the buttons under the drawing still select any joint of either side.
+  const badges = mode !== "overview" ? [] : slots.flatMap((slot) => {
+    if (!slot.anchor || (secondary && (size.width < 600 || slot.slot === "S3") && slot.slot !== selected)) return [];
+    const point = project(slot.anchor), y = Math.min(size.height - 16, point.y + 28);
+    // Real joint names on the drawing (S1–S3 stay internal); kept inside the canvas. On a phone canvas the longest
+    // name is shortened to its distinguishing word, since half the drawing's width is too much for one label; the
+    // full name stays in the badge's accessible name, in the buttons under the drawing and in the detail's title.
+    const text = size.width < 600 ? SHORT_BADGE[slot.name] ?? slot.name : slot.name;
+    const width = text.length * fontSize * .6 + 16, x = Math.min(size.width - width / 2 - 2, Math.max(width / 2 + 2, point.x));
+    drawn.push({ left: x - width / 2, right: x + width / 2, top: y - 12, bottom: y + 12 });
+    return [{ slot, text, point, x, y, width }];
+  });
+  // A step number or a badge is an obstacle for value labels like a cut edge (its box diagonals), so no value hides under one.
+  const boxDiagonals = (left: number, top: number, right: number, bottom: number) => [[{ x: left, y: top }, { x: right, y: bottom }], [{ x: left, y: bottom }, { x: right, y: top }]] as const;
+  const labelObstacles = [...cutSegments,
+    ...stepPoints.flatMap((p) => boxDiagonals(p.x - stepRadius, p.y - stepRadius, p.x + stepRadius, p.y + stepRadius)),
+    ...drawn.flatMap((box) => boxDiagonals(box.left, box.top, box.right, box.bottom))];
   const laidRaw = dims.flatMap((item) => {
     const from = project(item.from), to = project(item.to);
     // Too short on screen for arrows and a label: the value stays in the cutting list under the drawing.
@@ -99,14 +122,16 @@ function SectionView({ section, slots, camera, size, fontSize, unit, mode, selec
     const shift = left < 4 ? 4 - left : left + width > size.width - 4 ? size.width - 4 - left - width : 0;
     return { x: point.x + shift, y: Math.min(size.height - fontSize, Math.max(fontSize, point.y)) };
   };
-  // Overview: a value whose label would still cover an earlier one keeps its line but not its text; the list under the drawing has it.
-  const drawnBoxes: { left: number; right: number; top: number; bottom: number }[] = [];
+  // Joint badges are the drawing's controls, so they are placed first and claim their box; a value label that would
+  // land under one keeps its line but not its text. The mirrored side keeps its own badges (they sit at mirrored
+  // positions, so they do not stack); only the shared ridge badge stays drawn once, unless it is the selected joint.
+  // A value whose label would still cover a badge or an earlier value keeps its line but not its text; the list under the drawing has it.
   const laidOut = laidRaw.map((entry) => {
     const label = place(entry.item.id, entry.geometry.label, entry.text, entry.geometry.labelAnchor, entry.move);
     const width = textWidth(entry.text) + 10, left = entry.geometry.labelAnchor === "start" ? label.x - 5 : entry.geometry.labelAnchor === "end" ? label.x - width + 5 : label.x - width / 2;
     const box = { left, right: left + width, top: label.y - fontSize * .8, bottom: label.y + fontSize * .8 };
-    const shown = mode !== "overview" || drawnBoxes.every((other) => box.right < other.left || box.left > other.right || box.bottom < other.top || box.top > other.bottom);
-    if (shown) drawnBoxes.push(box);
+    const shown = mode !== "overview" || !hitsAny(box, drawn);
+    if (shown) drawn.push(box);
     return { ...entry, label, shown };
   });
   const laid = laidOut;
@@ -160,16 +185,14 @@ function SectionView({ section, slots, camera, size, fontSize, unit, mode, selec
     })}
     {stepPoints.map((point, index) => <g key={index} className="rafter-joint-step"><circle cx={point.x} cy={point.y} r={stepRadius} /><text x={point.x} y={point.y} textAnchor="middle" dominantBaseline="central">{index + 1}</text></g>)}
     {!hideOrigin && <g className="rafter-joint-origin"><circle cx={origin.x} cy={origin.y} r={4}><title>0-pont: innen mérj a szarufa felső élén (a talpszelemen függővágásának vonala)</title></circle><Tag x={origin.x + 10} y={origin.y - fontSize} text="0" anchor="start" fontSize={fontSize} className="is-origin" /></g>}
-    {mode === "overview" && slots.map((slot) => {
-      if (!slot.anchor || duplicate || (secondary && slot.slot === "S3")) return null;
-      const point = project(slot.anchor), y = Math.min(size.height - 16, point.y + 28);
-      // Real joint names on the drawing (S1–S3 stay internal); kept inside the canvas.
-      const width = slot.name.length * fontSize * .6 + 16, x = Math.min(size.width - width / 2 - 2, Math.max(width / 2 + 2, point.x));
+    {badges.map(({ slot, text, point, x, y, width }) => {
       return <g key={slot.slot} className={`rafter-joint-badge${slot.slot === selected ? " is-selected" : ""}`} role="button" tabIndex={-1} aria-label={`${slot.name} részlet${side ? ` · ${side} oldal` : ""}`}
         onPointerDown={(event) => event.stopPropagation()} onClick={() => onSelect?.(slot.slot)}>
         <line x1={point.x} y1={point.y} x2={x} y2={y - 12} />
+        {/* The pill is 24 px tall for the drawing's sake; the touch target around it is 44 px, as everywhere else. */}
+        <rect className="rafter-joint-hit" x={x - width / 2} y={y - 22} width={width} height={44} />
         <rect x={x - width / 2} y={y - 12} width={width} height={24} rx={12} />
-        <text x={x} y={y} textAnchor="middle" dominantBaseline="central">{slot.name}</text>
+        <text x={x} y={y} textAnchor="middle" dominantBaseline="central">{text}</text>
       </g>;
     })}
   </>;
@@ -259,6 +282,8 @@ function InteractiveCanvas({ views, focus, full, mode, selected, selectedView, u
     event.preventDefault();
   };
   const percent = Math.round(camera.scale / fitted.scale * 100);
+  // One claimed-label list for the whole canvas, so the second roof side places its labels around the first side's.
+  const drawn: LabelBox[] = [];
   const valuesOf = (view: CanvasView) => view.section.overview.map((item) => item.valueMm.toFixed(1)).join() + view.slots.map((slot) => slot.status).join();
 
   return <div className={`drawing-stage${className ? ` ${className}` : ""}`}>
@@ -280,7 +305,7 @@ function InteractiveCanvas({ views, focus, full, mode, selected, selectedView, u
         onKeyDown={onKeyDown} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={(event) => pointers.current.delete(event.pointerId)}>
         <title id={titleId}>{title}</title>
         {views.map((view) => <SectionView key={view.id} section={view.section} slots={view.slots} camera={camera} size={size} fontSize={fontSize} unit={unit} mode={mode} selected={view.id === selectedView ? selected : null}
-          onSelect={onSelect && ((slot) => onSelect(view.id, slot))} hideOrigin={hideOrigin} side={views.length > 1 ? view.side : null} secondary={view === views[0] ? false : valuesOf(view) === valuesOf(views[0]!) ? "duplicate" : true} />)}
+          onSelect={onSelect && ((slot) => onSelect(view.id, slot))} hideOrigin={hideOrigin} side={views.length > 1 ? view.side : null} secondary={view === views[0] ? false : valuesOf(view) === valuesOf(views[0]!) ? "duplicate" : true} drawn={drawn} />)}
       </svg>
     </div>
   </div>;

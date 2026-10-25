@@ -97,7 +97,8 @@ describe("rafter joints per roof shape (M9.5)", () => {
     ["halfHip", { type: "halfHip", ...R, hipEaveHeightMm: 1_000 }, ["computed/computed/computed", "computed/computed/computed", "computed/unsupported/unsupported", "computed/unsupported/unsupported"], 3],
     ["lShape", { type: "lShape", ...R, wingWidthMm: 5_000, wingProjectionMm: 4_000 }, ["computed/unsupported/unsupported", "computed/unsupported/unsupported", "computed/computed/computed", "computed/computed/computed"], 3],
     ["tShape", { type: "tShape", ...R, wingWidthMm: 5_000, wingProjectionMm: 4_000 }, ["computed/computed/computed", "computed/computed/computed", "computed/unsupported/unsupported", "computed/unsupported/unsupported"], 3],
-    ["mansard", { type: "mansard", lengthMm: 10_000, widthMm: 8_000, lowerRunMm: 1_000, lowerRiseMm: 2_000, upperRiseMm: 1_000 }, ["computed/invalid/unsupported", "computed/invalid/unsupported", "not-applicable", "not-applicable"], 0],
+    // The lower planes' purlin is invalid at these inputs, but their seat and outline are proven, so each is drawn on its own (they meet at the break line, not a shared ridge).
+    ["mansard", { type: "mansard", lengthMm: 10_000, widthMm: 8_000, lowerRunMm: 1_000, lowerRiseMm: 2_000, upperRiseMm: 1_000 }, ["computed/invalid/unsupported", "computed/invalid/unsupported", "not-applicable", "not-applicable"], 2],
   ];
   it.each(matrix)("%s", (_shape, roof, expected, sections) => {
     const { geometry, layout } = layoutFor(roof);

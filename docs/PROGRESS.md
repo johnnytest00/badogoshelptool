@@ -1,5 +1,19 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M9.7 — Szarufarajz E2E vizuális audit és P1 javítások (2026-10-25)
+
+Státusz: **PASS WITH LIMITATIONS** (audit + három P1 rajzi javítás; számítási eredmény, snapshot, mentés, szerződés és DB változatlan). Teljes audit: [M9.7 rajzi E2E audit](M97_ROOF_DRAWING_E2E_VISUAL_AUDIT.md).
+
+- **Audit:** 17 tételes ellenőrzés a `roof.rafter-cut` és a `roof.timber-cutlist` szarufarajzain (kattintás-kiválasztás, zoom/pan/reset/billentyű, tetősík- és szelemenválasztók, tetőformák, mobil és sötét téma), PASS/FAIL/PARTIAL/FEATURE GAP/NOT VERIFIED besorolással és mért bizonyítékkal. A megszakadt Codex-futásból csak 5 képernyőkép maradt, ebből kettő „dark” néven világos témában készült — ez dokumentálva, a sötét téma pótolva.
+- **F-03 javítva:** egyetlen érvénytelen **derékszelemen** többé nem tünteti el az egész rajzot. A `drawing` csak akkor marad el, ha a talpszelemen vagy a gerinc érvénytelen (ezek rögzítik a 0-pontot és a felső véget); az érvénytelen derékszelemen csak a saját támaszát veszíti el, és „nem számítható” státusszal, indokkal jelenik meg. Kívánt mellékhatás: a manzárd alsó tetősíkjai mostantól rajzot kapnak (síkonként egyet).
+- **F-01 javítva:** a csomópont-buborékok a címkeelhelyezés elé kerültek, befoglalóik akadályok (`labelObstacles`), így a méretcímkék **elmozdulnak** róluk; a közös ütközéslista a vászon mindkét tetőoldalára érvényes. A korábban mért 88×20 px-es `Talpszelemen` × `magasság 20` átfedés megszűnt.
+- **F-02 javítva:** a tükrözött tetőoldal saját buborékokat kap, így mindkét oldal kattintható, és a kiválasztás a rajzon is látszik. Telefonszélességű vásznon (< 600 px) a tükrözött oldal csak a kiválasztott buborékot mutatja; minden csatlakozás elérhető marad a gombsorból.
+- **Ellenőrzés:** `npx tsc --noEmit` PASS, `eslint` PASS az érintett fájlokra, teljes Vitest **189 fájl PASS / 8 SKIP, 1169 PASS / 19 SKIP**. Böngésző (helyi dev, mentés nélkül): `roof.rafter-cut` és `roof.timber-cutlist` 1440×900 és 375×812, illesztett és nagyított nézetben **0 mért címkeátfedés**; jobb oldali buborék kattintása a részletet, az oldalgombot és a kiemelést együtt váltja; az F-03 reprodukciós bemenet (derékszelemen felső síkja 140 cm) rajzot ad. Bizonyítékképek: `docs/evidence/m97/`.
+- **F-04 javítva:** a `notchValues` reason-szövegei már nem ismétlik a csomópont nevét (a `prefix` paraméter megszűnt); minden megjelenítési és mentési hely külön is megnevezi a csomópontot. `Derékszelemen: Derékszelemen: …` → cím `Derékszelemen · nem számítható` + `A támasz felső síkja eléri a szarufa felső élét.`
+- **F-06 javítva:** a buborékok 44 px magas, átlátszó találati területet kaptak (a látható pirula marad 24 px), és 600 px-nél keskenyebb vásznon a leghosszabb név a megkülönböztető szavára rövidül (`Szembefutó szarufák` → `Szembefutó`; a teljes név megmarad az akadálymentes névben, a gombsorban és a részlet címében). Mérve 375×812-n: legnagyobb buborékszélesség a vászon 51% → 29%-a.
+- **Nyitott / korlát:** F-05 rétegkapcsolók a szarufarajzon (FEATURE GAP, P3; új funkció, jóváhagyás kell). Zsúfolt nézetben néhány méretcímke szövege eltűnik (az érték a rajz alatti listában van, nagyításra visszajön). Valódi érintéses gesztus, fókuszgyűrű és a tetőmodell műszaki rajza nem ellenőrzött; `npm run build` nem futott.
+- **Javasolt Conventional Commit:** `fix(M9.7): draw proven rafter joints and make drawing badges readable`.
+
 ## M9.6 — Szarufarajzok UI/UX finomítása (2026-10-25)
 
 Státusz: **PASS WITH LIMITATIONS** (csak prezentáció; számítás, snapshot, mentés, teljességi státusz, DB változatlan). Forrás: [M9.5 vizuális UX-audit](M95_RAFTER_VISUAL_UX_REVIEW.md) (változatlanul megőrizve).
