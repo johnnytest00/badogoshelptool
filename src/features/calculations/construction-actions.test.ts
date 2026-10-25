@@ -51,6 +51,19 @@ describe("saveConstructionCalculationAction", () => {
     expect(persist.mock.calls[0][0]).toMatchObject({ expectedRevisionNumber: 3, input: { fields: { ...hydrated, riseMm: "2200" } } });
   });
 
+  it("rejects a manipulated optional joint value instead of saving it as not given (CRR-07)", async () => {
+    const changes: readonly Record<string, string>[] = [{ plateWidthMm: "-5" }, { plateWidthMm: "0" }, { rafterDepthMm: "NaN" }, { purlinFaceMm: "1e9" }, { ridgeJoint: "glued" }];
+    for (const change of changes) {
+      const result = await saveConstructionCalculationAction(request({ ...valid, seatCutHeightMm: "100", rafterDepthMm: "200", ...change }));
+      expect(result).toMatchObject({ ok: false });
+    }
+    const negative = await saveConstructionCalculationAction(request({ ...valid, plateWidthMm: "-5" }));
+    expect(negative).toEqual({ ok: false, error: "Talpszelemen szélessége · ellenőrzéshez: nem lehet negatív." });
+    const roofJoint = await saveConstructionCalculationAction(request({ ...timberFields, birdsmouth: "true", seatCutHeightMm: "100", ridgeBoardThicknessMm: "-40" }, "roof.timber-cutlist", timberMaterial({ rafterMaxSpacingMm: 900 }, { sectionWidthMm: 80, sectionHeightMm: 200 })));
+    expect(roofJoint).toMatchObject({ ok: false });
+    expect(persist).not.toHaveBeenCalled();
+  });
+
   it("rejects non-members, out-of-scope calculators, unknown fields and incomplete results before writing", async () => {
     auth.mockResolvedValueOnce({ userId: "u", organizations: [] });
     expect((await saveConstructionCalculationAction(request(valid))).ok).toBe(false);

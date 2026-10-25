@@ -1,7 +1,8 @@
 import { z } from "zod";
 
-export const constructionLengthMm = z.number().finite().positive().max(1_000_000);
-export const constructionNonNegativeMm = z.number().finite().nonnegative().max(1_000_000);
+export const CONSTRUCTION_MAX_LENGTH_MM = 1_000_000;
+export const constructionLengthMm = z.number().finite().positive().max(CONSTRUCTION_MAX_LENGTH_MM);
+export const constructionNonNegativeMm = z.number().finite().nonnegative().max(CONSTRUCTION_MAX_LENGTH_MM);
 export const constructionCount = z.number().int().positive().max(100_000);
 
 export function assertFiniteResult(values: readonly number[]): void {

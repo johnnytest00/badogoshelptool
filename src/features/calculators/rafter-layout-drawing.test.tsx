@@ -19,31 +19,27 @@ describe("rafter layout drawing", () => {
     const html = render(GABLE);
     expect(html.match(/class="rafter-layout-rafter"/g)).toHaveLength(18);
     const content = text(html);
-    for (const part of ["Szarufa-elrendezés", "18 db", "58,8 cm", "18 db × 500 cm", "Az 1. szarufa a tetősík szélén áll", "Felső vég · gerinc", "függővágás 36,9°", "Alsó vég · eresz", "Szarufa kiszabása"]) expect(content).toContain(part);
+    for (const part of ["Geometriai szarufavonalak · tetősíkonként", "nem teljes tetőszerkezeti (framing) terv", "egy vagy több fizikai faelemet", "18 db", "58,8 cm", "18 db × 500 cm", "Az 1. vonal a tetősík szélén áll", "Felső vég · gerinc", "függővágás 36,9°", "Alsó vég · eresz", "Szarufa kiszabása"]) expect(content).toContain(part);
     // Position list from the first rafter: 2nd at 58,8 cm, last at 1000 cm.
-    expect(content).toMatch(/2\. szarufa 58,8 cm/);
-    expect(content).toMatch(/18\. szarufa 1000 cm/);
+    expect(content).toMatch(/2\. vonal 58,8 cm/);
+    expect(content).toMatch(/18\. vonal 1000 cm/);
+    expect(content).not.toContain("kiosztási terv");
+    expect(content).not.toContain("Kontyél- és vápaszarufa nincs a modellben");
   });
 
   it("says a hip-ended jack rafter needs a compound cut the calculator does not give", () => {
     const content = text(render(HIP));
     expect(content).toContain("Felső vég · kontyél");
     expect(content).toContain("ferde (kettős) vágás, a rendszer nem számolja");
-  });
-
-  it("shows the plane's birdsmouth with marking steps measured from the rafter's lower end", () => {
-    // 53,13° (3-4-5), h 200, HAP 100: H = 333,3; plumb 233,3 → 23,3 cm; seat 175 → 17,5 cm; ⊥ 140 → 14 cm; 6 cm remains.
-    const geometry = calculateRoofGeometry(GABLE);
-    const layout = calculateRoofTimberLayout(geometry, { rafter: { maxSpacingMm: 600, startInsetMm: 0, endInsetMm: 0 } }) as RoofTimberLayout;
-    const birdsmouths = calculatePlaneBirdsmouths(geometry, layout, { rafterDepthMm: 200, seatCutHeightMm: 100, plateWidthMm: 150 });
-    const content = text(renderToStaticMarkup(<RafterLayoutDrawing geometry={geometry} timberLayout={layout} birdsmouths={birdsmouths} />).replace(/<!-- -->/g, ""));
-    for (const part of ["Madárszáj ezen a tetősíkon", "Ennyit kell bevágni", "Függővágás 23,3 cm", "Ülék 17,5 cm", "Bevágás mélysége 14 cm", "6 cm marad", "a szarufa alsó végén", "nem fér rá", "2,5 cm-rel"]) expect(content).toContain(part);
+    // CRR-09: a plane whose rafters end on ridge and hips gets no single edge name, CRR-02: hip rafters are named as missing.
+    expect(content).toContain("vegyes felső végek – lásd a listát");
+    expect(content).toContain("Kontyél- és vápaszarufa nincs a modellben");
   });
 
   it("names what is missing when the birdsmouth was asked for without data", () => {
     const geometry = calculateRoofGeometry(GABLE);
     const layout = calculateRoofTimberLayout(geometry, { rafter: { maxSpacingMm: 600, startInsetMm: 0, endInsetMm: 0 } }) as RoofTimberLayout;
     const content = text(renderToStaticMarkup(<RafterLayoutDrawing geometry={geometry} timberLayout={layout} birdsmouths={calculatePlaneBirdsmouths(geometry, layout, {})} />).replace(/<!-- -->/g, ""));
-    expect(content).toContain("Madárszáj: hiányzó adat · Szarufa keresztmetszet magassága, Madárszáj vízszintes vágásának magassága");
+    expect(content).toContain("Talpszelemen-madárszáj: hiányzó adat · Szarufa keresztmetszet magassága, HAP · szarufa felső élének magassága a talpszelemen felett");
   });
 });

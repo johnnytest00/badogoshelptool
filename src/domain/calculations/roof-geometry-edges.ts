@@ -2,7 +2,7 @@ import type { RoofGeometry, RoofGeometryEdge, RoofPoint } from "./roof-geometry"
 
 const EDGE_PRIORITY: readonly RoofGeometryEdge["kind"][] = ["ridge", "hip", "valley", "break", "upper", "eave", "rake"];
 
-function onEdge(point: RoofPoint, edge: RoofGeometryEdge): boolean {
+export function onEdge(point: RoofPoint, edge: RoofGeometryEdge): boolean {
   const ex = edge.end.xMm - edge.start.xMm, ey = edge.end.yMm - edge.start.yMm, ez = edge.end.zMm - edge.start.zMm;
   const length2 = ex * ex + ey * ey + ez * ez;
   if (length2 <= 0) return false;

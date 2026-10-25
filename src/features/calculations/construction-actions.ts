@@ -45,7 +45,7 @@ export async function saveConstructionCalculationAction(raw: unknown): Promise<C
     profiles = [...(catalog ?? []), ...DEMO_MATERIAL_PROFILES];
   }
   const computation = computeConstruction(definition, request.input.fields, material, profiles);
-  if (!isSaveableComputation(computation)) return { ok: false, error: computation.error ?? "Csak teljes, kiszámítható eredmény menthető." };
+  if (!isSaveableComputation(computation)) return { ok: false, error: computation.error ?? (computation.completeness.status === "invalid" ? computation.completeness.reasons[0] : undefined) ?? "Csak teljes, kiszámítható eredmény menthető." };
 
   try {
     const saved = await persistStandaloneConstructionCalculation({

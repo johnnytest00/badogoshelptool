@@ -22,10 +22,21 @@ export function useCanvasSize() {
   return [ref, size] as const;
 }
 
-/** Label font size in px follows the app's adaptive text scale, so the collision estimate matches what is drawn. */
+/**
+ * Label font size in px follows the app's adaptive text scale, so the collision estimate matches what is drawn.
+ * CRR-05: the scaling provider writes --tp-text-scale on <html>'s style, so a live change is observed there, without polling.
+ */
 export function useFontSize() {
   const [fontSize, setFontSize] = useState(13);
-  useEffect(() => { setFontSize(13 * (Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tp-text-scale")) || 1)); }, []);
+  useEffect(() => {
+    const root = document.documentElement;
+    const read = () => setFontSize(13 * (Number.parseFloat(getComputedStyle(root).getPropertyValue("--tp-text-scale")) || 1));
+    read();
+    if (typeof MutationObserver === "undefined") return;
+    const observer = new MutationObserver(read);
+    observer.observe(root, { attributes: true, attributeFilter: ["style", "class"] });
+    return () => observer.disconnect();
+  }, []);
   return fontSize;
 }
 

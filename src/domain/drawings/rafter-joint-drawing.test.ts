@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateRafterGeometry } from "@/domain/calculations/construction/roofs";
 import { calculateRafterJoints, type RafterJointInput } from "@/domain/calculations/construction/rafter-joints";
-import { createRafterJointDrawingModel, fitCamera, labelHitsSegment, nudgeOffSegments, panCamera, projectPoint, zoomCameraAt, type JointDimension, type MmPoint } from "./rafter-joint-drawing";
+import { createRafterJointDrawingModel, fitCamera, mirrorRafterJointDrawingModel, labelHitsSegment, nudgeOffSegments, panCamera, projectPoint, zoomCameraAt, type JointDimension, type MmPoint } from "./rafter-joint-drawing";
 
 // Same independent 3-4-5 hand values as rafter-joints.test.ts: tanα 0.75, cosα 0.8, h 200, plumb depth 250, HAP 100.
 const base: RafterJointInput = { horizontalHalfSpanMm: 4000, riseMm: 3100, eaveProjectionMm: 400, seatCutHeightMm: 100, rafterDepthMm: 200, ridgeJoint: "opposed" };
@@ -27,7 +27,7 @@ describe("rafter joint drawing model (S1/S2/S3 from calculateRafterJoints only)"
 
   it("chains the plumb faces along the upper edge and the chain adds up to the calculator's rafter length", () => {
     const { overview } = createRafterJointDrawingModel(calculateRafterJoints(three)).section!;
-    expect(overview.map((item) => [item.label, Number(item.valueMm.toFixed(6))])).toEqual([["eresz–S1", 500], ["S1–S2", 2500], ["S2–S3", 2400], ["S3–gerinc", 100], ["h ⊥", 200], ["L", 5500]]);
+    expect(overview.map((item) => [item.label, Number(item.valueMm.toFixed(6))])).toEqual([["eresz–talpszelemen", 500], ["talpszelemen–derékszelemen", 2500], ["derékszelemen–gerincszelemen", 2400], ["gerincszelemen–gerinc", 100], ["h ⊥", 200], ["L", 5500]]);
     const chain = overview.filter((item) => item.id.startsWith("chain-")).reduce((sum, item) => sum + item.valueMm, 0);
     expect(chain).toBeCloseTo(overview.at(-1)!.valueMm, 9);
     const geometry = calculateRafterGeometry(base);
@@ -38,7 +38,7 @@ describe("rafter joint drawing model (S1/S2/S3 from calculateRafterJoints only)"
   it("keeps S2 and S3 as explicit states when there is no intermediate or ridge purlin", () => {
     const model = createRafterJointDrawingModel(calculateRafterJoints(base));
     expect(model.slots[1]).toMatchObject({ status: "absent", dimensions: [], focus: null, note: expect.stringContaining("nincs megadva") });
-    expect(model.slots[2]).toMatchObject({ name: "Gerinc · szembefutó", status: "computed", dimensions: [], note: expect.stringContaining("Nincs gerincszelemen") });
+    expect(model.slots[2]).toMatchObject({ name: "Szembefutó szarufák", status: "computed", dimensions: [], note: expect.stringContaining("Nincs gerincszelemen") });
     expect(model.slots[2].angles[0]!.valueDegrees).toBeCloseTo(90 - 36.869898, 5);
     expect(model.section!.supports.map((support) => support.slot)).toEqual(["S1"]);
     const board = createRafterJointDrawingModel(calculateRafterJoints({ ...base, ridgeJoint: "board", ridgeBoardThicknessMm: 50 }));
@@ -137,5 +137,17 @@ describe("cutting marks (M9.1)", () => {
     const moved = nudgeOffSegments(box, [edge], { x: 0, y: 1 }, 6);
     expect(labelHitsSegment({ ...box, point: moved }, edge[0], edge[1])).toBe(false);
     expect(moved.x).toBe(50);
+  });
+
+  it("mirrors the opposite roof side about its own ridge axis without touching a value (M9.5 common cross-section)", () => {
+    const model = createRafterJointDrawingModel(calculateRafterJoints({ horizontalHalfSpanMm: 4000, riseMm: 3100, eaveProjectionMm: 400, seatCutHeightMm: 100, rafterDepthMm: 200, ridgeJoint: "opposed" }));
+    const mirrored = mirrorRafterJointDrawingModel(model);
+    const axis = model.section!.ridgeAxisXMm;
+    expect(mirrored.section!.outline.map((p) => [p.xMm, p.yMm])).toEqual(model.section!.outline.map((p) => [2 * axis - p.xMm, p.yMm]));
+    expect(mirrored.slots[0].anchor).toEqual({ xMm: 2 * axis - model.slots[0].anchor!.xMm, yMm: model.slots[0].anchor!.yMm });
+    expect(mirrored.slots[0].dimensions.map((d) => d.valueMm)).toEqual(model.slots[0].dimensions.map((d) => d.valueMm));
+    // Each dimension still spans the same true distance between its (mirrored) model points.
+    for (const [a, b] of model.slots[0].dimensions.map((d, i) => [d, mirrored.slots[0].dimensions[i]!] as const)) expect(Math.hypot(b.to.xMm - b.from.xMm, b.to.yMm - b.from.yMm)).toBeCloseTo(Math.hypot(a.to.xMm - a.from.xMm, a.to.yMm - a.from.yMm), 9);
+    expect(mirrored.section!.bounds.minX).toBeCloseTo(2 * axis - model.section!.bounds.maxX, 9);
   });
 });

@@ -1,4 +1,4 @@
-import type { RafterJointResult, RafterJoints } from "@/domain/calculations/construction/rafter-joints";
+import { RIDGE_JOINT_NAME, type RafterJointResult, type RafterJoints } from "@/domain/calculations/construction/rafter-joints";
 
 /**
  * Dimensioned rafter section with the three support slots (S1 wall plate, S2 intermediate purlin, S3 ridge), built only
@@ -40,6 +40,7 @@ export type RafterJointDrawingModel = Readonly<{
     /** The uncut lower edge, dashed across the notches. */
     lowerEdge: readonly [MmPoint, MmPoint];
     ridgeAxisXMm: number;
+    pitchDegrees: number;
     /** Common origin O: the S1 plumb mark on the upper edge; every position along the rafter is measured from here. */
     origin: MmPoint;
     endCuts: readonly CutEdge[];
@@ -53,7 +54,8 @@ export type RafterJointDrawingModel = Readonly<{
   }>;
 }>;
 
-const RIDGE_NAME = { opposed: "Gerinc · szembefutó", board: "Gerincdeszka", purlin: "Gerincszelemen" } as const;
+const RIDGE_NAME = RIDGE_JOINT_NAME;
+const notModelled = (joint: RafterJointResult | null) => joint?.status === "unsupported" || joint?.status === "not-applicable";
 const valueOf = (joint: RafterJointResult | null, label: string) => joint?.values.find((item) => item.label.startsWith(label))?.value;
 const boundsOf = (points: readonly MmPoint[], pad = 0): MmBounds => ({
   minX: Math.min(...points.map((p) => p.xMm)) - pad, maxX: Math.max(...points.map((p) => p.xMm)) + pad,
@@ -65,11 +67,11 @@ export function createRafterJointDrawingModel(joints: RafterJoints): RafterJoint
   const byId = (id: RafterJointResult["id"]) => joints.joints.find((joint) => joint.id === id) ?? null;
   const seatJoint = byId("seat"), purlinJoint = byId("purlin"), ridgeJoint = byId("ridge");
   const drawing = joints.drawing;
-  const ridgeName = drawing ? RIDGE_NAME[drawing.ridgeJoint] : ridgeJoint?.title.includes("gerincszelemen") ? RIDGE_NAME.purlin : ridgeJoint?.title.includes("gerincdeszk") ? RIDGE_NAME.board : RIDGE_NAME.opposed;
+  const ridgeName = notModelled(ridgeJoint) ? "Felső vég" : RIDGE_NAME[joints.ridgeJoint];
   const empty = (slot: JointSlotId, name: string, joint: RafterJointResult | null, note: string | null): JointSlot =>
     ({ slot, name, status: joint?.status ?? "absent", joint, note, anchor: null, focus: null, dimensions: [], angles: [], cut: null, positionMm: null });
   const noPurlinNote = "Derékszelemen nincs megadva, ezért nem rajzolt. Add meg a helyét és a felső síkját a „Részletes számítás” alatt.";
-  const ridgeNote = ridgeName === RIDGE_NAME.opposed ? "Nincs gerincszelemen: a szarufák a gerinctengelyen függővágással futnak össze." : ridgeName === RIDGE_NAME.board ? "Nincs gerincszelemen: gerincdeszkára fut. A deszka magassága nem bemenet, ezért nem rajzolt." : null;
+  const ridgeNote = notModelled(ridgeJoint) ? ridgeJoint!.reason ?? null : joints.ridgeJoint === "opposed" ? "Nincs gerincszelemen: a szarufák a gerinctengelyen függővágással futnak össze. A kapcsolóelem kivitelezői döntés." : joints.ridgeJoint === "board" ? "Nincs gerincszelemen: gerincdeszkára fut. A deszka magassága nem bemenet, ezért nem rajzolt." : null;
   if (!drawing) return { section: null, slots: [empty("S1", "Talpszelemen", seatJoint, null), empty("S2", "Derékszelemen", purlinJoint, purlinJoint ? null : noPurlinNote), empty("S3", ridgeName, ridgeJoint, ridgeNote)] };
 
   const pitch = joints.pitchDegrees * Math.PI / 180;
@@ -134,6 +136,8 @@ export function createRafterJointDrawingModel(joints: RafterJoints): RafterJoint
   const ridgeEnd = ridgeTop.xMm;
   const s3: JointSlot = (() => {
     if (!ridgeJoint) return empty("S3", ridgeName, null, ridgeNote);
+    // Upper end the roof adapter could not match to a ridge joint: no cut is drawn or dimensioned there.
+    if (notModelled(ridgeJoint)) return empty("S3", ridgeName, ridgeJoint, ridgeNote);
     if (drawing.ridgeJoint === "purlin") return notchSlot("S3", ridgeName, ridgeJoint, null);
     // Opposed or ridge board: the rafter ends in a plumb cut; only the angle (A) and the board's t/2 (B) are dimensioned.
     const endTop = onUpper(ridgeEnd), endFoot = onLower(ridgeEnd);
@@ -155,7 +159,7 @@ export function createRafterJointDrawingModel(joints: RafterJoints): RafterJoint
   const overview: JointDimension[] = stations.slice(1).map((station, index) => {
     const previous = stations[index]!;
     const exact = previous.name === "S1" && station.name === "S2" ? valueOf(purlinJoint, "Felfekvés távolsága") : undefined;
-    return { id: `chain-${previous.name}-${station.name}`, label: `${previous.name}–${station.name}`, valueMm: exact ?? (station.x - previous.x) / cos, from: onUpper(previous.x), to: onUpper(station.x), kind: "aligned", outward: normalUp, tier: 0 };
+    return { id: `chain-${previous.name}-${station.name}`, label: `${STATION_NAME[previous.name] ?? previous.name}–${STATION_NAME[station.name] ?? station.name}`, valueMm: exact ?? (station.x - previous.x) / cos, from: onUpper(previous.x), to: onUpper(station.x), kind: "aligned", outward: normalUp, tier: 0 };
   });
   // Section depth h (the input), perpendicular to the rafter in the middle of the first notch-free span.
   const depthX = (stations[0]!.x + stations[1]!.x) / 2, depthTop = onUpper(depthX);
@@ -169,14 +173,44 @@ export function createRafterJointDrawingModel(joints: RafterJoints): RafterJoint
   ];
   const stationList = [
     ...(eaveTop.xMm < 0 ? [{ id: "eave-end", label: "ereszvég", positionMm: -overview[0]!.valueMm }] : []),
-    ...slots.flatMap((slot) => slot.positionMm === null ? [] : [{ id: slot.slot, label: `${slot.slot} · ${slot.name}`, positionMm: slot.positionMm }]),
-    ...(drawing.ridgeJoint === "purlin" ? [{ id: "ridge-end", label: "gerincvég", positionMm: ridgeEnd / cos }] : []),
+    ...slots.flatMap((slot) => slot.positionMm === null ? [] : [{ id: slot.slot, label: slot.name, positionMm: slot.positionMm }]),
+    ...(drawing.ridgeJoint === "purlin" && !notModelled(ridgeJoint) ? [{ id: "ridge-end", label: "gerincvég", positionMm: ridgeEnd / cos }] : []),
   ];
   const bounds = boundsOf([...drawing.outline, ...supports.flatMap((shape) => [...shape.bearing, ...shape.schematic.flat()])]);
   const focusBoxes = slots.flatMap((slot) => slot.focus ? [slot.focus] : []);
   return {
     slots,
-    section: { outline: drawing.outline, lowerEdge: [onLower(eaveTop.xMm), onLower(ridgeEnd)], ridgeAxisXMm: drawing.ridgeAxisXMm, origin: onUpper(0), endCuts, stations: stationList, depthMm: depth, supports, overview, bounds, focus: focusBoxes.length > 1 ? union(focusBoxes) : bounds },
+    section: { outline: drawing.outline, lowerEdge: [onLower(eaveTop.xMm), onLower(ridgeEnd)], ridgeAxisXMm: drawing.ridgeAxisXMm, pitchDegrees: joints.pitchDegrees, origin: onUpper(0), endCuts, stations: stationList, depthMm: depth, supports, overview, bounds, focus: focusBoxes.length > 1 ? union(focusBoxes) : bounds },
+  };
+}
+
+const STATION_NAME: Readonly<Record<string, string>> = { S1: "talpszelemen", S2: "derékszelemen", S3: "gerincszelemen" };
+
+/**
+ * The opposite roof side of a common cross-section: the same model mirrored about its own ridge axis (x → 2·axis − x).
+ * Values are untouched; only points and outward directions flip, so every dimension still runs between model points.
+ */
+export function mirrorRafterJointDrawingModel(model: RafterJointDrawingModel): RafterJointDrawingModel {
+  const section = model.section;
+  if (!section) return model;
+  const axis = section.ridgeAxisXMm;
+  const p = (point: MmPoint): MmPoint => ({ xMm: 2 * axis - point.xMm, yMm: point.yMm });
+  const v = (vector: MmPoint): MmPoint => ({ xMm: -vector.xMm, yMm: vector.yMm });
+  const box = (b: MmBounds): MmBounds => ({ minX: 2 * axis - b.maxX, maxX: 2 * axis - b.minX, minY: b.minY, maxY: b.maxY });
+  const dim = (d: JointDimension): JointDimension => ({ ...d, from: p(d.from), to: p(d.to), outward: v(d.outward) });
+  const edge = (e: CutEdge): CutEdge => ({ ...e, from: p(e.from), to: p(e.to) });
+  const slots = model.slots.map((slot): JointSlot => ({
+    ...slot, anchor: slot.anchor && p(slot.anchor), focus: slot.focus && box(slot.focus), dimensions: slot.dimensions.map(dim),
+    angles: slot.angles.map((a) => ({ ...a, vertex: p(a.vertex), from: p(a.from), to: p(a.to) })),
+    cut: slot.cut && { offcut: slot.cut.offcut && slot.cut.offcut.map(p), edges: slot.cut.edges.map(edge), markLine: slot.cut.markLine && [p(slot.cut.markLine[0]), p(slot.cut.markLine[1])], points: slot.cut.points.map((point) => ({ ...point, at: p(point.at) })) },
+  })) as unknown as RafterJointDrawingModel["slots"];
+  return {
+    slots,
+    section: {
+      ...section, outline: section.outline.map(p), lowerEdge: [p(section.lowerEdge[0]), p(section.lowerEdge[1])], origin: p(section.origin), endCuts: section.endCuts.map(edge),
+      supports: section.supports.map((shape) => ({ ...shape, bearing: shape.bearing.map(p), schematic: shape.schematic.map((line) => line.map(p)) })),
+      overview: section.overview.map(dim), bounds: box(section.bounds), focus: box(section.focus),
+    },
   };
 }
 

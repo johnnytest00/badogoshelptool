@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { calculateExistingRoofGeometry } from "@/domain/calculations/construction/roofs";
+import { CONSTRUCTION_MAX_LENGTH_MM } from "@/domain/calculations/construction/numeric";
 import { calculateRafterJoints, rafterJointInputFromFields, type RafterJoints } from "@/domain/calculations/construction/rafter-joints";
-import { planeBirdsmouthsFor, type PlaneBirdsmouth } from "@/domain/calculations/construction/plane-birdsmouth";
+import { planeBirdsmouthsFor, planeJointStatuses, type PlaneBirdsmouth, type PlaneJointStatus } from "@/domain/calculations/construction/plane-birdsmouth";
 import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoff, type RoofMaterialTakeoffInputs } from "@/domain/calculations/roof-material-takeoff";
 import type { RoofGeometry, RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/roof-geometry";
 import { roofTimberInputFromParameters, roofTimberParametersSchema, type RoofTimberLayout, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
@@ -33,7 +34,28 @@ export function roofGeometryTypeForDefinition(definition: CalculatorDefinition, 
   return usesRoofShape(definition) ? roofShapeOf(values) : null;
 }
 export const isFieldVisible = (field: Field, values: Record<string, string>) => (!field.shapes || field.shapes.includes(roofShapeOf(values)))
-  && (!field.visibleWhen || field.visibleWhen.values.includes(values[field.visibleWhen.key] ?? ""));
+  && (field.visibleWhen === undefined ? [] : "key" in field.visibleWhen ? [field.visibleWhen] : field.visibleWhen).every((condition) => condition.values.includes(values[condition.key] ?? ""));
+
+/**
+ * Field contract (CRR-07), shared by the preview and the server action: a value that was entered but is not valid is never
+ * read as "not given". Empty means not given; everything else must be a finite, non-negative number (positive where 0 has
+ * no meaning), at most CONSTRUCTION_MAX_LENGTH_MM for lengths, and a select or checkbox value must be one of its options.
+ */
+export function fieldContractIssues(fields: readonly Field[], values: Record<string, string>): string[] {
+  return fields.flatMap((field) => {
+    const raw = values[field.key]?.trim() ?? "";
+    if (raw === "") return [];
+    if (field.kind === "text") return [];
+    if (field.kind === "checkbox") return raw === "true" || raw === "false" ? [] : [`${field.label}: érvénytelen érték.`];
+    if (field.kind === "select") return field.options?.some((option) => option.value === raw) ? [] : [`${field.label}: nem választható érték.`];
+    const value = Number(raw.replace(",", "."));
+    if (!Number.isFinite(value)) return [`${field.label}: nem szám.`];
+    if (value < 0) return [`${field.label}: nem lehet negatív.`];
+    if (field.positive && value === 0) return [`${field.label}: 0 nem megengedett; hagyd üresen, ha nincs megadva.`];
+    if (field.unit === "mm" && value > CONSTRUCTION_MAX_LENGTH_MM) return [`${field.label}: legfeljebb ${new Intl.NumberFormat("hu-HU").format(CONSTRUCTION_MAX_LENGTH_MM)} mm lehet.`];
+    return [];
+  });
+}
 
 function reusableRoofGeometry(definition: CalculatorDefinition, values: Record<string, string>): RoofGeometry | null {
   if (!usesRoofShape(definition)) return null;
@@ -73,13 +95,16 @@ export type ConstructionComputation = Readonly<{
   rafterJoints: RafterJoints | null;
   /** Per roof plane notch in the roof calculators; null when not asked for or without a rafter layout. */
   birdsmouths: readonly PlaneBirdsmouth[] | null;
-  completeness: Readonly<{ status: "complete" | "incomplete" | "invalid" | "unsupported"; reasons: readonly string[] }>;
+  /** limitations: not-applicable planes and unsupported joints; they do not block saving but are shown and saved (CRR-03). */
+  completeness: Readonly<{ status: "complete" | "incomplete" | "invalid" | "unsupported"; reasons: readonly string[]; limitations: readonly string[] }>;
+  jointStatus: readonly PlaneJointStatus[] | null;
 }>;
 
 /** One calculation path for the browser preview and the server-side recomputation before saving. */
 export function computeConstruction(definition: CalculatorDefinition, values: Record<string, string>, material: RoofMaterialUiState | null, profiles: readonly MaterialProfile[]): ConstructionComputation {
   const calculatorId = definition.reference.id;
   const raw = inputRecord(definition.fields, values);
+  const fieldIssues = fieldContractIssues(definition.fields, values);
   const requiredFields = definition.fields.filter((field) => !field.advanced && field.initial === undefined && field.kind !== "checkbox" && isFieldVisible(field, values));
   const inputsReady = requiredFields.every((field) => (values[field.key] ?? "").trim() !== "");
   const timberOnly = calculatorId === "roof.timber-cutlist";
@@ -118,7 +143,9 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
   const cutList = timberOnly && timberLayout ? { rafters: cutListRows(timberLayout.rafters?.segments ?? []), battens: cutListRows(timberLayout.battens?.segments ?? []) } : null;
   const rafterJoints = calculatorId === "roof.rafter-cut" && rows.length > 0 && error === null ? calculateRafterJoints(rafterJointInputFromFields(raw)) : null;
   const birdsmouths = geometry && timberRequested ? planeBirdsmouthsFor(raw, takeoffInputs, geometry, timberLayout) : null;
-  const birdsmouthIssues = (status: PlaneBirdsmouth["status"]) => (birdsmouths ?? []).filter((plane) => plane.status === status);
+  const jointStatus = birdsmouths && planeJointStatuses(birdsmouths);
+  const jointIssues = (status: PlaneJointStatus["status"]) => (jointStatus ?? []).filter((item) => item.status === status);
+  const limitations = [...new Set([...jointIssues("not-applicable"), ...jointIssues("unsupported")].map((item) => `${item.plane} · ${item.name}: ${item.reason ?? "nem alkalmazható"}`))];
   const activeParts = materialTakeoff?.parts.filter((part) => part.requested && part.id !== "geometry") ?? [];
   const reasons = [...new Set([
     ...requiredFields.filter((field) => (values[field.key] ?? "").trim() === "").map((field) => field.label),
@@ -127,19 +154,19 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
     ...(materialTakeoff?.reasons ?? []),
     ...activeParts.flatMap((part) => part.incompleteQuantities.map((quantity) => `${part.label} · ${quantity.reason}`)),
     ...activeParts.flatMap((part) => part.invalidInputs.map((issue) => `${part.label} · ${issue}`)),
-    ...birdsmouthIssues("incomplete").flatMap((plane) => plane.missing.map((label) => `Madárszáj · ${label}`)),
-    ...birdsmouthIssues("invalid").flatMap((plane) => plane.reason ? [`Madárszáj · ${plane.reason}`] : []),
+    ...jointIssues("incomplete").flatMap((item) => (item.missing ?? []).map((label) => `${item.name} · ${label}`)),
+    ...jointIssues("invalid").flatMap((item) => item.reason ? [`${item.name} · ${item.reason}`] : []),
   ])];
-  const completeness = error !== null || (layoutValidation && !layoutValidation.success) || materialTakeoff?.status === "INVALID" || birdsmouthIssues("invalid").length > 0
-    ? { status: "invalid" as const, reasons: [...new Set([error, ...(layoutValidation && !layoutValidation.success ? layoutValidation.error.issues.map((issue) => validationMessage(issue)) : []), ...reasons].filter((reason): reason is string => Boolean(reason)))] }
+  const completeness = fieldIssues.length > 0 || error !== null || (layoutValidation && !layoutValidation.success) || materialTakeoff?.status === "INVALID" || jointIssues("invalid").length > 0
+    ? { status: "invalid" as const, reasons: [...new Set([...fieldIssues, error, ...(layoutValidation && !layoutValidation.success ? layoutValidation.error.issues.map((issue) => validationMessage(issue)) : []), ...reasons].filter((reason): reason is string => Boolean(reason)))] }
     : materialTakeoff?.status === "UNSUPPORTED"
       ? { status: "unsupported" as const, reasons }
-      : !inputsReady || birdsmouthIssues("incomplete").length > 0 || (materialTakeoff !== null && (activeParts.length === 0 || materialTakeoff.status === "INCOMPLETE" || activeParts.some((part) => part.incompleteQuantities.length > 0)))
+      : !inputsReady || jointIssues("incomplete").length > 0 || (materialTakeoff !== null && (activeParts.length === 0 || materialTakeoff.status === "INCOMPLETE" || activeParts.some((part) => part.incompleteQuantities.length > 0)))
         ? { status: "incomplete" as const, reasons: activeParts.length === 0 && materialTakeoff ? ["Válassz legalább egy számítandó anyagcsoportot.", ...reasons] : reasons }
         : rows.length > 0 || geometry !== null
           ? { status: "complete" as const, reasons: [] }
           : { status: "invalid" as const, reasons: ["A megadott adatokból nem keletkezett eredmény."] };
-  return { inputsReady, rows, error, geometry, takeoffInputs, materialTakeoff, timberLayout, underlayLayout, cutList, rafterJoints, birdsmouths, completeness };
+  return { inputsReady, rows, error, geometry, takeoffInputs, materialTakeoff, timberLayout, underlayLayout, cutList, rafterJoints, birdsmouths, completeness: { ...completeness, limitations }, jointStatus };
 }
 
 export const CONSTRUCTION_INPUT_SCHEMA = "construction-suite.input.v1";
@@ -179,6 +206,8 @@ export type ConstructionOutputSnapshot = Readonly<{
   takeoff: Readonly<{ status: string; parts: readonly Readonly<{ id: string; label: string; status: string | null; quantities: readonly Readonly<{ label: string; value: number; unit: string; meaning: string }>[] }>[] }> | null;
   cutList: ConstructionComputation["cutList"];
   specifications: RoofMaterialSpecSnapshot | null;
+  /** M9.5, optional so earlier v1 outputs stay valid: per plane joint state when rafter joints were asked for. */
+  jointStatus?: readonly PlaneJointStatus[];
 }>;
 
 /** Only defined field keys are kept; the material block exists only for calculators that use it. */
@@ -199,6 +228,7 @@ export function constructionOutputSnapshot(calculatorId: string, computation: Co
     takeoff: takeoff ? { status: takeoff.status, parts: takeoff.parts.filter((part) => part.requested).map((part) => ({ id: part.id, label: part.label, status: part.status ?? null, quantities: part.quantities.map((quantity) => ({ label: quantity.label, value: quantity.value, unit: quantity.unit, meaning: quantity.meaning })) })) } : null,
     cutList: computation.cutList,
     specifications: computation.takeoffInputs?.specSnapshot ?? null,
+    ...(computation.jointStatus ? { jointStatus: computation.jointStatus } : {}),
   };
 }
 
@@ -212,6 +242,8 @@ export function isCompleteConstructionOutput(value: unknown): boolean {
   const output = outputRecord(value);
   if (output?.schemaVersion !== CONSTRUCTION_OUTPUT_SCHEMA || typeof output.calculatorId !== "string" || !Array.isArray(output.lines)) return false;
   if (!usesMaterialInputs(output.calculatorId)) return output.lines.length > 0;
+  if (output.jointStatus !== undefined && (!Array.isArray(output.jointStatus)
+    || output.jointStatus.some((item) => outputRecord(item)?.status === "incomplete" || outputRecord(item)?.status === "invalid" || typeof outputRecord(item)?.status !== "string"))) return false;
   const takeoff = outputRecord(output.takeoff);
   if (takeoff?.status !== "VALID") return false;
   const groups = outputRecord(outputRecord(output.specifications)?.groups);

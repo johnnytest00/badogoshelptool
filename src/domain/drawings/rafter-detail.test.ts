@@ -69,7 +69,7 @@ describe("rafter detail drawing model", () => {
     const model = createRafterDetailModel(geometry, layout, null)!;
     expect(model.joints.map((joint) => [joint.position, joint.edgeKind, joint.status])).toEqual([["lower", "eave", "missing-data"], ["upper", "ridge", "missing-data"]]);
     expect(model.joints[0].missing).toContain("Szarufa magassága (keresztmetszet)");
-    expect(model.joints[0].missing).toContain("Madárszáj vízszintes vágásának magassága");
+    expect(model.joints[0].missing).toContain("HAP · szarufa felső élének magassága a talpszelemen felett");
     expect(model.joints[1].missing.join(" ")).toContain("Gerinccsatlakozás típusa");
     expect(model).not.toHaveProperty("notches");
     const withSection = createRafterDetailModel(geometry, layout, { widthMm: 80, heightMm: 200 })!;

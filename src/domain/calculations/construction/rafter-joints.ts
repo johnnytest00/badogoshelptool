@@ -18,12 +18,22 @@ export type RafterJointInput = RafterGeometryInput & Readonly<{
   purlinTopMm?: number;
   plateWidthMm?: number;
 }>;
+/** The one set of user-facing joint names; S1/S2/S3 stay internal slot ids. */
+export const RIDGE_JOINT_NAME: Readonly<Record<RidgeJoint, string>> = { opposed: "Szembefutó szarufák", board: "Gerincdeszka", purlin: "Gerincszelemen" };
+export const jointName = (id: "seat" | "purlin" | "ridge", ridgeJoint: RidgeJoint) => id === "seat" ? "Talpszelemen" : id === "purlin" ? "Derékszelemen" : RIDGE_JOINT_NAME[ridgeJoint];
+/** An upper end the roof adapter could not match to a ridge joint is named for what it is, not for the requested ridge type. */
+export const jointDisplayName = (joint: RafterJointResult, ridgeJoint: RidgeJoint) =>
+  joint.id === "ridge" && (joint.status === "unsupported" || joint.status === "not-applicable") ? "Felső vég" : jointName(joint.id, ridgeJoint);
+/** HAP as the domain uses it (CRR-01): shown next to the input in every calculator and in the saved input echo. */
+export const HAP_LABEL = "HAP · szarufa felső élének magassága a talpszelemen felett";
+export const HAP_HELP = "Függőlegesen mérd: a talpszelemen felső síkjától a szarufa felső éléig, a talpszelemen külső síkjában (a madárszáj függővágásának vonalában). Nem a bevágás mélysége és nem az ülék hossza.";
 /** A: from existing data, B: from additional user input. C (missing) and D (professional) are text lists. */
 export type JointValue = Readonly<{ label: string; value: number; unit: "mm" | "°"; classification: "A" | "B" }>;
 export type RafterJointResult = Readonly<{
   id: "seat" | "purlin" | "ridge";
   title: string;
-  status: "computed" | "incomplete" | "invalid";
+  /** not-applicable / unsupported come only from the roof-plane adapter (plane-birdsmouth.ts), never from calculateRafterJoints. */
+  status: "computed" | "incomplete" | "invalid" | "not-applicable" | "unsupported";
   values: readonly JointValue[];
   missing: readonly string[];
   professional: readonly string[];
@@ -38,7 +48,7 @@ export function plateFitOf(seat: RafterJointResult, plateWidthMm: number | undef
 }
 type Point = Readonly<{ xMm: number; yMm: number }>;
 export type RafterJointDrawing = Readonly<{ outline: readonly Point[]; supports: readonly Readonly<{ id: string; label: string; face: Point; seatEnd: Point }>[]; rafterDepthMm: number; ridgeAxisXMm: number; ridgeJoint: RidgeJoint }>;
-export type RafterJoints = Readonly<{ pitchDegrees: number; joints: readonly RafterJointResult[]; drawing: RafterJointDrawing | null; plateFit: PlateFit | null }>;
+export type RafterJoints = Readonly<{ pitchDegrees: number; ridgeJoint: RidgeJoint; joints: readonly RafterJointResult[]; drawing: RafterJointDrawing | null; plateFit: PlateFit | null }>;
 
 const RIDGE_JOINTS: readonly RidgeJoint[] = ["opposed", "board", "purlin"];
 const optionalMm = (value: unknown) => value === undefined || value === null || value === "" || !Number.isFinite(Number(value)) ? undefined : Number(value);
@@ -100,7 +110,7 @@ export function calculateRafterJoints(input: RafterJointInput): RafterJoints {
     const common = { id: "seat", title: "Alsó felfekvés (talpszelemen)", professional: [NOTCH_PROFESSIONAL] } as const;
     const angles: JointValue[] = [plumbAngle, { label: "Ülékvágás szöge a szarufa tengelyéhez", value: base.pitchDegrees, unit: "°", classification: "A" }];
     if (depth === undefined) return { ...common, status: "incomplete", values: angles, missing: [DEPTH_LABEL] };
-    if (s.hap <= 0) return { ...common, status: "invalid", values: angles, missing: [], reason: "A madárszáj magassága 0: a szarufa felső éle a talpszelemen felső síkjában állna. Add meg a madárszáj vízszintes vágásának magasságát." };
+    if (s.hap <= 0) return { ...common, status: "invalid", values: angles, missing: [], reason: "A HAP 0: a szarufa felső éle a talpszelemen felső síkjában állna. Add meg a szarufa felső élének magasságát a talpszelemen felett." };
     const result = notchValues(s, depth, 0, 0, "Alsó felfekvés");
     supports.push({ id: "seat", label: "Talpszelemen", face: { xMm: 0, yMm: 0 }, seatEnd: result.seatEnd });
     return { ...common, status: result.reason ? "invalid" : "computed", values: [...angles, ...result.values], missing: [], ...(result.reason ? { reason: result.reason } : {}) };
@@ -128,7 +138,8 @@ export function calculateRafterJoints(input: RafterJointInput): RafterJoints {
     if (input.ridgeJoint === "board") {
       const common = { id: "ridge", title: "Gerinc · gerincdeszkára futó szarufák", professional: ["A gerincdeszka mérete és a kapcsolóelemek kivitelezői vagy statikai döntés."] } as const;
       const thickness = input.ridgeBoardThicknessMm;
-      if (thickness === undefined || thickness <= 0) return { ...common, status: "incomplete", values: [plumbAngle], missing: ["Gerincdeszka vastagsága"] };
+      if (thickness === undefined) return { ...common, status: "incomplete", values: [plumbAngle], missing: ["Gerincdeszka vastagsága"] };
+      if (!(thickness > 0)) return { ...common, status: "invalid", values: [plumbAngle], missing: [], reason: "A gerincdeszka vastagsága legyen pozitív." };
       if (thickness / 2 >= s.halfSpan) return { ...common, status: "invalid", values: [plumbAngle], missing: [], reason: "A gerincdeszka fele nem érheti el a fél fesztávot." };
       ridgeEndX = s.halfSpan - thickness / 2;
       const reduction = thickness / 2 / s.cos;
@@ -153,7 +164,7 @@ export function calculateRafterJoints(input: RafterJointInput): RafterJoints {
 
   const joints = [seat, ...(purlin ? [purlin] : []), ridge];
   const drawing = depth === undefined || joints.some((joint) => joint.status === "invalid") ? null : outline(s, -input.eaveProjectionMm, ridgeEndX, supports, input.ridgeJoint, depth);
-  return { pitchDegrees: base.pitchDegrees, joints, drawing, plateFit: seat.status === "computed" ? plateFitOf(seat, input.plateWidthMm) : null };
+  return { pitchDegrees: base.pitchDegrees, ridgeJoint: input.ridgeJoint, joints, drawing, plateFit: seat.status === "computed" ? plateFitOf(seat, input.plateWidthMm) : null };
 }
 
 /** Rafter section outline with the seat notches, shared by the table values and the SVG detail. */

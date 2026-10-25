@@ -1,3 +1,4 @@
+import { HAP_LABEL } from "@/domain/calculations/construction/rafter-joints";
 import type { RoofGeometry, RoofGeometryEdge, RoofPoint } from "@/domain/calculations/roof-geometry";
 import type { RoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
 import { edgeKindAt } from "@/domain/calculations/roof-geometry-edges";
@@ -61,7 +62,7 @@ export function projectAxonometric(point: RoofPoint, frame: AxonometricFrame): S
 function joint(position: RafterDetailJoint["position"], edgeKind: RafterDetailJoint["edgeKind"], hasDepth: boolean, point: RoofPoint, screen: ScreenPoint): RafterDetailJoint {
   const depth = hasDepth ? [] : [RAFTER_DEPTH_LABEL];
   const base = { position, edgeKind, point, screen };
-  if (edgeKind === "eave") return { ...base, status: "missing-data", title: "Alsó felfekvés (talpszelemen)", missing: ["Talpszelemen külső síkjának helye a tetősíkhoz képest", "Madárszáj vízszintes vágásának magassága", REFERENCE_LABEL, ...depth] };
+  if (edgeKind === "eave") return { ...base, status: "missing-data", title: "Alsó felfekvés (talpszelemen)", missing: ["Talpszelemen külső síkjának helye a tetősíkhoz képest", HAP_LABEL, REFERENCE_LABEL, ...depth] };
   if (edgeKind === "ridge") return { ...base, status: "missing-data", title: "Gerinccsatlakozás", missing: ["Gerinccsatlakozás típusa (szembefutó, gerincdeszka vastagsága vagy gerincszelemen szélessége és felső síkja)", REFERENCE_LABEL, ...depth] };
   if (edgeKind === "upper") return { ...base, status: "missing-data", title: "Felső felfekvés", missing: ["Felső támasz helye és felső síkja", REFERENCE_LABEL, ...depth] };
   const names = { hip: "kontyél", valley: "vápa", break: "törésvonal", rake: "oromél", unknown: "nem azonosított él" } as const;

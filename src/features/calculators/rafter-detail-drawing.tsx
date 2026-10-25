@@ -106,7 +106,7 @@ export function RafterDetailDrawing({ geometry, timberLayout, section }: Readonl
 
   return <section className="technical-drawing is-compact rafter-detail" aria-labelledby={`rafter-detail-heading-${id}`}>
     <div className="technical-drawing-header">
-      <div className="technical-drawing-title"><h2 id={`rafter-detail-heading-${id}`}>Szarufa-részlet · közeli nézet</h2></div>
+      <div className="technical-drawing-title"><h2 id={`rafter-detail-heading-${id}`}>Szarufatengelyek · térbeli közeli nézet</h2></div>
       <label className="rafter-detail-unit"><span className="sr-only">Méretek kijelzési egysége</span>
         <select value={unit} onChange={(event) => setUnit(event.target.value as LengthUnit)} aria-label="Méretek kijelzési egysége">{LENGTH_UNITS.map((item) => <option key={item} value={item}>{item}</option>)}</select>
       </label>
