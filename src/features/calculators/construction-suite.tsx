@@ -30,6 +30,11 @@ const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-
   loading: () => <div className="construction-calculator-drawing" role="status">Tetőrajz betöltése…</div>,
 });
 
+const RafterDetailDrawing = dynamic(() => import("./rafter-detail-drawing").then((module) => module.RafterDetailDrawing), {
+  ssr: false,
+  loading: () => <div className="construction-calculator-drawing" role="status">Szarufa-részlet betöltése…</div>,
+});
+
 const ConstructionStairDrawing = dynamic(() => import("./construction-visuals").then((module) => module.ConstructionStairDrawing), {
   loading: () => <div className="construction-calculator-drawing" role="status">Lépcsőrajz betöltése…</div>,
 });
@@ -243,12 +248,19 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     {primaryRows.length === 0 && !isTakeoff && calculation.geometry !== null && <p className="construction-suite-limit">{definition.reference.limitation}</p>}
     {detailRows.length > 0 && <GlassDisclosure className="construction-suite-result-details" summary={`Részletes eredmények · ${detailRows.length}`}><dl>{detailRows.map((line) => <div key={line.label}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? formatNumber(line.value) : line.value} {line.unit && <span>{line.unit}</span>}</dd></div>)}</dl></GlassDisclosure>}
   </>;
+  // Material takeoff: only when rafters are requested; the timber cut list always lays out rafters.
+  const rafterInput = calculation.takeoffInputs?.timber?.rafter;
+  const sectionWidthMm = rafterInput?.sectionWidthMm, sectionHeightMm = rafterInput?.sectionHeightMm;
+  const rafterSection = useMemo(() => sectionWidthMm && sectionHeightMm ? { widthMm: sectionWidthMm, heightMm: sectionHeightMm } : null, [sectionWidthMm, sectionHeightMm]);
+  const rafterDetail = !(timberOnly || (isTakeoff && materialState.requested.timber)) || !calculation.geometry ? null
+    : timberLayout?.rafters ? <RafterDetailDrawing geometry={calculation.geometry} timberLayout={timberLayout} section={rafterSection} />
+    : <section className="technical-drawing is-compact rafter-detail" role="status"><div className="technical-drawing-header"><h2>Szarufa-részlet · közeli nézet</h2></div><p className="construction-suite-limit">{materialTakeoff?.timber.status === "unavailable" && rafterInput ? `A szarufa-részlet nem rajzolható: ${materialTakeoff.timber.reason}` : "A szarufa-részlethez adj meg érvényes legnagyobb szarufa-tengelytávolságot."}</p></section>;
   const drawingContent = calculation.geometry !== null || calculation.rows.length > 0
     ? definition.reference.category === "stair"
       ? <ConstructionStairDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
       : definition.reference.category === "concrete" || definition.reference.category === "auxiliary"
         ? <ConstructionMaterialDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
-      : <ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={timberLayout} underlayLayout={underlayLayout} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
+      : <>{rafterDetail}<ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={timberLayout} underlayLayout={underlayLayout} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} /></>
     : undefined;
   const canSave = Boolean(organizationId) && definitionLoaded && isSaveableConstructionCalculator(selectedId);
   const storedSession = sessions[selectedId];

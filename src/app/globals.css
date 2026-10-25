@@ -5061,3 +5061,23 @@ main[id="main-content"]:focus { outline: none; }
    visszaadta neki az `inset 0 1px 0` csillanást: ez önálló vízszintes vonalként látszott
    a fejléc fölött, a tartalomoszlop teljes szélességében. */
 .field-survey-page-container > .field-survey-card { box-shadow: none; }
+
+/* Szarufa-részlet: a meglévő rajzfelület osztályaira épül, csak a saját elemeit színezi. */
+.rafter-detail-unit select { min-height: 2.75rem; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-strong); color: var(--foreground); padding: 0 .6rem; }
+.roof-workspace-surface .technical-drawing.is-compact .technical-drawing-svg.rafter-detail-svg { height: min(clamp(15rem, 62vw, 24rem), 65dvh); min-height: 12rem; }
+.rafter-detail-svg:focus-visible { outline: 3px solid var(--brand); outline-offset: -3px; }
+.rafter-detail-plane { fill: color-mix(in srgb, var(--brand) 7%, transparent); }
+.rafter-detail-axis { stroke: var(--muted); stroke-width: 4; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.rafter-detail-axis.is-highlighted { stroke: var(--drawing-highlight); stroke-width: 6; }
+.rafter-detail-joint circle { fill: var(--surface-strong); stroke: var(--warning); stroke-width: 3; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.rafter-detail-joint text { fill: var(--foreground); font-size: 26px; font-weight: 700; }
+.rafter-detail-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; margin: 0; }
+.rafter-detail-summary div { min-width: 0; }
+.rafter-detail-summary dt { color: var(--muted); font-size: calc(.74rem * var(--tp-text-scale)); }
+.rafter-detail-summary dt small { display: block; }
+.rafter-detail-summary dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.rafter-detail-joints { display: grid; gap: .45rem; margin: 0; padding-left: 1.25rem; font-size: calc(.8rem * var(--tp-text-scale)); }
+.rafter-detail-joints small { color: var(--warning); font-weight: 700; }
+.rafter-detail-joints p { margin: .15rem 0 0; color: var(--muted); }
+.rafter-detail-svg .technical-dimension text { font-size: 30px; stroke-width: 8px; }
+.rafter-detail-svg .technical-dimension line { stroke-width: 3; }
