@@ -3881,6 +3881,11 @@ html[data-glass-frame-free="true"] :is(
 .construction-drawing-svg text { fill: var(--muted); font-family: inherit; }
 .construction-calculator-drawing figcaption { color: var(--muted); font-size: .72rem; text-align: center; }
 .construction-suite-independent { border-top: 1px solid var(--glass-border); padding-top: .6rem; }
+.construction-save-panel { display: grid; gap: .6rem; }
+.construction-save-panel > .primary-button { justify-self: start; display: inline-flex; align-items: center; gap: .4rem; min-height: 2.75rem; }
+.construction-save-status { margin: 0; color: var(--muted); font-size: calc(.82rem * var(--tp-text-scale)); font-weight: 600; }
+.construction-save-status.is-saved { color: var(--brand-ink); }
+.construction-save-revisions .project-module-links { display: grid; gap: .35rem; }
 @media (max-width: 850px) {
   .construction-suite-layout { grid-template-columns: minmax(0, 1fr); }
   .construction-suite-list { position: static; }

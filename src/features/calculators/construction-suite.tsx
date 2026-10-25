@@ -1,29 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { z } from "zod";
 import { ChevronDown, Search } from "lucide-react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { LengthField } from "@/components/ui/length-field";
 import { RoofWorkspace } from "@/features/roof-models/roof-workspace";
 import { MeasurementGuidance, measurementGuideFor } from "@/features/roof-models/measurement-guidance";
 import { constructionCalculatorCatalog, type ConstructionCalculatorCategory, type ConstructionReference } from "@/domain/calculations/construction/catalog";
-import { calculateExistingRoofGeometry } from "@/domain/calculations/construction/roofs";
 import { mmToM } from "@/domain/calculations/construction/numeric";
-import { calculateRoofMaterialTakeoff, roofTakeoffCriticalWarnings, type RoofMaterialTakeoff, type RoofMaterialTakeoffInputs, type RoofMaterialTakeoffStatus } from "@/domain/calculations/roof-material-takeoff";
-import type { RoofGeometry, RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/roof-geometry";
-import { roofTimberInputFromParameters, type RoofTimberInput } from "@/domain/calculations/roof-timber-layout";
+import { roofTakeoffCriticalWarnings, type RoofMaterialTakeoff, type RoofMaterialTakeoffStatus } from "@/domain/calculations/roof-material-takeoff";
+import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
 import type { RoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
 import type { RoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
-import { DEMO_MATERIAL_PROFILES, type MaterialProfile, coveringParametersFromSpec, createSpecSnapshot, overhangFromField, resolveMaterialSpec, timberParametersFromSpecs, underlayParametersFromSpec } from "@/domain/calculations/roof-material-spec";
-import { createCalculationSnapshot, roofGeometryInputFromFields } from "@/domain/calculations/roof-calculation-snapshot";
+import { DEMO_MATERIAL_PROFILES, type MaterialProfile, overhangFromField } from "@/domain/calculations/roof-material-spec";
 import { RoofMaterialInputs, initialMaterialState, type RoofMaterialUiState } from "./material-spec-editor";
 import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-results";
 import { ConstructionCalculatorThumbnail } from "./construction-thumbnails";
-import { validationMessage } from "@/lib/validation-message";
 import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition } from "./construction-calculator-loading";
-import type { CalculatorDefinition, Field, ResultLine } from "./construction-calculator-types";
+import type { CalculatorDefinition, Field } from "./construction-calculator-types";
+import { computeConstruction, constructionInputSnapshot, constructionOutputSnapshot, inputRecord, isFieldVisible, isSaveableComputation, isSaveableConstructionCalculator, materialStateFromSnapshot, roofGeometryTypeForDefinition, roofShapeOf } from "./construction-computation";
+import { ConstructionSavePanel, newConstructionSession, type ConstructionSaveSession } from "./construction-save-panel";
+import type { SavedConstructionCalculation, SavedConstructionRevision } from "@/features/calculations/construction-data";
+import { stableJsonStringify } from "@/features/roof-models/stable-json";
 
 const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-drawing").then((module) => module.TechnicalDrawing), {
   ssr: false,
@@ -40,61 +39,14 @@ const ConstructionMaterialDrawing = dynamic(() => import("./construction-visuals
 const nullableMm = (value: Record<string, unknown>, key: string) => value[key] === undefined || value[key] === null || value[key] === "" ? null : Number(value[key]);
 const formatHuNumber = (value: number) => new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 1 }).format(value);
 
-const ROOF_SHAPE_OPTIONS = [
-  { value: "gable", label: "Nyeregtető" }, { value: "shed", label: "Félnyeregtető" }, { value: "hip", label: "Kontytető" }, { value: "pyramid", label: "Sátortető" },
-  { value: "halfHip", label: "Félkontytető" }, { value: "lShape", label: "L alaprajzú tető" }, { value: "tShape", label: "T alaprajzú tető" }, { value: "mansard", label: "Manzárdtető" },
-] as const;
-export const roofShapeOf = (values: Record<string, unknown>): RoofGeometryType => {
-  const shape = String(values.roofShape ?? "gable");
-  return (ROOF_SHAPE_OPTIONS.some((option) => option.value === shape) ? shape : "gable") as RoofGeometryType;
-};
-
-const roofGeometryInputFor = (values: Record<string, unknown>): RoofGeometryInput => roofGeometryInputFromFields(roofShapeOf(values), values);
-
 const categoryOrder: readonly { id: ConstructionCalculatorCategory; label: string }[] = [
   { id: "roof", label: "Tetők és faszerkezetek" },
   { id: "stair", label: "Lépcsők" },
   { id: "concrete", label: "Betonozás és alapozás" },
 ];
 
-function inputRecord(fields: readonly Field[], values: Record<string, string>): Record<string, unknown> {
-  return Object.fromEntries(fields.map((field) => {
-    const value = values[field.key]?.trim() ?? "";
-    if (field.kind === "checkbox") return [field.key, value === "true"];
-    if (field.kind === "text" || field.kind === "select") return [field.key, value];
-    return [field.key, value === "" ? undefined : Number(value.replace(",", "."))];
-  }));
-}
-
 function formatNumber(value: number): string {
   return new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value);
-}
-
-const usesRoofShape = (definition: CalculatorDefinition) => definition.fields.some((field) => field.key === "roofShape");
-
-function roofGeometryTypeForDefinition(definition: CalculatorDefinition, values: Record<string, string>): RoofGeometryType | null {
-  return usesRoofShape(definition) ? roofShapeOf(values) : null;
-}
-
-const isFieldVisible = (field: Field, values: Record<string, string>) => !field.shapes || field.shapes.includes(roofShapeOf(values));
-
-function reusableRoofGeometry(definition: CalculatorDefinition, values: Record<string, string>): RoofGeometry | null {
-  if (!usesRoofShape(definition)) return null;
-  try {
-    return calculateExistingRoofGeometry(roofGeometryInputFor(values));
-  } catch {
-    return null;
-  }
-}
-
-/** Equal nominal lengths become one cut-list row, longest first. */
-function cutListRows(segments: readonly { lengthMm: number }[]): readonly { lengthMm: number; count: number }[] {
-  const grouped = new Map<number, number>();
-  for (const segment of segments) {
-    const lengthMm = Math.round(segment.lengthMm);
-    grouped.set(lengthMm, (grouped.get(lengthMm) ?? 0) + 1);
-  }
-  return [...grouped].map(([lengthMm, count]) => ({ lengthMm, count })).sort((a, b) => b.lengthMm - a.lengthMm);
 }
 
 function takeoffStatusLabel(status: RoofMaterialTakeoffStatus): string {
@@ -176,7 +128,15 @@ function ConstructionDrawing({ definition, values, roofGeometry, timberLayout, u
   return <figure className="construction-calculator-drawing"><svg viewBox="0 0 500 210" role="img" aria-label={title} className="construction-drawing-svg"><title>{title}</title>{geometry}<text x="250" y="202" textAnchor="middle" fill="currentColor" fontSize="14">{dimensionText}</text></svg><figcaption>{title}</figcaption></figure>;
 }
 
-export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter-cut", catalogProfiles = [], catalogError = false }: Readonly<{ initialCalculatorId?: string; catalogProfiles?: readonly MaterialProfile[]; catalogError?: boolean }>) {
+const fieldValuesFrom = (definition: CalculatorDefinition, fields: Readonly<Record<string, string>> = {}) =>
+  Object.fromEntries(definition.fields.map((field) => [field.key, fields[field.key] ?? field.initial ?? ""]));
+
+function sessionFromSaved(saved: SavedConstructionCalculation): ConstructionSaveSession {
+  const current = saved.revisions.find((revision) => revision.revisionNumber === saved.currentRevisionNumber)!;
+  return { calculationId: saved.calculationId, name: saved.displayName, revisionNumber: saved.currentRevisionNumber, baselineInput: stableJsonStringify(current.input), savedName: saved.displayName, viewedRevisionNumber: saved.currentRevisionNumber, revisions: saved.revisions };
+}
+
+export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter-cut", catalogProfiles = [], catalogError = false, organizationId, saved = null }: Readonly<{ initialCalculatorId?: string; catalogProfiles?: readonly MaterialProfile[]; catalogError?: boolean; organizationId?: string; saved?: SavedConstructionCalculation | null }>) {
   const profiles = useMemo(() => [...catalogProfiles, ...DEMO_MATERIAL_PROFILES], [catalogProfiles]);
   const initialId = initialConstructionCalculatorId(initialCalculatorId);
   const initialReference = constructionCalculatorCatalog.find((item) => item.id === initialId)!;
@@ -190,6 +150,9 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const [loadedDefinition, setLoadedDefinition] = useState<{ id: string; definition: CalculatorDefinition } | null>(null);
   const [loadErrorId, setLoadErrorId] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [sessions, setSessions] = useState<Record<string, ConstructionSaveSession>>(() => saved ? { [saved.calculatorId]: sessionFromSaved(saved) } : {});
+  // The saved revision is applied once, when its calculator definition first loads; later prop updates only refresh the revision list.
+  const pendingSavedInput = useRef(saved?.revisions.find((revision) => revision.revisionNumber === saved.currentRevisionNumber) ?? null);
   const selectedReference = constructionCalculatorCatalog.find((item) => item.id === selectedId)!;
   const definitionLoaded = loadedDefinition?.id === selectedId;
   const definition: CalculatorDefinition = definitionLoaded ? loadedDefinition.definition : {
@@ -202,7 +165,11 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
       if (!current) return;
       if (!next) throw new Error(`No calculator definition for ${selectedId}`);
       setLoadedDefinition({ id: selectedId, definition: next });
-      setValues(Object.fromEntries(next.fields.map((field) => [field.key, field.initial ?? ""])));
+      const savedRevision = pendingSavedInput.current?.input.calculatorId === selectedId ? pendingSavedInput.current : null;
+      pendingSavedInput.current = null;
+      setValues(fieldValuesFrom(next, savedRevision?.input.fields));
+      const savedMaterial = savedRevision && materialStateFromSnapshot(savedRevision.input);
+      if (savedMaterial) setMaterialByCalculator((current) => ({ ...current, [selectedId]: savedMaterial }));
     }).catch(() => {
       if (current) setLoadErrorId(selectedId);
     });
@@ -212,38 +179,14 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const activeGuide = roofGeometryType ? measurementGuideFor(roofGeometryType, focusedDimension ?? "") : null;
   const candidates = constructionCalculatorCatalog.filter((item) => item.category === category || (category === "concrete" && item.category === "auxiliary"));
   const filtered = candidates.filter((item) => item.title.toLocaleLowerCase("hu-HU").includes(search.trim().toLocaleLowerCase("hu-HU")));
-  const raw = useMemo(() => inputRecord(definition.fields, values), [definition.fields, values]);
-  const requiredFields = definition.fields.filter((field) => !field.advanced && field.initial === undefined && field.kind !== "checkbox" && isFieldVisible(field, values));
-  const inputsReady = requiredFields.every((field) => (values[field.key] ?? "").trim() !== "");
   const isTakeoff = definition.reference.id === "roof.material-takeoff";
   const timberOnly = definition.reference.id === "roof.timber-cutlist";
   const usesMaterials = isTakeoff || timberOnly;
-  const materialState = materialByCalculator[selectedId] ?? initialMaterialState(profiles, timberOnly);
-  const specs = useMemo(() => ({
-    covering: resolveMaterialSpec("covering", materialState.specs.covering, profiles), underlay: resolveMaterialSpec("underlay", materialState.specs.underlay, profiles),
-    rafter: resolveMaterialSpec("rafter", materialState.specs.rafter, profiles), batten: resolveMaterialSpec("batten", materialState.specs.batten, profiles),
-  }), [materialState.specs, profiles]);
-  const requestedMaterials = timberOnly ? { timber: true, underlay: false, covering: false } : materialState.requested;
-  const timberInput: RoofTimberInput | null = useMemo(() => roofTimberInputFromParameters(timberParametersFromSpecs(materialState.layout, specs.rafter, specs.batten)), [materialState.layout, specs.rafter, specs.batten]);
-  const takeoffInputs: RoofMaterialTakeoffInputs | undefined = useMemo(() => usesMaterials ? {
-    timber: timberInput ?? undefined, underlay: underlayParametersFromSpec(specs.underlay), covering: coveringParametersFromSpec(specs.covering), requested: requestedMaterials,
-    specSnapshot: createSpecSnapshot([...(requestedMaterials.timber ? [specs.rafter, specs.batten] : []), ...(requestedMaterials.underlay ? [specs.underlay] : []), ...(requestedMaterials.covering ? [specs.covering] : [])]),
-    calculationSnapshot: createCalculationSnapshot({ calculatorId: selectedId, roofShape: roofShapeOf(values), fields: raw, requested: requestedMaterials, timberLayout: materialState.layout, specs: [specs.rafter, specs.batten, specs.underlay, specs.covering] }),
-  } : undefined, [usesMaterials, selectedId, values, raw, materialState.layout, timberInput, specs, requestedMaterials.timber, requestedMaterials.underlay, requestedMaterials.covering]);
-  const calculation = useMemo(() => {
-    if (!inputsReady) return { rows: [] as ResultLine[], error: null as string | null, geometry: null as RoofGeometry | null };
-    try {
-      const geometry = roofGeometryType ? reusableRoofGeometry(definition, values) : null;
-      return { rows: definition.calculate(raw, takeoffInputs), error: null, geometry };
-    }
-    catch (error) {
-      const message = error instanceof z.ZodError ? [...new Set(error.issues.map((issue) => validationMessage(issue)))].join(" ") : "A megadott méretekkel a számítás nem végezhető el.";
-      return { rows: [] as ResultLine[], error: message, geometry: null as RoofGeometry | null };
-    }
-  }, [definition, inputsReady, raw, roofGeometryType, takeoffInputs, values]);
-  const materialTakeoff = usesMaterials && calculation.geometry && takeoffInputs ? calculateRoofMaterialTakeoff(calculation.geometry, takeoffInputs) : null;
-  const timberLayout = materialTakeoff?.timber.status === "available" ? materialTakeoff.timber : null;
-  const underlayLayout = materialTakeoff && requestedMaterials.underlay ? materialTakeoff.underlay : null;
+  const defaultMaterialState = useMemo(() => initialMaterialState(profiles, timberOnly), [profiles, timberOnly]);
+  const materialState = materialByCalculator[selectedId] ?? defaultMaterialState;
+  const calculation = useMemo(() => computeConstruction(definition, values, usesMaterials ? materialState : null, profiles), [definition, values, usesMaterials, materialState, profiles]);
+  const { inputsReady, materialTakeoff, timberLayout, underlayLayout } = calculation;
+  const raw = useMemo(() => inputRecord(definition.fields, values), [definition.fields, values]);
   const overhangNotice = roofShapeOf(values) === "gable" && usesMaterials && [nullableMm(raw, "frontGableOverhangMm"), nullableMm(raw, "rearGableOverhangMm")].some((value) => overhangFromField(value).state === "not-provided");
   const selectCalculator = (item: ConstructionReference) => {
     if (item.status !== "verified") return;
@@ -281,9 +224,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const stepRuleLine = calculation.rows.find((line) => line.label.startsWith("2 × fellépő"));
   const stepRuleValue = typeof stepRuleLine?.value === "number" ? stepRuleLine.value : null;
   const echoedInputs = definition.fields.filter((field) => isFieldVisible(field, values) && (values[field.key] ?? "").trim() !== "" && field.kind !== "checkbox");
-  const cutList = timberOnly && timberLayout
-    ? { rafters: cutListRows(timberLayout.rafters?.segments ?? []), battens: cutListRows(timberLayout.battens?.segments ?? []) }
-    : null;
+  const cutList = calculation.cutList;
   const cutListSection = (title: string, rows: readonly { lengthMm: number; count: number }[]) => rows.length === 0 ? null
     : <div key={title}><h4>{title}</h4><ol className="construction-suite-cut-list">{rows.map((row, index) => <li key={row.lengthMm}><span>{index + 1}.</span><strong>{formatNumber(row.lengthMm)} mm</strong><span>{row.count} db</span></li>)}</ol></div>;
   const resultsContent = <>
@@ -304,7 +245,23 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
         ? <ConstructionMaterialDrawing referenceId={definition.reference.id} values={values} focusedDimension={focusedDimension} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
       : <ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={timberLayout} underlayLayout={underlayLayout} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
     : undefined;
-  const independentContent = <p className="construction-suite-independent">Az eredmény helyi előnézet. Nem mentődik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>;
+  const canSave = Boolean(organizationId) && definitionLoaded && isSaveableConstructionCalculator(selectedId);
+  const storedSession = sessions[selectedId];
+  const fallbackSession = useMemo(() => newConstructionSession(selectedReference.title), [selectedReference.title]);
+  const baseSession = storedSession ?? fallbackSession;
+  const session = saved && saved.calculationId === baseSession.calculationId ? { ...baseSession, revisions: saved.revisions } : baseSession;
+  const snapshotInput = useMemo(() => constructionInputSnapshot(definition, values, usesMaterials ? materialState : null), [definition, values, usesMaterials, materialState]);
+  const liveOutput = useMemo(() => constructionOutputSnapshot(selectedId, calculation), [selectedId, calculation]);
+  const loadRevision = (revision: SavedConstructionRevision) => {
+    setValues(fieldValuesFrom(definition, revision.input.fields));
+    const revisionMaterial = materialStateFromSnapshot(revision.input);
+    if (revisionMaterial) setMaterialByCalculator((current) => ({ ...current, [selectedId]: revisionMaterial }));
+    setSessions((current) => ({ ...current, [selectedId]: { ...session, viewedRevisionNumber: revision.revisionNumber } }));
+  };
+  const independentContent = canSave && organizationId
+    ? <ConstructionSavePanel organizationId={organizationId} calculatorId={selectedId} session={session} input={snapshotInput} liveOutput={liveOutput} saveable={isSaveableComputation(calculation)}
+      onSessionChange={(next) => setSessions((current) => ({ ...current, [selectedId]: next }))} onLoadRevision={loadRevision} />
+    : <p className="construction-suite-independent">Az eredmény helyi előnézet. Nem mentődik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>;
   const workspace = !definitionLoaded
     ? <div className="construction-suite-workspace is-loading" role={loadErrorId === selectedId ? "alert" : "status"} aria-live="polite">
       {loadErrorId === selectedId

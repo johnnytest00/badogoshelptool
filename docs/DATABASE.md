@@ -1,5 +1,14 @@
 # F2.1 adatbázis-alap
 
+## M2 — önálló kalkulátor-suite mentés (2026-10-25, csak helyi)
+
+Migráció: `20261025100000_standalone_construction_calculations.sql`; teszt: `supabase/tests/database/056_standalone_construction_calculations.sql` (17 állítás, helyi PASS; teljes pgTAP 58 fájl / 1250 PASS). Hosted DB-re nincs alkalmazva.
+
+- Típus: `calculations.calculator_type = 'construction.<katalógus-ID>'`, első körben csak `roof.rafter-cut`, `roof.material-takeoff`, `roof.timber-cutlist`, `roof.truss-members`. Creator-scoped standalone sor (meglévő `calculations_scope_project_owner` és select-policy), immutable `calculation_revisions` (`input_schema_version = construction-suite.input.v1`, `calculator_implementation_version = construction-suite.output.v1`, `data_provenance.output = server_recomputed`).
+- Író: `save_standalone_construction_calculation` (security definer, `p_actor_id`; csak `tetopro_covering_writer`, authenticated EXECUTE visszavonva). Ellenőrzi az org-tagságot, a típus-fehérlistát, a snapshot-sémát és a calculatorId-egyezést, a meglévő kalkuláció tulajdonosát/típusát; `expected_revision_number` (40001), operation-id idempotencia `standalone_construction_save_operations` ledgerben (eltérő payload 22023). A kimenetet a szerver a TypeScript motorokkal számolja újra; SQL nem ellenőrzi a matematikát.
+- RLS: restriktív insert/update/delete policy-k tiltják a `construction.%` sorok közvetlen böngészős írását (`calculations`, `calculation_revisions`, `calculation_dependencies`). Meglévő tábla, sor vagy revízió nem változott.
+- A migráció alkalmazásakor a helyi DB-n a korábban függő `20261020090000_survey_roof_details.sql` is lefutott.
+
 ## F9.52 — meglévő tetőrészletek a felmérésszakaszban (2026-10-20, csak helyi)
 
 Migráció: `20261020090000_survey_roof_details.sql` — kizárólag a `private.valid_field_survey_sections` validátor `create or replace`-e. Új, opcionális `roofDetails` szakaszkulcs (legfeljebb 30 bejegyzés, egyedi UUID): `kind` (chimney/skylight/hatch/vent/penetration/valley/wall_junction/gutter/downpipe/flashing/other), `status` (absent/present_unmeasured/measured), `count`/`widthMm`/`heightMm`/`lengthM` (pozitív vagy `null`; mm egész, hossz legfeljebb mm pontosságú m), `note` (≤500). A megerősített hiányhoz nem tartozhat érték, a `measured` állapothoz legalább egy érték kell, és a kulcs csak `workType = 'roof'` szakaszban nem üres. Tábla, RPC, jogosultság, geometriaforrás és meglévő revízió **nem** változik; a kulcs nélküli régi szakasz változatlanul érvényes. Hosted DB-re nincs alkalmazva.

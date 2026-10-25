@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("@/features/calculations/construction-actions", () => ({ saveConstructionCalculationAction: vi.fn() }));
 import { ConstructionCalculatorSuite, limitationGroups } from "@/features/calculators/construction-suite";
 import { takeoffLines } from "@/features/calculators/roof-calculator-definitions";
 import { loadConstructionCalculatorDefinition } from "@/features/calculators/construction-calculator-loading";
