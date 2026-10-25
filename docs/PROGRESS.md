@@ -1,5 +1,15 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M3 — Kalkulációból munkanapló
+
+Státusz: **PASS WITH LIMITATIONS.** Mentett suite-kalkulációból új munkanapló hozható létre, vagy meglévőhöz kapcsolható; a kapcsolat a pontos revízióra mutat. A munkanapló opcionális marad, a kalkuláció a kapcsolástól nem változik. Döntés (12/6): a napló látói csak olvashatják a kapcsolt revíziót; szerkeszteni, új revíziót menteni és leválasztani a létrehozó tud.
+
+- **Újrahasznosítás:** meglévő `execution_plan_document_links` + link/unlink RPC (bővítve), `ExecutionPlanLinkControl` (új `calculation` típus, revíziócímke, mentetlen módosításnál tiltott kapcsolás), a meglévő kétlépcsős „létrehozás és kapcsolás” action (mindkét lépés request-key idempotens; részleges hibánál a napló megmarad, és ugyanazzal a gombbal duplikátum nélkül újrapróbálható). Új: `execution-calculation-links.ts` olvasó és `ExecutionPlanCalculations` panel a munkanaplón (hibaizolált szekció, hiányzó/eltérő revízió `unavailable`, nem csendes).
+- **Ellenőrzés:** új Vitest: link-olvasó (4), mentés-sáv kapcsolási állapotok (1), link-action kalkulációs ág (1); teljes Vitest **170 fájl PASS / 8 SKIP, 1012 PASS / 19 SKIP**; `eslint .` PASS; `tsc` PASS. pgTAP `057` 20/20, teljes **59 fájl / 1270 PASS** (helyi). DB-típusok újragenerálva.
+- **Böngésző (helyi DEMO, 375×812):** mentett szarufa V2 → „Új munkanapló · DEMO M3 tetőfelújítás” → kalkulátorban „DEMO M3 tetőfelújítás · V2”; DB: `calculation`, pontos V2, projekt nélküli napló, revíziószám változatlan (2). Munkanaplón „Kapcsolt kalkulációk · 1”, V2 eredménysorai, „Megnyitás a kalkulátorban”; megerősített leválasztás → 0, DB audit-bélyeg. Közben javítva: a név/típus és az eredménysorok mobilos tördelése. Konzolhiba nincs.
+- **Nem ellenőrzött:** másik műhelytag olvasási nézete böngészőben (pgTAP igazolja: tag olvas, kívülálló nem, leválasztás után nincs hozzáférés); meglévő naplóhoz kapcsolás böngészőben (ugyanaz az RPC, unit-teszt); hálózati/részleges hiba böngészőben; hosted DB/RLS. A munkanapló nem hivatalos e-építési napló.
+- **Javasolt Conventional Commit:** `feat(M3): link saved calculation revisions to work logs`.
+
 ## M2 — Kalkulátor-suite mentése, újranyitása, revíziói (első kör: 4 tetős kalkulátor)
 
 Státusz: **PASS WITH LIMITATIONS.** A `roof.rafter-cut`, `roof.material-takeoff`, `roof.timber-cutlist` és `roof.truss-members` menthető, projekt/felmérés nélkül. Mentés nélkül továbbra is számol; a nem mentett eredmény „Nincs mentve · helyi előnézet” jelölést kap.

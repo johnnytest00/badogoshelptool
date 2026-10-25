@@ -6,6 +6,8 @@ import { ExecutionLinkedSurveys } from "@/features/execution/execution-linked-su
 import { getExecutionPlanForOrganization, getExecutionPlanLinkedSurveys, getExecutionPlanningWorkspace } from "@/features/execution/execution-data";
 import { getPlanLinkedDocuments, getStandaloneQuotationCandidates, type LinkCandidate } from "@/features/execution/execution-document-links";
 import { ExecutionPlanDocumentLinks } from "@/features/execution/execution-plan-document-links";
+import { getPlanLinkedCalculations } from "@/features/execution/execution-calculation-links";
+import { ExecutionPlanCalculations } from "@/features/execution/execution-plan-calculations";
 import { getWorkflowMaterialLists } from "@/features/material-takeoffs/material-preparation-data";
 import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getProjectOrganization } from "@/features/projects/organization";
@@ -24,13 +26,14 @@ export default async function ExecutionPlanPage({ params, searchParams }: Readon
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(planId)) return <NotFound organizationId={organizationId} />;
   const planOption = await getExecutionPlanForOrganization(organizationId, planId);
   if (!planOption) return <NotFound organizationId={organizationId} />;
-  const [workspace, project, linkedSurveys, materialLists, linkedDocuments, quotationCandidates] = await Promise.all([
+  const [workspace, project, linkedSurveys, materialLists, linkedDocuments, quotationCandidates, linkedCalculations] = await Promise.all([
     getExecutionPlanningWorkspace(organizationId, planOption.projectId, planId),
     planOption.projectId ? getProjectForOrganization(organizationId, planOption.projectId) : Promise.resolve(null),
     getExecutionPlanLinkedSurveys(organizationId, planId),
     getWorkflowMaterialLists(organizationId),
     getPlanLinkedDocuments(organizationId, planId),
     getStandaloneQuotationCandidates(organizationId),
+    getPlanLinkedCalculations(organizationId, planId, selected.auth.userId),
   ]);
   const plan = workspace.plans[0];
   if (!plan) return <NotFound organizationId={organizationId} />;
@@ -46,6 +49,7 @@ export default async function ExecutionPlanPage({ params, searchParams }: Readon
       <div className="execution-workflow-actions"><Link className="secondary-button" href={`/anyaglistak/uj?organization=${organizationId}&plan=${plan.id}`}>Anyaglista készítése</Link><Link className="text-action" href={`/ajanlatok/uj?organization=${organizationId}&plan=${plan.id}`}>Árajánlat készítése</Link></div>
     </GlassDisclosure>
     <ExecutionPlanDocumentLinks organizationId={organizationId} planId={plan.id} documents={linkedDocuments} candidates={[...listCandidates, ...quotationCandidates]} />
+    <ExecutionPlanCalculations organizationId={organizationId} planId={plan.id} result={linkedCalculations} />
     <ExecutionLinkedSurveys organizationId={organizationId} surveys={linkedSurveys} />
   </div></main>;
 }

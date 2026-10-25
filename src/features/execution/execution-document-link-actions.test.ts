@@ -32,6 +32,14 @@ describe("work log document link actions", () => {
     expect(state.rpc).toHaveBeenCalledWith("link_execution_plan_document", { p_organization_id: org, p_execution_plan_id: plan, p_document_kind: "material_list", p_document_id: document, p_request_key: key });
   });
 
+  it("links a calculation by its exact saved revision and explains a foreign calculation", async () => {
+    state.rpc.mockResolvedValueOnce({ data: [{ link_id: "l2", created: true }], error: null });
+    expect(await linkExecutionPlanDocumentAction({ organizationId: org, planId: plan, kind: "calculation", documentId: document, requestKey: key })).toEqual({ ok: true, planId: plan, created: true });
+    expect(state.rpc).toHaveBeenCalledWith("link_execution_plan_document", { p_organization_id: org, p_execution_plan_id: plan, p_document_kind: "calculation", p_document_id: document, p_request_key: key });
+    state.rpc.mockResolvedValueOnce({ data: null, error: { code: "42501", message: "calculation access denied" } });
+    expect(await linkExecutionPlanDocumentAction({ organizationId: org, planId: plan, kind: "calculation", documentId: document, requestKey: key })).toMatchObject({ ok: false, error: expect.stringContaining("saját, mentett kalkulációd") });
+  });
+
   it("maps database access and duplicate errors to Hungarian user messages", async () => {
     state.rpc.mockResolvedValueOnce({ data: null, error: { code: "42501" } });
     expect(await linkExecutionPlanDocumentAction({ organizationId: org, planId: plan, kind: "quotation", documentId: document, requestKey: key })).toMatchObject({ ok: false, error: expect.stringContaining("hozzáférés") });

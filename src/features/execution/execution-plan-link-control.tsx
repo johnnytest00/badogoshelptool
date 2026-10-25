@@ -11,16 +11,18 @@ import type { DocumentKind, DocumentPlanLink } from "./execution-document-links"
 import type { ExecutionPlanOption } from "./execution-data";
 import { createExecutionPlanAndLinkDocumentAction, linkExecutionPlanDocumentAction, unlinkExecutionPlanDocumentAction } from "./execution-document-link-actions";
 
-const kindLabel: Record<DocumentKind, string> = { material_list: "az anyaglista", quotation: "az ajánlat" };
+const kindLabel: Record<DocumentKind, string> = { material_list: "az anyaglista", quotation: "az ajánlat", calculation: "a kalkuláció" };
 
 /** Optional, reversible association of one material list or quotation with work logs. Never creates a project. */
-export function ExecutionPlanLinkControl({ organizationId, kind, documentId, links, plans, readOnly = false }: Readonly<{
+export function ExecutionPlanLinkControl({ organizationId, kind, documentId, links, plans, readOnly = false, linkBlockedReason }: Readonly<{
   organizationId: string;
   kind: DocumentKind;
   documentId: string;
   links: readonly DocumentPlanLink[];
   plans: readonly ExecutionPlanOption[];
   readOnly?: boolean;
+  /** Shown instead of the add form, e.g. while a calculation has unsaved changes. */
+  linkBlockedReason?: string;
 }>) {
   const router = useRouter();
   const { requestConfirmation, notify } = useAppInteraction();
@@ -33,7 +35,7 @@ export function ExecutionPlanLinkControl({ organizationId, kind, documentId, lin
   const [linkKey] = useState(() => createIdempotencyKey());
   const [planKey] = useState(() => createIdempotencyKey());
   const lock = useRef(false);
-  const linkedPlanIds = useMemo(() => new Set(links.map((link) => link.planId)), [links]);
+  const linkedPlanIds = useMemo(() => new Set(links.filter((link) => !link.documentId || link.documentId === documentId).map((link) => link.planId)), [links, documentId]);
   const available = useMemo(() => plans.filter((plan) => !linkedPlanIds.has(plan.id) && plan.title.toLocaleLowerCase("hu-HU").includes(filter.trim().toLocaleLowerCase("hu-HU"))), [plans, linkedPlanIds, filter]);
 
   async function run(task: () => Promise<{ ok: boolean; error?: string }>, success: string) {
@@ -66,11 +68,12 @@ export function ExecutionPlanLinkControl({ organizationId, kind, documentId, lin
     {links.length === 0
       ? <p className="plan-link-empty">{`Nincs munkanaplóhoz kapcsolva; ${kindLabel[kind]} önállóan is használható.`}</p>
       : <ul className="plan-link-list">{links.map((link) => <li key={`${link.planId}:${link.linkId ?? "creation"}`}>
-        <Link href={`/kivitelezes/${link.planId}?organization=${organizationId}`}>{link.planTitle}</Link>
+        <Link href={`/kivitelezes/${link.planId}?organization=${organizationId}`}>{link.planTitle}{link.detail && <small> · {link.detail}</small>}</Link>
         {link.origin === "creation" ? <small>Létrehozáskor kapcsolt · nem választható le</small>
           : !readOnly && <button type="button" className="text-action" disabled={pending} onClick={() => void unlink(link)}>Leválasztás</button>}
       </li>)}</ul>}
-    {!readOnly && <GlassDisclosure className="plan-link-add" summary="Munkanaplóhoz csatolás">
+    {!readOnly && linkBlockedReason && <p className="plan-link-note">{linkBlockedReason}</p>}
+    {!readOnly && !linkBlockedReason && <GlassDisclosure className="plan-link-add" summary="Munkanaplóhoz csatolás">
       <div className="plan-link-modes" role="group" aria-label="Kapcsolás módja">
         <button type="button" className={mode === "existing" ? "primary-button" : "secondary-button"} aria-pressed={mode === "existing"} onClick={() => setMode("existing")}>Meglévő munkanapló</button>
         <button type="button" className={mode === "new" ? "primary-button" : "secondary-button"} aria-pressed={mode === "new"} onClick={() => setMode("new")}>Új munkanapló</button>

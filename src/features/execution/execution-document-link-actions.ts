@@ -10,9 +10,11 @@ export type DocumentLinkResult = { ok: true; planId?: string; created?: boolean 
 type Rpc = { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<Record<string, unknown>> | null; error: { code?: string; message?: string } | null }> };
 
 const uuid = z.string().uuid();
-const linkInput = z.object({ organizationId: uuid, planId: uuid, kind: z.enum(["material_list", "quotation"]), documentId: uuid, requestKey: uuid });
-const unlinkInput = z.object({ organizationId: uuid, linkId: uuid, planId: uuid, kind: z.enum(["material_list", "quotation"]), documentId: uuid });
-const createInput = z.object({ organizationId: uuid, title: z.string().trim().min(1).max(200), kind: z.enum(["material_list", "quotation"]), documentId: uuid, planRequestKey: uuid, linkRequestKey: uuid });
+const documentKind = z.enum(["material_list", "quotation", "calculation"]);
+/** For a calculation, documentId is the exact saved revision. */
+const linkInput = z.object({ organizationId: uuid, planId: uuid, kind: documentKind, documentId: uuid, requestKey: uuid });
+const unlinkInput = z.object({ organizationId: uuid, linkId: uuid, planId: uuid, kind: documentKind, documentId: uuid });
+const createInput = z.object({ organizationId: uuid, title: z.string().trim().min(1).max(200), kind: documentKind, documentId: uuid, planRequestKey: uuid, linkRequestKey: uuid });
 
 async function allowed(organizationId: string) {
   const auth = await getAuthContext();
@@ -20,15 +22,16 @@ async function allowed(organizationId: string) {
 }
 
 function failure(error: { code?: string; message?: string } | null, fallback: string): string {
+  if (error?.code === "42501" && error.message?.includes("calculation")) return "Csak a saját, mentett kalkulációd kapcsolható munkanaplóhoz.";
   if (error?.code === "42501") return "Nincs hozzáférésed ehhez a munkanaplóhoz vagy dokumentumhoz.";
   if (error?.code === "23505") return "Ez a dokumentum már ehhez a munkanaplóhoz tartozik.";
   if (error?.code === "22023") return "A kapcsolat adatai nem egyeznek egy korábbi kéréssel. Töltsd újra az oldalt, és próbáld újra.";
   return userFacingActionError(error, fallback);
 }
 
-function revalidate(planId: string, kind: "material_list" | "quotation", documentId: string) {
+function revalidate(planId: string, kind: z.infer<typeof documentKind>, documentId: string) {
   revalidatePath("/kivitelezes"); revalidatePath(`/kivitelezes/${planId}`);
-  revalidatePath(kind === "material_list" ? `/anyaglistak/${documentId}` : `/ajanlatok/${documentId}`);
+  revalidatePath(kind === "material_list" ? `/anyaglistak/${documentId}` : kind === "quotation" ? `/ajanlatok/${documentId}` : "/kalkulatorok");
 }
 
 export async function linkExecutionPlanDocumentAction(raw: z.input<typeof linkInput>): Promise<DocumentLinkResult> {

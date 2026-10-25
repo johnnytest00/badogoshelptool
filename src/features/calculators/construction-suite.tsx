@@ -20,7 +20,7 @@ import { ConstructionCalculatorThumbnail } from "./construction-thumbnails";
 import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition } from "./construction-calculator-loading";
 import type { CalculatorDefinition, Field } from "./construction-calculator-types";
 import { computeConstruction, constructionInputSnapshot, constructionOutputSnapshot, inputRecord, isFieldVisible, isSaveableComputation, isSaveableConstructionCalculator, materialStateFromSnapshot, roofGeometryTypeForDefinition, roofShapeOf } from "./construction-computation";
-import { ConstructionSavePanel, newConstructionSession, type ConstructionSaveSession } from "./construction-save-panel";
+import { ConstructionSavePanel, newConstructionSession, type ConstructionPlanLinks, type ConstructionSaveSession } from "./construction-save-panel";
 import type { SavedConstructionCalculation, SavedConstructionRevision } from "@/features/calculations/construction-data";
 import { stableJsonStringify } from "@/features/roof-models/stable-json";
 
@@ -136,7 +136,7 @@ function sessionFromSaved(saved: SavedConstructionCalculation): ConstructionSave
   return { calculationId: saved.calculationId, name: saved.displayName, revisionNumber: saved.currentRevisionNumber, baselineInput: stableJsonStringify(current.input), savedName: saved.displayName, viewedRevisionNumber: saved.currentRevisionNumber, revisions: saved.revisions };
 }
 
-export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter-cut", catalogProfiles = [], catalogError = false, organizationId, saved = null }: Readonly<{ initialCalculatorId?: string; catalogProfiles?: readonly MaterialProfile[]; catalogError?: boolean; organizationId?: string; saved?: SavedConstructionCalculation | null }>) {
+export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter-cut", catalogProfiles = [], catalogError = false, organizationId, saved = null, planLinks = null }: Readonly<{ initialCalculatorId?: string; catalogProfiles?: readonly MaterialProfile[]; catalogError?: boolean; organizationId?: string; saved?: SavedConstructionCalculation | null; planLinks?: ConstructionPlanLinks | null }>) {
   const profiles = useMemo(() => [...catalogProfiles, ...DEMO_MATERIAL_PROFILES], [catalogProfiles]);
   const initialId = initialConstructionCalculatorId(initialCalculatorId);
   const initialReference = constructionCalculatorCatalog.find((item) => item.id === initialId)!;
@@ -260,7 +260,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   };
   const independentContent = canSave && organizationId
     ? <ConstructionSavePanel organizationId={organizationId} calculatorId={selectedId} session={session} input={snapshotInput} liveOutput={liveOutput} saveable={isSaveableComputation(calculation)}
-      onSessionChange={(next) => setSessions((current) => ({ ...current, [selectedId]: next }))} onLoadRevision={loadRevision} />
+      onSessionChange={(next) => setSessions((current) => ({ ...current, [selectedId]: next }))} onLoadRevision={loadRevision}
+      planLinks={saved && saved.calculationId === session.calculationId ? planLinks : null} planLinksUnavailable={Boolean(saved && saved.calculationId === session.calculationId && planLinks === null)} />
     : <p className="construction-suite-independent">Az eredmény helyi előnézet. Nem mentődik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>;
   const workspace = !definitionLoaded
     ? <div className="construction-suite-workspace is-loading" role={loadErrorId === selectedId ? "alert" : "status"} aria-live="polite">

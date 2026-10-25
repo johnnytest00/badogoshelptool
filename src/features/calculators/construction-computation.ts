@@ -164,3 +164,7 @@ export const isSaveableComputation = (computation: ConstructionComputation) =>
 export function materialStateFromSnapshot(snapshot: ConstructionInputSnapshot): RoofMaterialUiState | null {
   return snapshot.material ? { requested: snapshot.material.requested, layout: snapshot.material.layout, specs: snapshot.material.specs } : null;
 }
+
+export const constructionCalculatorLabels: Readonly<Record<(typeof SAVEABLE_CONSTRUCTION_CALCULATORS)[number], string>> = {
+  "roof.rafter-cut": "Szarufa kiszabása", "roof.material-takeoff": "Tetőanyag-kimutatás", "roof.timber-cutlist": "Faanyag és vágáslista", "roof.truss-members": "Rácsos tartó elemei",
+};

@@ -1,6 +1,6 @@
 import { createClient } from "@/infrastructure/supabase/server";
 
-export type DocumentKind = "material_list" | "quotation";
+export type DocumentKind = "material_list" | "quotation" | "calculation";
 
 export type DocumentPlanLink = Readonly<{
   /** Null for the immutable association a material list received when it was created inside a work log. */
@@ -8,6 +8,9 @@ export type DocumentPlanLink = Readonly<{
   planId: string;
   planTitle: string;
   origin: "link" | "creation";
+  /** Exact linked record when it differs from the shown document (a calculation revision). */
+  documentId?: string;
+  detail?: string;
 }>;
 
 export type PlanLinkedDocument = Readonly<{

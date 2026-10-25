@@ -3886,6 +3886,13 @@ html[data-glass-frame-free="true"] :is(
 .construction-save-status { margin: 0; color: var(--muted); font-size: calc(.82rem * var(--tp-text-scale)); font-weight: 600; }
 .construction-save-status.is-saved { color: var(--brand-ink); }
 .construction-save-revisions .project-module-links { display: grid; gap: .35rem; }
+.execution-plan-calculation { display: grid; gap: .5rem; }
+.execution-plan-calculation > div:first-child { display: grid; gap: .3rem; min-width: 0; }
+.execution-plan-calculation > div:first-child > strong { display: inline-flex; align-items: center; gap: .35rem; }
+.execution-plan-calculation > div:first-child > span, .execution-plan-calculation small { color: var(--muted); font-size: calc(.8rem * var(--tp-text-scale)); }
+.execution-plan-calculation dl { display: grid; gap: .25rem; margin: 0; }
+.execution-plan-calculation dl > div { display: flex; justify-content: space-between; gap: .75rem; border-bottom: 1px solid var(--glass-border); padding: .2rem 0; }
+.execution-plan-calculation dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
 @media (max-width: 850px) {
   .construction-suite-layout { grid-template-columns: minmax(0, 1fr); }
   .construction-suite-list { position: static; }

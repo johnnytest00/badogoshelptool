@@ -10,6 +10,11 @@ import { stableJsonStringify } from "@/features/roof-models/stable-json";
 import { saveConstructionCalculationAction } from "@/features/calculations/construction-actions";
 import type { SavedConstructionRevision } from "@/features/calculations/construction-data";
 import type { ConstructionInputSnapshot, ConstructionOutputSnapshot } from "./construction-computation";
+import { ExecutionPlanLinkControl } from "@/features/execution/execution-plan-link-control";
+import type { DocumentPlanLink } from "@/features/execution/execution-document-links";
+import type { ExecutionPlanOption } from "@/features/execution/execution-data";
+
+export type ConstructionPlanLinks = Readonly<{ plans: readonly ExecutionPlanOption[]; links: readonly DocumentPlanLink[] }>;
 
 export type ConstructionSaveSession = Readonly<{
   calculationId: string;
@@ -38,10 +43,14 @@ type Props = Readonly<{
   saveable: boolean;
   onSessionChange: (next: ConstructionSaveSession) => void;
   onLoadRevision: (revision: SavedConstructionRevision) => void;
+  /** Work logs and existing links of the saved calculation; null when not saved yet or not loadable. */
+  planLinks?: ConstructionPlanLinks | null;
+  /** True only when the server tried and failed to load work logs for this saved calculation. */
+  planLinksUnavailable?: boolean;
 }>;
 
 /** Save, reopen and revision controls; an unsaved result is always labelled as a local preview. */
-export function ConstructionSavePanel({ organizationId, calculatorId, session, input, liveOutput, saveable, onSessionChange, onLoadRevision }: Props) {
+export function ConstructionSavePanel({ organizationId, calculatorId, session, input, liveOutput, saveable, onSessionChange, onLoadRevision, planLinks = null, planLinksUnavailable = false }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ kind: "error" | "success"; text: string; conflict?: boolean } | null>(null);
@@ -52,6 +61,7 @@ export function ConstructionSavePanel({ organizationId, calculatorId, session, i
   const viewed = session.revisions.find((revision) => revision.revisionNumber === session.viewedRevisionNumber) ?? null;
   const viewedIsOlder = viewed !== null && viewed.revisionNumber !== session.revisionNumber;
   const outputDrift = viewed !== null && stableJsonStringify(viewed.input) === inputJson && comparableOutput(viewed.output) !== comparableOutput(liveOutput);
+  const latestRevisionId = session.revisions.find((revision) => revision.revisionNumber === session.revisionNumber)?.revisionId ?? null;
   const nameValid = session.name.trim().length > 0 && session.name.trim().length <= 200;
   useUnsavedChangeGuard({ dirty, pending });
 
@@ -94,6 +104,9 @@ export function ConstructionSavePanel({ organizationId, calculatorId, session, i
         V{revision.revisionNumber}{revision.revisionNumber === session.revisionNumber ? " · aktuális" : ""} · {new Date(revision.createdAt).toLocaleString("hu-HU")}
       </button>)}</div>
     </GlassDisclosure>}
-    <p className="construction-suite-independent">A mentett kalkuláció csak a te fiókodban látható. Nem kapcsolódik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>
+    {saved && latestRevisionId && planLinks && <ExecutionPlanLinkControl organizationId={organizationId} kind="calculation" documentId={latestRevisionId} links={planLinks.links} plans={planLinks.plans}
+      linkBlockedReason={dirty ? `Mentetlen módosítás van. Munkanaplóhoz mindig mentett revízió kapcsolódik; mentsd el előbb, vagy a mentett V${session.revisionNumber} marad kapcsolható a módosítás elvetése után.` : undefined} />}
+    {saved && planLinksUnavailable && <p className="construction-suite-limit">A munkanaplók most nem tölthetők be, ezért a kapcsolás átmenetileg nem érhető el. A kalkuláció ettől függetlenül mentve van.</p>}
+    <p className="construction-suite-independent">A mentett kalkulációt csak te szerkesztheted. Ha munkanaplóhoz kapcsolod, a napló látói a kapcsolt revíziót olvashatják. Ügyfélhez, projekthez, felméréshez, anyaglistához vagy ajánlathoz nem kapcsolódik.</p>
   </section>;
 }

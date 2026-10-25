@@ -1,5 +1,13 @@
 # F2.1 adatbázis-alap
 
+## M3 — kalkuláció ↔ munkanapló kapcsolat (2026-10-25, csak helyi)
+
+Migráció: `20261025110000_execution_plan_calculation_links.sql`; teszt: `supabase/tests/database/057_execution_plan_calculation_links.sql` (20 állítás, helyi PASS; teljes pgTAP 59 fájl / 1270 PASS, benne a `040` link-regresszió). Hosted DB-re nincs alkalmazva.
+
+- `execution_plan_document_links` új `document_kind = 'calculation'`, `calculation_id` + pontos `calculation_revision_id` (összetett FK-k: `(calculation_id, organization_id)` → `calculations`, `(calculation_revision_id, calculation_id)` → `calculation_revisions`). A kind-CHECK a régi típusoknál megköveteli, hogy a kalkulációs oszlopok üresek legyenek. Aktív kapcsolat tervenként és pontos revíziónként egyedi; ugyanaz a kalkuláció több naplóhoz, illetve más revízióval külön is kapcsolható. Törlés/átpointolás továbbra is tiltott (meglévő trigger), leválasztás audit-bélyeg.
+- `link_/unlink_execution_plan_document` újradefiniálva (azonos szignatúra): kalkulációnál `p_document_id` a revízió; csak a saját, standalone `construction.%` kalkuláció kapcsolható és választható le (42501), request_key idempotencia és aktív-duplikátum-felismerés a meglévő mintával. A kalkuláció és revíziói a kapcsolástól nem változnak.
+- **Láthatóság (12/6 döntés):** új permissive select policy-k — `calculations_linked_member_read` és `calculation_revisions_linked_member_read`: a szervezet tagjai csak az aktívan kapcsolt `construction.%` kalkulációt és pontosan a kapcsolt revíziót olvashatják; leválasztás után a hozzáférés megszűnik. A link-tábla kalkulációs ága csak org-tagságot ellenőriz (a kalkuláció-policy erre a táblára hivatkozik, így a visszahivatkozás rekurziót okozna). Szerkesztés és új revízió továbbra is csak a létrehozóé (M2 író).
+
 ## M2 — önálló kalkulátor-suite mentés (2026-10-25, csak helyi)
 
 Migráció: `20261025100000_standalone_construction_calculations.sql`; teszt: `supabase/tests/database/056_standalone_construction_calculations.sql` (17 állítás, helyi PASS; teljes pgTAP 58 fájl / 1250 PASS). Hosted DB-re nincs alkalmazva.

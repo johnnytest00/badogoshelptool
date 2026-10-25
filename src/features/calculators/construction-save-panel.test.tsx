@@ -7,6 +7,7 @@ import { definitions } from "./roof-calculator-definitions";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/features/calculations/construction-actions", () => ({ saveConstructionCalculationAction: vi.fn() }));
+vi.mock("@/features/execution/execution-document-link-actions", () => ({ linkExecutionPlanDocumentAction: vi.fn(), unlinkExecutionPlanDocumentAction: vi.fn(), createExecutionPlanAndLinkDocumentAction: vi.fn() }));
 
 const definition = definitions["roof.rafter-cut"];
 const values = { horizontalHalfSpanMm: "3000", riseMm: "2000", eaveProjectionMm: "500", seatCutHeightMm: "0" };
@@ -14,7 +15,8 @@ const input = constructionInputSnapshot(definition, values, null);
 const output = constructionOutputSnapshot("roof.rafter-cut", computeConstruction(definition, values, null, []));
 const revision = (revisionNumber: number, revisionInput = input, revisionOutput = output) => ({ revisionId: `r${revisionNumber}`, revisionNumber, createdAt: "2026-10-25T10:00:00Z", input: revisionInput, output: revisionOutput });
 const savedSession: ConstructionSaveSession = { calculationId: "c", name: "DEMO szarufa", revisionNumber: 2, baselineInput: stableJsonStringify(input), savedName: "DEMO szarufa", viewedRevisionNumber: 2, revisions: [revision(2), revision(1)] };
-const render = (session: ConstructionSaveSession, saveable = true, liveOutput = output) => renderToStaticMarkup(<ConstructionSavePanel organizationId="org" calculatorId="roof.rafter-cut" session={session} input={input} liveOutput={liveOutput} saveable={saveable} onSessionChange={() => undefined} onLoadRevision={() => undefined} />);
+const render = (session: ConstructionSaveSession, saveable = true, liveOutput = output, extra: Partial<Parameters<typeof ConstructionSavePanel>[0]> = {}) => renderToStaticMarkup(<ConstructionSavePanel organizationId="org" calculatorId="roof.rafter-cut" session={session} input={input} liveOutput={liveOutput} saveable={saveable} onSessionChange={() => undefined} onLoadRevision={() => undefined} {...extra} />);
+const planLinks = { plans: [{ id: "p1", title: "DEMO napló", projectId: null, updatedAt: "2026-10-25" }], links: [{ linkId: "l1", planId: "p0", planTitle: "DEMO régi napló", origin: "link" as const, documentId: "r1", detail: "V1" }] };
 
 describe("ConstructionSavePanel", () => {
   it("labels an unsaved result as a local preview and needs a complete result to save", () => {
@@ -44,4 +46,15 @@ describe("ConstructionSavePanel", () => {
     expect(html).toContain("A mentett V1 eredménye eltér a mostani számítástól.");
   });
 
+  it("offers work log linking for the latest saved revision and blocks it while changes are unsaved", () => {
+    const linked = render(savedSession, true, output, { planLinks });
+    expect(linked).toContain("Munkanaplóhoz csatolás");
+    expect(linked).toContain("DEMO régi napló");
+    expect(linked).toContain("· V1");
+    const dirty = render({ ...savedSession, baselineInput: "{}" }, true, output, { planLinks });
+    expect(dirty).toContain("Mentetlen módosítás van. Munkanaplóhoz mindig mentett revízió kapcsolódik");
+    expect(dirty).not.toContain("Munkanaplóhoz csatolás");
+    expect(render(savedSession, true, output, { planLinksUnavailable: true })).toContain("A munkanaplók most nem tölthetők be");
+    expect(render({ ...savedSession, revisionNumber: 0, baselineInput: null, savedName: null, viewedRevisionNumber: null, revisions: [] }, true, output, { planLinks })).not.toContain("Munkanapló");
+  });
 });
