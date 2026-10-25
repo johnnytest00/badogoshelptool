@@ -1,5 +1,16 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M7 — Integráció, teljes ellenőrzés, dokumentáció
+
+Státusz: **PASS WITH LIMITATIONS.** A kalkulátor-központú munkafolyamat (Kalkulátor → mentett revízió → munkanapló / árajánlat) helyben végig működik.
+
+- **Javítás 1 (M6-regresszió):** a 0 peremsávval, de explicit `…InsetMm: 0` kulcsokkal mentett régi faanyag-revízió megnyitáskor „Mentetlen módosítás”-t mutatott, és letiltotta a munkanapló- és ajánlat-gombot. A mentett bemenet olvasáskor normalizálva (`normalizedConstructionInput`, `construction-data.ts`); a DB-ben tárolt snapshot változatlan. Új teszt.
+- **Javítás 2 (M5-maradvány):** a munkanaplóban üres „Csatolt felmérések · 0” szakasz és egy már nem igaz útmutatás („Felmérésből … csatolható”) jelent meg. Kapcsolt felmérés nélkül a szakasz nem jelenik meg; hibás vagy elérhetetlen kapcsolat figyelmeztetése megmaradt. Új teszt.
+- **Ellenőrzés:** `eslint .` PASS; `tsc` PASS; teljes Vitest **173 fájl PASS / 8 SKIP, 1030 PASS / 19 SKIP**; teljes pgTAP **61 fájl / 1291 PASS** (helyi); izolált `next build --webpack` PASS (a munkakönyvtár másolatában, a futó dev szerver `.next`-jét nem érintve), a javítások után újrafuttatva.
+- **Böngésző (helyi DEMO):** mobil 375×812: dashboard (Kalkulátorok elöl, alsó sáv öt elemmel), mentett lista, faanyag-revízió újranyitása „Mentve · V1”-ként, szarufa-kalkuláció csomópontokkal → új munkanapló létrehozása és kapcsolása → a naplóban a V1 eredmény a csomópont-értékekkel. Tablet 768×1024: faanyag V1 → „Árajánlat készítése” → kalkulációs forráspanel 3 átvihető mennyiséggel (26 db, 126,960557 m, 26 × 4883 mm). Desktop: oldalsáv-navigáció, csomópont-szekció és metszeti rajz. Konzolhiba nincs (csak a böngésző beforeunload-figyelmeztetése).
+- **Nem ellenőrzött / korlát:** hostolt adatbázis és deploy; világos téma ebben a körben nem nézve; ajánlatpiszkozat mentése ebben a körben nem futott (M4-ben igen); a nyitott döntések (12/3, 12/4, 12/11) és a belső felmérés-kód eltávolítása külön kapu.
+- **Javasolt Conventional Commit:** `fix(M7): keep pre-M6 revisions unmodified on reopen and hide empty retired survey section`.
+
 ## M6 — Peremsáv-szabály és szarufa-csomópontok
 
 Státusz: **PASS WITH LIMITATIONS.** Döntések: 12/1 — „A”: a peremsáv mindig 0, a lécre is; 12/2 — mindhárom csomópont, mérési referencia a szarufa felső éle (mai modell: a madárszáj magassága csökkenti a hatásos emelkedést, így a hajlást is).

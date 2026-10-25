@@ -3,7 +3,7 @@ import { DEMO_MATERIAL_PROFILES, initialSpecState } from "@/domain/calculations/
 import { definitions } from "./roof-calculator-definitions";
 import {
   computeConstruction, constructionInputSnapshot, constructionInputSnapshotSchema, constructionOutputSnapshot, isSaveableComputation,
-  isSaveableConstructionCalculator, materialStateFromSnapshot,
+  isSaveableConstructionCalculator, materialStateFromSnapshot, normalizedConstructionInput,
 } from "./construction-computation";
 import type { RoofMaterialUiState } from "./material-spec-editor";
 
@@ -40,6 +40,9 @@ describe("computeConstruction", () => {
     const legacy = { ...material, layout: { rafterMaxSpacingMm: 900, rafterStartInsetMm: 1000, rafterEndInsetMm: 1000, battenStartInsetMm: 50 } };
     expect(computeConstruction(timber, timberValues, legacy, DEMO_MATERIAL_PROFILES).timberLayout?.rafters?.count).toBe(26);
     expect(constructionInputSnapshot(timber, timberValues, legacy).material?.layout).toEqual({ rafterMaxSpacingMm: 900 });
+    // A revision saved before M6 with explicit 0 mm strips must reopen as unchanged.
+    const saved = { ...constructionInputSnapshot(timber, timberValues, material), material: { ...constructionInputSnapshot(timber, timberValues, material).material!, layout: { rafterMaxSpacingMm: 900, rafterStartInsetMm: 0, rafterEndInsetMm: 0 } } };
+    expect(normalizedConstructionInput(saved)).toEqual(constructionInputSnapshot(timber, timberValues, material));
   });
 
   it("adds rafter joints without changing the lines of a revision that has no joint input", () => {

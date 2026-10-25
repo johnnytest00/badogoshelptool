@@ -169,6 +169,10 @@ export function constructionOutputSnapshot(calculatorId: string, computation: Co
 export const isSaveableComputation = (computation: ConstructionComputation) =>
   computation.inputsReady && computation.error === null && (computation.rows.length > 0 || computation.geometry !== null);
 
+/** A saved input as the current editor builds it (M6: legacy edge-strip keys dropped), so an unchanged revision does not read as modified. */
+export const normalizedConstructionInput = (snapshot: ConstructionInputSnapshot): ConstructionInputSnapshot =>
+  snapshot.material ? { ...snapshot, material: { ...snapshot.material, layout: withoutEdgeStrips(snapshot.material.layout) } } : snapshot;
+
 /** Rebuild editor state from a saved input snapshot. */
 export function materialStateFromSnapshot(snapshot: ConstructionInputSnapshot): RoofMaterialUiState | null {
   return snapshot.material ? { requested: snapshot.material.requested, layout: withoutEdgeStrips(snapshot.material.layout), specs: snapshot.material.specs } : null;

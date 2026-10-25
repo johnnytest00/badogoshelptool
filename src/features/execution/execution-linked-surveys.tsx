@@ -16,8 +16,10 @@ const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-
 });
 
 export function ExecutionLinkedSurveys({ surveys }: Readonly<{ organizationId: string; surveys: readonly ExecutionLinkedSurvey[] }>) {
+  // M5: surveys can no longer be created, so an empty list is not offered as a next step.
+  if (surveys.length === 0) return null;
   return <GlassDisclosure className="execution-linked-surveys" summary={`Csatolt felmérések · ${surveys.length}`}>
-    {surveys.length ? <div className="execution-linked-survey-list">{surveys.map((survey) => <LinkedSurveyCard key={survey.id} survey={survey} />)}</div> : <p className="missing-data">Ehhez a munkanaplóhoz még nincs felmérés csatolva. Felmérésből a pontos mentett változat csatolható.</p>}
+    <div className="execution-linked-survey-list">{surveys.map((survey) => <LinkedSurveyCard key={survey.id} survey={survey} />)}</div>
   </GlassDisclosure>;
 }
 

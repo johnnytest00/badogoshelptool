@@ -1,5 +1,5 @@
 import { getAuthContext } from "@/features/auth/auth.server";
-import { constructionInputSnapshotSchema, isSaveableConstructionCalculator, type ConstructionInputSnapshot, type ConstructionOutputSnapshot } from "@/features/calculators/construction-computation";
+import { constructionInputSnapshotSchema, isSaveableConstructionCalculator, normalizedConstructionInput, type ConstructionInputSnapshot, type ConstructionOutputSnapshot } from "@/features/calculators/construction-computation";
 import { createClient } from "@/infrastructure/supabase/server";
 
 export type SavedConstructionRevision = Readonly<{ revisionId: string; revisionNumber: number; createdAt: string; input: ConstructionInputSnapshot; output: ConstructionOutputSnapshot }>;
@@ -27,7 +27,7 @@ export async function getConstructionCalculation(organizationId: string, calcula
   const revisions = (rows ?? []).flatMap((row) => {
     const input = constructionInputSnapshotSchema.safeParse(row.input_snapshot);
     return input.success && input.data.calculatorId === calculatorId
-      ? [{ revisionId: row.id, revisionNumber: row.revision_number, createdAt: row.created_at, input: input.data, output: row.output_snapshot as unknown as ConstructionOutputSnapshot }]
+      ? [{ revisionId: row.id, revisionNumber: row.revision_number, createdAt: row.created_at, input: normalizedConstructionInput(input.data), output: row.output_snapshot as unknown as ConstructionOutputSnapshot }]
       : [];
   });
   const current = revisions.find((revision) => revision.revisionId === calculation.current_revision_id);

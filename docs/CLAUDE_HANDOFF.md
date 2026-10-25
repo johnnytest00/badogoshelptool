@@ -4,10 +4,16 @@ Ez rövid belépési pont; a kód és a lefuttatott bizonyíték az irányadó. 
 
 ## Jelenlegi állapot
 
-- A legutóbbi termék/technikai mérföldkő F9.71; az F9.72 dokumentációs konszolidáció. A friss állapotot és ellenőrzési korlátokat a [`PROGRESS.md`](PROGRESS.md) eleje rögzíti.
+- A termék kalkulátor-központú (2026-10-25, M1–M7, `feat/m1-length-input` ág): Kalkulátor → mentett, immutable revízió → opcionális munkanapló-kapcsolás vagy ajánlatpiszkozat. A Felmérések kivezetve (új felmérés nem hozható létre, adat megmaradt). Terv és döntések: [`CALCULATOR_FIRST_PHASE0_AUDIT.md`](CALCULATOR_FIRST_PHASE0_AUDIT.md); friss állapot: [`PROGRESS.md`](PROGRESS.md). Az M1–M7 commitolva; a korábbi F9.73.1 munka nem commitolt.
 - Az alkalmazás Next.js App Router, React, TypeScript és helyi Supabase-alapú adatmodell. Rétegek: `src/app/` route/kompozíció, `src/features/` alkalmazási folyamat, `src/domain/` keretrendszerfüggetlen szerződés és számítás, `src/infrastructure/` adapterek.
-- Felmérések, projektek, kalkulátorok, anyaglisták, ajánlatok és kivitelezési munkafolyamatok léteznek eltérő integrációs és mentési lefedettséggel. Az aktuális route- és adatfolyam-térkép: [`PROJECT_MAP.md`](PROJECT_MAP.md); rövid funkciótérkép: [`../funkciok.md`](../funkciok.md).
+- Projektek, kalkulátorok, anyaglisták, ajánlatok és kivitelezési munkafolyamatok léteznek eltérő integrációs és mentési lefedettséggel. Az aktuális route- és adatfolyam-térkép: [`PROJECT_MAP.md`](PROJECT_MAP.md); rövid funkciótérkép: [`../funkciok.md`](../funkciok.md).
 - A felmérési fotókat feltöltéskor Sharp újrakódolja, EXIF/GPS nélkül. A handler 10 MiB/fájl és 11 MiB/kérés korlátja implementált; a hosting ingress-védelme nincs igazolva.
+
+## Nyitott kockázatok és következő lépések
+
+- Nyitott döntések: 12/3 (tört mm), 12/4 (eredmény egysége), 12/11 (projekt-kalkulációk kapcsolhatósága).
+- A szarufa-csomópontok tesztadata független kézi számítás; CAD- vagy szakemberi ellenőrzés még nincs. A talpszelemen szélessége nem bemenet.
+- A belső felmérés-kód (szerkesztő, actionök, fotó-API) a helyén maradt; eltávolítása külön döntés. Hostolt adatbázison az M2–M5 migrációk nincsenek ellenőrizve.
 
 ## Fejlesztési határok
 
