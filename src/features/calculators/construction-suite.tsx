@@ -331,7 +331,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     <section className={`form-message${calculation.completeness.status === "invalid" || calculation.completeness.status === "unsupported" ? " is-error" : ""}`} role={calculation.completeness.status === "invalid" || calculation.completeness.status === "unsupported" ? "alert" : "status"}>
       <strong>{completenessTitle}</strong> · {completenessCopy}
       {calculation.completeness.status !== "complete" && calculation.completeness.reasons.length > 0 && <ul>{calculation.completeness.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}
-      {limitations.length > 0 && <><p className="construction-suite-limit">Nem alkalmazható vagy nem támogatott csatlakozás (a mentett eredményben is rögzítve):</p><ul>{limitations.map((item) => <li key={item}>{item}</li>)}</ul></>}
+      {limitations.length > 0 && <GlassDisclosure summary={`Nem alkalmazható vagy nem támogatott csatlakozás · ${limitations.length} tétel`}><p className="construction-suite-limit">A mentett eredményben is rögzítve:</p><ul>{limitations.map((item) => <li key={item}>{item}</li>)}</ul></GlassDisclosure>}
     </section>
     {inputsReady && calculation.error && <p className="form-message is-error" role="alert">{calculation.error}</p>}
   </>;
