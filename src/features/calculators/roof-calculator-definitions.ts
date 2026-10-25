@@ -2,7 +2,7 @@ import { constructionCalculatorCatalog } from "@/domain/calculations/constructio
 
 import { calculateExistingRoofGeometry, calculateRafterGeometry, calculateTriangularTrussGeometry } from "@/domain/calculations/construction/roofs";
 
-import { calculateRafterJoints, HAP_HELP, HAP_LABEL, rafterJointInputFromFields } from "@/domain/calculations/construction/rafter-joints";
+import { calculateRafterJoints, HAP_HELP, HAP_LABEL, PURLIN_FACE_HELP, PURLIN_TOP_HELP, rafterJointInputFromFields } from "@/domain/calculations/construction/rafter-joints";
 
 import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoffInputs } from "@/domain/calculations/roof-material-takeoff";
 
@@ -62,8 +62,8 @@ const birdsmouthFields: readonly Field[] = [
   { key: "birdsmouth", label: "Szarufacsatlakozások számítása (madárszáj, szelemenek, gerinc)", unit: "", kind: "checkbox", advanced: true },
   { key: "seatCutHeightMm", label: HAP_LABEL, help: HAP_HELP, figure: "hap", unit: "mm", advanced: true, visibleWhen: jointsOn },
   { key: "plateWidthMm", label: "Talpszelemen szélessége · ellenőrzéshez", unit: "mm", advanced: true, positive: true, placeholder: "nincs megadva", visibleWhen: jointsOn },
-  { key: "purlinFaceMm", label: "Derékszelemen ereszoldali síkja · vízszintesen a talpszelemen külső síkjától", unit: "mm", advanced: true, placeholder: "nincs derékszelemen", visibleWhen: jointsOn },
-  { key: "purlinTopMm", label: "Derékszelemen felső síkja · a talpszelemen felső síkja felett", unit: "mm", advanced: true, placeholder: "nincs derékszelemen", visibleWhen: jointsOn },
+  { key: "purlinFaceMm", label: "Derékszelemen ereszoldali síkja · vízszintesen a talpszelemen külső síkjától", help: PURLIN_FACE_HELP, unit: "mm", advanced: true, placeholder: "nincs derékszelemen", visibleWhen: jointsOn },
+  { key: "purlinTopMm", label: "Derékszelemen felső síkja · a talpszelemen felső síkja felett", help: PURLIN_TOP_HELP, figure: "purlin", unit: "mm", advanced: true, placeholder: "nincs derékszelemen", visibleWhen: jointsOn },
   { key: "ridgeJoint", label: "Gerinckapcsolat", unit: "", initial: "opposed", kind: "select", advanced: true, options: RIDGE_JOINT_OPTIONS, shapes: RIDGE_SHAPES, visibleWhen: jointsOn },
   { key: "ridgeBoardThicknessMm", label: "Gerincdeszka vastagsága", unit: "mm", advanced: true, positive: true, shapes: RIDGE_SHAPES, visibleWhen: [jointsOn, { key: "ridgeJoint", values: ["board"] }] },
   { key: "ridgePurlinWidthMm", label: "Gerincszelemen szélessége", unit: "mm", advanced: true, positive: true, shapes: RIDGE_SHAPES, visibleWhen: [jointsOn, { key: "ridgeJoint", values: ["purlin"] }] },
@@ -93,8 +93,8 @@ export const definitions: Record<string, CalculatorDefinition> = {
       { key: "ridgeBoardThicknessMm", label: "Gerincdeszka vastagsága", unit: "mm", advanced: true, positive: true, visibleWhen: { key: "ridgeJoint", values: ["board"] } },
       { key: "ridgePurlinWidthMm", label: "Gerincszelemen szélessége", unit: "mm", advanced: true, positive: true, visibleWhen: { key: "ridgeJoint", values: ["purlin"] } },
       { key: "ridgePurlinTopMm", label: "Gerincszelemen felső síkja · a talpszelemen felső síkja felett", unit: "mm", advanced: true, visibleWhen: { key: "ridgeJoint", values: ["purlin"] } },
-      { key: "purlinFaceMm", label: "Derékszelemen ereszoldali síkja · vízszintesen a talpszelemen külső síkjától", unit: "mm", advanced: true, placeholder: "nincs derékszelemen" },
-      { key: "purlinTopMm", label: "Derékszelemen felső síkja · a talpszelemen felső síkja felett", unit: "mm", advanced: true, placeholder: "nincs derékszelemen" },
+      { key: "purlinFaceMm", label: "Derékszelemen ereszoldali síkja · vízszintesen a talpszelemen külső síkjától", help: PURLIN_FACE_HELP, unit: "mm", advanced: true, placeholder: "nincs derékszelemen" },
+      { key: "purlinTopMm", label: "Derékszelemen felső síkja · a talpszelemen felső síkja felett", help: PURLIN_TOP_HELP, figure: "purlin", unit: "mm", advanced: true, placeholder: "nincs derékszelemen" },
       { key: "plateWidthMm", label: "Talpszelemen szélessége · ellenőrzéshez", unit: "mm", advanced: true, positive: true, placeholder: "nincs megadva" }],
     calculate: (input) => {
       const result = calculateRafterGeometry({ horizontalHalfSpanMm: mm(input, "horizontalHalfSpanMm"), riseMm: mm(input, "riseMm"), eaveProjectionMm: mm(input, "eaveProjectionMm"), seatCutHeightMm: mm(input, "seatCutHeightMm") });

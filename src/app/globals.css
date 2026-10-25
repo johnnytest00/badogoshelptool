@@ -5202,6 +5202,14 @@ main[id="main-content"]:focus { outline: none; }
 .hap-figure .hap-plate { fill: color-mix(in srgb, var(--muted) 22%, transparent); stroke: var(--muted); stroke-width: 1.5; }
 .hap-figure .hap-reference { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
 .hap-figure .hap-upper { stroke: var(--drawing-highlight); stroke-width: 3; }
+.purlin-help { grid-column: 1 / -1; min-width: 0; }
+.purlin-figure { display: grid; gap: .3rem; margin: 0; min-width: 0; }
+.purlin-figure svg { display: block; width: 100%; max-width: 22rem; height: auto; color: var(--foreground); }
+.purlin-figure figcaption { color: var(--muted); font-size: calc(.76rem * var(--tp-text-scale)); line-height: 1.45; }
+.purlin-figure text { fill: var(--foreground); font-size: calc(10px * var(--tp-text-scale)); font-weight: 700; paint-order: stroke; stroke: var(--surface-strong); stroke-width: 3px; stroke-linejoin: round; }
+.purlin-figure .purlin-plate { fill: color-mix(in srgb, var(--muted) 22%, transparent); stroke: var(--muted); stroke-width: 1.5; }
+.purlin-figure .purlin-reference { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
+.purlin-figure .purlin-upper { stroke: var(--drawing-highlight); stroke-width: 3; }
 .rafter-joint-slots button { display: grid; gap: .05rem; min-height: 3.6rem; min-width: 0; padding: .45rem .5rem; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface-strong); color: var(--foreground); text-align: left; }
 .rafter-joint-slots button[aria-pressed="true"] { border-color: var(--drawing-highlight); box-shadow: inset 0 0 0 2px var(--drawing-highlight); }
 .rafter-joint-slots span { font-size: calc(.86rem * var(--tp-text-scale)); font-weight: 700; overflow-wrap: break-word; }
