@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { calculateRafterJoints, HAP_HELP, HAP_LABEL } from "@/domain/calculations/construction/rafter-joints";
 import { definitions } from "./roof-calculator-definitions";
 import { HapMeasuringHelp } from "./hap-figure";
-import { RafterCutFlow, RoofDrawingStack } from "./rafter-result-flow";
+import { RafterCutFlow, RafterJointsInvitation, RoofDrawingViews } from "./rafter-result-flow";
 import { RafterJointsPanel, formatJointValue } from "./rafter-joints-panel";
 import { RafterJointDrawing } from "./rafter-joint-drawing";
 
@@ -32,12 +32,29 @@ describe("M9.6 rafter result presentation", () => {
     expect(html).toContain('<details class="glass-disclosure construction-suite-result-details">');
   });
 
-  it("lists the roof drawings after the result: cross-section, rafter lines, then closed further views", () => {
-    const html = renderToStaticMarkup(<RoofDrawingStack joints={<p>METSZET</p>} layout={<p>VONALAK</p>} moreViews={<p>TÉRBELI</p>} />);
-    const positions = order(html, ["METSZET", "VONALAK", "További nézetek", "TÉRBELI"]);
-    expect(positions).toEqual([...positions].sort((a, b) => a - b));
-    expect(html).toContain('<details class="glass-disclosure construction-suite-more-views">');
-    expect(renderToStaticMarkup(<RoofDrawingStack moreViews={null} />)).toBe("");
+  it("shows the roof drawings as one switchable panel: first view open, every view a button, the rest not rendered", () => {
+    const views = [
+      { id: "cuts", label: "Szarufa vágásai", hint: "MIT MUTAT", content: <p>METSZET</p> },
+      { id: "layout", label: "Szarufaosztás", hint: "OSZTÁS SÚGÓ", content: <p>VONALAK</p> },
+      { id: "shape", label: "Tetőforma", hint: "FORMA SÚGÓ", content: <p>TETŐ</p> },
+    ];
+    const html = renderToStaticMarkup(<RoofDrawingViews views={views} />).replace(/<!-- -->/g, "");
+    for (const label of ["Szarufa vágásai", "Szarufaosztás", "Tetőforma"]) expect(html).toContain(`>${label}</button>`);
+    // Only the first view's content and hint; a phone shows one whole drawing, not a stack.
+    expect(html).toContain("METSZET");
+    expect(html).toContain("MIT MUTAT");
+    for (const hidden of ["VONALAK", "TETŐ", "OSZTÁS SÚGÓ", "FORMA SÚGÓ"]) expect(html).not.toContain(hidden);
+    expect(html).toContain('aria-pressed="true"');
+    expect(html.match(/aria-pressed="false"/g)).toHaveLength(2);
+    // A single view needs no switch, and no view renders nothing at all.
+    expect(renderToStaticMarkup(<RoofDrawingViews views={[views[0]!]} />)).not.toContain("roof-drawing-switch");
+    expect(renderToStaticMarkup(<RoofDrawingViews views={[]} />)).toBe("");
+  });
+
+  it("offers to turn the joint fields on instead of leaving the cut view empty", () => {
+    const html = renderToStaticMarkup(<RafterJointsInvitation onEnable={() => undefined} />);
+    expect(html).toContain("Szarufacsatlakozások bekapcsolása");
+    for (const part of ["keresztmetszet-magassága", "HAP"]) expect(html).toContain(part);
   });
 
   it("shows joint state and limits openly and keeps every computed joint value in a closed list", () => {

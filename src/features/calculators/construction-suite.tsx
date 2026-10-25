@@ -21,7 +21,7 @@ import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-result
 import { ConstructionCalculatorThumbnail } from "./construction-thumbnails";
 import { RafterJointDrawing, RoofJointDrawing } from "./rafter-joint-drawing";
 import { HapMeasuringHelp } from "./hap-figure";
-import { RafterCutFlow, RoofDrawingStack } from "./rafter-result-flow";
+import { RafterCutFlow, RafterJointsInvitation, RoofDrawingViews, type RoofDrawingView } from "./rafter-result-flow";
 import { RafterLayoutDrawing } from "./rafter-layout-drawing";
 import { RafterJointsPanel } from "./rafter-joints-panel";
 import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition } from "./construction-calculator-loading";
@@ -277,6 +277,18 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     setDrafts((current) => updateCalculatorDraft(current, selectedId, key, value));
     markDirty();
   };
+  // Turning the joint fields on from the drawing: the HAP field only exists after the re-render, so the jump waits for it.
+  const [jumpToHap, setJumpToHap] = useState(false);
+  const startRafterJoints = () => { updateValue("birdsmouth", "true"); setJumpToHap(true); };
+  useEffect(() => {
+    if (!jumpToHap) return;
+    const field = document.getElementById("seatCutHeightMm");
+    if (!field) return;
+    setJumpToHap(false);
+    field.closest("details")?.setAttribute("open", "");
+    field.scrollIntoView({ block: "center", behavior: "smooth" });
+    field.focus({ preventScroll: true });
+  }, [jumpToHap, values]);
   const basicFields = definition.fields.filter((field) => !field.advanced && isFieldVisible(field, values));
   const advancedFields = definition.fields.filter((field) => field.advanced && isFieldVisible(field, values));
   const renderField = (field: Field) => {
@@ -357,11 +369,32 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
       : calculation.rafterJoints ? <RafterJointDrawing joints={calculation.rafterJoints} />
       : <ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={timberLayout} underlayLayout={underlayLayout} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />
     : undefined;
-  // M9.6: roof calculators show their material / cut-list result first, then the rafter drawings; secondary views closed.
-  const roofDrawings = drawingContent === undefined ? null : <RoofDrawingStack
-    joints={showsRafters && timberLayout?.rafters && calculation.birdsmouths && calculation.geometry ? <RoofJointDrawing planes={calculation.birdsmouths} physicalReason={timberLayout.physicalLayout.status === "unsupported" ? timberLayout.physicalLayout.reason : null} hipOrValley={calculation.geometry.edges.some((edge) => edge.kind === "hip" || edge.kind === "valley")} /> : null}
-    layout={showsRafters && timberLayout?.rafters && calculation.geometry ? <RafterLayoutDrawing geometry={calculation.geometry} timberLayout={timberLayout} birdsmouths={calculation.birdsmouths} /> : null}
-    moreViews={<>{rafterSpatial}<ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={timberLayout} underlayLayout={underlayLayout} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} /></>} />;
+  // M9.8: the roof calculators' drawings are one switchable panel, so every view is one tap away on any screen.
+  const laidOutRafters = showsRafters && Boolean(timberLayout?.rafters) && calculation.geometry !== null;
+  const roofViews: RoofDrawingView[] = [];
+  if (laidOutRafters && timberLayout && calculation.geometry) roofViews.push({
+    id: "cuts", label: "Szarufa vágásai",
+    hint: "A szarufa függőleges keresztmetszete a talpszelemennel, a szelemenekkel és a gerinccel: hol van a jelölés, mekkora a függővágás és az ülék. Válassz csatlakozást a részletrajzhoz.",
+    content: calculation.birdsmouths
+      ? <RoofJointDrawing planes={calculation.birdsmouths} physicalReason={timberLayout.physicalLayout.status === "unsupported" ? timberLayout.physicalLayout.reason : null} hipOrValley={calculation.geometry.edges.some((edge) => edge.kind === "hip" || edge.kind === "valley")} />
+      : <RafterJointsInvitation onEnable={startRafterJoints} />,
+  });
+  if (laidOutRafters && timberLayout && calculation.geometry) roofViews.push({
+    id: "layout", label: "Szarufaosztás",
+    hint: "A tetősík valódi méretű kiterítése a geometriai szarufavonalakkal: sorszám, osztás, hossz és a két vég vágása. Tetősíkot a rajz fejlécében válthatsz.",
+    content: <RafterLayoutDrawing geometry={calculation.geometry} timberLayout={timberLayout} birdsmouths={calculation.birdsmouths} />,
+  });
+  if (rafterSpatial) roofViews.push({
+    id: "spatial", label: "Térbeli részlet",
+    hint: "A szarufatengelyek térbeli közeli nézete a megadott keresztmetszettel. Tájékozódásra, nem méretezésre.",
+    content: rafterSpatial,
+  });
+  if (drawingContent !== undefined) roofViews.push({
+    id: "shape", label: "Tetőforma",
+    hint: "A teljes tető geometriai rajza a megadott méretekkel. A rajz alatt nézetet és rétegeket is válthatsz.",
+    content: <ConstructionDrawing definition={definition} values={values} roofGeometry={calculation.geometry} timberLayout={timberLayout} underlayLayout={underlayLayout} focusedDimension={focusedDimension} activeDimensionDescription={activeGuide?.meaning} onDimensionSelect={(key) => document.getElementById(key)?.focus()} />,
+  });
+  const roofDrawings = drawingContent === undefined ? null : <RoofDrawingViews views={roofViews} />;
   const rafterCutFlow = calculation.rafterJoints ? <RafterCutFlow status={statusContent} drawing={drawingContent} main={primaryContent} limits={<RafterJointsPanel joints={calculation.rafterJoints} />}
     details={echoedInputs.length > 0 || detailRowList ? <>{echoContent}{detailRowList}</> : null} /> : null;
   const canSave = Boolean(organizationId) && definitionLoaded && isSaveableConstructionCalculator(selectedId);

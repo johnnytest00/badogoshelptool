@@ -1,5 +1,18 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M9.8 — Váltható tetőrajz-nézetek és soha nem néma szarufa-vágásrajz (2026-10-25)
+
+Státusz: **PASS WITH LIMITATIONS** (csak prezentáció és navigáció; számítás, szerződés, snapshot, mentés és DB változatlan).
+
+- **Probléma:** a `roof.material-takeoff` és a `roof.timber-cutlist` rajzai egymás alá voltak halmozva, a térbeli részlet és a tetőforma pedig zárt „További nézetek” disclosure-ben; a szarufa-vágásrajz ráadásul **némán hiányzott**, ha a „Szarufacsatlakozások számítása” jelölő (a „Részletes számítás” alatt, `advanced`) ki volt kapcsolva — `planeBirdsmouthsFor` ilyenkor `null`-t ad. A felhasználó így kitöltött tetőformával sem látta, hol kell vágni.
+- **Váltható nézetek:** a `RoofDrawingStack` helyére `RoofDrawingViews` lépett: Liquid Glass pirulaváltó (`GlassToolbar` + `aria-pressed` kapcsológombok, a rajz saját oldal- és csomópontválasztójával azonos minta), egyszerre egy nézet, fölötte a nézet egymondatos leírása. Négy nézet: Szarufa vágásai · Szarufaosztás · Térbeli részlet · Tetőforma. Egyetlen nézetnél nincs váltó.
+- **Nincs néma hiány:** ha a csatlakozások nincsenek bekapcsolva, a „Szarufa vágásai” nézet a `RafterJointsInvitation` panelt mutatja: megnevezi a két hiányzó adatot (szarufa keresztmetszet-magassága, HAP), és a gombja bekapcsolja a jelölőt, kinyitja a „Részletes számítás” panelt és a HAP mezőre fókuszál.
+- **Reszponzív:** a váltó asztalon kitölti a sort, 560 px alatt vízszintesen görgethető (a levágott következő pirula jelzi a görgethetőséget), minden gomb 44 px magas; `prefers-reduced-motion` esetén nincs átmenet.
+- **Ellenőrzés:** `npx tsc --noEmit` PASS, `eslint` PASS, teljes Vitest **189 fájl PASS / 8 SKIP, 1170 PASS / 19 SKIP** (2 új teszt: a váltó csak az aktív nézetet rendereli, és a bekapcsoló panel tartalma). Böngésző (helyi dev, mentés nélkül), a felhasználó bemenetével (nyeregtető 1200×600 cm, 35°, eresz 0, osztás 25/50 cm): mindkét tetős kalkulátorban négy nézet, váltás mind a négyre ellenőrizve; a bekapcsoló gomb bepipálja a jelölőt, megnyitja a panelt és fókuszálja a HAP-ot (mérve); HAP 20 cm és 10×20 cm keresztmetszet megadása után a vágásrajz kirajzolódik. 375×812: gombok 44 px, a váltó görgethető (491/321 px), vízszintes oldaltúlcsordulás nincs. Világos és sötét témában ellenőrizve.
+- **Nem változott:** a `roof.rafter-cut` eredménysorrendje (`RafterCutFlow`), a rajzok belső vezérlői és a `technical-drawing` saját „Nézetek és rétegek” panelje.
+- **Korlát:** a nézetválasztás nem őrződik meg újratöltés vagy kalkulátorváltás után (munkamenetbeli állapot). `npm run build` nem futott.
+- **Javasolt Conventional Commit:** `feat(M9.8): switchable roof drawing views with a guided rafter-cut entry`.
+
 ## M9.7 — Szarufarajz E2E vizuális audit és P1 javítások (2026-10-25)
 
 Státusz: **PASS WITH LIMITATIONS** (audit + három P1 rajzi javítás; számítási eredmény, snapshot, mentés, szerződés és DB változatlan). Teljes audit: [M9.7 rajzi E2E audit](M97_ROOF_DRAWING_E2E_VISUAL_AUDIT.md).
