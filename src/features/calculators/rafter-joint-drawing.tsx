@@ -67,19 +67,27 @@ function SectionView({ section, slots, camera, size, fontSize, unit, mode, selec
   // side keeps its own badges (at mirrored positions, so they do not stack); the shared ridge badge is drawn once, and
   // on a phone canvas, which cannot hold both sides' badges side by side, the mirrored side keeps only the selected
   // one — the buttons under the drawing still select any joint of either side.
+  // A step number or a badge is an obstacle for value labels like a cut edge (its box diagonals), so no value hides under one.
+  const boxDiagonals = (left: number, top: number, right: number, bottom: number) => [[{ x: left, y: top }, { x: right, y: bottom }], [{ x: left, y: bottom }, { x: right, y: top }]] as const;
   const badges = mode !== "overview" ? [] : slots.flatMap((slot) => {
     if (!slot.anchor || (secondary && (size.width < 600 || slot.slot === "S3") && slot.slot !== selected)) return [];
-    const point = project(slot.anchor), y = Math.min(size.height - 16, point.y + 28);
+    const point = project(slot.anchor);
     // Real joint names on the drawing (S1–S3 stay internal); kept inside the canvas. On a phone canvas the longest
     // name is shortened to its distinguishing word, since half the drawing's width is too much for one label; the
     // full name stays in the badge's accessible name, in the buttons under the drawing and in the detail's title.
     const text = size.width < 600 ? SHORT_BADGE[slot.name] ?? slot.name : slot.name;
     const width = text.length * fontSize * .6 + 16, x = Math.min(size.width - width / 2 - 2, Math.max(width / 2 + 2, point.x));
-    drawn.push({ left: x - width / 2, right: x + width / 2, top: y - 12, bottom: y + 12 });
+    const initialY = Math.min(size.height - 16, point.y + 28);
+    // Two support anchors can land close together on screen (a short span to the next support), or both clamp to the
+    // same bottom-edge row when their anchors sit below the canvas; either way the badges must not overlap. Try a few
+    // vertical offsets, closest first and both ways, staying on the canvas; with none free, keep the first position
+    // rather than push a badge off-canvas (same best-effort trade-off as nudgeOffSegments for value labels).
+    const boxAt = (centerY: number): LabelBox => ({ left: x - width / 2, right: x + width / 2, top: centerY - 12, bottom: centerY + 12 });
+    const candidates = [0, -26, 26, -52, 52, -78, 78].map((dy) => Math.min(size.height - 16, Math.max(16, initialY + dy)));
+    const y = candidates.find((candidateY) => !hitsAny(boxAt(candidateY), drawn)) ?? initialY;
+    drawn.push(boxAt(y));
     return [{ slot, text, point, x, y, width }];
   });
-  // A step number or a badge is an obstacle for value labels like a cut edge (its box diagonals), so no value hides under one.
-  const boxDiagonals = (left: number, top: number, right: number, bottom: number) => [[{ x: left, y: top }, { x: right, y: bottom }], [{ x: left, y: bottom }, { x: right, y: top }]] as const;
   const labelObstacles = [...cutSegments,
     ...stepPoints.flatMap((p) => boxDiagonals(p.x - stepRadius, p.y - stepRadius, p.x + stepRadius, p.y + stepRadius)),
     ...drawn.flatMap((box) => boxDiagonals(box.left, box.top, box.right, box.bottom))];
