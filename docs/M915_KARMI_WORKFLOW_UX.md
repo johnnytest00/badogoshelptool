@@ -9,7 +9,7 @@
 A szarufa-csatlakozási mezők a „Részletes számítás · opcionális” gyűjtőpanelben voltak. Az M9.15 változtatás külön „Szarufák és bevágások” szekcióba emeli őket, ezzel a KARMI- és szelemenadatok a három érintett tetőkalkulátorban egy helyen találhatók.
 
 - `roof.rafter-cut`: a fél fesztáv, gerincemelkedés, ereszkiülés és HAP a szarufa alapgeometriájának része. A keresztmetszet, talpszelemen-ellenőrzés, derékszelemen és gerinckapcsolat az új blokk további mezőcsoportjaiban szerepel.
-- `roof.material-takeoff` és `roof.timber-cutlist`: a már létező szarufacsatlakozási kapcsoló az új blokk tetején marad. Bekapcsolás után külön csoport jelenik meg a talpszelemen/szarufa, a derékszelemen és a gerinckapcsolat adataihoz. A gerincdeszka és gerincszelemen mezői továbbra is csak az adott választásnál láthatók.
+- `roof.material-takeoff` és `roof.timber-cutlist`: a már létező szarufacsatlakozási kapcsoló az új blokk tetején marad. Bekapcsolás után a szarufa keresztmetszetéhez termék vagy kézi méret választható, majd külön csoport jelenik meg a talpszelemen/szarufa, a derékszelemen és a gerinckapcsolat adataihoz. Ez ugyanaz a `materialState.specs.rafter` state, amelyből a meglévő faanyagkalkulátor dolgozik; bekapcsolt KARMI-módban a szerkesztő nem jelenik meg még egyszer a faanyag szekcióban. A gerincdeszka és gerincszelemen mezői továbbra is csak az adott választásnál láthatók.
 - Opcionális számítások, amelyek nem KARMI-csatlakozáshoz tartoznak, továbbra is a generikus részletes panelben maradnak.
 
 A teljes kétszárnyú szarufa áttekintő, a tetősíkonkénti rajz, a csatlakozásválasztó, a kiválasztott részletrajz és a kiszabási lista már korábbi mérföldkövekben létezett. M9.15 ezeket nem cseréli le és a geometriájukat nem módosítja.
@@ -26,7 +26,7 @@ Az inputmező címe változott, de az eredmény- és domain-hibacímkék belső/
 
 - **Átvett:** az épület/tető méretei, tetőforma, lejtés, ereszkiülés és keresztmetszet a meglévő kalkulátoradatokból származik, ahol azok ténylegesen rendelkezésre állnak.
 - **Szarufa-kiszabás alapja:** fél fesztáv, gerincemelkedés, vízszintes ereszkiülés és HAP a meglévő kalkulátor alapmezői; ezek jelentése nem változott.
-- **Csatlakozási számítás:** a két anyagkalkulátorban bekapcsolható. A HAP és a keresztmetszet-magasság szükséges a talpszelemen bevágási eredményéhez; a hiányzó adatot a meglévő domain teljességi ellenőrzése jelzi.
+- **Csatlakozási számítás:** a két anyagkalkulátorban bekapcsolható. A HAP és a termékből/kézi adatból származó keresztmetszet-magasság szükséges a talpszelemen bevágási eredményéhez; a hiányzó adatot a meglévő domain teljességi ellenőrzése jelzi. A méretezett tetősík-rajzhoz a meglévő „Szarufa és léc” kiosztást is be kell kapcsolni, mert ez biztosítja a tetősíkonkénti szarufavonalakat.
 - **Opcionális:** derékszelemen-méretek és a hozzájuk tartozó korábbi mérési segédlet; gerinckapcsolat-típus és csak a választott kapcsolathoz tartozó méretek. A talpszelemen szélessége továbbra is opcionális, ellenőrzési célú bemenet.
 
 Nem adtam alternatív, automatikus HAP-értéket vagy kitalált kivitelezési alapértéket. A mezők mértékegységváltóit és számításait a meglévő `LengthField` és domain-kód szolgálja ki.
@@ -44,15 +44,15 @@ Az új terület a meglévő Liquid Glass felületi tokenekkel, szemantikus szekc
 ## Teszt és bizonyíték
 
 - TDD red/green: az új csatlakozómező-besorolási regresszió a helper hozzáadása előtt elbukott, utána sikeres lett.
-- `rtk bypass npx vitest run src/features/calculators/rafter-connection-fields.test.ts src/features/calculators/rafter-result-flow.test.tsx src/domain/calculations/construction/rafter-joints.test.ts src/domain/calculations/construction/plane-birdsmouth.test.ts src/domain/drawings/rafter-detail.test.ts src/features/calculators/construction-computation.test.ts src/features/calculators/rafter-layout-drawing.test.tsx` — **7 tesztfájl, 72 teszt PASS**.
-- Teljes `npm test` — **191 fájl PASS / 8 SKIP; 1172 teszt PASS / 19 SKIP**.
+- Célzott KARMI- és szarufaspecifikáció-tesztek — **8 fájl / 73 teszt PASS**.
+- Teljes `npm test` — **192 fájl PASS / 8 SKIP; 1173 teszt PASS / 19 SKIP**.
 - Teljes `npm run lint` — **PASS**; izolált `/private/tmp` másolatban `npm run typecheck` és `npm run build` — **PASS**.
 - `git diff --check` — **PASS**.
-- Helyi Brave-ben (asztali ablak) képernyőkép és accessibility tree igazolta az új szekciót, a magyar HAP feliratot, a HAP mérési segédet, az opcionális mezőket és a csatlakozási csoportokat. Mindhárom tetőkalkulátort megnyitottam; a material/timber csatlakozáskapcsoló megjelenítette a közös mezőcsoportokat. A gerincdeszka opció megmutatta a saját vastagságmezőjét. Ez nem helyettesíti a specifikáció szerinti teljes, valid/invalid kitöltéses böngészőtesztet.
+- Helyi Brave-ben (asztali ablak) képernyőkép és accessibility tree igazolta az új szekciót, a magyar HAP feliratot, a HAP mérési segédet, az opcionális mezőket és a csatlakozási csoportokat. Mindhárom tetőkalkulátort megnyitottam; a material/timber csatlakozáskapcsoló megjelenítette a közös mezőcsoportokat és a szarufatermék-szerkesztőt. A „Szarufa és léc” bekapcsolásakor a szarufa-szerkesztő nem duplikálódott; a gerincdeszka opció megmutatta a saját vastagságmezőjét. Ez nem helyettesíti a specifikáció szerinti teljes, valid/invalid kitöltéses böngészőtesztet.
 
 ## Korlátok / nem bizonyított követelmények
 
-- A `roof.material-takeoff` és `roof.timber-cutlist` új blokkjának tényleges böngészős kitöltése, minden három gerinckapcsolati típus vizuális ellenőrzése, valamint hibás és hiányos csatlakozások képernyős ellenőrzése ebben a menetben nem futott.
+- A `roof.material-takeoff` és `roof.timber-cutlist` teljes adatbevitele, mindhárom gerinckapcsolati típus és a hiányos/hibás csatlakozási rajz vizuális ellenőrzése ebben a menetben nem futott; a két kapcsoló, a szarufa-szerkesztő és a gerincdeszka feltételes mezője ellenőrizve lett.
 - 375×812 mobil, 812×375 fekvő, tablet, desktop, sötét/világos téma és nagyított szöveg méretezett összevetése nem történt. A 375 px-en természetes működés ezért nincs bizonyítva.
 - Nem került be külön „van derékszelemen?” választó; a két derékszelemen-mező csoportja opcionális, és üresen hagyható. A gerincdeszka/szelemen mezők a meglévő típusválasztás szerint jelennek meg.
 - A `roof.rafter-cut` a kalkulátor saját alapfeladataként nem kap új aktív/inaktív kapcsolót; ezen a felületen a szarufa-alapgeometria mindig szükséges, a kapcsolódó méretek opcionálisak. Ez részleges eltérés a M9.15 progresszív kapcsoló követelményétől.

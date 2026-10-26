@@ -16,7 +16,7 @@ import type { RoofGeometry } from "@/domain/calculations/roof-geometry";
 import type { RoofTimberLayout } from "@/domain/calculations/roof-timber-layout";
 import type { RoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
 import { DEMO_MATERIAL_PROFILES, type MaterialProfile, overhangFromField } from "@/domain/calculations/roof-material-spec";
-import { RoofMaterialInputs, initialMaterialState, type RoofMaterialUiState } from "./material-spec-editor";
+import { RafterMaterialSpecInput, RoofMaterialInputs, initialMaterialState, type RoofMaterialUiState } from "./material-spec-editor";
 import { RoofGeometryResults } from "@/features/roof-models/roof-geometry-results";
 import { ConstructionCalculatorThumbnail } from "./construction-thumbnails";
 import { RafterJointDrawing, RoofJointDrawing } from "./rafter-joint-drawing";
@@ -314,7 +314,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const connectionFieldsContent = usesMaterials && connectionFields.length > 0 && <section className="construction-suite-connections" aria-labelledby="rafter-connections-heading">
     <h3 id="rafter-connections-heading">Szarufák és bevágások</h3>
     <p className="construction-suite-note">Szarufák méretezése, KARMI, szelemen-csatlakozások és vágási jelölések.</p>
-    <>{renderField(connectionFields.find((field) => field.key === "birdsmouth")!)}{values.birdsmouth === "true" && connectionGroups.map((group) => {
+    <>{renderField(connectionFields.find((field) => field.key === "birdsmouth")!)}{values.birdsmouth === "true" && <><RafterMaterialSpecInput profiles={profiles} catalogError={catalogError} state={materialState.specs.rafter} jointsOn onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: { ...materialState, specs: { ...materialState.specs, rafter: next } } })); markDirty(); }} /><p className="construction-suite-field-help">A tetősíkonkénti méretezett rajzhoz a „Szarufa és léc” kiosztást is kapcsold be a számítandó anyagok között.</p></>}{values.birdsmouth === "true" && connectionGroups.map((group) => {
         const fields = connectionFields.filter((field) => group.keys.includes(field.key));
         return fields.length ? <div className="construction-suite-connection-step" key={group.title}><h4>{group.title}</h4><div className="construction-suite-form-grid">{fields.map(renderField)}</div></div> : null;
       })}</>
@@ -325,7 +325,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
       return fields.length ? <div className="construction-suite-connection-step" key={group.title}><h4>{group.title}</h4><div className="construction-suite-form-grid">{fields.map(renderField)}</div></div> : null;
     })}</section> : <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>}
     {usesMaterials && connectionFieldsContent}
-    {usesMaterials && <RoofMaterialInputs timberOnly={timberOnly} profiles={profiles} catalogError={catalogError} state={materialState} jointsOn={values.birdsmouth === "true"} onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: next })); markDirty(); }} />}
+    {usesMaterials && <RoofMaterialInputs timberOnly={timberOnly} profiles={profiles} catalogError={catalogError} state={materialState} jointsOn={values.birdsmouth === "true"} rafterSpecInConnections={values.birdsmouth === "true"} onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: next })); markDirty(); }} />}
     {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="Részletes számítás · opcionális">{definition.advancedHelp && <p className="construction-suite-note">{definition.advancedHelp}</p>}{!definition.advancedHelp && <p className="construction-suite-note">Ezek az adatok további mennyiségi eredményt vagy ellenőrzést kapcsolnak be. Az alapgeometriai számításhoz nem szükségesek.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}
   </>;
   // Joint values are saved with the result lines but shown in their own section.

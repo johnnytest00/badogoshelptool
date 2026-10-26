@@ -115,11 +115,19 @@ type InputsProps = Readonly<{
   onChange: (next: RoofMaterialUiState) => void;
   /** Rafter joint calculation is on: its notch depth is read from this rafter section's height, not a separate field. */
   jointsOn?: boolean;
+  /** The shared rafter profile editor is already shown in the connection section. */
+  rafterSpecInConnections?: boolean;
 }>;
 
 const RAFTER_JOINT_NOTE = "A magasság adja a szarufacsatlakozások (KARMI, szelemenek) bevágás-számításának „Szarufa magassága (keresztmetszet)” bemenetét is.";
 
-export function RoofMaterialInputs({ timberOnly, profiles, catalogError, state, onChange, jointsOn = false }: InputsProps) {
+export function RafterMaterialSpecInput({ profiles, catalogError, state, onChange, jointsOn }: Readonly<{
+  profiles: readonly MaterialProfile[]; catalogError?: boolean; state: SpecState; onChange: (next: SpecState) => void; jointsOn: boolean;
+}>) {
+  return <MaterialSpecEditor group="rafter" title="Szarufa keresztmetszet · opcionális" profiles={profiles} catalogError={catalogError} state={state} onChange={onChange} jointNote={jointsOn ? RAFTER_JOINT_NOTE : undefined} />;
+}
+
+export function RoofMaterialInputs({ timberOnly, profiles, catalogError, state, onChange, jointsOn = false, rafterSpecInConnections = false }: InputsProps) {
   const requested = timberOnly ? { ...state.requested, timber: true } : state.requested;
   const setSpec = (group: MaterialGroup) => (next: SpecState) => onChange({ ...state, specs: { ...state.specs, [group]: next } });
   const toggles = [["timber", "Szarufa és léc"], ["underlay", "Alátétfólia"], ["covering", "Fedőtábla"]] as const;
@@ -135,7 +143,7 @@ export function RoofMaterialInputs({ timberOnly, profiles, catalogError, state, 
           onChange({ ...state, layout: value === "" ? rest : { ...rest, [key]: Number(value) } });
         }} /></label>)}</div>
       </fieldset>
-      <MaterialSpecEditor group="rafter" title="Szarufa keresztmetszet · opcionális" profiles={profiles} catalogError={catalogError} state={state.specs.rafter} onChange={setSpec("rafter")} jointNote={jointsOn ? RAFTER_JOINT_NOTE : undefined} />
+      {!rafterSpecInConnections && <RafterMaterialSpecInput profiles={profiles} catalogError={catalogError} state={state.specs.rafter} onChange={setSpec("rafter")} jointsOn={jointsOn} />}
       <MaterialSpecEditor group="batten" title="Léc keresztmetszet · opcionális" profiles={profiles} catalogError={catalogError} state={state.specs.batten} onChange={setSpec("batten")} />
     </>}
     {requested.underlay && <MaterialSpecEditor group="underlay" title="Alátétfólia" profiles={profiles} catalogError={catalogError} state={state.specs.underlay} onChange={setSpec("underlay")} />}
