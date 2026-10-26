@@ -50,8 +50,20 @@ describe("rafterJointTransferValues (M10 Fázis 0)", () => {
   });
   it("only transfers fields that are also keys of the two target calculators", () => {
     const targetKeys = new Set(definitions["roof.material-takeoff"].fields.map((field) => field.key));
-    for (const key of Object.keys(rafterJointTransferValues({ seatCutHeightMm: "1", plateWidthMm: "1", purlinFaceMm: "1", purlinTopMm: "1", ridgeJoint: "board", ridgeBoardThicknessMm: "1", ridgePurlinWidthMm: "1", ridgePurlinTopMm: "1" }))) {
+    for (const key of Object.keys(rafterJointTransferValues({ seatCutHeightMm: "1", plateWidthMm: "1", purlinFaceMm: "1", purlinTopMm: "1", ridgeJoint: "board", ridgeBoardThicknessMm: "1", ridgePurlinWidthMm: "1", ridgePurlinTopMm: "1", eaveProjectionMm: "1" }))) {
       expect(targetKeys.has(key)).toBe(true);
     }
+  });
+});
+
+describe("rafterJointTransferValues eave overhang mapping (M10 Fázis 1)", () => {
+  it("maps the source's eaveProjectionMm onto the target's eaveOverhangMm key", () => {
+    expect(rafterJointTransferValues({ eaveProjectionMm: "500" })).toEqual({ eaveOverhangMm: "500" });
+  });
+  it("still excludes the half-span and rise fields, which are not proven equivalent across all roof shapes", () => {
+    const result = rafterJointTransferValues({ horizontalHalfSpanMm: "3000", riseMm: "1200", eaveProjectionMm: "500" });
+    expect(result).toEqual({ eaveOverhangMm: "500" });
+    expect(result).not.toHaveProperty("widthMm");
+    expect(result).not.toHaveProperty("pitchDegrees");
   });
 });

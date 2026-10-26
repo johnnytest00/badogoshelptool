@@ -9,14 +9,33 @@ export const isRafterConnectionField = (field: Field, calculatorId: string) => c
  * M10 Fázis 0: the HAP and ridge-connection fields shared, same key and meaning, by roof.rafter-cut and the
  * roof.material-takeoff/roof.timber-cutlist joint fields (see roof-calculator-definitions.ts birdsmouthFields).
  * rafterDepthMm and plateWidthMm's sibling geometry fields are deliberately excluded: the target calculators
- * don't have a rafterDepthMm field, and the rest (half span, rise, eave projection) are a different geometry
- * model and are not proven to share a reference point (see docs/M10_UNIFIED_WORKFLOW_DESIGN.md §4.2-4.3).
+ * don't have a rafterDepthMm field.
+ *
+ * M10 Fázis 1: `eaveProjectionMm` (rafter-cut) added, mapped onto the target's `eaveOverhangMm` key. Proven
+ * equivalent, not just by label text but by the domain formulas themselves: rafter-cut's
+ * `horizontalRunMm = horizontalHalfSpanMm + eaveProjectionMm` (src/domain/calculations/construction/roofs.ts)
+ * and the gable-roof engine's `horizontalSlopeRunMm = halfSpanMm + eaveOverhangMm`, where
+ * `halfSpanMm = buildingWidthMm / 2` (src/domain/calculations/gable-roof.ts) — both add the value onto the
+ * half-span from the same wall-plate reference point, horizontally, to the eave edge. `eaveOverhangMm` is only
+ * a field on the "gable"/"shed" roof shapes (see roofShapeFields in roof-calculator-definitions.ts); on other
+ * shapes the written draft value is simply unused, same as any other shape-gated field.
+ *
+ * Still deliberately excluded: `horizontalHalfSpanMm`/`riseMm` ↔ the target's `widthMm`/`pitchDegrees`. The
+ * half-span-to-width relationship (`halfSpanMm = buildingWidthMm / 2`) only holds for the symmetric
+ * gable/shed roof model; it has not been verified for the hip/pyramid/half-hip/L/T/mansard shapes the target
+ * calculators also support, and converting (not copying) a value is exactly the automatic-recalculation case
+ * docs/M10_UNIFIED_WORKFLOW_DESIGN.md §4.3/§9 says must not be offered without that per-shape proof.
  */
-export const RAFTER_JOINT_TRANSFER_FIELD_KEYS = ["seatCutHeightMm", "plateWidthMm", "purlinFaceMm", "purlinTopMm", "ridgeJoint", "ridgeBoardThicknessMm", "ridgePurlinWidthMm", "ridgePurlinTopMm"] as const;
+const RAFTER_JOINT_TRANSFER_FIELD_MAP: Readonly<Record<string, string>> = {
+  seatCutHeightMm: "seatCutHeightMm", plateWidthMm: "plateWidthMm", purlinFaceMm: "purlinFaceMm", purlinTopMm: "purlinTopMm",
+  ridgeJoint: "ridgeJoint", ridgeBoardThicknessMm: "ridgeBoardThicknessMm", ridgePurlinWidthMm: "ridgePurlinWidthMm", ridgePurlinTopMm: "ridgePurlinTopMm",
+  eaveProjectionMm: "eaveOverhangMm",
+};
+export const RAFTER_JOINT_TRANSFER_FIELD_KEYS = Object.keys(RAFTER_JOINT_TRANSFER_FIELD_MAP);
 
-/** Only the transferable keys that actually have a value in the source; the checkbox that reveals them in the target is added by the caller. */
+/** Only the transferable keys that actually have a value in the source, keyed by the TARGET field; the checkbox that reveals them in the target is added by the caller. */
 export function rafterJointTransferValues(sourceFields: Readonly<Record<string, string>>): Record<string, string> {
-  return Object.fromEntries(RAFTER_JOINT_TRANSFER_FIELD_KEYS.flatMap((key) => sourceFields[key] ? [[key, sourceFields[key]]] : []));
+  return Object.fromEntries(Object.entries(RAFTER_JOINT_TRANSFER_FIELD_MAP).flatMap(([sourceKey, targetKey]) => sourceFields[sourceKey] ? [[targetKey, sourceFields[sourceKey]]] : []));
 }
 
 export type JointGroupState = Readonly<{ tone: "empty" | "ok" | "limited" | "invalid" | "unsupported"; label: string }>;

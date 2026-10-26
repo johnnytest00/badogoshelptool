@@ -4754,6 +4754,15 @@ main[id="main-content"]:focus { outline: none; }
 .plan-link-list li a span, .plan-link-list li small { color: var(--muted); font-size: calc(.75rem * var(--tp-text-scale, 1)); font-weight: 500; }
 .plan-link-modes { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .6rem; }
 .plan-link-form { display: grid; gap: .6rem; max-width: 30rem; }
+.field-transfer-preview { display: grid; gap: .6rem; }
+.field-transfer-diff { width: 100%; border-collapse: collapse; font-size: calc(.82rem * var(--tp-text-scale, 1)); }
+.field-transfer-diff th, .field-transfer-diff td { padding: .4rem .5rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+.field-transfer-diff thead th { color: var(--muted); font-weight: 600; }
+.field-transfer-diff tbody th { font-weight: 500; }
+.field-transfer-diff tr.is-changed td:last-child { color: var(--brand-ink); font-weight: 700; }
+.field-transfer-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.field-transfer-actions > button { min-height: 2.75rem; }
+@media (max-width: 560px) { .field-transfer-diff { display: block; overflow-x: auto; } }
 .quotation-plan-links { margin-top: 1rem; max-width: 58rem; }
 
 /* F9.43 supplier price options */

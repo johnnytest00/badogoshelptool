@@ -10,7 +10,7 @@ import {
   isSaveableConstructionCalculator, materialStateFromSnapshot, usesMaterialInputs,
 } from "@/features/calculators/construction-computation";
 import { getCalculatorMaterialProfiles } from "@/features/materials/material-data";
-import { listRafterCutTransferSources, type RafterCutTransferSource } from "./construction-data";
+import { listRafterCutTransferSources, type RafterCutTransferSourcesResult } from "./construction-data";
 import { persistStandaloneConstructionCalculation } from "@/infrastructure/supabase/construction-calculation-writer";
 
 const saveSchema = z.object({
@@ -22,8 +22,8 @@ const saveSchema = z.object({
 });
 
 /** Saved roof.rafter-cut calculations offered for "Adatok átvétele" in roof.material-takeoff/roof.timber-cutlist. */
-export async function listRafterCutTransferSourcesAction(organizationId: string): Promise<readonly RafterCutTransferSource[]> {
-  if (!z.string().uuid().safeParse(organizationId).success) return [];
+export async function listRafterCutTransferSourcesAction(organizationId: string): Promise<RafterCutTransferSourcesResult> {
+  if (!z.string().uuid().safeParse(organizationId).success) return { ok: false };
   return listRafterCutTransferSources(organizationId);
 }
 

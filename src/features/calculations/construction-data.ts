@@ -91,34 +91,38 @@ export async function getConstructionRevisionPage(organizationId: string, calcul
 }
 
 export type RafterCutTransferSource = Readonly<{ calculationId: string; displayName: string; revisionId: string; revisionNumber: number; fields: Readonly<Record<string, string>> }>;
+/** Distinguishes "no compatible source" from "could not load" so the UI never shows a misleading empty list. */
+export type RafterCutTransferSourcesResult = Readonly<{ ok: true; sources: readonly RafterCutTransferSource[] }> | Readonly<{ ok: false }>;
 
 /**
  * M10 Fázis 0: creator-scoped (RLS) saved roof.rafter-cut calculations whose current revision has at least one
  * HAP/ridge-connection field to offer for explicit "Adatok átvétele" transfer into roof.material-takeoff or
  * roof.timber-cutlist. Only the current revision is considered, same as the rest of the standalone suite.
  */
-export async function listRafterCutTransferSources(organizationId: string): Promise<readonly RafterCutTransferSource[]> {
+export async function listRafterCutTransferSources(organizationId: string): Promise<RafterCutTransferSourcesResult> {
   const auth = await getAuthContext();
-  if (!auth?.organizations.some((organization) => organization.id === organizationId)) return [];
+  if (!auth?.organizations.some((organization) => organization.id === organizationId)) return { ok: false };
   const supabase = await createClient();
   const { data: calculations, error } = await supabase.from("calculations")
     .select("id, display_name, current_revision_id")
     .eq("organization_id", organizationId).eq("ownership_scope", "standalone").eq("calculator_type", "construction.roof.rafter-cut")
     .eq("created_by", auth.userId).order("updated_at", { ascending: false }).limit(20);
-  if (error || !calculations?.length) return [];
+  if (error) return { ok: false };
+  if (!calculations?.length) return { ok: true, sources: [] };
   const revisionIds = calculations.flatMap((calculation) => calculation.current_revision_id ? [calculation.current_revision_id] : []);
-  if (!revisionIds.length) return [];
+  if (!revisionIds.length) return { ok: true, sources: [] };
   const { data: revisions, error: revisionError } = await supabase.from("calculation_revisions").select("id, revision_number, input_snapshot")
     .eq("organization_id", organizationId).in("id", revisionIds);
-  if (revisionError) return [];
+  if (revisionError) return { ok: false };
   const revisionById = new Map((revisions ?? []).map((row) => [row.id, row]));
-  return calculations.flatMap((calculation) => {
+  const sources = calculations.flatMap((calculation) => {
     const revision = calculation.current_revision_id ? revisionById.get(calculation.current_revision_id) : undefined;
     const input = revision ? constructionInputSnapshotSchema.safeParse(revision.input_snapshot) : null;
     if (!revision || !input?.success) return [];
     const fields = rafterJointTransferValues(input.data.fields);
     return Object.keys(fields).length > 0 ? [{ calculationId: calculation.id, displayName: calculation.display_name, revisionId: revision.id, revisionNumber: revision.revision_number, fields }] : [];
   });
+  return { ok: true, sources };
 }
 
 /** Direct immutable revision lookup for downstream links; independent of the visible history page. */

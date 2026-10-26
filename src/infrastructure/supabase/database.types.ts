@@ -1888,7 +1888,7 @@ isOneToOne: false
             }[]
                            },
 "save_standalone_construction_calculation":
-{ Args: { "p_actor_id": string,"p_calculation_id": string,"p_calculator_type": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_output_data": Json }; Returns: {
+{ Args: { "p_actor_id": string,"p_calculation_id": string,"p_calculator_type": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_output_data": Json,"p_source_calculation_revision_id"?: string }; Returns: {
               "calculation_id": string,"calculation_revision_id": string,"reused": boolean,"revision_number": number
             }[]
                            },

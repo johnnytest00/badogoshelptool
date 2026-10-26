@@ -492,8 +492,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const canTransferFields = (selectedId === "roof.material-takeoff" || selectedId === "roof.timber-cutlist");
   const independentContent = canSave && organizationId
     ? <>
-      {canTransferFields && <ConstructionFieldTransferControl organizationId={organizationId}
-        onApply={(fields, revisionId) => { setDrafts((current) => mergeCalculatorDraft(current, selectedId, { ...fields, birdsmouth: "true" })); setDraftEpoch((epoch) => epoch + 1); setDirtyDrafts((current) => ({ ...current, [selectedId]: true })); setTransferSource({ calculatorId: selectedId, revisionId }); }} />}
+      {canTransferFields && <ConstructionFieldTransferControl organizationId={organizationId} fields={definition.fields} currentFields={drafts[selectedId] ?? {}}
+        onApply={(fields, revisionId) => { setDrafts((current) => mergeCalculatorDraft(current, selectedId, revisionId ? { ...fields, birdsmouth: "true" } : fields)); setDraftEpoch((epoch) => epoch + 1); setDirtyDrafts((current) => ({ ...current, [selectedId]: true })); setTransferSource(revisionId ? { calculatorId: selectedId, revisionId } : null); }} />}
       <ConstructionSavePanel organizationId={organizationId} calculatorId={selectedId} definition={definition} session={session} input={snapshotInput} liveOutput={liveOutput} saveable={isSaveableComputation(calculation)} onDiscard={discardMemory}
         onSessionChange={(next) => { if (next.revisionNumber > session.revisionNumber) locallySavedCalculationId.current = next.calculationId; setSessions((current) => ({ ...current, [selectedId]: next })); setDirtyDrafts((current) => ({ ...current, [selectedId]: next.revisionNumber > session.revisionNumber ? false : next.name.trim() !== session.savedName || Boolean(current[selectedId]) })); }} onLoadRevision={loadRevision} onPendingChange={setSavePending}
         planLinks={saved && saved.calculationId === session.calculationId ? planLinks : null} planLinksUnavailable={Boolean(saved && saved.calculationId === session.calculationId && planLinks === null)}
