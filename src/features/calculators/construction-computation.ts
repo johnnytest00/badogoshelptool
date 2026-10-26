@@ -4,7 +4,7 @@ import { CONSTRUCTION_MAX_LENGTH_MM } from "@/domain/calculations/construction/n
 import { calculateRafterJoints, rafterJointInputFromFields, type RafterJoints } from "@/domain/calculations/construction/rafter-joints";
 import { planeBirdsmouthsFor, planeBirdsmouthsFromGeometryFor, planeJointStatuses, type PlaneBirdsmouth, type PlaneJointStatus } from "@/domain/calculations/construction/plane-birdsmouth";
 import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoff, type RoofMaterialTakeoffInputs } from "@/domain/calculations/roof-material-takeoff";
-import type { RoofGeometry, RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/roof-geometry";
+import { pitch as pitchDegreesSchema, type RoofGeometry, type RoofGeometryInput, type RoofGeometryType } from "@/domain/calculations/roof-geometry";
 import { roofTimberInputFromParameters, roofTimberParametersSchema, type RoofTimberLayout, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
 import type { RoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
 import { coveringParametersFromSpec, createSpecSnapshot, resolveMaterialSpec, timberParametersFromSpecs, timberSectionFromSpec, underlayParametersFromSpec, type MaterialGroup, type MaterialProfile, type RoofMaterialSpecSnapshot, type SpecState } from "@/domain/calculations/roof-material-spec";
@@ -53,6 +53,9 @@ export function fieldContractIssues(fields: readonly Field[], values: Record<str
     if (value < 0) return [`${field.label}: nem lehet negatív.`];
     if (field.positive && value === 0) return [`${field.label}: 0 nem megengedett; hagyd üresen, ha nincs megadva.`];
     if (field.unit === "mm" && value > CONSTRUCTION_MAX_LENGTH_MM) return [`${field.label}: legfeljebb ${new Intl.NumberFormat("hu-HU").format(CONSTRUCTION_MAX_LENGTH_MM)} mm lehet.`];
+    // CRR-07 trust boundary: the shared roofGeometryInputSchema `pitch` bound (<80°) must hold on the direct
+    // field too, not only on a transferred value — the gable engine's own schema allows up to <90° (docs/M10_PHASE1_VALIDATION_AND_DRIFT_REMEDIATION.md).
+    if (field.key === "pitchDegrees" && !pitchDegreesSchema.safeParse(value).success) return [`${field.label}: 0°-nál nagyobb, de 80°-nál kisebb értéket adj meg.`];
     return [];
   });
 }
@@ -128,7 +131,7 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
   let rows: readonly ResultLine[] = [];
   let error: string | null = null;
   let geometry: RoofGeometry | null = null;
-  if (inputsReady) {
+  if (inputsReady && fieldIssues.length === 0) {
     try {
       geometry = roofGeometryTypeForDefinition(definition, values) ? reusableRoofGeometry(definition, values) : null;
       rows = definition.calculate(raw, takeoffInputs);

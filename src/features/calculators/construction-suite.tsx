@@ -179,11 +179,18 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [sessions, setSessions] = useState<Record<string, ConstructionSaveSession>>(() => recalled?.sessions ?? (saved ? { [saved.calculatorId]: sessionFromSaved(saved) } : {}));
   // M10 Fázis 0: "Adatok átvétele" forrás, csak a kalkulátorig, ameddig átvettük; nem memóriázott, munkamenet-szintű.
-  const [transferSource, setTransferSource] = useState<{ calculatorId: string; revisionId: string } | null>(null);
+  // M10.1.5: kalkulátoranként tárolva (mint drafts/materialByCalculator), hogy kalkulátorváltás ne mutasson egy
+  // másik cél eredetjelzését, és a visszaváltás ne veszítse el a még nem mentett átvett geometria forrását
+  // (docs/M10_PHASE1_FINAL_ACCEPTANCE.md §77-81).
+  const [transferSourceByCalculator, setTransferSourceByCalculator] = useState<Record<string, { calculatorId: string; revisionId: string } | null>>({});
+  const transferSource = transferSourceByCalculator[selectedId] ?? null;
+  const setTransferSource = useCallback((next: { calculatorId: string; revisionId: string } | null) => setTransferSourceByCalculator((current) => ({ ...current, [selectedId]: next })), [selectedId]);
   // M10.1.3: az átvett gable-geometria (widthMm/pitchDegrees) nyomkövetése a tulajdonosban, nem a gyermek
   // ConstructionFieldTransferControl-ban, hogy a forma-váltás és az érvénytelenítés egyetlen atomi draft-frissítés
   // legyen `updateValue`-ban, ne egy külön, render utáni gyermek-effect (docs/M10_PHASE1_FINAL_INDEPENDENT_QA.md §16.4).
-  const [transferApplied, setTransferApplied] = useState<AppliedTransferDisplay | null>(null);
+  const [transferAppliedByCalculator, setTransferAppliedByCalculator] = useState<Record<string, AppliedTransferDisplay | null>>({});
+  const transferApplied = transferAppliedByCalculator[selectedId] ?? null;
+  const setTransferApplied = useCallback((next: AppliedTransferDisplay | null) => setTransferAppliedByCalculator((current) => ({ ...current, [selectedId]: next })), [selectedId]);
   // The saved revision is applied once, when its calculator definition first loads; later prop updates only refresh the revision list.
   const pendingSavedInput = useRef(recalled ? null : saved?.revisions.find((revision) => revision.revisionNumber === saved.currentRevisionNumber) ?? null);
   const loadedCalculationId = useRef(saved?.calculationId ?? null);
@@ -220,6 +227,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     setDirtyDrafts(remembered?.dirtyDrafts ?? {});
     setMaterialByCalculator(remembered?.materialByCalculator ?? {});
     setSessions(remembered?.sessions ?? (saved ? { [saved.calculatorId]: sessionFromSaved(saved) } : {}));
+    setTransferSourceByCalculator({});
+    setTransferAppliedByCalculator({});
     pendingSavedInput.current = remembered ? null : saved?.revisions.find((revision) => revision.revisionNumber === saved.currentRevisionNumber) ?? null;
     setLoadedDefinition(null);
     setLoadAttempt((attempt) => attempt + 1);
@@ -496,8 +505,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     setMaterialByCalculator({});
     setDirtyDrafts({});
     setSessions({});
-    setTransferSource(null);
-    setTransferApplied(null);
+    setTransferSourceByCalculator({});
+    setTransferAppliedByCalculator({});
     pendingSavedInput.current = null;
     if (saved && organizationId) router.replace(`/kalkulatorok?organization=${encodeURIComponent(organizationId)}&calculator=${encodeURIComponent(selectedId)}`, { scroll: false });
   };

@@ -87,6 +87,33 @@ describe("computeConstruction", () => {
   });
 });
 
+describe("pitch trust boundary on the direct calculator field (M10.1.5)", () => {
+  const takeoff = definitions["roof.material-takeoff"];
+  for (const definition of [timber, takeoff]) {
+    it(`accepts a pitch just under 80° on ${definition.reference.id}`, () => {
+      const result = computeConstruction(definition, { ...timberValues, pitchDegrees: "79.9" }, material, DEMO_MATERIAL_PROFILES);
+      expect(isSaveableComputation(result)).toBe(true);
+      expect(result.geometry).not.toBeNull();
+    });
+
+    it(`rejects 80° on ${definition.reference.id} and never computes a full result`, () => {
+      const result = computeConstruction(definition, { ...timberValues, pitchDegrees: "80" }, material, DEMO_MATERIAL_PROFILES);
+      expect(result.completeness.status).toBe("invalid");
+      expect(result.completeness.reasons.some((reason) => reason.includes("Tetőhajlás"))).toBe(true);
+      expect(result.geometry).toBeNull();
+      expect(isSaveableComputation(result)).toBe(false);
+    });
+
+    it(`rejects 81° on ${definition.reference.id} and never computes a full result`, () => {
+      const result = computeConstruction(definition, { ...timberValues, pitchDegrees: "81" }, material, DEMO_MATERIAL_PROFILES);
+      expect(result.completeness.status).toBe("invalid");
+      expect(result.geometry).toBeNull();
+      expect(result.rows).toHaveLength(0);
+      expect(isSaveableComputation(result)).toBe(false);
+    });
+  }
+});
+
 describe("birdsmouth in the roof calculators (M9.3 phase 1)", () => {
   // 35°, h 200, HAP 100: H = 200/cos35; plumb = H − 100; seat = plumb / tan35 (same formula as the rafter-cut calculator).
   const rad = 35 * Math.PI / 180, plumb = 200 / Math.cos(rad) - 100, seat = plumb / Math.tan(rad);

@@ -36,8 +36,26 @@ export type ConstructionSaveSession = Readonly<{
 export const newConstructionSession = (name: string): ConstructionSaveSession =>
   ({ calculationId: generateSecureUuid(), name, revisionNumber: 0, baselineInput: null, savedName: null, viewedRevisionNumber: null, revisions: [], hasOlderRevisions: false, nextBeforeRevisionNumber: null });
 
-const comparableOutput = (output: Pick<ConstructionOutputSnapshot, "lines" | "takeoff" | "cutList">) => stableJsonStringify({ lines: output.lines, takeoff: output.takeoff, cutList: output.cutList });
+const driftComparisonFields = (output: Pick<ConstructionOutputSnapshot, "lines" | "takeoff" | "cutList">) => ({ lines: output.lines, takeoff: output.takeoff, cutList: output.cutList });
+const comparableOutput = (output: Pick<ConstructionOutputSnapshot, "lines" | "takeoff" | "cutList">) => stableJsonStringify(driftComparisonFields(output));
 const formatValue = (value: number | string) => typeof value === "number" ? new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value) : value;
+
+/**
+ * M10.1.5 temporary dev-only diagnostic (docs/M10_PHASE1_VALIDATION_AND_DRIFT_REMEDIATION.md §2): the exact JSON
+ * paths where two comparable output projections differ, so an output-drift warning can be localized without
+ * exposing internal values in the UI. Not wired into the drift decision itself — display/logging only.
+ */
+export function outputDriftDiffPaths(a: unknown, b: unknown, path = ""): readonly string[] {
+  if (a === b) return [];
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return [path || "(root)"];
+  if (Array.isArray(a) !== Array.isArray(b)) return [path || "(root)"];
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return [`${path || "(root)"} (length ${a.length} vs ${b.length})`];
+    return a.flatMap((item, index) => outputDriftDiffPaths(item, b[index], `${path}[${index}]`));
+  }
+  const keys = new Set([...Object.keys(a as object), ...Object.keys(b as object)]);
+  return [...keys].flatMap((key) => outputDriftDiffPaths((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key], path ? `${path}.${key}` : key));
+}
 
 export function savedInputComparison(definition: CalculatorDefinition, session: ConstructionSaveSession) {
   const latest = session.revisions.find((revision) => revision.revisionNumber === session.revisionNumber);
@@ -93,6 +111,14 @@ export function ConstructionSavePanel({ organizationId, calculatorId, definition
   const busy = pending || revisionPending;
   useUnsavedChangeGuard({ dirty, pending: busy, discard: onDiscard });
   useEffect(() => { onPendingChange?.(busy); }, [busy, onPendingChange]);
+  const loggedDrift = useRef<string | null>(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || !outputDrift || !viewed) return;
+    const key = `${viewed.revisionId}:${inputJson}`;
+    if (loggedDrift.current === key) return;
+    loggedDrift.current = key;
+    console.debug("[construction-save-panel] output drift paths", viewed.revisionId, outputDriftDiffPaths(driftComparisonFields(viewed.output), driftComparisonFields(liveOutput)));
+  }, [outputDrift, viewed, inputJson, liveOutput]);
 
   const save = () => {
     if (!saveable || !nameValid || comparison.incompatible || busy) return;

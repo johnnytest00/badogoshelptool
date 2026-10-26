@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { stableJsonStringify } from "@/features/roof-models/stable-json";
-import { ConstructionSavePanel, type ConstructionSaveSession } from "./construction-save-panel";
+import { ConstructionSavePanel, outputDriftDiffPaths, type ConstructionSaveSession } from "./construction-save-panel";
 import { computeConstruction, constructionInputSnapshot, constructionOutputSnapshot } from "./construction-computation";
 import { definitions } from "./roof-calculator-definitions";
 
@@ -65,6 +65,12 @@ describe("ConstructionSavePanel", () => {
     const html = render(older);
     expect(html).toContain("V1 megnyitva (korábbi) · mentéskor új V3 készül");
     expect(html).toContain("A mentett V1 eredménye eltér a mostani számítástól.");
+  });
+
+  it("reports the exact structural paths that differ between a saved and a live output (M10.1.5 dev diagnostic)", () => {
+    expect(outputDriftDiffPaths({ lines: [{ label: "A", value: 1, unit: "mm" }], takeoff: null, cutList: null }, { lines: [{ label: "A", value: 1, unit: "mm" }], takeoff: null, cutList: null })).toEqual([]);
+    expect(outputDriftDiffPaths({ lines: [{ label: "A", value: 1, unit: "mm" }], takeoff: null, cutList: null }, { lines: [{ label: "A", value: 2, unit: "mm" }], takeoff: null, cutList: null })).toEqual(["lines[0].value"]);
+    expect(outputDriftDiffPaths({ lines: [{ label: "A", value: 1, unit: "mm" }] }, { lines: [] })).toEqual(["lines (length 1 vs 0)"]);
   });
 
   it("offers work log linking for the latest saved revision and blocks it while changes are unsaved", () => {
