@@ -3,7 +3,7 @@ import { calculateGableRoof, gableRoofInputSchema, type GableRoofInput } from ".
 
 const dimension = z.number().int().positive().max(100_000);
 const nonNegativeDimension = z.number().int().nonnegative().max(100_000);
-const pitch = z.number().finite().positive().lt(80);
+export const pitch = z.number().finite().positive().lt(80);
 const rectangle = { lengthMm: dimension, widthMm: dimension, pitchDegrees: pitch };
 export const roofGeometryTypeSchema = z.enum(["gable", "shed", "hip", "pyramid", "halfHip", "lShape", "tShape", "mansard"]);
 

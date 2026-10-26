@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateConcreteMix, calculateConcreteRing, calculateCylindricalPiles, calculateFoundationSlab, calculatePavingMaterials, calculateRectangularBlindArea, calculateReinforcementBars, calculateReinforcementMesh, calculateRightAngleDiagonal, calculateStripFoundation, concreteRingInputSchema, reinforcementMeshInputSchema } from "./concrete";
 import { calculateRafterGeometry, calculateTriangularTrussGeometry, convertGableGeometryFromRafterCut } from "./roofs";
+import { pitch as targetPitchDegreesSchema } from "../roof-geometry";
 import { calculateBeveledRiserGeometry, calculateConcreteStairGeometry, calculateLandingStairGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry, spiralStairGeometryInputSchema } from "./stairs";
 import { calculateGableRoof } from "../gable-roof";
 import { calculateGableMetalTileCovering } from "../gable-metal-tile-covering";
@@ -54,6 +55,22 @@ describe("independent construction calculations", () => {
     expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "-100", riseMm: "2800", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "INVALID_SOURCE_GEOMETRY" });
     expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "abc", riseMm: "2800", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "INVALID_SOURCE_GEOMETRY" });
     expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "60000", riseMm: "2800", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "TARGET_RANGE" });
+  });
+
+  it("enforces the target's strict <80° pitch bound, not the helper's own looser one (M10.1.2 P1 — M10_PHASE1_INDEPENDENT_QA.md §5)", () => {
+    // QA-reported escape: 1000/6000/0 mm converts to ~80.54°, which the helper previously accepted (<90°) although the target rejects it.
+    expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "1000", riseMm: "6000", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "TARGET_RANGE" });
+
+    const below = convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "1000", riseMm: String(Math.tan(79.9 * Math.PI / 180) * 1_000), seatCutHeightMm: "0" });
+    expect(below.ok).toBe(true);
+    expect(below.ok && below.pitchDegrees).toBeCloseTo(79.9, 6);
+
+    const above = convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "1000", riseMm: String(Math.tan(80.1 * Math.PI / 180) * 1_000), seatCutHeightMm: "0" });
+    expect(above).toEqual({ ok: false, reason: "TARGET_RANGE" });
+
+    // Exactly 80° is strictly excluded by the target schema itself (`lt(80)`), the authority the helper now reuses.
+    expect(targetPitchDegreesSchema.safeParse(80).success).toBe(false);
+    expect(targetPitchDegreesSchema.safeParse(79.9).success).toBe(true);
   });
 
   it("calculates triangular truss envelope lengths", () => {

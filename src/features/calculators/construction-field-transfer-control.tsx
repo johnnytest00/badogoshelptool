@@ -11,7 +11,7 @@ import { rafterCutTransferFields } from "./rafter-connection-fields";
 import type { Field } from "./construction-calculator-types";
 
 type Status = "idle" | "loading" | "error" | "loaded";
-type Applied = Readonly<{ displayName: string; revisionNumber: number; newFields: Readonly<Record<string, string>>; snapshot: Readonly<Record<string, string>> }>;
+export type AppliedTransferDisplay = Readonly<{ displayName: string; revisionNumber: number; newFields: Readonly<Record<string, string>>; snapshot: Readonly<Record<string, string>> }>;
 type DiffRow = Readonly<{ key: string; label: string; current: string; next: string; changed: boolean; computed?: string }>;
 
 function fieldValueLabel(field: Field | undefined, value: string): string {
@@ -37,22 +37,27 @@ const GABLE_SKIP_REASON_LABEL: Readonly<Record<GableGeometryTransferReason, stri
  * átvehetők, matematikai konverzióval (docs/M10_PHASE1_GEOMETRY_TRANSFER_DESIGN.md). A szimmetria-elfogadás minden
  * előnézet-megnyitáskor és tetőforma-váltáskor visszaáll, hogy ne maradjon érvényben egy már nem releváns döntés.
  */
-export function ConstructionFieldTransferControl({ organizationId, fields, currentFields, roofShape, onApply }: Readonly<{
+export function ConstructionFieldTransferControl({ organizationId, fields, currentFields, roofShape, applied, onApply, onAppliedChange }: Readonly<{
   organizationId: string;
   fields: readonly Field[];
   currentFields: Readonly<Record<string, string>>;
   roofShape: string;
+  applied: AppliedTransferDisplay | null;
   onApply: (fields: Readonly<Record<string, string>>, sourceRevisionId: string | null) => void;
+  onAppliedChange: (applied: AppliedTransferDisplay | null) => void;
 }>) {
   const [status, setStatus] = useState<Status>("idle");
   const [sources, setSources] = useState<readonly RafterCutTransferSource[]>([]);
   const [previewing, setPreviewing] = useState<RafterCutTransferSource | null>(null);
-  const [applied, setApplied] = useState<Applied | null>(null);
   const [symmetryConfirmed, setSymmetryConfirmed] = useState(false);
   const fieldByKey = new Map(fields.map((field) => [field.key, field]));
   const isGableTarget = roofShape === "gable";
   // Forma váltás vagy másik forrás előnézete a korábbi szimmetria-elfogadást érvényteleníti (M10.1 §2.4).
   useEffect(() => setSymmetryConfirmed(false), [roofShape, previewing?.revisionId]);
+
+  // M10.1.3: a gable→más forma váltás és az átvett widthMm/pitchDegrees érvénytelenítése a tulajdonos
+  // (ConstructionCalculatorSuite) `updateValue`-jában, egyetlen atomi draft-frissítésként történik — nem itt,
+  // gyermek passive effectben (docs/M10_PHASE1_FINAL_INDEPENDENT_QA.md §16.4 kritikus architekturális követelmény).
 
   async function load() {
     setStatus("loading");
@@ -70,7 +75,7 @@ export function ConstructionFieldTransferControl({ organizationId, fields, curre
     const newFields = rafterCutTransferFields(source, roofShape, symmetryConfirmed);
     const snapshot = Object.fromEntries(Object.keys(newFields).map((key) => [key, currentFields[key] ?? ""]));
     onApply(newFields, source.revisionId);
-    setApplied({ displayName: source.displayName, revisionNumber: source.revisionNumber, newFields, snapshot });
+    onAppliedChange({ displayName: source.displayName, revisionNumber: source.revisionNumber, newFields, snapshot });
     setPreviewing(null);
   }
 
@@ -78,7 +83,7 @@ export function ConstructionFieldTransferControl({ organizationId, fields, curre
   function undo() {
     if (!applied) return;
     onApply(applied.snapshot, null);
-    setApplied(null);
+    onAppliedChange(null);
   }
 
   function renderPreview(source: RafterCutTransferSource) {
@@ -90,7 +95,7 @@ export function ConstructionFieldTransferControl({ organizationId, fields, curre
     const geometryConversion = isGableTarget ? convertGableGeometryFromRafterCut(source.geometry) : null;
     const geometryRows: DiffRow[] = geometryConversion?.ok && symmetryConfirmed ? [
       { key: "widthMm", label: fieldByKey.get("widthMm")?.label ?? "Tető szélessége", current: fieldValueLabel(fieldByKey.get("widthMm"), currentFields.widthMm ?? ""), next: fieldValueLabel(fieldByKey.get("widthMm"), String(geometryConversion.widthMm)), changed: (currentFields.widthMm ?? "") !== String(geometryConversion.widthMm), computed: "szimmetrikus nyeregtető alapján" },
-      { key: "pitchDegrees", label: fieldByKey.get("pitchDegrees")?.label ?? "Tetőhajlás", current: fieldValueLabel(fieldByKey.get("pitchDegrees"), currentFields.pitchDegrees ?? ""), next: fieldValueLabel(fieldByKey.get("pitchDegrees"), String(Math.round(geometryConversion.pitchDegrees * 1000) / 1000)), changed: (currentFields.pitchDegrees ?? "") !== String(geometryConversion.pitchDegrees), computed: "gerincemelkedésből és HAP-ból számítva" },
+      { key: "pitchDegrees", label: fieldByKey.get("pitchDegrees")?.label ?? "Tetőhajlás", current: fieldValueLabel(fieldByKey.get("pitchDegrees"), currentFields.pitchDegrees ?? ""), next: `≈ ${fieldValueLabel(fieldByKey.get("pitchDegrees"), String(Math.round(geometryConversion.pitchDegrees * 1000) / 1000))} (a mentett érték teljes pontosságú: ${geometryConversion.pitchDegrees}°)`, changed: (currentFields.pitchDegrees ?? "") !== String(geometryConversion.pitchDegrees), computed: "gerincemelkedésből és HAP-ból számítva" },
     ] : [];
     const rows = [...jointRows, ...geometryRows];
     const birdsmouthChanged = (currentFields.birdsmouth ?? "") !== "true";

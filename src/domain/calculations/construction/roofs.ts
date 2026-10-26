@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { calculateRoofGeometry, roofGeometryInputSchema, type RoofGeometryInput } from "@/domain/calculations/roof-geometry";
+import { calculateRoofGeometry, roofGeometryInputSchema, pitch as targetPitchDegrees, type RoofGeometryInput } from "@/domain/calculations/roof-geometry";
 import { assertFiniteResult, constructionCount, constructionLengthMm } from "./numeric";
 
 const roofDimension = constructionLengthMm;
@@ -59,7 +59,7 @@ export function convertGableGeometryFromRafterCut(source: Readonly<{ horizontalH
   if (!Number.isFinite(seatCutHeightMm) || seatCutHeightMm < 0 || seatCutHeightMm >= riseMm) return { ok: false, reason: "INVALID_HAP" };
   const widthMm = halfSpanMm * 2;
   const pitchDegrees = Math.atan2(riseMm - seatCutHeightMm, halfSpanMm) * 180 / Math.PI;
-  if (!Number.isInteger(widthMm) || widthMm <= 0 || widthMm > 100_000 || !Number.isFinite(pitchDegrees) || pitchDegrees <= 0 || pitchDegrees >= 90) return { ok: false, reason: "TARGET_RANGE" };
+  if (!Number.isInteger(widthMm) || widthMm <= 0 || widthMm > 100_000 || !targetPitchDegrees.safeParse(pitchDegrees).success) return { ok: false, reason: "TARGET_RANGE" };
   return { ok: true, widthMm, pitchDegrees };
 }
 

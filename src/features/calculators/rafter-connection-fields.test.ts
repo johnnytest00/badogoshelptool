@@ -102,3 +102,51 @@ describe("rafterCutTransferFields (M10 Fázis 1)", () => {
     expect(result).not.toHaveProperty("pitchDegrees");
   });
 });
+
+import { invalidateGableGeometryOnShapeChange } from "./rafter-connection-fields";
+describe("invalidateGableGeometryOnShapeChange (M10.1.2 P1 — M10_PHASE1_INDEPENDENT_QA.md §6)", () => {
+  const applied = { newFields: { widthMm: "8000", pitchDegrees: "34.01934998982646", seatCutHeightMm: "100", ridgeJoint: "purlin" }, snapshot: { widthMm: "", pitchDegrees: "", seatCutHeightMm: "", ridgeJoint: "" } };
+  const confirmedFields = { widthMm: "8000", pitchDegrees: "34.01934998982646", seatCutHeightMm: "100", ridgeJoint: "purlin" };
+
+  it("confirm → hip/shed: resets the untouched gable geometry, keeps the Karmi fields applied", () => {
+    for (const nextShape of ["hip", "shed"]) {
+      const transition = invalidateGableGeometryOnShapeChange("gable", nextShape, applied, confirmedFields);
+      expect(transition?.resetFields).toEqual({ widthMm: "", pitchDegrees: "" });
+      expect(transition?.nextApplied).toEqual({ newFields: { seatCutHeightMm: "100", ridgeJoint: "purlin" }, snapshot: { seatCutHeightMm: "", ridgeJoint: "" } });
+    }
+  });
+
+  it("M10.1.3: resets only the still-untouched geometry field when the other was manually edited (per-field, not all-or-nothing)", () => {
+    const widthEdited = { ...confirmedFields, widthMm: "9500" };
+    const widthTransition = invalidateGableGeometryOnShapeChange("gable", "hip", applied, widthEdited);
+    expect(widthTransition?.resetFields).toEqual({ pitchDegrees: "" });
+    expect(widthTransition?.nextApplied).toEqual({ newFields: { widthMm: "8000", seatCutHeightMm: "100", ridgeJoint: "purlin" }, snapshot: { widthMm: "", seatCutHeightMm: "", ridgeJoint: "" } });
+
+    const pitchEdited = { ...confirmedFields, pitchDegrees: "40" };
+    const pitchTransition = invalidateGableGeometryOnShapeChange("gable", "hip", applied, pitchEdited);
+    expect(pitchTransition?.resetFields).toEqual({ widthMm: "" });
+    expect(pitchTransition?.nextApplied).toEqual({ newFields: { pitchDegrees: "34.01934998982646", seatCutHeightMm: "100", ridgeJoint: "purlin" }, snapshot: { pitchDegrees: "", seatCutHeightMm: "", ridgeJoint: "" } });
+  });
+
+  it("does nothing when both geometry fields were manually edited (nothing left to invalidate)", () => {
+    const bothEdited = { ...confirmedFields, widthMm: "9500", pitchDegrees: "40" };
+    expect(invalidateGableGeometryOnShapeChange("gable", "hip", applied, bothEdited)).toBeNull();
+  });
+
+  it("does nothing when only Karmi fields were transferred (no gable geometry to invalidate)", () => {
+    const jointOnly = { newFields: { seatCutHeightMm: "100", ridgeJoint: "purlin" }, snapshot: { seatCutHeightMm: "", ridgeJoint: "" } };
+    expect(invalidateGableGeometryOnShapeChange("gable", "hip", jointOnly, { seatCutHeightMm: "100", ridgeJoint: "purlin" })).toBeNull();
+  });
+
+  it("does nothing while staying on gable, or when nothing was applied yet", () => {
+    expect(invalidateGableGeometryOnShapeChange("gable", "gable", applied, confirmedFields)).toBeNull();
+    expect(invalidateGableGeometryOnShapeChange("hip", "shed", applied, confirmedFields)).toBeNull();
+    expect(invalidateGableGeometryOnShapeChange("gable", "hip", null, confirmedFields)).toBeNull();
+  });
+
+  it("does not silently resurrect the invalidated geometry when switching back to gable", () => {
+    const afterInvalidation = invalidateGableGeometryOnShapeChange("gable", "hip", applied, confirmedFields);
+    const backToGable = invalidateGableGeometryOnShapeChange("hip", "gable", afterInvalidation!.nextApplied, { seatCutHeightMm: "100", ridgeJoint: "purlin" });
+    expect(backToGable).toBeNull();
+  });
+});

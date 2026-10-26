@@ -32,10 +32,10 @@ import { isRafterConnectionField, jointGroupState, karmiStatusText } from "./raf
 import { planeJointStatuses } from "@/domain/calculations/construction/plane-birdsmouth";
 import { computeConstruction, previewPlaneBirdsmouths, constructionInputSnapshot, constructionOutputSnapshot, inputRecord, isFieldVisible, isSaveableComputation, isSaveableConstructionCalculator, materialStateFromSnapshot, roofGeometryTypeForDefinition, roofShapeOf } from "./construction-computation";
 import { ConstructionSavePanel, newConstructionSession, savedInputComparison, type ConstructionPlanLinks, type ConstructionSaveSession } from "./construction-save-panel";
-import { ConstructionFieldTransferControl } from "./construction-field-transfer-control";
+import { ConstructionFieldTransferControl, type AppliedTransferDisplay } from "./construction-field-transfer-control";
 import type { SavedConstructionCalculation, SavedConstructionRevision } from "@/features/calculations/construction-data";
 import { stableJsonStringify } from "@/features/roof-models/stable-json";
-import { initializeCalculatorDraft, mergeCalculatorDraft, replaceCalculatorDraft, updateCalculatorDraft, type CalculatorDrafts } from "./construction-drafts";
+import { applyFieldChange, initializeCalculatorDraft, mergeCalculatorDraft, replaceCalculatorDraft, type CalculatorDrafts } from "./construction-drafts";
 import { forgetWorkspace, rememberWorkspace, rememberedWorkspace, workspaceKey } from "./construction-workspace-memory";
 
 const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-drawing").then((module) => module.TechnicalDrawing), {
@@ -180,6 +180,10 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const [sessions, setSessions] = useState<Record<string, ConstructionSaveSession>>(() => recalled?.sessions ?? (saved ? { [saved.calculatorId]: sessionFromSaved(saved) } : {}));
   // M10 Fázis 0: "Adatok átvétele" forrás, csak a kalkulátorig, ameddig átvettük; nem memóriázott, munkamenet-szintű.
   const [transferSource, setTransferSource] = useState<{ calculatorId: string; revisionId: string } | null>(null);
+  // M10.1.3: az átvett gable-geometria (widthMm/pitchDegrees) nyomkövetése a tulajdonosban, nem a gyermek
+  // ConstructionFieldTransferControl-ban, hogy a forma-váltás és az érvénytelenítés egyetlen atomi draft-frissítés
+  // legyen `updateValue`-ban, ne egy külön, render utáni gyermek-effect (docs/M10_PHASE1_FINAL_INDEPENDENT_QA.md §16.4).
+  const [transferApplied, setTransferApplied] = useState<AppliedTransferDisplay | null>(null);
   // The saved revision is applied once, when its calculator definition first loads; later prop updates only refresh the revision list.
   const pendingSavedInput = useRef(recalled ? null : saved?.revisions.find((revision) => revision.revisionNumber === saved.currentRevisionNumber) ?? null);
   const loadedCalculationId = useRef(saved?.calculationId ?? null);
@@ -283,7 +287,13 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   };
   const markDirty = () => setDirtyDrafts((current) => ({ ...current, [selectedId]: true }));
   const updateValue = (key: string, value: string) => {
-    setDrafts((current) => updateCalculatorDraft(current, selectedId, key, value));
+    // M10.1.3: a mezőváltás egyetlen atomi draft-frissítés `applyFieldChange`-ben (construction-drafts.ts) — a
+    // roofShape-nél ez magában foglalja az átvett gable-geometria per-mezős érvénytelenítését is, hogy az új
+    // forma soha ne jelenjen meg átmeneti renderben vagy mentésben a régi, gable-specifikus widthMm/pitchDegrees-
+    // szel együtt (docs/M10_PHASE1_FINAL_INDEPENDENT_QA.md §16.4 kritikus architekturális követelmény).
+    const { drafts: nextDrafts, nextApplied } = applyFieldChange(drafts, selectedId, key, value, transferApplied);
+    setDrafts(nextDrafts);
+    if (nextApplied !== transferApplied) setTransferApplied(nextApplied);
     markDirty();
   };
   // Turning the joint fields on from the drawing: the HAP field only exists after the re-render, so the jump waits for it.
@@ -486,6 +496,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     setMaterialByCalculator({});
     setDirtyDrafts({});
     setSessions({});
+    setTransferSource(null);
+    setTransferApplied(null);
     pendingSavedInput.current = null;
     if (saved && organizationId) router.replace(`/kalkulatorok?organization=${encodeURIComponent(organizationId)}&calculator=${encodeURIComponent(selectedId)}`, { scroll: false });
   };
@@ -493,6 +505,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const independentContent = canSave && organizationId
     ? <>
       {canTransferFields && <ConstructionFieldTransferControl organizationId={organizationId} fields={definition.fields} currentFields={drafts[selectedId] ?? {}} roofShape={roofShapeOf(values)}
+        applied={transferApplied} onAppliedChange={setTransferApplied}
         onApply={(fields, revisionId) => { setDrafts((current) => mergeCalculatorDraft(current, selectedId, revisionId ? { ...fields, birdsmouth: "true" } : fields)); setDraftEpoch((epoch) => epoch + 1); setDirtyDrafts((current) => ({ ...current, [selectedId]: true })); setTransferSource(revisionId ? { calculatorId: selectedId, revisionId } : null); }} />}
       <ConstructionSavePanel organizationId={organizationId} calculatorId={selectedId} definition={definition} session={session} input={snapshotInput} liveOutput={liveOutput} saveable={isSaveableComputation(calculation)} onDiscard={discardMemory}
         onSessionChange={(next) => { if (next.revisionNumber > session.revisionNumber) locallySavedCalculationId.current = next.calculationId; setSessions((current) => ({ ...current, [selectedId]: next })); setDirtyDrafts((current) => ({ ...current, [selectedId]: next.revisionNumber > session.revisionNumber ? false : next.name.trim() !== session.savedName || Boolean(current[selectedId]) })); }} onLoadRevision={loadRevision} onPendingChange={setSavePending}

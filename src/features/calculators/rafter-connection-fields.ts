@@ -52,6 +52,33 @@ export function rafterCutTransferFields(source: RafterCutTransferSource, roofSha
   return { ...source.fields, ...gableFields, birdsmouth: "true" };
 }
 
+export type AppliedTransfer = Readonly<{ newFields: Readonly<Record<string, string>>; snapshot: Readonly<Record<string, string>> }>;
+export type GeometryInvalidation = Readonly<{ resetFields: Readonly<Record<string, string>>; nextApplied: AppliedTransfer | null }>;
+const GABLE_GEOMETRY_KEYS = ["widthMm", "pitchDegrees"] as const;
+
+/**
+ * M10.1.2 P1 (docs/M10_PHASE1_INDEPENDENT_QA.md §6), M10.1.3 per-field fix
+ * (docs/M10_PHASE1_FINAL_INDEPENDENT_QA.md §16.4): the pure transition behind the owning component's
+ * roof-shape-change handling. widthMm/pitchDegrees are only valid as a symmetric-gable transfer; leaving
+ * "gable" must not let them silently keep driving another shape's calculation. Each of the two keys is
+ * checked, and reset, independently: a manual edit to one must not block the other (still untouched since
+ * confirm) from being invalidated. Never touches the non-geometry (Karmi/eave) transferred fields.
+ */
+export function invalidateGableGeometryOnShapeChange(previousRoofShape: string, roofShape: string, applied: AppliedTransfer | null, currentFields: Readonly<Record<string, string>>): GeometryInvalidation | null {
+  if (previousRoofShape !== "gable" || roofShape === "gable" || !applied) return null;
+  const geometryKeys = GABLE_GEOMETRY_KEYS.filter((key) => applied.newFields[key] !== undefined);
+  if (geometryKeys.length === 0) return null;
+  const untouchedKeys = geometryKeys.filter((key) => (currentFields[key] ?? "") === applied.newFields[key]);
+  if (untouchedKeys.length === 0) return null;
+  const resetFields = Object.fromEntries(untouchedKeys.map((key) => [key, applied.snapshot[key] ?? ""]));
+  const remainingKeys = Object.keys(applied.newFields).filter((key) => !(untouchedKeys as readonly string[]).includes(key));
+  const nextApplied: AppliedTransfer | null = remainingKeys.length === 0 ? null : {
+    newFields: Object.fromEntries(remainingKeys.map((key) => [key, applied.newFields[key]])),
+    snapshot: Object.fromEntries(remainingKeys.map((key) => [key, applied.snapshot[key]])),
+  };
+  return { resetFields, nextApplied };
+}
+
 export type JointGroupState = Readonly<{ tone: "empty" | "ok" | "limited" | "invalid" | "unsupported"; label: string }>;
 
 /** M9.15.1 section state from the joint statuses of one group (presentation only; the completeness check stays in computeConstruction). */
