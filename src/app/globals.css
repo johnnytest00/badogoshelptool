@@ -5253,3 +5253,7 @@ main[id="main-content"]:focus { outline: none; }
 .material-spec-picker.is-tiles { display: grid; grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); border: 0; background: none; padding: 0; }
 .material-spec-picker.is-tiles > legend { padding: 0; margin-bottom: .35rem; }
 .construction-suite-connections.is-flat { border: 0; background: none; padding: 0; }
+
+/* M9.15.3: the two function states side by side, not one merged verdict. */
+.construction-suite-feature-status { display: grid; gap: .4rem; }
+.construction-suite-feature-status .construction-suite-joint-state { width: auto; border-radius: var(--radius-control); padding: .45rem .7rem; overflow-wrap: anywhere; }

@@ -16,3 +16,13 @@ export function jointGroupState(statuses: readonly string[], optional: boolean):
   if (blocked > 0 && blocked === statuses.length) return { tone: "unsupported", label: "Nem támogatott" };
   return { tone: "empty", label: statuses.length === 0 && optional ? "Nincs megadva · opcionális" : "Nincs még elég adat" };
 }
+
+/** M9.15.3: the KARMI line of the separate feature status; independent of the material takeoff's completeness. */
+export function karmiStatusText(seat: readonly { status: string; missing?: readonly string[]; reason?: string }[], planesAvailable: boolean): JointGroupState {
+  if (!planesAvailable) return { tone: "unsupported", label: "Ennél a tetőformánál a bevágás csak szarufakiosztással számolható: kapcsold be a Faanyag csempét, és add meg a szarufák tengelytávolságát." };
+  const invalid = seat.find((item) => item.status === "invalid");
+  if (invalid) return { tone: "invalid", label: `A bevágás nem számítható: ${invalid.reason ?? "hibás vagy ellentmondásos geometria"}.` };
+  if (seat.some((item) => item.status === "computed")) return { tone: seat.every((item) => item.status === "computed") ? "ok" : "limited", label: "A megadott geometria alapján a bevágási előnézet elkészült." };
+  const missing = [...new Set(seat.flatMap((item) => item.missing ?? []))];
+  return missing.length > 0 ? { tone: "empty", label: `A bevágáshoz még hiányzik: ${missing.join(", ")}.` } : { tone: "unsupported", label: seat[0]?.reason ?? "A bevágás ezen a tetőoldalon nem értelmezett." };
+}

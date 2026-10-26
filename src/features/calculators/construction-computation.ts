@@ -2,10 +2,10 @@ import { z } from "zod";
 import { calculateExistingRoofGeometry } from "@/domain/calculations/construction/roofs";
 import { CONSTRUCTION_MAX_LENGTH_MM } from "@/domain/calculations/construction/numeric";
 import { calculateRafterJoints, rafterJointInputFromFields, type RafterJoints } from "@/domain/calculations/construction/rafter-joints";
-import { planeBirdsmouthsFor, planeJointStatuses, type PlaneBirdsmouth, type PlaneJointStatus } from "@/domain/calculations/construction/plane-birdsmouth";
+import { planeBirdsmouthsFor, planeBirdsmouthsFromGeometryFor, planeJointStatuses, type PlaneBirdsmouth, type PlaneJointStatus } from "@/domain/calculations/construction/plane-birdsmouth";
 import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoff, type RoofMaterialTakeoffInputs } from "@/domain/calculations/roof-material-takeoff";
 import type { RoofGeometry, RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/roof-geometry";
-import { calculateRoofTimberLayout, roofTimberInputFromParameters, roofTimberParametersSchema, type RoofTimberLayout, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
+import { roofTimberInputFromParameters, roofTimberParametersSchema, type RoofTimberLayout, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
 import type { RoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
 import { coveringParametersFromSpec, createSpecSnapshot, resolveMaterialSpec, timberParametersFromSpecs, timberSectionFromSpec, underlayParametersFromSpec, type MaterialGroup, type MaterialProfile, type RoofMaterialSpecSnapshot, type SpecState } from "@/domain/calculations/roof-material-spec";
 import { createCalculationSnapshot, roofGeometryInputFromFields } from "@/domain/calculations/roof-calculation-snapshot";
@@ -270,47 +270,11 @@ export const constructionCalculatorLabels: Readonly<Record<(typeof SAVEABLE_CONS
 };
 
 /**
- * Every roof plane is a rectangle in plan whose sides run along and across the fall line, and no two planes share a layout group.
- * Then every rafter line of a plane is equally long whatever the spacing, so the joint geometry cannot depend on the rafter spacing.
- * Hip, L/T, mansard and other shapes fail this and need the layout (nothing is assumed for them).
- */
-export function rafterChordsAreSpacingIndependent(geometry: RoofGeometry): boolean {
-  const ids = geometry.planes.map((plane) => plane.id.replace(/-\d+$/, ""));
-  if (new Set(ids).size !== ids.length) return false;
-  return geometry.planes.every((plane) => {
-    const v = plane.vertices;
-    if (v.length !== 4) return false;
-    const edge = (i: number) => ({ x: v[(i + 1) % 4]!.xMm - v[i]!.xMm, y: v[(i + 1) % 4]!.yMm - v[i]!.yMm });
-    const edges = [0, 1, 2, 3].map(edge);
-    const scale = Math.max(...edges.map((e) => Math.hypot(e.x, e.y)));
-    if (!(scale > 0)) return false;
-    const tol = 1e-6 * scale * scale;
-    const cross = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(a.x * b.y - a.y * b.x);
-    const dot = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(a.x * b.x + a.y * b.y);
-    if (cross(edges[0]!, edges[2]!) > tol || cross(edges[1]!, edges[3]!) > tol || dot(edges[0]!, edges[1]!) > tol) return false;
-    // Fall line = horizontal gradient of the plane's height, from the first corner and its two neighbours.
-    const [a, b] = [edge(0), edge(1)], dza = v[1]!.zMm - v[0]!.zMm, dzb = v[3]!.zMm - v[0]!.zMm;
-    // z = gx·x + gy·y with a ⟂ b: the gradient is (dza/|a|²)·a + (dzb/|b|²)·b.
-    const gx = dza * a.x / (a.x * a.x + a.y * a.y) + dzb * b.x / (b.x * b.x + b.y * b.y);
-    const gy = dza * a.y / (a.x * a.x + a.y * a.y) + dzb * b.y / (b.x * b.x + b.y * b.y);
-    const g = { x: gx, y: gy };
-    return Math.hypot(gx, gy) > 0 && (cross(edges[0]!, g) <= 1e-6 * scale * Math.hypot(gx, gy) || cross(edges[1]!, g) <= 1e-6 * scale * Math.hypot(gx, gy));
-  });
-}
-
-/**
- * M9.15.1/2, presentation only: the plane joints without the rafter layout inputs, so the KARMI detail does not wait for the
- * "Szarufa és léc" group. Same calculatePlaneBirdsmouths as the layout path. It needs rafter lines, so a single fixed layout is
- * built, but only for roofs where rafterChordsAreSpacingIndependent proves the result cannot depend on it. Line count and
- * spacing are unknown here (0). Never part of completeness, saving or the snapshots.
+ * M9.15.1/3, presentation only: the plane joints without the rafter layout inputs, so the KARMI detail does not wait for the
+ * "Szarufa és léc" group. Geometry comes from the roof planes themselves (calculatePlaneBirdsmouthsFromGeometry), only for roofs
+ * where that is proven; otherwise null. Never part of completeness, saving or the snapshots.
  */
 export function previewPlaneBirdsmouths(definition: CalculatorDefinition, values: Record<string, string>, material: RoofMaterialUiState | null, profiles: readonly MaterialProfile[], geometry: RoofGeometry | null): PlaneBirdsmouth[] | null {
-  if (!geometry || !material || !usesMaterialInputs(definition.reference.id) || !rafterChordsAreSpacingIndependent(geometry)) return null;
-  const raw = inputRecord(definition.fields, values);
-  if (raw.birdsmouth !== true) return null;
-  const { sectionWidthMm, sectionHeightMm } = timberSectionFromSpec(resolveMaterialSpec("rafter", material.specs.rafter, profiles));
-  const family = { maxSpacingMm: 100_000, startInsetMm: 0, endInsetMm: 0, ...(sectionWidthMm === undefined || sectionHeightMm === undefined ? {} : { sectionWidthMm, sectionHeightMm }) };
-  const layout = calculateRoofTimberLayout(geometry, { rafter: family });
-  if (layout.status !== "available") return null;
-  return planeBirdsmouthsFor(raw, { timber: { rafter: family }, requested: { timber: true } }, geometry, layout)?.map((plane) => ({ ...plane, lineCount: 0, spacingMm: 0 })) ?? null;
+  if (!geometry || !material || !usesMaterialInputs(definition.reference.id)) return null;
+  return planeBirdsmouthsFromGeometryFor(inputRecord(definition.fields, values), geometry, timberSectionFromSpec(resolveMaterialSpec("rafter", material.specs.rafter, profiles)).sectionHeightMm);
 }

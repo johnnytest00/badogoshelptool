@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { fallLineRaftersOf } from "@/domain/calculations/construction/plane-birdsmouth";
 import { DEMO_MATERIAL_PROFILES, initialSpecState } from "@/domain/calculations/roof-material-spec";
 import { definitions } from "./roof-calculator-definitions";
 import {
-  computeConstruction, previewPlaneBirdsmouths, rafterChordsAreSpacingIndependent, constructionInputSnapshot, isFieldVisible, constructionInputSnapshotSchema, constructionOutputSnapshot, isSaveableComputation,
+  computeConstruction, previewPlaneBirdsmouths, constructionInputSnapshot, isFieldVisible, constructionInputSnapshotSchema, constructionOutputSnapshot, isSaveableComputation,
   isCompleteConstructionOutput, isSaveableConstructionCalculator, materialStateFromSnapshot, normalizedConstructionInput, comparableConstructionInput,
 } from "./construction-computation";
 import type { RoofMaterialUiState } from "./material-spec-editor";
@@ -308,10 +309,10 @@ describe("KARMI preview without the rafter layout (M9.15.1)", () => {
 
   it("is proven spacing independent only for rectangular planes along the fall line", () => {
     const g = (input: Record<string, string>) => computeConstruction(takeoff, { ...input, birdsmouth: "true", seatCutHeightMm: "100" }, noLayout, DEMO_MATERIAL_PROFILES).geometry!;
-    expect(rafterChordsAreSpacingIndependent(g(timberValues))).toBe(true);
-    expect(rafterChordsAreSpacingIndependent(g({ roofShape: "shed", lengthMm: "10000", widthMm: "4000", pitchDegrees: "15", eaveOverhangMm: "0" }))).toBe(true);
+    expect(fallLineRaftersOf(g(timberValues))).not.toBeNull();
+    expect(fallLineRaftersOf(g({ roofShape: "shed", lengthMm: "10000", widthMm: "4000", pitchDegrees: "15", eaveOverhangMm: "0" }))).not.toBeNull();
     const shapes = { hip: timberValues, pyramid: { pitchDegrees: "35", sideMm: "8000" }, halfHip: { ...timberValues, hipEaveHeightMm: "2000" }, lShape: { ...timberValues, wingWidthMm: "4000", wingProjectionMm: "3000" }, tShape: { ...timberValues, wingWidthMm: "4000", wingProjectionMm: "3000" } };
-    for (const [shape, extra] of Object.entries(shapes)) expect(rafterChordsAreSpacingIndependent(g({ ...extra, roofShape: shape })), shape).toBe(false);
+    for (const [shape, extra] of Object.entries(shapes)) expect(fallLineRaftersOf(g({ ...extra, roofShape: shape })), shape).toBeNull();
   });
 
   it("shows no preview for a hip roof and leaves the layout path unchanged", () => {
@@ -329,5 +330,32 @@ describe("KARMI preview without the rafter layout (M9.15.1)", () => {
         expect(full.map((plane) => [plane.status, plane.seat?.values, plane.joints?.joints.map((joint) => joint.status)])).toEqual(preview.map((plane) => [plane.status, plane.seat?.values, plane.joints?.joints.map((joint) => joint.status)]));
       }
     }
+  });
+
+  it("matches an independent hand calculation for several pitches, overhangs, sections and HAP values", () => {
+    for (const pitch of [20, 35, 45]) for (const overhang of [0, 400]) for (const depth of [160, 200]) for (const hap of [60, 100]) {
+      const input = { roofShape: "gable", lengthMm: "10000", widthMm: "8000", pitchDegrees: String(pitch), eaveOverhangMm: String(overhang), birdsmouth: "true", seatCutHeightMm: String(hap) };
+      const state: RoofMaterialUiState = { ...noLayout, specs: { ...noLayout.specs, rafter: { mode: "manual", profileId: null, entered: { sectionWidthMm: 80, sectionHeightMm: depth } } } };
+      const planes = previewPlaneBirdsmouths(takeoff, input, state, DEMO_MATERIAL_PROFILES, geometryOf(state, input).geometry)!;
+      const rad = pitch * Math.PI / 180, plumb = depth / Math.cos(rad) - hap;
+      expect(planes).toHaveLength(2);
+      for (const plane of planes) {
+        expect(plane.status).toBe("computed");
+        expect(plane.runMm).toBeCloseTo(4000, 6);
+        expect(plane.eaveProjectionMm).toBeCloseTo(overhang, 6);
+        expect(plane.pitchDegrees).toBeCloseTo(pitch, 9);
+        const value = (label: string) => plane.seat!.values.find((item) => item.label.startsWith(label))?.value;
+        expect(value("Függővágás magassága")).toBeCloseTo(plumb, 6);
+        expect(value("Vízszintes ülékhossz")).toBeCloseTo(plumb / Math.tan(rad), 6);
+      }
+    }
+  });
+
+  it("takes the section from a rafter product exactly like a manual section", () => {
+    const geometry = geometryOf(noLayout).geometry;
+    const product: RoofMaterialUiState = { ...noLayout, specs: { ...noLayout.specs, rafter: { mode: "product", profileId: "demo-rafter-80x200", entered: {} } } };
+    const fromProduct = previewPlaneBirdsmouths(takeoff, values, product, DEMO_MATERIAL_PROFILES, geometry);
+    expect(fromProduct?.[0]?.status).toBe("computed");
+    expect(fromProduct).toEqual(previewPlaneBirdsmouths(takeoff, values, noLayout, DEMO_MATERIAL_PROFILES, geometry));
   });
 });

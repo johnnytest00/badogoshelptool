@@ -27,3 +27,14 @@ describe("jointGroupState (M9.15.1)", () => {
     expect(jointGroupState(["unsupported", "not-applicable"], false).tone).toBe("unsupported");
   });
 });
+
+import { karmiStatusText } from "./rafter-connection-fields";
+describe("karmiStatusText (M9.15.3)", () => {
+  it("states the KARMI preview separately from the material takeoff", () => {
+    expect(karmiStatusText([{ status: "computed" }], true)).toMatchObject({ tone: "ok", label: expect.stringContaining("bevágási előnézet elkészült") });
+    expect(karmiStatusText([{ status: "computed" }, { status: "not-applicable" }], true).tone).toBe("limited");
+    expect(karmiStatusText([{ status: "incomplete", missing: ["HAP"] }], true).label).toContain("hiányzik: HAP");
+    expect(karmiStatusText([{ status: "invalid", reason: "túl nagy" }], true).tone).toBe("invalid");
+    expect(karmiStatusText([], false).tone).toBe("unsupported");
+  });
+});

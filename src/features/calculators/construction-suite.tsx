@@ -28,7 +28,7 @@ import { RafterLayoutDrawing } from "./rafter-layout-drawing";
 import { RafterJointsPanel } from "./rafter-joints-panel";
 import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition } from "./construction-calculator-loading";
 import type { CalculatorDefinition, Field } from "./construction-calculator-types";
-import { isRafterConnectionField, jointGroupState } from "./rafter-connection-fields";
+import { isRafterConnectionField, jointGroupState, karmiStatusText } from "./rafter-connection-fields";
 import { planeJointStatuses } from "@/domain/calculations/construction/plane-birdsmouth";
 import { computeConstruction, previewPlaneBirdsmouths, constructionInputSnapshot, constructionOutputSnapshot, inputRecord, isFieldVisible, isSaveableComputation, isSaveableConstructionCalculator, materialStateFromSnapshot, roofGeometryTypeForDefinition, roofShapeOf } from "./construction-computation";
 import { ConstructionSavePanel, newConstructionSession, savedInputComparison, type ConstructionPlanLinks, type ConstructionSaveSession } from "./construction-save-panel";
@@ -357,7 +357,18 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
       : "Az érintett eredmény és rajz nem használható. Javítsd a hibás vagy nem támogatott adatot.";
   const cutListSection = (title: string, rows: readonly { lengthMm: number; count: number }[]) => rows.length === 0 ? null
     : <div key={title}><h4>{title}</h4><ol className="construction-suite-cut-list">{rows.map((row, index) => <li key={row.lengthMm}><span>{index + 1}.</span><strong>{formatNumber(row.lengthMm)} mm</strong><span>{row.count} db</span></li>)}</ol></div>;
+  // M9.15.3: the KARMI preview and the material takeoff are two functions with their own state (display only).
+  const karmiOn = usesMaterials && values.birdsmouth === "true";
+  const karmiState = karmiOn ? karmiStatusText(jointStatuses.filter((item) => item.joint === "seat") as readonly { status: string; missing?: readonly string[]; reason?: string }[], Boolean(calculation.birdsmouths ?? previewJoints)) : null;
+  const materialRequested = timberOnly || Object.values(materialState.requested).some(Boolean);
+  const materialText = !usesMaterials ? null : !materialRequested ? "Anyagmennyiségi számításhoz válassz anyagcsoportot."
+    : calculation.completeness.status === "complete" ? "Az anyagkimutatás elkészült." : "Az anyagkimutatás még nem teljes: lásd az alábbi állapotot.";
+  const featureStatus = usesMaterials && (karmiState || materialText) ? <section className="construction-suite-feature-status" aria-label="Funkciók állapota">
+    {karmiState && <p className={`construction-suite-joint-state is-${karmiState.tone}`}><strong>KARMI és csatlakozások</strong> {karmiState.label}</p>}
+    {materialText && <p className="construction-suite-joint-state"><strong>Anyagszükséglet</strong> {materialText}</p>}
+  </section> : null;
   const statusContent = <>
+    {featureStatus}
     <section className={`form-message${calculation.completeness.status === "invalid" || calculation.completeness.status === "unsupported" ? " is-error" : ""}`} role={calculation.completeness.status === "invalid" || calculation.completeness.status === "unsupported" ? "alert" : "status"}>
       <strong>{completenessTitle}</strong> · {completenessCopy}
       {calculation.completeness.status !== "complete" && calculation.completeness.reasons.length > 0 && <ul>{calculation.completeness.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>}

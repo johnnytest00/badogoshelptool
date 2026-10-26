@@ -1458,3 +1458,4 @@ Részletes történeti bejegyzés: [archívum](archive/PROGRESS_HISTORY.md#histo
 
 - M9.15.1 (PARTIAL): a „Szarufa vágásai” KARMI-rajz a „Szarufa és léc” kiosztás nélkül is megjelenik (megjelenítési előnézet, számítás/mentés változatlan). Részletek: `docs/M9151_KARMI_WORKFLOW_FINALIZATION.md`.
 - M9.15.2 (PARTIAL): a KARMI-előnézet bizonyított előfeltételhez kötött (téglalap síkok: nyereg/félnyereg), kapcsolócsempés „KARMI és csatlakozások” / „Anyagszükséglet” UI. Részletek: `docs/M9152_KARMI_PREVIEW_VERIFICATION.md`.
+- M9.15.3 (PARTIAL): a KARMI-előnézet kiosztás nélkül, a kanonikus tetősíkokból számol (nyereg/félnyereg bizonyítva), külön KARMI- és anyagállapot. Részletek: `docs/M9153_KARMI_GEOMETRY_AND_UX_FINALIZATION.md`.

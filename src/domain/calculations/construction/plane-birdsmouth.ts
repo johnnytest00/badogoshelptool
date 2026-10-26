@@ -57,14 +57,63 @@ const horizontal = (a: RoofPoint, b: RoofPoint) => Math.hypot(b.xMm - a.xMm, b.y
 const unsupported = (id: "purlin" | "ridge", reason: string): RafterJointResult =>
   ({ id, title: id === "purlin" ? "Közbenső felfekvés (derékszelemen)" : "Felső vég", status: "unsupported", values: [], missing: [], professional: [], reason });
 
+/** The rafter lines of one plane that the joint geometry needs (lower end first); the layout or the roof geometry itself supplies them. */
+export type PlaneRafterSource = Readonly<{ planeId: string; count: number; spacingMm: number; rafters: readonly (readonly [RoofPoint, RoofPoint])[] }>;
+
 export function calculatePlaneBirdsmouths(geometry: RoofGeometry, layout: RoofTimberLayout, input: PlaneBirdsmouthInput): PlaneBirdsmouth[] {
   const family = layout.rafters;
   if (!family) return [];
-  const sections = family.planeLayouts.map((planeLayout, index) => {
-    const planeId = planeLayout.planeId;
+  return planeBirdsmouthsFromSources(geometry, family.planeLayouts.map((planeLayout) => ({
+    planeId: planeLayout.planeId, count: planeLayout.count, spacingMm: planeLayout.actualSpacingMm,
+    rafters: family.segments.filter((segment) => segment.planeId === planeLayout.planeId)
+      .map((segment) => segment.start.zMm <= segment.end.zMm ? [segment.start, segment.end] as const : [segment.end, segment.start] as const),
+  })), input);
+}
+
+/**
+ * M9.15.3: the same joints without a rafter layout. Only for roofs where every plane is a rectangle in plan with two sides along
+ * the fall line and no two planes share a layout group: then each plane's rafter lines are all equally long, so the side along
+ * the fall line is the longest eave rafter whatever the spacing. Anything else returns null (hip, L/T, mansard, ... need the layout).
+ * lineCount and spacingMm are unknown here (0).
+ */
+export function calculatePlaneBirdsmouthsFromGeometry(geometry: RoofGeometry, input: PlaneBirdsmouthInput): PlaneBirdsmouth[] | null {
+  const sources = fallLineRaftersOf(geometry);
+  return sources && planeBirdsmouthsFromSources(geometry, sources, input).map((plane) => ({ ...plane, lineCount: 0, spacingMm: 0 }));
+}
+
+export function fallLineRaftersOf(geometry: RoofGeometry): PlaneRafterSource[] | null {
+  const ids = geometry.planes.map((plane) => plane.id.replace(/-\d+$/, ""));
+  if (geometry.planes.length === 0 || new Set(ids).size !== ids.length) return null;
+  const sources: PlaneRafterSource[] = [];
+  for (const [index, plane] of geometry.planes.entries()) {
+    const v = plane.vertices;
+    if (v.length !== 4) return null;
+    const edges = v.map((point, i) => ({ x: v[(i + 1) % 4]!.xMm - point.xMm, y: v[(i + 1) % 4]!.yMm - point.yMm }));
+    const scale = Math.max(...edges.map((edge) => Math.hypot(edge.x, edge.y)));
+    if (!(scale > 0)) return null;
+    const cross = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(a.x * b.y - a.y * b.x);
+    const dot = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.abs(a.x * b.x + a.y * b.y);
+    const tol = 1e-6 * scale * scale;
+    if (cross(edges[0]!, edges[2]!) > tol || cross(edges[1]!, edges[3]!) > tol || dot(edges[0]!, edges[1]!) > tol) return null;
+    // Horizontal gradient of the height (the fall line) from the first corner's two perpendicular sides.
+    const [a, b] = [edges[0]!, edges[1]!], la = a.x * a.x + a.y * a.y, lb = b.x * b.x + b.y * b.y;
+    const dza = v[1]!.zMm - v[0]!.zMm, dzb = v[2]!.zMm - v[1]!.zMm;
+    const g = { x: dza * a.x / la + dzb * b.x / lb, y: dza * a.y / la + dzb * b.y / lb };
+    const glen = Math.hypot(g.x, g.y);
+    if (!(glen > 0)) return null;
+    const along = [0, 1, 2, 3].filter((i) => cross(edges[i]!, g) <= 1e-6 * scale * glen);
+    if (along.length !== 2) return null;
+    const i = along[0]!, p = v[i]!, q = v[(i + 1) % 4]!;
+    sources.push({ planeId: ids[index]!, count: 0, spacingMm: 0, rafters: [p.zMm <= q.zMm ? [p, q] as const : [q, p] as const] });
+  }
+  return sources;
+}
+
+function planeBirdsmouthsFromSources(geometry: RoofGeometry, planeSources: readonly PlaneRafterSource[], input: PlaneBirdsmouthInput): PlaneBirdsmouth[] {
+  const sections = planeSources.map((source, index) => {
+    const planeId = source.planeId;
     const pitchDegrees = geometry.planes.find((plane) => plane.id.replace(/-\d+$/, "") === planeId)?.pitchDegrees ?? 0;
-    const rafters = family.segments.filter((segment) => segment.planeId === planeId)
-      .map((segment) => segment.start.zMm <= segment.end.zMm ? [segment.start, segment.end] as const : [segment.end, segment.start] as const);
+    const rafters = source.rafters;
     const eaveRafters = rafters.filter(([lower]) => edgeKindAt(geometry, lower) === "eave");
     const pool = eaveRafters.length ? eaveRafters : rafters;
     const [lower, upper] = pool.length ? pool.reduce((best, item) => horizontal(...item) > horizontal(...best) ? item : best) : [ORIGIN, ORIGIN] as const;
@@ -77,7 +126,7 @@ export function calculatePlaneBirdsmouths(geometry: RoofGeometry, layout: RoofTi
     // Only a ridge running along the eave carries the rafter-cut ridge joint; at a ridge end the rafter meets it head-on.
     const alongRidge = upperKind === "ridge" && geometry.edges.some((edge) => edge.kind === "ridge" && onEdge(upper, edge)
       && Math.abs((edge.end.xMm - edge.start.xMm) * direction.x + (edge.end.yMm - edge.start.yMm) * direction.y) < .01 * (horizontal(edge.start, edge.end) || 1));
-    return { planeLayout, planeId, label: `${index + 1}. tetősík`, pitchDegrees, eave: eaveRafters.length > 0, tan, eaveProjectionMm, runMm: length - eaveProjectionMm, direction, upperKind, alongRidge };
+    return { planeLayout: { count: source.count, actualSpacingMm: source.spacingMm }, planeId, label: `${index + 1}. tetősík`, pitchDegrees, eave: eaveRafters.length > 0, tan, eaveProjectionMm, runMm: length - eaveProjectionMm, direction, upperKind, alongRidge };
   });
   const main = sections.filter((item) => item.eave).reduce<(typeof sections)[number] | null>((best, item) => !best || item.runMm > best.runMm ? item : best, null);
   const mainSection = (item: (typeof sections)[number]) => main !== null && Math.abs(item.pitchDegrees - main.pitchDegrees) < 1e-6 && Math.abs(item.runMm - main.runMm) <= .5;
@@ -111,15 +160,24 @@ export function calculatePlaneBirdsmouths(geometry: RoofGeometry, layout: RoofTi
 }
 
 /** One mapping for the preview, the completeness check and the saved lines; null when the joints were not asked for. */
-export function planeBirdsmouthsFor(input: Record<string, unknown>, context: RoofMaterialTakeoffInputs | undefined, geometry: RoofGeometry, layout: RoofTimberLayout | null): PlaneBirdsmouth[] | null {
-  if (input.birdsmouth !== true || !context?.requested?.timber || !layout?.rafters) return null;
+function birdsmouthInputFrom(input: Record<string, unknown>, rafterDepthMm: number | undefined): PlaneBirdsmouthInput {
   const optional = (key: string) => typeof input[key] === "number" && Number.isFinite(input[key]) ? input[key] as number : undefined;
   const ridgeJoint = (["opposed", "board", "purlin"] as const).find((value) => value === input.ridgeJoint);
-  return calculatePlaneBirdsmouths(geometry, layout, {
-    rafterDepthMm: context.timber?.rafter?.sectionHeightMm, seatCutHeightMm: optional("seatCutHeightMm"), plateWidthMm: optional("plateWidthMm"),
+  return {
+    rafterDepthMm, seatCutHeightMm: optional("seatCutHeightMm"), plateWidthMm: optional("plateWidthMm"),
     purlinFaceMm: optional("purlinFaceMm"), purlinTopMm: optional("purlinTopMm"),
     ridgeJoint, ridgeBoardThicknessMm: optional("ridgeBoardThicknessMm"), ridgePurlinWidthMm: optional("ridgePurlinWidthMm"), ridgePurlinTopMm: optional("ridgePurlinTopMm"),
-  });
+  };
+}
+
+export function planeBirdsmouthsFor(input: Record<string, unknown>, context: RoofMaterialTakeoffInputs | undefined, geometry: RoofGeometry, layout: RoofTimberLayout | null): PlaneBirdsmouth[] | null {
+  if (input.birdsmouth !== true || !context?.requested?.timber || !layout?.rafters) return null;
+  return calculatePlaneBirdsmouths(geometry, layout, birdsmouthInputFrom(input, context.timber?.rafter?.sectionHeightMm));
+}
+
+/** M9.15.3 preview: the same input mapping, no material group and no rafter layout; null when the geometry does not prove it. */
+export function planeBirdsmouthsFromGeometryFor(input: Record<string, unknown>, geometry: RoofGeometry, rafterDepthMm: number | undefined): PlaneBirdsmouth[] | null {
+  return input.birdsmouth === true ? calculatePlaneBirdsmouthsFromGeometry(geometry, birdsmouthInputFrom(input, rafterDepthMm)) : null;
 }
 
 const pitchText = (degrees: number) => new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 2 }).format(degrees);
