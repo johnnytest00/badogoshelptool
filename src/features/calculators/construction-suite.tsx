@@ -27,8 +27,9 @@ import { RafterLayoutDrawing } from "./rafter-layout-drawing";
 import { RafterJointsPanel } from "./rafter-joints-panel";
 import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition } from "./construction-calculator-loading";
 import type { CalculatorDefinition, Field } from "./construction-calculator-types";
-import { isRafterConnectionField } from "./rafter-connection-fields";
-import { computeConstruction, constructionInputSnapshot, constructionOutputSnapshot, inputRecord, isFieldVisible, isSaveableComputation, isSaveableConstructionCalculator, materialStateFromSnapshot, roofGeometryTypeForDefinition, roofShapeOf } from "./construction-computation";
+import { isRafterConnectionField, jointGroupState } from "./rafter-connection-fields";
+import { planeJointStatuses } from "@/domain/calculations/construction/plane-birdsmouth";
+import { computeConstruction, previewPlaneBirdsmouths, constructionInputSnapshot, constructionOutputSnapshot, inputRecord, isFieldVisible, isSaveableComputation, isSaveableConstructionCalculator, materialStateFromSnapshot, roofGeometryTypeForDefinition, roofShapeOf } from "./construction-computation";
 import { ConstructionSavePanel, newConstructionSession, savedInputComparison, type ConstructionPlanLinks, type ConstructionSaveSession } from "./construction-save-panel";
 import type { SavedConstructionCalculation, SavedConstructionRevision } from "@/features/calculations/construction-data";
 import { stableJsonStringify } from "@/features/roof-models/stable-json";
@@ -265,6 +266,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const materialState = materialByCalculator[selectedId] ?? defaultMaterialState;
   const calculation = useMemo(() => computeConstruction(definition, values, usesMaterials ? materialState : null, profiles), [definition, values, usesMaterials, materialState, profiles]);
   const { inputsReady, materialTakeoff, timberLayout, underlayLayout } = calculation;
+  // M9.15.1: the KARMI detail without the rafter layout; display only, never saved or part of the completeness.
+  const previewJoints = useMemo(() => calculation.birdsmouths ? null : previewPlaneBirdsmouths(definition, values, usesMaterials ? materialState : null, profiles, calculation.geometry), [calculation.birdsmouths, calculation.geometry, definition, values, usesMaterials, materialState, profiles]);
   const raw = useMemo(() => inputRecord(definition.fields, values), [definition.fields, values]);
   const overhangNotice = roofShapeOf(values) === "gable" && usesMaterials && [nullableMm(raw, "frontGableOverhangMm"), nullableMm(raw, "rearGableOverhangMm")].some((value) => overhangFromField(value).state === "not-provided");
   const selectCalculator = (item: ConstructionReference) => {
@@ -307,23 +310,29 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const headingContent = <header className="construction-suite-title"><div><p className="section-eyebrow">ELLENŐRZÖTT GEOMETRIAI SZÁMÍTÁS</p><h2>{definition.reference.title}</h2></div></header>;
   const noteContent = <><p className="construction-suite-note">{definition.note}</p>{activeGuide && <MeasurementGuidance compact guide={activeGuide} />}</>;
   const connectionGroups = [
-    { title: "1. Talpszelemen és szarufa", keys: ["seatCutHeightMm", "rafterDepthMm", "plateWidthMm"] },
-    { title: "2. Derékszelemen · opcionális", keys: ["purlinFaceMm", "purlinTopMm"] },
-    { title: "3. Gerinckapcsolat", keys: ["ridgeJoint", "ridgeBoardThicknessMm", "ridgePurlinWidthMm", "ridgePurlinTopMm"] },
+    { title: "1. Talpszelemen és szarufa (KARMI)", joint: "seat", optional: false, keys: ["seatCutHeightMm", "rafterDepthMm", "plateWidthMm"] },
+    { title: "2. Derékszelemen · opcionális", joint: "purlin", optional: true, keys: ["purlinFaceMm", "purlinTopMm"] },
+    { title: "3. Gerinckapcsolat", joint: "ridge", optional: false, keys: ["ridgeJoint", "ridgeBoardThicknessMm", "ridgePurlinWidthMm", "ridgePurlinTopMm"] },
   ];
+  // M9.15.1: per-section state from the joints that are already calculated (display only).
+  const jointStatuses: readonly { joint: string; status: string }[] = calculation.rafterJoints ? calculation.rafterJoints.joints.map((joint) => ({ joint: joint.id, status: joint.status })) : planeJointStatuses(calculation.birdsmouths ?? previewJoints ?? []);
+  const renderConnectionGroups = () => connectionGroups.map((group) => {
+    const fields = connectionFields.filter((field) => group.keys.includes(field.key));
+    if (!fields.length) return null;
+    const state = jointGroupState(jointStatuses.filter((item) => item.joint === group.joint).map((item) => item.status), group.optional);
+    const body = <div className="construction-suite-form-grid">{fields.map(renderField)}</div>;
+    const status = <p className={`construction-suite-joint-state is-${state.tone}`} role="status">{state.label}</p>;
+    return group.optional
+      ? <div className="construction-suite-connection-step" key={group.title}><GlassDisclosure summary={group.title} defaultOpen={group.keys.some((key) => (values[key] ?? "").trim() !== "")}>{status}{body}</GlassDisclosure></div>
+      : <div className="construction-suite-connection-step" key={group.title}><h4>{group.title}</h4>{status}{body}</div>;
+  });
   const connectionFieldsContent = usesMaterials && connectionFields.length > 0 && <section className="construction-suite-connections" aria-labelledby="rafter-connections-heading">
     <h3 id="rafter-connections-heading">Szarufák és bevágások</h3>
     <p className="construction-suite-note">Szarufák méretezése, KARMI, szelemen-csatlakozások és vágási jelölések.</p>
-    <>{renderField(connectionFields.find((field) => field.key === "birdsmouth")!)}{values.birdsmouth === "true" && <><RafterMaterialSpecInput profiles={profiles} catalogError={catalogError} state={materialState.specs.rafter} jointsOn onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: { ...materialState, specs: { ...materialState.specs, rafter: next } } })); markDirty(); }} /><p className="construction-suite-field-help">A tetősíkonkénti méretezett rajzhoz a „Szarufa és léc” kiosztást is kapcsold be a számítandó anyagok között.</p></>}{values.birdsmouth === "true" && connectionGroups.map((group) => {
-        const fields = connectionFields.filter((field) => group.keys.includes(field.key));
-        return fields.length ? <div className="construction-suite-connection-step" key={group.title}><h4>{group.title}</h4><div className="construction-suite-form-grid">{fields.map(renderField)}</div></div> : null;
-      })}</>
+    <>{renderField(connectionFields.find((field) => field.key === "birdsmouth")!)}{values.birdsmouth === "true" && <><RafterMaterialSpecInput profiles={profiles} catalogError={catalogError} state={materialState.specs.rafter} jointsOn onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: { ...materialState, specs: { ...materialState.specs, rafter: next } } })); markDirty(); }} /><p className="construction-suite-field-help">A KARMI bevágási rajza a HAP és a keresztmetszet megadása után a „Szarufa vágásai” nézetben jelenik meg; a tetősíkonkénti szarufaosztáshoz külön a „Szarufa és léc” kiosztás szükséges.</p></>}{values.birdsmouth === "true" && renderConnectionGroups()}</>
   </section>;
   const fieldsContent = <>
-    {selectedId === "roof.rafter-cut" ? <section className="construction-suite-connections" aria-labelledby="rafter-connections-heading"><h3 id="rafter-connections-heading">Szarufák és bevágások</h3><p className="construction-suite-note">Szarufák méretezése, KARMI, szelemen-csatlakozások és vágási jelölések.</p><p className="construction-suite-field-help">A tetőgeometria és a HAP megadása a szarufa alapméreteinek része; a keresztmetszet és a további csatlakozási méretek opcionálisak.</p><div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>{connectionGroups.map((group) => {
-      const fields = connectionFields.filter((field) => group.keys.includes(field.key));
-      return fields.length ? <div className="construction-suite-connection-step" key={group.title}><h4>{group.title}</h4><div className="construction-suite-form-grid">{fields.map(renderField)}</div></div> : null;
-    })}</section> : <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>}
+    {selectedId === "roof.rafter-cut" ? <section className="construction-suite-connections" aria-labelledby="rafter-connections-heading"><h3 id="rafter-connections-heading">Szarufák és bevágások</h3><p className="construction-suite-note">Szarufák méretezése, KARMI, szelemen-csatlakozások és vágási jelölések.</p><p className="construction-suite-field-help">A tetőgeometria és a HAP megadása a szarufa alapméreteinek része; a keresztmetszet és a további csatlakozási méretek opcionálisak.</p><div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>{renderConnectionGroups()}</section> : <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>}
     {usesMaterials && connectionFieldsContent}
     {usesMaterials && <RoofMaterialInputs timberOnly={timberOnly} profiles={profiles} catalogError={catalogError} state={materialState} jointsOn={values.birdsmouth === "true"} rafterSpecInConnections={values.birdsmouth === "true"} onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: next })); markDirty(); }} />}
     {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="Részletes számítás · opcionális">{definition.advancedHelp && <p className="construction-suite-note">{definition.advancedHelp}</p>}{!definition.advancedHelp && <p className="construction-suite-note">Ezek az adatok további mennyiségi eredményt vagy ellenőrzést kapcsolnak be. Az alapgeometriai számításhoz nem szükségesek.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}
@@ -398,6 +407,11 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     content: calculation.birdsmouths
       ? <RoofJointDrawing planes={calculation.birdsmouths} physicalReason={timberLayout.physicalLayout.status === "unsupported" ? timberLayout.physicalLayout.reason : null} hipOrValley={calculation.geometry.edges.some((edge) => edge.kind === "hip" || edge.kind === "valley")} />
       : <RafterJointsInvitation onEnable={startRafterJoints} />,
+  });
+  else if (previewJoints && calculation.geometry) roofViews.push({
+    id: "cuts", label: "Szarufa vágásai",
+    hint: "A szarufa függőleges keresztmetszete a talpszelemennel és a gerinccel, a szarufaosztás nélkül: a bevágás mérete a tetősík hajlásából és a megadott adatokból adódik. Válassz csatlakozást a részletrajzhoz.",
+    content: <RoofJointDrawing planes={previewJoints} physicalReason={null} hipOrValley={calculation.geometry.edges.some((edge) => edge.kind === "hip" || edge.kind === "valley")} />,
   });
   if (laidOutRafters && timberLayout && calculation.geometry) roofViews.push({
     id: "layout", label: "Szarufaosztás",

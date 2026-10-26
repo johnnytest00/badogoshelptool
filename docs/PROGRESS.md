@@ -1455,3 +1455,5 @@ Részletes történeti bejegyzés: [archívum](archive/PROGRESS_HISTORY.md#histo
 ## F9.36.1 — tető alátétfólia és fedési mennyiségi alap
 
 Részletes történeti bejegyzés: [archívum](archive/PROGRESS_HISTORY.md#history-216).
+
+- M9.15.1 (PARTIAL): a „Szarufa vágásai” KARMI-rajz a „Szarufa és léc” kiosztás nélkül is megjelenik (megjelenítési előnézet, számítás/mentés változatlan). Részletek: `docs/M9151_KARMI_WORKFLOW_FINALIZATION.md`.

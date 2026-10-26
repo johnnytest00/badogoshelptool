@@ -5232,3 +5232,9 @@ main[id="main-content"]:focus { outline: none; }
 .rafter-joint-canvas, .rafter-layout-canvas { background: linear-gradient(var(--surface-strong), var(--surface-strong)), var(--background); }
 .rafter-joint-detail h3 { margin: 0; font-size: calc(.95rem * var(--tp-text-scale)); }
 .rafter-joint-detail h3 small { color: var(--muted); font-weight: 600; }
+
+/* M9.15.1: section state under each joint group heading. */
+.construction-suite-joint-state { margin: 0; width: fit-content; padding: .2rem .6rem; border-radius: 999px; border: 1px solid var(--glass-border); color: var(--foreground); font-size: calc(.82rem * var(--tp-text-scale)); }
+.construction-suite-joint-state.is-ok { border-color: var(--success, currentColor); }
+.construction-suite-joint-state.is-invalid { border-color: var(--danger, currentColor); }
+.construction-suite-joint-state.is-limited, .construction-suite-joint-state.is-unsupported { border-style: dashed; }

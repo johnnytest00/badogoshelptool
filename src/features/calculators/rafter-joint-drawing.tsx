@@ -513,7 +513,7 @@ export function RoofJointDrawing({ planes, physicalReason, hipOrValley }: Readon
       <select value={chosen?.id} onChange={(event) => setSectionId(event.target.value)}>{sections.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>}
     {chosen && <dl className="rafter-joint-rows is-wrap">{chosen.planes.map((plane, index) => <div key={plane.planeId}>
       <dt>{chosen.planes.length > 1 ? `${index === 0 ? "Bal" : "Jobb"} oldal · ${plane.label}` : plane.label}</dt>
-      <dd>{plane.lineCount} geometriai szarufavonal · osztás {show(plane.spacingMm)} · hajlás {formatJointValue(plane.pitchDegrees)}°</dd>
+      <dd>{plane.lineCount > 0 && `${plane.lineCount} geometriai szarufavonal · osztás ${show(plane.spacingMm)} · `}hajlás {formatJointValue(plane.pitchDegrees)}°</dd>
     </div>)}</dl>}
     {(notApplicable.length > 0 || unsupportedJoints.length > 0) && <ul className="rafter-joint-limits">
       {notApplicable.map((plane) => <li key={plane.planeId}><strong>{plane.label} · nem alkalmazható:</strong> {plane.reason}</li>)}

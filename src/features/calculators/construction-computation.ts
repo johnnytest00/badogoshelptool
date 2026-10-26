@@ -5,9 +5,9 @@ import { calculateRafterJoints, rafterJointInputFromFields, type RafterJoints } 
 import { planeBirdsmouthsFor, planeJointStatuses, type PlaneBirdsmouth, type PlaneJointStatus } from "@/domain/calculations/construction/plane-birdsmouth";
 import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoff, type RoofMaterialTakeoffInputs } from "@/domain/calculations/roof-material-takeoff";
 import type { RoofGeometry, RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/roof-geometry";
-import { roofTimberInputFromParameters, roofTimberParametersSchema, type RoofTimberLayout, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
+import { calculateRoofTimberLayout, roofTimberInputFromParameters, roofTimberParametersSchema, type RoofTimberLayout, type RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
 import type { RoofUnderlayLayout } from "@/domain/calculations/roof-underlay";
-import { coveringParametersFromSpec, createSpecSnapshot, resolveMaterialSpec, timberParametersFromSpecs, underlayParametersFromSpec, type MaterialGroup, type MaterialProfile, type RoofMaterialSpecSnapshot, type SpecState } from "@/domain/calculations/roof-material-spec";
+import { coveringParametersFromSpec, createSpecSnapshot, resolveMaterialSpec, timberParametersFromSpecs, timberSectionFromSpec, underlayParametersFromSpec, type MaterialGroup, type MaterialProfile, type RoofMaterialSpecSnapshot, type SpecState } from "@/domain/calculations/roof-material-spec";
 import { createCalculationSnapshot, roofGeometryInputFromFields } from "@/domain/calculations/roof-calculation-snapshot";
 import { validationMessage } from "@/lib/validation-message";
 import type { RoofMaterialUiState } from "./material-spec-editor";
@@ -268,3 +268,25 @@ export function materialStateFromSnapshot(snapshot: ConstructionInputSnapshot): 
 export const constructionCalculatorLabels: Readonly<Record<(typeof SAVEABLE_CONSTRUCTION_CALCULATORS)[number], string>> = {
   "roof.rafter-cut": "Szarufa kiszabása", "roof.material-takeoff": "Tetőanyag-kimutatás", "roof.timber-cutlist": "Faanyag és vágáslista", "roof.truss-members": "Rácsos tartó elemei",
 };
+
+/**
+ * M9.15.1, presentation only: the plane joints without the rafter layout inputs (spacing), so the KARMI detail does not wait for
+ * the "Szarufa és léc" group. The plane geometry comes from the same calculatePlaneBirdsmouths; because the layout needs a spacing,
+ * it is probed with two different ones and shown only when the joint geometry does not depend on it (e.g. every rafter of a
+ * gable plane is equally long). Line count and spacing are not known here (0). Never part of completeness, saving or the snapshots.
+ */
+export function previewPlaneBirdsmouths(definition: CalculatorDefinition, values: Record<string, string>, material: RoofMaterialUiState | null, profiles: readonly MaterialProfile[], geometry: RoofGeometry | null): PlaneBirdsmouth[] | null {
+  if (!geometry || !material || !usesMaterialInputs(definition.reference.id)) return null;
+  const raw = inputRecord(definition.fields, values);
+  if (raw.birdsmouth !== true) return null;
+  const { sectionWidthMm, sectionHeightMm } = timberSectionFromSpec(resolveMaterialSpec("rafter", material.specs.rafter, profiles));
+  const probe = (maxSpacingMm: number) => {
+    const family = { maxSpacingMm, startInsetMm: 0, endInsetMm: 0, ...(sectionWidthMm === undefined || sectionHeightMm === undefined ? {} : { sectionWidthMm, sectionHeightMm }) };
+    const layout = calculateRoofTimberLayout(geometry, { rafter: family });
+    return layout.status === "available" ? planeBirdsmouthsFor(raw, { timber: { rafter: family }, requested: { timber: true } }, geometry, layout) : null;
+  };
+  const strip = (planes: readonly PlaneBirdsmouth[]) => planes.map((plane) => ({ ...plane, lineCount: 0, spacingMm: 0 }));
+  const first = probe(100_000), second = probe(1_000);
+  if (!first || !second || JSON.stringify(strip(first)) !== JSON.stringify(strip(second))) return null;
+  return first.map((plane) => ({ ...plane, lineCount: 0, spacingMm: 0 }));
+}

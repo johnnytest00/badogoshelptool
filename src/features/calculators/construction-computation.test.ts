@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEMO_MATERIAL_PROFILES, initialSpecState } from "@/domain/calculations/roof-material-spec";
 import { definitions } from "./roof-calculator-definitions";
 import {
-  computeConstruction, constructionInputSnapshot, isFieldVisible, constructionInputSnapshotSchema, constructionOutputSnapshot, isSaveableComputation,
+  computeConstruction, previewPlaneBirdsmouths, constructionInputSnapshot, isFieldVisible, constructionInputSnapshotSchema, constructionOutputSnapshot, isSaveableComputation,
   isCompleteConstructionOutput, isSaveableConstructionCalculator, materialStateFromSnapshot, normalizedConstructionInput, comparableConstructionInput,
 } from "./construction-computation";
 import type { RoofMaterialUiState } from "./material-spec-editor";
@@ -264,5 +264,45 @@ describe("construction snapshots", () => {
   it("limits saving to the approved roof scope", () => {
     expect(["roof.rafter-cut", "roof.material-takeoff", "roof.timber-cutlist", "roof.truss-members"].every(isSaveableConstructionCalculator)).toBe(true);
     expect(isSaveableConstructionCalculator("stair.wood.spiral")).toBe(false);
+  });
+});
+
+describe("KARMI preview without the rafter layout (M9.15.1)", () => {
+  const takeoff = definitions["roof.material-takeoff"];
+  const manual = { mode: "manual" as const, profileId: null, entered: { sectionWidthMm: 80, sectionHeightMm: 200 } };
+  // Rafter layout off (timber not requested), spacing never entered.
+  const noLayout: RoofMaterialUiState = { requested: { timber: false, underlay: true, covering: false }, layout: {}, specs: { ...material.specs, rafter: manual } };
+  const values = { ...timberValues, birdsmouth: "true", seatCutHeightMm: "100" };
+  const geometryOf = (state: RoofMaterialUiState, input: Record<string, string> = values) => computeConstruction(takeoff, input, state, DEMO_MATERIAL_PROFILES);
+
+  it("computes the same notch as the layout path, without line count or spacing", () => {
+    const base = geometryOf(noLayout);
+    expect(base.birdsmouths).toBeNull();
+    const preview = previewPlaneBirdsmouths(takeoff, values, noLayout, DEMO_MATERIAL_PROFILES, base.geometry)!;
+    const full = geometryOf({ ...noLayout, requested: { timber: true, underlay: false, covering: false }, layout: { rafterMaxSpacingMm: 900 } }).birdsmouths!;
+    expect(preview.map((plane) => [plane.status, plane.seat?.values, plane.runMm, plane.pitchDegrees])).toEqual(full.map((plane) => [plane.status, plane.seat?.values, plane.runMm, plane.pitchDegrees]));
+    expect(preview.every((plane) => plane.lineCount === 0 && plane.spacingMm === 0)).toBe(true);
+  });
+
+  it("does not change completeness, saving or output of the calculation", () => {
+    const withValues = geometryOf(noLayout), without = geometryOf(noLayout, { ...values, birdsmouth: "" });
+    expect(withValues.completeness.status).toBe(without.completeness.status);
+    expect(withValues.rows).toEqual(without.rows);
+    expect(withValues.timberLayout).toBeNull();
+  });
+
+  it("shows nothing when joints are not asked and reports incomplete without a rafter section", () => {
+    const geometry = geometryOf(noLayout).geometry;
+    expect(previewPlaneBirdsmouths(takeoff, { ...values, birdsmouth: "" }, noLayout, DEMO_MATERIAL_PROFILES, geometry)).toBeNull();
+    const noSection = previewPlaneBirdsmouths(takeoff, values, { ...noLayout, specs: { ...noLayout.specs, rafter: initialSpecState(false) } }, DEMO_MATERIAL_PROFILES, geometry)!;
+    expect(noSection.every((plane) => plane.status === "incomplete")).toBe(true);
+    expect(previewPlaneBirdsmouths(rafter, values, null, [], geometry)).toBeNull();
+  });
+
+  it("also serves the timber cut list before a rafter spacing is entered", () => {
+    const noSpacing: RoofMaterialUiState = { ...noLayout, requested: { timber: true, underlay: false, covering: false } };
+    const result = computeConstruction(timber, values, noSpacing, DEMO_MATERIAL_PROFILES);
+    expect(result.birdsmouths).toBeNull();
+    expect(previewPlaneBirdsmouths(timber, values, noSpacing, DEMO_MATERIAL_PROFILES, result.geometry)?.every((plane) => plane.status === "computed")).toBe(true);
   });
 });

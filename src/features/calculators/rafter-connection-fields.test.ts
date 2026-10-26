@@ -14,3 +14,16 @@ describe("rafter connection workflow fields", () => {
     expect(definitions["roof.rafter-cut"].fields.filter((field) => isRafterConnectionField(field, "roof.rafter-cut")).map((field) => field.key)).not.toContain("seatCutHeightMm");
   });
 });
+
+import { jointGroupState } from "./rafter-connection-fields";
+describe("jointGroupState (M9.15.1)", () => {
+  it("names the five section states", () => {
+    expect(jointGroupState([], false).label).toBe("Nincs még elég adat");
+    expect(jointGroupState([], true).label).toBe("Nincs megadva · opcionális");
+    expect(jointGroupState(["incomplete"], false).tone).toBe("empty");
+    expect(jointGroupState(["computed", "computed"], false).tone).toBe("ok");
+    expect(jointGroupState(["computed", "unsupported"], false).tone).toBe("limited");
+    expect(jointGroupState(["computed", "invalid"], false).tone).toBe("invalid");
+    expect(jointGroupState(["unsupported", "not-applicable"], false).tone).toBe("unsupported");
+  });
+});
