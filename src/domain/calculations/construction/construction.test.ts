@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateConcreteMix, calculateConcreteRing, calculateCylindricalPiles, calculateFoundationSlab, calculatePavingMaterials, calculateRectangularBlindArea, calculateReinforcementBars, calculateReinforcementMesh, calculateRightAngleDiagonal, calculateStripFoundation, concreteRingInputSchema, reinforcementMeshInputSchema } from "./concrete";
-import { calculateRafterGeometry, calculateTriangularTrussGeometry } from "./roofs";
+import { calculateRafterGeometry, calculateTriangularTrussGeometry, convertGableGeometryFromRafterCut } from "./roofs";
 import { calculateBeveledRiserGeometry, calculateConcreteStairGeometry, calculateLandingStairGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry, spiralStairGeometryInputSchema } from "./stairs";
 import { calculateGableRoof } from "../gable-roof";
 import { calculateGableMetalTileCovering } from "../gable-metal-tile-covering";
@@ -32,6 +32,28 @@ describe("independent construction calculations", () => {
     expect(rafter.bodyLengthMm).toBeCloseTo(Math.hypot(3 * m, 1_800), 9);
     expect(rafter.pitchDegrees).toBeCloseTo(Math.atan2(1_800, 3 * m) * 180 / Math.PI, 9);
     expect(() => calculateRafterGeometry({ horizontalHalfSpanMm: 3 * m, riseMm: 2 * m, eaveProjectionMm: 0, seatCutHeightMm: 2 * m })).toThrow();
+  });
+
+  it("converts gable width/pitch from a symmetric rafter-cut source (M10 Fázis 1)", () => {
+    const first = convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "4000", riseMm: "2800", seatCutHeightMm: "100" });
+    expect(first).toEqual({ ok: true, widthMm: 8_000, pitchDegrees: expect.closeTo(34.019, 3) });
+    expect(first.ok && 4000 * Math.tan(first.pitchDegrees * Math.PI / 180)).toBeCloseTo(2_700, 6);
+
+    const second = convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "3000", riseMm: "1500", seatCutHeightMm: "0" });
+    expect(second).toEqual({ ok: true, widthMm: 6_000, pitchDegrees: expect.closeTo(26.565, 3) });
+
+    const third = convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "5000", riseMm: "3200", seatCutHeightMm: "200" });
+    expect(third).toEqual({ ok: true, widthMm: 10_000, pitchDegrees: expect.closeTo(30.964, 3) });
+  });
+
+  it("rejects missing, invalid or out-of-range gable conversion inputs instead of estimating (M10 Fázis 1)", () => {
+    expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "4000", riseMm: "2800" })).toEqual({ ok: false, reason: "MISSING_HAP" });
+    expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "4000", riseMm: "2800", seatCutHeightMm: "2800" })).toEqual({ ok: false, reason: "INVALID_HAP" });
+    expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "4000", riseMm: "2800", seatCutHeightMm: "-10" })).toEqual({ ok: false, reason: "INVALID_HAP" });
+    expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "0", riseMm: "2800", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "INVALID_SOURCE_GEOMETRY" });
+    expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "-100", riseMm: "2800", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "INVALID_SOURCE_GEOMETRY" });
+    expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "abc", riseMm: "2800", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "INVALID_SOURCE_GEOMETRY" });
+    expect(convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "60000", riseMm: "2800", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "TARGET_RANGE" });
   });
 
   it("calculates triangular truss envelope lengths", () => {

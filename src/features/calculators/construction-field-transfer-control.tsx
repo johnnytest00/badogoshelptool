@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SyntheticEvent } from "react";
 import { ArrowLeftRight } from "lucide-react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { listRafterCutTransferSourcesAction } from "@/features/calculations/construction-actions";
 import type { RafterCutTransferSource } from "@/features/calculations/construction-data";
+import { convertGableGeometryFromRafterCut, type GableGeometryTransferReason } from "@/domain/calculations/construction/roofs";
+import { rafterCutTransferFields } from "./rafter-connection-fields";
 import type { Field } from "./construction-calculator-types";
 
 type Status = "idle" | "loading" | "error" | "loaded";
 type Applied = Readonly<{ displayName: string; revisionNumber: number; newFields: Readonly<Record<string, string>>; snapshot: Readonly<Record<string, string>> }>;
+type DiffRow = Readonly<{ key: string; label: string; current: string; next: string; changed: boolean; computed?: string }>;
 
 function fieldValueLabel(field: Field | undefined, value: string): string {
   if (!value) return "nincs megadva";
@@ -18,22 +21,38 @@ function fieldValueLabel(field: Field | undefined, value: string): string {
   return field?.unit ? `${value} ${field.unit}` : value;
 }
 
+const GABLE_SKIP_REASON_LABEL: Readonly<Record<GableGeometryTransferReason, string>> = {
+  INVALID_SOURCE_GEOMETRY: "A forrás fél fesztávja vagy gerincemelkedése nem érvényes, ezért a tetőszélesség és a hajlás nem számítható.",
+  MISSING_HAP: "A forrás nem tartalmaz HAP-adatot, ezért a hajlás nem számítható.",
+  INVALID_HAP: "A forrás HAP-adata érvénytelen (negatív, vagy nem kisebb a gerincemelkedésnél), ezért a hajlás nem számítható.",
+  TARGET_RANGE: "A számított tetőszélesség vagy hajlás kívül esik az érvényes tartományon.",
+};
+
 /**
  * M10 Fázis 0: explicit, kétlépéses, megerősítést igénylő adatátvétel mentett roof.rafter-cut kalkulációból a HAP
  * és gerinckapcsolati mezőkre. Az előnézet megnyitása nem módosít draftot; csak a kifejezett megerősítés ír, és a
  * megerősítés utáni rövid visszavonás a korábbi (előnézet előtti) mezőértékeket állítja vissza.
+ *
+ * M10 Fázis 1: gable célnál, a felhasználó explicit szimmetria-elfogadása mellett, a widthMm/pitchDegrees mezők is
+ * átvehetők, matematikai konverzióval (docs/M10_PHASE1_GEOMETRY_TRANSFER_DESIGN.md). A szimmetria-elfogadás minden
+ * előnézet-megnyitáskor és tetőforma-váltáskor visszaáll, hogy ne maradjon érvényben egy már nem releváns döntés.
  */
-export function ConstructionFieldTransferControl({ organizationId, fields, currentFields, onApply }: Readonly<{
+export function ConstructionFieldTransferControl({ organizationId, fields, currentFields, roofShape, onApply }: Readonly<{
   organizationId: string;
   fields: readonly Field[];
   currentFields: Readonly<Record<string, string>>;
+  roofShape: string;
   onApply: (fields: Readonly<Record<string, string>>, sourceRevisionId: string | null) => void;
 }>) {
   const [status, setStatus] = useState<Status>("idle");
   const [sources, setSources] = useState<readonly RafterCutTransferSource[]>([]);
   const [previewing, setPreviewing] = useState<RafterCutTransferSource | null>(null);
   const [applied, setApplied] = useState<Applied | null>(null);
+  const [symmetryConfirmed, setSymmetryConfirmed] = useState(false);
   const fieldByKey = new Map(fields.map((field) => [field.key, field]));
+  const isGableTarget = roofShape === "gable";
+  // Forma váltás vagy másik forrás előnézete a korábbi szimmetria-elfogadást érvényteleníti (M10.1 §2.4).
+  useEffect(() => setSymmetryConfirmed(false), [roofShape, previewing?.revisionId]);
 
   async function load() {
     setStatus("loading");
@@ -48,9 +67,9 @@ export function ConstructionFieldTransferControl({ organizationId, fields, curre
   }
 
   function confirm(source: RafterCutTransferSource) {
-    const newFields = { ...source.fields, birdsmouth: "true" };
+    const newFields = rafterCutTransferFields(source, roofShape, symmetryConfirmed);
     const snapshot = Object.fromEntries(Object.keys(newFields).map((key) => [key, currentFields[key] ?? ""]));
-    onApply(source.fields, source.revisionId);
+    onApply(newFields, source.revisionId);
     setApplied({ displayName: source.displayName, revisionNumber: source.revisionNumber, newFields, snapshot });
     setPreviewing(null);
   }
@@ -63,22 +82,36 @@ export function ConstructionFieldTransferControl({ organizationId, fields, curre
   }
 
   function renderPreview(source: RafterCutTransferSource) {
-    const rows = Object.entries(source.fields).map(([key, newValue]) => {
+    const jointRows: DiffRow[] = Object.entries(source.fields).map(([key, newValue]) => {
       const field = fieldByKey.get(key);
       const currentValue = currentFields[key] ?? "";
       return { key, label: field?.label ?? key, current: fieldValueLabel(field, currentValue), next: fieldValueLabel(field, newValue), changed: currentValue !== newValue };
     });
+    const geometryConversion = isGableTarget ? convertGableGeometryFromRafterCut(source.geometry) : null;
+    const geometryRows: DiffRow[] = geometryConversion?.ok && symmetryConfirmed ? [
+      { key: "widthMm", label: fieldByKey.get("widthMm")?.label ?? "Tető szélessége", current: fieldValueLabel(fieldByKey.get("widthMm"), currentFields.widthMm ?? ""), next: fieldValueLabel(fieldByKey.get("widthMm"), String(geometryConversion.widthMm)), changed: (currentFields.widthMm ?? "") !== String(geometryConversion.widthMm), computed: "szimmetrikus nyeregtető alapján" },
+      { key: "pitchDegrees", label: fieldByKey.get("pitchDegrees")?.label ?? "Tetőhajlás", current: fieldValueLabel(fieldByKey.get("pitchDegrees"), currentFields.pitchDegrees ?? ""), next: fieldValueLabel(fieldByKey.get("pitchDegrees"), String(Math.round(geometryConversion.pitchDegrees * 1000) / 1000)), changed: (currentFields.pitchDegrees ?? "") !== String(geometryConversion.pitchDegrees), computed: "gerincemelkedésből és HAP-ból számítva" },
+    ] : [];
+    const rows = [...jointRows, ...geometryRows];
     const birdsmouthChanged = (currentFields.birdsmouth ?? "") !== "true";
     const hasChange = rows.some((row) => row.changed) || birdsmouthChanged;
     return <div className="field-transfer-preview" aria-label="Átvétel előnézete">
       <p className="plan-link-note">{source.displayName} · V{source.revisionNumber}</p>
+      {isGableTarget && <div className="field-transfer-symmetry">
+        <label>
+          <input type="checkbox" checked={symmetryConfirmed} onChange={(event) => setSymmetryConfirmed(event.target.checked)} />
+          A tető szimmetrikus nyeregtető, a két tetősík vízszintes fél fesztávja azonos.
+        </label>
+        {!symmetryConfirmed && <p className="plan-link-note">Jóváhagyás nélkül a tetőszélesség és a hajlás nem kerül át; a csatlakozási mezők attól függetlenül átvehetők.</p>}
+        {symmetryConfirmed && geometryConversion && !geometryConversion.ok && <p className="form-message is-error" role="alert">{GABLE_SKIP_REASON_LABEL[geometryConversion.reason]}</p>}
+      </div>}
       <table className="field-transfer-diff">
-        <thead><tr><th scope="col">Mező</th><th scope="col">Jelenlegi</th><th scope="col">Átvenni kívánt</th></tr></thead>
+        <thead><tr><th scope="col">Mező</th><th scope="col">Jelenlegi</th><th scope="col">Átvenni kívánt</th><th scope="col">Eredet</th></tr></thead>
         <tbody>
           {rows.map((row) => <tr key={row.key} className={row.changed ? "is-changed" : undefined}>
-            <th scope="row">{row.label}</th><td>{row.current}</td><td>{row.next}</td>
+            <th scope="row">{row.label}</th><td>{row.current}</td><td>{row.next}</td><td>{row.computed ? `Számított · ${row.computed}` : "Átvett"}</td>
           </tr>)}
-          {birdsmouthChanged && <tr className="is-changed"><th scope="row">Bevágás bekapcsolása</th><td>kikapcsolva</td><td>bekapcsolva</td></tr>}
+          {birdsmouthChanged && <tr className="is-changed"><th scope="row">Bevágás bekapcsolása</th><td>kikapcsolva</td><td>bekapcsolva</td><td>Átvett</td></tr>}
         </tbody>
       </table>
       {!hasChange && <p className="plan-link-note">Nincs új adat; minden érték megegyezik a jelenlegi mezőkkel.</p>}
@@ -102,7 +135,7 @@ export function ConstructionFieldTransferControl({ organizationId, fields, curre
       </ul>}
       {previewing && renderPreview(previewing)}
       {applied && <p className="plan-link-note" role="status">
-        Adatok átvéve: {applied.displayName} · V{applied.revisionNumber}. A HAP és gerinckapcsolati mezők kitöltve; ellenőrizd, majd mentsd a kalkulációt.
+        Adatok átvéve: {applied.displayName} · V{applied.revisionNumber}. A kitöltött mezőket ellenőrizd, majd mentsd a kalkulációt.
         {canUndo && <> <button type="button" className="text-action" onClick={undo}>Visszavonás</button></>}
       </p>}
     </GlassDisclosure>

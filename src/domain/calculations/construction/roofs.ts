@@ -38,6 +38,31 @@ export function calculateRafterGeometry(rawInput: RafterGeometryInput): RafterGe
   return { horizontalRunMm, bodyLengthMm, eaveLengthMm, slopeLengthMm, pitchDegrees, plumbCutToBoardAxisDegrees };
 }
 
+export type GableGeometryTransferReason = "INVALID_SOURCE_GEOMETRY" | "MISSING_HAP" | "INVALID_HAP" | "TARGET_RANGE";
+export type GableGeometryTransferResult =
+  | Readonly<{ ok: true; widthMm: number; pitchDegrees: number }>
+  | Readonly<{ ok: false; reason: GableGeometryTransferReason }>;
+
+/**
+ * M10 Fázis 1: widthMm = 2 × horizontalHalfSpanMm és a HAP-pal csökkentett pitchDegrees, kizárólag a felhasználó
+ * által explicit elfogadott szimmetrikus nyeregtető-feltevés mellett (docs/M10_PHASE1_GEOMETRY_TRANSFER_DESIGN.md).
+ * A cél séma (gableRoofInputSchema/roofGeometryInputSchema) marad a végső érvényességi kapu; itt csak a
+ * nyilvánvalóan érvénytelen vagy tartományon kívüli esetet szűrjük ki explicit hibakóddal, becslés nélkül.
+ * Hiányzó HAP (régi snapshot, ahol a mező még nem létezett) nem kezelhető 0-ként: MISSING_HAP.
+ */
+export function convertGableGeometryFromRafterCut(source: Readonly<{ horizontalHalfSpanMm?: string; riseMm?: string; seatCutHeightMm?: string }>): GableGeometryTransferResult {
+  const halfSpanMm = Number(source.horizontalHalfSpanMm);
+  const riseMm = Number(source.riseMm);
+  if (!Number.isFinite(halfSpanMm) || halfSpanMm <= 0 || !Number.isFinite(riseMm) || riseMm <= 0) return { ok: false, reason: "INVALID_SOURCE_GEOMETRY" };
+  if (source.seatCutHeightMm === undefined) return { ok: false, reason: "MISSING_HAP" };
+  const seatCutHeightMm = Number(source.seatCutHeightMm);
+  if (!Number.isFinite(seatCutHeightMm) || seatCutHeightMm < 0 || seatCutHeightMm >= riseMm) return { ok: false, reason: "INVALID_HAP" };
+  const widthMm = halfSpanMm * 2;
+  const pitchDegrees = Math.atan2(riseMm - seatCutHeightMm, halfSpanMm) * 180 / Math.PI;
+  if (!Number.isInteger(widthMm) || widthMm <= 0 || widthMm > 100_000 || !Number.isFinite(pitchDegrees) || pitchDegrees <= 0 || pitchDegrees >= 90) return { ok: false, reason: "TARGET_RANGE" };
+  return { ok: true, widthMm, pitchDegrees };
+}
+
 export const triangularTrussGeometryInputSchema = z.object({
   spanMm: roofDimension,
   riseMm: roofDimension,

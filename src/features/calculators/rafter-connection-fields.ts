@@ -1,3 +1,5 @@
+import { convertGableGeometryFromRafterCut } from "@/domain/calculations/construction/roofs";
+import type { RafterCutTransferSource } from "@/features/calculations/construction-data";
 import type { Field } from "./construction-calculator-types";
 
 const connectionKeys = new Set(["birdsmouth", "seatCutHeightMm", "rafterDepthMm", "plateWidthMm", "purlinFaceMm", "purlinTopMm", "ridgeJoint", "ridgeBoardThicknessMm", "ridgePurlinWidthMm", "ridgePurlinTopMm"]);
@@ -36,6 +38,18 @@ export const RAFTER_JOINT_TRANSFER_FIELD_KEYS = Object.keys(RAFTER_JOINT_TRANSFE
 /** Only the transferable keys that actually have a value in the source, keyed by the TARGET field; the checkbox that reveals them in the target is added by the caller. */
 export function rafterJointTransferValues(sourceFields: Readonly<Record<string, string>>): Record<string, string> {
   return Object.fromEntries(Object.entries(RAFTER_JOINT_TRANSFER_FIELD_MAP).flatMap(([sourceKey, targetKey]) => sourceFields[sourceKey] ? [[targetKey, sourceFields[sourceKey]]] : []));
+}
+
+/**
+ * M10 Fázis 1: a confirmed transfer's full field set — the joint/eave fields always, plus widthMm/pitchDegrees
+ * only for a gable target with explicit, caller-confirmed symmetry acceptance and a successfully converted
+ * source geometry. Pure and independently testable (no Supabase/server import), used by both the preview and
+ * the confirm step so they can never disagree (see construction-field-transfer-control.tsx).
+ */
+export function rafterCutTransferFields(source: RafterCutTransferSource, roofShape: string, symmetryConfirmed: boolean): Readonly<Record<string, string>> {
+  const conversion = roofShape === "gable" && symmetryConfirmed ? convertGableGeometryFromRafterCut(source.geometry) : null;
+  const gableFields: Readonly<Record<string, string>> = conversion?.ok ? { widthMm: String(conversion.widthMm), pitchDegrees: String(conversion.pitchDegrees) } : {};
+  return { ...source.fields, ...gableFields, birdsmouth: "true" };
 }
 
 export type JointGroupState = Readonly<{ tone: "empty" | "ok" | "limited" | "invalid" | "unsupported"; label: string }>;

@@ -4760,6 +4760,9 @@ main[id="main-content"]:focus { outline: none; }
 .field-transfer-diff thead th { color: var(--muted); font-weight: 600; }
 .field-transfer-diff tbody th { font-weight: 500; }
 .field-transfer-diff tr.is-changed td:last-child { color: var(--brand-ink); font-weight: 700; }
+.field-transfer-symmetry { display: grid; gap: .35rem; }
+.field-transfer-symmetry label { display: flex; align-items: flex-start; gap: .5rem; font-size: calc(.85rem * var(--tp-text-scale, 1)); }
+.field-transfer-symmetry input[type="checkbox"] { margin-top: .2rem; min-width: 1.1rem; min-height: 1.1rem; }
 .field-transfer-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .field-transfer-actions > button { min-height: 2.75rem; }
 @media (max-width: 560px) { .field-transfer-diff { display: block; overflow-x: auto; } }

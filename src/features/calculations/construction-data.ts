@@ -90,7 +90,12 @@ export async function getConstructionRevisionPage(organizationId: string, calcul
   return revisionPageFromRows((rows ?? []) as ConstructionRevisionRow[], calculatorId);
 }
 
-export type RafterCutTransferSource = Readonly<{ calculationId: string; displayName: string; revisionId: string; revisionNumber: number; fields: Readonly<Record<string, string>> }>;
+export type RafterCutTransferSource = Readonly<{
+  calculationId: string; displayName: string; revisionId: string; revisionNumber: number;
+  fields: Readonly<Record<string, string>>;
+  /** M10 Fázis 1: csak a gable geometriai konverzióhoz szükséges forrásmezők, nem a teljes szűretlen snapshot. */
+  geometry: Readonly<{ horizontalHalfSpanMm?: string; riseMm?: string; seatCutHeightMm?: string }>;
+}>;
 /** Distinguishes "no compatible source" from "could not load" so the UI never shows a misleading empty list. */
 export type RafterCutTransferSourcesResult = Readonly<{ ok: true; sources: readonly RafterCutTransferSource[] }> | Readonly<{ ok: false }>;
 
@@ -120,7 +125,8 @@ export async function listRafterCutTransferSources(organizationId: string): Prom
     const input = revision ? constructionInputSnapshotSchema.safeParse(revision.input_snapshot) : null;
     if (!revision || !input?.success) return [];
     const fields = rafterJointTransferValues(input.data.fields);
-    return Object.keys(fields).length > 0 ? [{ calculationId: calculation.id, displayName: calculation.display_name, revisionId: revision.id, revisionNumber: revision.revision_number, fields }] : [];
+    const geometry = { horizontalHalfSpanMm: input.data.fields.horizontalHalfSpanMm, riseMm: input.data.fields.riseMm, seatCutHeightMm: input.data.fields.seatCutHeightMm };
+    return Object.keys(fields).length > 0 ? [{ calculationId: calculation.id, displayName: calculation.display_name, revisionId: revision.id, revisionNumber: revision.revision_number, fields, geometry }] : [];
   });
   return { ok: true, sources };
 }

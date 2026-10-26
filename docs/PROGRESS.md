@@ -1,5 +1,12 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M10.1 — Nyeregtető geometriai adatátadás (Fázis 1, 2026-10-26)
+
+Státusz: **PASS WITH LIMITATIONS**. Mentett `roof.rafter-cut` revízióból, kizárólag gable célformánál és a felhasználó explicit szimmetria-jóváhagyása mellett, a `widthMm`/`pitchDegrees` mezők matematikai konverzióval (`widthMm = 2 × horizontalHalfSpanMm`, HAP-pal csökkentett `pitchDegrees = atan2(rise − HAP, halfSpan)`) átvehetők a meglévő „Adatok átvétele” vezérlőn keresztül. A jóváhagyás nélkül csak a már bizonyított csatlakozási/eresz mezők vehetők át; nem-gable formáknál a geometriai szekció meg sem jelenik. Hiányzó/érvénytelen/tartományon kívüli forrásgeometria explicit hibakóddal (`MISSING_HAP`/`INVALID_HAP`/`INVALID_SOURCE_GEOMETRY`/`TARGET_RANGE`) utasítja el az átvételt, becslés nélkül. Élő böngészős E2E-vel igazolva (4000/2800/100 mm forrás → 8000 mm / 34,01934998982646° pontos átvétel, Visszavonás, tetőforma-váltás utáni azonnali geometriai szekció-eltűnés, mobil 375×812 nézet). Részletek: [M10 Fázis 1 gable geometria riport](M10_PHASE1_GABLE_GEOMETRY_IMPLEMENTATION.md).
+
+- **Ellenőrzés:** célzott `construction.test.ts` + `rafter-connection-fields.test.ts` 29/29 PASS; teljes Vitest 192 fájl PASS/8 SKIP, 1195 teszt PASS/19 SKIP; ESLint PASS; izolált typecheck és build PASS; `git diff --check` PASS.
+- **Javasolt Conventional Commit:** `feat(M10.1): transfer validated gable geometry from saved rafter cuts`.
+
 ## M10.1 — Vízszintes ereszkiülés mezőleképezés (Fázis 1, 2026-10-26)
 
 Státusz: **PASS WITH LIMITATIONS**. A tervdokumentum `[ELLENŐRZENDŐ]` ereszkiülés-névváltozat kérdését (`roof.rafter-cut` `eaveProjectionMm` vs. a geometriai kalkulátorok `eaveOverhangMm`-je) forráskód-szinten (nem csak szöveg alapján) igazoltam azonosnak — mindkettő ugyanarra a fél fesztávra rakódik rá vízszintesen, ugyanazzal a `halfSpan = width/2` és `atan2(rise, halfSpan)` képlettel. A mezőleképezés explicit kulcstáblázattá alakítva (`RAFTER_JOINT_TRANSFER_FIELD_MAP`), az ereszkiülés mostantól átvehető a meglévő "Adatok átvétele" vezérlőn keresztül. Élő böngészős próbával igazolva (0 mm → 500 mm előnézet és tényleges kitöltés). Szándékosan **nem** valósult meg a fél fesztáv/emelkedés ↔ szélesség/hajlásszög leképezés, mert a `halfSpan = width/2` összefüggés csak nyereg-/félnyeregtetőre igazolt, a többi (kontytető, sátortető, stb.) formára nem — ez a tervdokumentum saját tiltása szerint külön, formánkénti igazolást igénylő, önálló feladat. Részletek: [M10 Fázis 1 riport](M10_PHASE1_EAVE_OVERHANG_MAPPING.md).
