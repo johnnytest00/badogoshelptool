@@ -1,5 +1,6 @@
 import { getAuthContext } from "@/features/auth/auth.server";
 import { constructionInputSnapshotSchema, isCompleteConstructionOutput, isSaveableConstructionCalculator, normalizedConstructionInput, type ConstructionInputSnapshot, type ConstructionOutputSnapshot } from "@/features/calculators/construction-computation";
+import { rafterJointTransferValues } from "@/features/calculators/rafter-connection-fields";
 import { createClient } from "@/infrastructure/supabase/server";
 
 export type SavedConstructionRevision = Readonly<{ revisionId: string; revisionNumber: number; createdAt: string; input: ConstructionInputSnapshot; output: ConstructionOutputSnapshot }>;
@@ -87,6 +88,37 @@ export async function getConstructionRevisionPage(organizationId: string, calcul
   const { data: rows, error: revisionError } = await query.order("revision_number", { ascending: false }).order("id", { ascending: false }).limit(CONSTRUCTION_REVISION_PAGE_SIZE + 1);
   if (revisionError) throw new Error("A kalkuláció régebbi revíziói nem tölthetők be.");
   return revisionPageFromRows((rows ?? []) as ConstructionRevisionRow[], calculatorId);
+}
+
+export type RafterCutTransferSource = Readonly<{ calculationId: string; displayName: string; revisionId: string; revisionNumber: number; fields: Readonly<Record<string, string>> }>;
+
+/**
+ * M10 Fázis 0: creator-scoped (RLS) saved roof.rafter-cut calculations whose current revision has at least one
+ * HAP/ridge-connection field to offer for explicit "Adatok átvétele" transfer into roof.material-takeoff or
+ * roof.timber-cutlist. Only the current revision is considered, same as the rest of the standalone suite.
+ */
+export async function listRafterCutTransferSources(organizationId: string): Promise<readonly RafterCutTransferSource[]> {
+  const auth = await getAuthContext();
+  if (!auth?.organizations.some((organization) => organization.id === organizationId)) return [];
+  const supabase = await createClient();
+  const { data: calculations, error } = await supabase.from("calculations")
+    .select("id, display_name, current_revision_id")
+    .eq("organization_id", organizationId).eq("ownership_scope", "standalone").eq("calculator_type", "construction.roof.rafter-cut")
+    .eq("created_by", auth.userId).order("updated_at", { ascending: false }).limit(20);
+  if (error || !calculations?.length) return [];
+  const revisionIds = calculations.flatMap((calculation) => calculation.current_revision_id ? [calculation.current_revision_id] : []);
+  if (!revisionIds.length) return [];
+  const { data: revisions, error: revisionError } = await supabase.from("calculation_revisions").select("id, revision_number, input_snapshot")
+    .eq("organization_id", organizationId).in("id", revisionIds);
+  if (revisionError) return [];
+  const revisionById = new Map((revisions ?? []).map((row) => [row.id, row]));
+  return calculations.flatMap((calculation) => {
+    const revision = calculation.current_revision_id ? revisionById.get(calculation.current_revision_id) : undefined;
+    const input = revision ? constructionInputSnapshotSchema.safeParse(revision.input_snapshot) : null;
+    if (!revision || !input?.success) return [];
+    const fields = rafterJointTransferValues(input.data.fields);
+    return Object.keys(fields).length > 0 ? [{ calculationId: calculation.id, displayName: calculation.display_name, revisionId: revision.id, revisionNumber: revision.revision_number, fields }] : [];
+  });
 }
 
 /** Direct immutable revision lookup for downstream links; independent of the visible history page. */

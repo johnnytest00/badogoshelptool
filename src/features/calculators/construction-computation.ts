@@ -270,7 +270,7 @@ export const constructionCalculatorLabels: Readonly<Record<(typeof SAVEABLE_CONS
 };
 
 /**
- * M9.15.1/3, presentation only: the plane joints without the rafter layout inputs, so the KARMI detail does not wait for the
+ * M9.15.1/3, presentation only: the plane joints without the rafter layout inputs, so the Karmi detail does not wait for the
  * "Szarufa és léc" group. Geometry comes from the roof planes themselves (calculatePlaneBirdsmouthsFromGeometry), only for roofs
  * where that is proven; otherwise null. Never part of completeness, saving or the snapshots.
  */

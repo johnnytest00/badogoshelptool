@@ -1,4 +1,4 @@
-# M9.15 — KARMI workflow UI/UX
+# M9.15 — Karmi workflow UI/UX
 
 ## Státusz és hatókör
 
@@ -6,11 +6,11 @@
 
 ## Korábbi adatbevitel és új hierarchia
 
-A szarufa-csatlakozási mezők a „Részletes számítás · opcionális” gyűjtőpanelben voltak. Az M9.15 változtatás külön „Szarufák és bevágások” szekcióba emeli őket, ezzel a KARMI- és szelemenadatok a három érintett tetőkalkulátorban egy helyen találhatók.
+A szarufa-csatlakozási mezők a „Részletes számítás · opcionális” gyűjtőpanelben voltak. Az M9.15 változtatás külön „Szarufák és bevágások” szekcióba emeli őket, ezzel a Karmi- és szelemenadatok a három érintett tetőkalkulátorban egy helyen találhatók.
 
 - `roof.rafter-cut`: a fél fesztáv, gerincemelkedés, ereszkiülés és HAP a szarufa alapgeometriájának része. A keresztmetszet, talpszelemen-ellenőrzés, derékszelemen és gerinckapcsolat az új blokk további mezőcsoportjaiban szerepel.
-- `roof.material-takeoff` és `roof.timber-cutlist`: a már létező szarufacsatlakozási kapcsoló az új blokk tetején marad. Bekapcsolás után a szarufa keresztmetszetéhez termék vagy kézi méret választható, majd külön csoport jelenik meg a talpszelemen/szarufa, a derékszelemen és a gerinckapcsolat adataihoz. Ez ugyanaz a `materialState.specs.rafter` state, amelyből a meglévő faanyagkalkulátor dolgozik; bekapcsolt KARMI-módban a szerkesztő nem jelenik meg még egyszer a faanyag szekcióban. A gerincdeszka és gerincszelemen mezői továbbra is csak az adott választásnál láthatók.
-- Opcionális számítások, amelyek nem KARMI-csatlakozáshoz tartoznak, továbbra is a generikus részletes panelben maradnak.
+- `roof.material-takeoff` és `roof.timber-cutlist`: a már létező szarufacsatlakozási kapcsoló az új blokk tetején marad. Bekapcsolás után a szarufa keresztmetszetéhez termék vagy kézi méret választható, majd külön csoport jelenik meg a talpszelemen/szarufa, a derékszelemen és a gerinckapcsolat adataihoz. Ez ugyanaz a `materialState.specs.rafter` state, amelyből a meglévő faanyagkalkulátor dolgozik; bekapcsolt Karmi-módban a szerkesztő nem jelenik meg még egyszer a faanyag szekcióban. A gerincdeszka és gerincszelemen mezői továbbra is csak az adott választásnál láthatók.
+- Opcionális számítások, amelyek nem Karmi-csatlakozáshoz tartoznak, továbbra is a generikus részletes panelben maradnak.
 
 A teljes kétszárnyú szarufa áttekintő, a tetősíkonkénti rajz, a csatlakozásválasztó, a kiválasztott részletrajz és a kiszabási lista már korábbi mérföldkövekben létezett. M9.15 ezeket nem cseréli le és a geometriájukat nem módosítja.
 
@@ -44,7 +44,7 @@ Az új terület a meglévő Liquid Glass felületi tokenekkel, szemantikus szekc
 ## Teszt és bizonyíték
 
 - TDD red/green: az új csatlakozómező-besorolási regresszió a helper hozzáadása előtt elbukott, utána sikeres lett.
-- Célzott KARMI- és szarufaspecifikáció-tesztek — **8 fájl / 73 teszt PASS**.
+- Célzott Karmi- és szarufaspecifikáció-tesztek — **8 fájl / 73 teszt PASS**.
 - Teljes `npm test` — **192 fájl PASS / 8 SKIP; 1173 teszt PASS / 19 SKIP**.
 - Teljes `npm run lint` — **PASS**; izolált `/private/tmp` másolatban `npm run typecheck` és `npm run build` — **PASS**.
 - `git diff --check` — **PASS**.

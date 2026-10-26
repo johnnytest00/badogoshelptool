@@ -10,13 +10,22 @@ import {
   isSaveableConstructionCalculator, materialStateFromSnapshot, usesMaterialInputs,
 } from "@/features/calculators/construction-computation";
 import { getCalculatorMaterialProfiles } from "@/features/materials/material-data";
+import { listRafterCutTransferSources, type RafterCutTransferSource } from "./construction-data";
 import { persistStandaloneConstructionCalculation } from "@/infrastructure/supabase/construction-calculation-writer";
 
 const saveSchema = z.object({
   organizationId: z.string().uuid(), calculationId: z.string().uuid(), operationId: z.string().uuid(),
   expectedRevisionNumber: z.number().int().nonnegative(), name: z.string().trim().min(1).max(200),
   input: constructionInputSnapshotSchema,
+  /** M10 Fázis 0: the source revision whose HAP/ridge-connection fields were copied in, recorded as a calculation_dependencies row. */
+  sourceCalculationRevisionId: z.string().uuid().optional(),
 });
+
+/** Saved roof.rafter-cut calculations offered for "Adatok átvétele" in roof.material-takeoff/roof.timber-cutlist. */
+export async function listRafterCutTransferSourcesAction(organizationId: string): Promise<readonly RafterCutTransferSource[]> {
+  if (!z.string().uuid().safeParse(organizationId).success) return [];
+  return listRafterCutTransferSources(organizationId);
+}
 
 export type ConstructionSaveResult = { ok: true; calculationId: string; revisionId: string; revisionNumber: number } | { ok: false; error: string; conflict?: boolean };
 
@@ -35,6 +44,7 @@ export async function saveConstructionCalculationAction(raw: unknown): Promise<C
   const knownKeys = new Set(definition.fields.map((field) => field.key));
   if (Object.keys(request.input.fields).some((key) => !knownKeys.has(key))) return { ok: false, error: "A kalkuláció ismeretlen mezőt tartalmaz." };
   if (usesMaterialInputs(calculatorId) !== (request.input.material !== null)) return { ok: false, error: "A kalkuláció anyagadatai hiányosak vagy feleslegesek." };
+  if (request.sourceCalculationRevisionId && calculatorId !== "roof.material-takeoff" && calculatorId !== "roof.timber-cutlist") return { ok: false, error: "Ehhez a kalkulátorhoz nem vehető át adat." };
 
   const material = materialStateFromSnapshot(request.input);
   let profiles: readonly MaterialProfile[] = DEMO_MATERIAL_PROFILES;
@@ -52,6 +62,7 @@ export async function saveConstructionCalculationAction(raw: unknown): Promise<C
       organizationId: request.organizationId, calculationId: request.calculationId, operationId: request.operationId,
       expectedRevisionNumber: request.expectedRevisionNumber, calculatorType: constructionCalculatorType(calculatorId), name: request.name,
       input: request.input, output: constructionOutputSnapshot(calculatorId, computation), actorId: auth.userId,
+      sourceCalculationRevisionId: request.sourceCalculationRevisionId,
     });
     revalidatePath("/kalkulatorok/mentett");
     return { ok: true, calculationId: saved.calculation_id, revisionId: saved.calculation_revision_id, revisionNumber: saved.revision_number };

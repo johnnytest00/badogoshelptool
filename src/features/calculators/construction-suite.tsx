@@ -32,9 +32,10 @@ import { isRafterConnectionField, jointGroupState, karmiStatusText } from "./raf
 import { planeJointStatuses } from "@/domain/calculations/construction/plane-birdsmouth";
 import { computeConstruction, previewPlaneBirdsmouths, constructionInputSnapshot, constructionOutputSnapshot, inputRecord, isFieldVisible, isSaveableComputation, isSaveableConstructionCalculator, materialStateFromSnapshot, roofGeometryTypeForDefinition, roofShapeOf } from "./construction-computation";
 import { ConstructionSavePanel, newConstructionSession, savedInputComparison, type ConstructionPlanLinks, type ConstructionSaveSession } from "./construction-save-panel";
+import { ConstructionFieldTransferControl } from "./construction-field-transfer-control";
 import type { SavedConstructionCalculation, SavedConstructionRevision } from "@/features/calculations/construction-data";
 import { stableJsonStringify } from "@/features/roof-models/stable-json";
-import { initializeCalculatorDraft, replaceCalculatorDraft, updateCalculatorDraft, type CalculatorDrafts } from "./construction-drafts";
+import { initializeCalculatorDraft, mergeCalculatorDraft, replaceCalculatorDraft, updateCalculatorDraft, type CalculatorDrafts } from "./construction-drafts";
 import { forgetWorkspace, rememberWorkspace, rememberedWorkspace, workspaceKey } from "./construction-workspace-memory";
 
 const TechnicalDrawing = dynamic(() => import("@/features/roof-models/technical-drawing").then((module) => module.TechnicalDrawing), {
@@ -177,6 +178,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const [loadErrorId, setLoadErrorId] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [sessions, setSessions] = useState<Record<string, ConstructionSaveSession>>(() => recalled?.sessions ?? (saved ? { [saved.calculatorId]: sessionFromSaved(saved) } : {}));
+  // M10 Fázis 0: "Adatok átvétele" forrás, csak a kalkulátorig, ameddig átvettük; nem memóriázott, munkamenet-szintű.
+  const [transferSource, setTransferSource] = useState<{ calculatorId: string; revisionId: string } | null>(null);
   // The saved revision is applied once, when its calculator definition first loads; later prop updates only refresh the revision list.
   const pendingSavedInput = useRef(recalled ? null : saved?.revisions.find((revision) => revision.revisionNumber === saved.currentRevisionNumber) ?? null);
   const loadedCalculationId = useRef(saved?.calculationId ?? null);
@@ -267,7 +270,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const materialState = materialByCalculator[selectedId] ?? defaultMaterialState;
   const calculation = useMemo(() => computeConstruction(definition, values, usesMaterials ? materialState : null, profiles), [definition, values, usesMaterials, materialState, profiles]);
   const { inputsReady, materialTakeoff, timberLayout, underlayLayout } = calculation;
-  // M9.15.1: the KARMI detail without the rafter layout; display only, never saved or part of the completeness.
+  // M9.15.1: the Karmi detail without the rafter layout; display only, never saved or part of the completeness.
   const previewJoints = useMemo(() => calculation.birdsmouths ? null : previewPlaneBirdsmouths(definition, values, usesMaterials ? materialState : null, profiles, calculation.geometry), [calculation.birdsmouths, calculation.geometry, definition, values, usesMaterials, materialState, profiles]);
   const raw = useMemo(() => inputRecord(definition.fields, values), [definition.fields, values]);
   const overhangNotice = roofShapeOf(values) === "gable" && usesMaterials && [nullableMm(raw, "frontGableOverhangMm"), nullableMm(raw, "rearGableOverhangMm")].some((value) => overhangFromField(value).state === "not-provided");
@@ -311,7 +314,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const headingContent = <header className="construction-suite-title"><div><p className="section-eyebrow">ELLENŐRZÖTT GEOMETRIAI SZÁMÍTÁS</p><h2>{definition.reference.title}</h2></div></header>;
   const noteContent = <><p className="construction-suite-note">{definition.note}</p>{activeGuide && <MeasurementGuidance compact guide={activeGuide} />}</>;
   const connectionGroups = [
-    { title: "1. Talpszelemen és szarufa (KARMI)", joint: "seat", optional: false, keys: ["seatCutHeightMm", "rafterDepthMm", "plateWidthMm"] },
+    { title: "1. Talpszelemen és szarufa (Karmi)", joint: "seat", optional: false, keys: ["seatCutHeightMm", "rafterDepthMm", "plateWidthMm"] },
     { title: "2. Derékszelemen · opcionális", joint: "purlin", optional: true, keys: ["purlinFaceMm", "purlinTopMm"] },
     { title: "3. Gerinckapcsolat", joint: "ridge", optional: false, keys: ["ridgeJoint", "ridgeBoardThicknessMm", "ridgePurlinWidthMm", "ridgePurlinTopMm"] },
   ];
@@ -329,7 +332,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   });
   const connectionFieldsContent = usesMaterials && connectionFields.length > 0 && <section className="construction-suite-connections is-flat" aria-labelledby="rafter-connections-heading">
     <h3 id="rafter-connections-heading">Szarufák és bevágások</h3>
-    <FeatureToggle id="birdsmouth" title="KARMI és csatlakozások" hint="Szarufabevágások, szelemen- és gerinckapcsolatok méretezése." checked={values.birdsmouth === "true"} onChange={(checked) => updateValue("birdsmouth", String(checked))} />
+    <FeatureToggle id="birdsmouth" title="Karmi és csatlakozások" hint="Szarufabevágások, szelemen- és gerinckapcsolatok méretezése." checked={values.birdsmouth === "true"} onChange={(checked) => updateValue("birdsmouth", String(checked))} />
     <>{values.birdsmouth === "true" && <><RafterMaterialSpecInput profiles={profiles} catalogError={catalogError} state={materialState.specs.rafter} jointsOn onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: { ...materialState, specs: { ...materialState.specs, rafter: next } } })); markDirty(); }} /><p className="construction-suite-field-help">A bevágási rajz a „Szarufa vágásai” nézetben jelenik meg; a szarufaosztás külön, az Anyagszükséglet alatt kérhető.</p></>}{values.birdsmouth === "true" && renderConnectionGroups()}</>
   </section>;
   const fieldsContent = <>
@@ -357,14 +360,14 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
       : "Az érintett eredmény és rajz nem használható. Javítsd a hibás vagy nem támogatott adatot.";
   const cutListSection = (title: string, rows: readonly { lengthMm: number; count: number }[]) => rows.length === 0 ? null
     : <div key={title}><h4>{title}</h4><ol className="construction-suite-cut-list">{rows.map((row, index) => <li key={row.lengthMm}><span>{index + 1}.</span><strong>{formatNumber(row.lengthMm)} mm</strong><span>{row.count} db</span></li>)}</ol></div>;
-  // M9.15.3: the KARMI preview and the material takeoff are two functions with their own state (display only).
+  // M9.15.3: the Karmi preview and the material takeoff are two functions with their own state (display only).
   const karmiOn = usesMaterials && values.birdsmouth === "true";
   const karmiState = karmiOn ? karmiStatusText(jointStatuses.filter((item) => item.joint === "seat") as readonly { status: string; missing?: readonly string[]; reason?: string }[], Boolean(calculation.birdsmouths ?? previewJoints)) : null;
   const materialRequested = timberOnly || Object.values(materialState.requested).some(Boolean);
   const materialText = !usesMaterials ? null : !materialRequested ? "Anyagmennyiségi számításhoz válassz anyagcsoportot."
     : calculation.completeness.status === "complete" ? "Az anyagkimutatás elkészült." : "Az anyagkimutatás még nem teljes: lásd az alábbi állapotot.";
   const featureStatus = usesMaterials && (karmiState || materialText) ? <section className="construction-suite-feature-status" aria-label="Funkciók állapota">
-    {karmiState && <p className={`construction-suite-joint-state is-${karmiState.tone}`}><strong>KARMI és csatlakozások</strong> {karmiState.label}</p>}
+    {karmiState && <p className={`construction-suite-joint-state is-${karmiState.tone}`}><strong>Karmi és csatlakozások</strong> {karmiState.label}</p>}
     {materialText && <p className="construction-suite-joint-state"><strong>Anyagszükséglet</strong> {materialText}</p>}
   </section> : null;
   const statusContent = <>
@@ -486,10 +489,16 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     pendingSavedInput.current = null;
     if (saved && organizationId) router.replace(`/kalkulatorok?organization=${encodeURIComponent(organizationId)}&calculator=${encodeURIComponent(selectedId)}`, { scroll: false });
   };
+  const canTransferFields = (selectedId === "roof.material-takeoff" || selectedId === "roof.timber-cutlist");
   const independentContent = canSave && organizationId
-    ? <ConstructionSavePanel organizationId={organizationId} calculatorId={selectedId} definition={definition} session={session} input={snapshotInput} liveOutput={liveOutput} saveable={isSaveableComputation(calculation)} onDiscard={discardMemory}
-      onSessionChange={(next) => { if (next.revisionNumber > session.revisionNumber) locallySavedCalculationId.current = next.calculationId; setSessions((current) => ({ ...current, [selectedId]: next })); setDirtyDrafts((current) => ({ ...current, [selectedId]: next.revisionNumber > session.revisionNumber ? false : next.name.trim() !== session.savedName || Boolean(current[selectedId]) })); }} onLoadRevision={loadRevision} onPendingChange={setSavePending}
-      planLinks={saved && saved.calculationId === session.calculationId ? planLinks : null} planLinksUnavailable={Boolean(saved && saved.calculationId === session.calculationId && planLinks === null)} />
+    ? <>
+      {canTransferFields && <ConstructionFieldTransferControl organizationId={organizationId}
+        onApply={(fields, revisionId) => { setDrafts((current) => mergeCalculatorDraft(current, selectedId, { ...fields, birdsmouth: "true" })); setDraftEpoch((epoch) => epoch + 1); setDirtyDrafts((current) => ({ ...current, [selectedId]: true })); setTransferSource({ calculatorId: selectedId, revisionId }); }} />}
+      <ConstructionSavePanel organizationId={organizationId} calculatorId={selectedId} definition={definition} session={session} input={snapshotInput} liveOutput={liveOutput} saveable={isSaveableComputation(calculation)} onDiscard={discardMemory}
+        onSessionChange={(next) => { if (next.revisionNumber > session.revisionNumber) locallySavedCalculationId.current = next.calculationId; setSessions((current) => ({ ...current, [selectedId]: next })); setDirtyDrafts((current) => ({ ...current, [selectedId]: next.revisionNumber > session.revisionNumber ? false : next.name.trim() !== session.savedName || Boolean(current[selectedId]) })); }} onLoadRevision={loadRevision} onPendingChange={setSavePending}
+        planLinks={saved && saved.calculationId === session.calculationId ? planLinks : null} planLinksUnavailable={Boolean(saved && saved.calculationId === session.calculationId && planLinks === null)}
+        sourceCalculationRevisionId={transferSource?.calculatorId === selectedId ? transferSource.revisionId : null} onSourceConsumed={() => setTransferSource(null)} />
+    </>
     : <p className="construction-suite-independent">Az eredmény helyi előnézet. Nem mentődik ügyfélhez, projekthez, felméréshez, anyaglistához, munkanaplóhoz vagy ajánlathoz.</p>;
   const workspace = !definitionLoaded
     ? <div className="construction-suite-workspace is-loading" role={loadErrorId === selectedId ? "alert" : "status"} aria-live="polite">

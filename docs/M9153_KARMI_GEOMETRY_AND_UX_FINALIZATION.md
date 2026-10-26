@@ -1,7 +1,7 @@
-# M9.15.3 — kiosztásmentes KARMI-geometria és külön funkcióállapotok
+# M9.15.3 — kiosztásmentes Karmi-geometria és külön funkcióállapotok
 
 ## Státusz: PARTIAL
-Kész és bizonyított: a fiktív 100 000 mm-es kiosztás megszűnt; külön KARMI- és anyagállapot. **NOT VERIFIED**: mentés–újranyitás E2E, valódi telefonteszt, termékalapú szarufa böngészőben (az ideiglenes útvonalon nincs aktív katalógustermék; domain-szinten tesztelve).
+Kész és bizonyított: a fiktív 100 000 mm-es kiosztás megszűnt; külön Karmi- és anyagállapot. **NOT VERIFIED**: mentés–újranyitás E2E, valódi telefonteszt, termékalapú szarufa böngészőben (az ideiglenes útvonalon nincs aktív katalógustermék; domain-szinten tesztelve).
 
 ## 1. A korábbi workaround szerepe
 `planeBirdsmouthsFor` a `RoofTimberLayout` szegmenseiből kapta a leghosszabb ereszről induló szarufavonalat. Az M9.15.1–2 előnézet ehhez egy szintetikus, 100 000 mm-es tengelytávú layoutot épített. Ez a rögzített kiosztás megszűnt.
@@ -16,7 +16,7 @@ Kész és bizonyított: a fiktív 100 000 mm-es kiosztás megszűnt; külön KAR
 Bizonyított (teszt): nyeregtető, félnyeregtető (shed). Nem támogatott, nincs előnézet (teszt): konty, sátor, félkonty, L, T; a manzárd síkjai szintén kiesnek. Ott a „Faanyag” kiosztás és tengelytáv kell. Nem történt bővítés.
 
 ## 4. Külön állapotok (UI)
-Az eredmények élén „Funkciók állapota”: **KARMI és csatlakozások** (pl. „A megadott geometria alapján a bevágási előnézet elkészült.” / „A bevágáshoz még hiányzik: …” / hibaok / „csak szarufakiosztással számolható”) és **Anyagszükséglet** („Anyagmennyiségi számításhoz válassz anyagcsoportot.” / elkészült / nem teljes). `karmiStatusText` (`rafter-connection-fields.ts`). A teljességi és mentési státusz, szövegei és szabályai változatlanok. Kapcsolók: négy kombináció működik, nincs új szarufa-kapcsoló, a keresztmetszet-szerkesztő nem duplikálódik.
+Az eredmények élén „Funkciók állapota”: **Karmi és csatlakozások** (pl. „A megadott geometria alapján a bevágási előnézet elkészült.” / „A bevágáshoz még hiányzik: …” / hibaok / „csak szarufakiosztással számolható”) és **Anyagszükséglet** („Anyagmennyiségi számításhoz válassz anyagcsoportot.” / elkészült / nem teljes). `karmiStatusText` (`rafter-connection-fields.ts`). A teljességi és mentési státusz, szövegei és szabályai változatlanok. Kapcsolók: négy kombináció működik, nincs új szarufa-kapcsoló, a keresztmetszet-szerkesztő nem duplikálódik.
 
 ## 5. Bizonyítékok
 Domain/feature tesztek (`construction-computation.test.ts`, `rafter-connection-fields.test.ts`): kiosztásmentes nyereg/shed = rétegút (300/900/2500 mm), független kézi számítás 24 kombinációra (hajlás 20/35/45°, ereszkiülés 0/400 mm, szelvény 160/200, HAP 60/100: futás 4000, ereszkiülés, függővágás = d/cos α − HAP, ülék = függővágás/tan α), nem támogatott formák → null, hip → nincs előnézet, termék = kézi szelvény, nincs hatás a teljességre. Vitest 192 fájl / 1184 teszt PASS (8 fájl/19 skip), ESLint, tsc, `git diff --check`, izolált `npm run build` PASS.

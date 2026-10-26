@@ -91,7 +91,7 @@ describe("birdsmouth in the roof calculators (M9.3 phase 1)", () => {
   // 35°, h 200, HAP 100: H = 200/cos35; plumb = H − 100; seat = plumb / tan35 (same formula as the rafter-cut calculator).
   const rad = 35 * Math.PI / 180, plumb = 200 / Math.cos(rad) - 100, seat = plumb / Math.tan(rad);
   const withSection: RoofMaterialUiState = { ...material, specs: { ...material.specs, rafter: { mode: "manual", profileId: null, entered: { sectionWidthMm: 80, sectionHeightMm: 200 } } } };
-  const line = (rows: readonly { label: string; value: unknown }[], end: string) => rows.find((row) => row.label.startsWith("KARMI · 35°") && row.label.endsWith(end))?.value;
+  const line = (rows: readonly { label: string; value: unknown }[], end: string) => rows.find((row) => row.label.startsWith("Karmi · 35°") && row.label.endsWith(end))?.value;
 
   it("adds the notch lines when requested and keeps the result complete", () => {
     const result = computeConstruction(timber, { ...timberValues, birdsmouth: "true", seatCutHeightMm: "100" }, withSection, DEMO_MATERIAL_PROFILES);
@@ -129,7 +129,7 @@ describe("birdsmouth in the roof calculators (M9.3 phase 1)", () => {
     const coveringOnly: RoofMaterialUiState = { ...withSection, requested: { timber: false, underlay: true, covering: false } };
     const result = computeConstruction(takeoff, { ...timberValues, birdsmouth: "true", seatCutHeightMm: "" }, coveringOnly, DEMO_MATERIAL_PROFILES);
     expect(result.birdsmouths).toBeNull();
-    expect(result.completeness.reasons.some((reason) => reason.includes("KARMI") || reason.includes("Talpszelemen"))).toBe(false);
+    expect(result.completeness.reasons.some((reason) => reason.includes("Karmi") || reason.includes("Talpszelemen"))).toBe(false);
   });
 });
 
@@ -268,7 +268,7 @@ describe("construction snapshots", () => {
   });
 });
 
-describe("KARMI preview without the rafter layout (M9.15.1)", () => {
+describe("Karmi preview without the rafter layout (M9.15.1)", () => {
   const takeoff = definitions["roof.material-takeoff"];
   const manual = { mode: "manual" as const, profileId: null, entered: { sectionWidthMm: 80, sectionHeightMm: 200 } };
   // Rafter layout off (timber not requested), spacing never entered.

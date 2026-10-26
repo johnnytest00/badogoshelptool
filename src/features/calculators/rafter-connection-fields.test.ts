@@ -30,11 +30,28 @@ describe("jointGroupState (M9.15.1)", () => {
 
 import { karmiStatusText } from "./rafter-connection-fields";
 describe("karmiStatusText (M9.15.3)", () => {
-  it("states the KARMI preview separately from the material takeoff", () => {
+  it("states the Karmi preview separately from the material takeoff", () => {
     expect(karmiStatusText([{ status: "computed" }], true)).toMatchObject({ tone: "ok", label: expect.stringContaining("bevágási előnézet elkészült") });
     expect(karmiStatusText([{ status: "computed" }, { status: "not-applicable" }], true).tone).toBe("limited");
     expect(karmiStatusText([{ status: "incomplete", missing: ["HAP"] }], true).label).toContain("hiányzik: HAP");
     expect(karmiStatusText([{ status: "invalid", reason: "túl nagy" }], true).tone).toBe("invalid");
     expect(karmiStatusText([], false).tone).toBe("unsupported");
+  });
+});
+
+import { rafterJointTransferValues } from "./rafter-connection-fields";
+describe("rafterJointTransferValues (M10 Fázis 0)", () => {
+  it("keeps only the HAP/ridge-connection keys that have a value", () => {
+    expect(rafterJointTransferValues({ seatCutHeightMm: "120", ridgeJoint: "purlin", ridgePurlinWidthMm: "", horizontalHalfSpanMm: "3000", riseMm: "1200" }))
+      .toEqual({ seatCutHeightMm: "120", ridgeJoint: "purlin" });
+  });
+  it("returns nothing when the source has none of the transferable fields", () => {
+    expect(rafterJointTransferValues({ horizontalHalfSpanMm: "3000" })).toEqual({});
+  });
+  it("only transfers fields that are also keys of the two target calculators", () => {
+    const targetKeys = new Set(definitions["roof.material-takeoff"].fields.map((field) => field.key));
+    for (const key of Object.keys(rafterJointTransferValues({ seatCutHeightMm: "1", plateWidthMm: "1", purlinFaceMm: "1", purlinTopMm: "1", ridgeJoint: "board", ridgeBoardThicknessMm: "1", ridgePurlinWidthMm: "1", ridgePurlinTopMm: "1" }))) {
+      expect(targetKeys.has(key)).toBe(true);
+    }
   });
 });

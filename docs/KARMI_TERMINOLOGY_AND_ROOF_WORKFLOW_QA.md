@@ -1,4 +1,4 @@
-# KARMI terminológia és tető workflow QA
+# Karmi terminológia és tető workflow QA
 
 ## Státusz
 
@@ -10,9 +10,9 @@ Ez a riport az M9.13 célzott hatókörét és bizonyítékait rögzíti. A fel�
 
 Megvalósult:
 
-- az aktív magyar felület „madárszáj” szövegeinek **KARMI**-ra cseréje;
+- az aktív magyar felület „madárszáj” szövegeinek **Karmi**-ra cseréje;
 - HAP-segédszövegek, hiányzóadat-üzenetek, eredménysorok, csomópont-részletrajzok és a két tetős anyagkalkulátor címkéinek egységesítése;
-- célzott terminológiai regresszió, amely az aktív tető-kalkulátor szövegét KARMI-jelenlétre és a régi felületi kifejezés hiányára ellenőrzi;
+- célzott terminológiai regresszió, amely az aktív tető-kalkulátor szövegét Karmi-jelenlétre és a régi felületi kifejezés hiányára ellenőrzi;
 - kitöltött rafter-cut, material-takeoff és timber-cutlist workflow ellenőrzése mentés nélkül.
 
 Szándékosan nem változott:
@@ -59,11 +59,11 @@ Nyereg-jellegű rafter-cut bemenetek:
 | talpszelemen-szélesség ellenőrzéshez | 15 cm |
 | gerinckapcsolat | Szembefutó szarufák |
 
-Bizonyított eredmény: teljes kalkulációs eredmény, 530,9 cm teljes szarufahossz, 34,027° tetőhajlás, KARMI-részletrajz és „Mit hol jelölj” lista. A Talpszelemen és Derékszelemen részletnézet váltható volt; a rajz vágáséleket, méreteket és a geometriai túlnyúlás figyelmeztetését mutatta.
+Bizonyított eredmény: teljes kalkulációs eredmény, 530,9 cm teljes szarufahossz, 34,027° tetőhajlás, Karmi-részletrajz és „Mit hol jelölj” lista. A Talpszelemen és Derékszelemen részletnézet váltható volt; a rajz vágáséleket, méreteket és a geometriai túlnyúlás figyelmeztetését mutatta.
 
 ### 2. Tetőanyag-kimutatás — PASS kézi DEMO fedési adatokkal
 
-Nyeregtető bemenetek: 1000 cm tetőhossz, 800 cm tetőszélesség, 35°, 40 cm ereszkiülés. Bekapcsolva: Szarufa és léc, Alátétfólia, Fedőtábla, valamint a „Szarufacsatlakozások számítása (KARMI, szelemenek, gerinc)” blokk.
+Nyeregtető bemenetek: 1000 cm tetőhossz, 800 cm tetőszélesség, 35°, 40 cm ereszkiülés. Bekapcsolva: Szarufa és léc, Alátétfólia, Fedőtábla, valamint a „Szarufacsatlakozások számítása (Karmi, szelemenek, gerinc)” blokk.
 
 Kiosztási és csomóponti adatok: szarufa 60 cm, léc 30 cm, szarufa 8×20 cm, léc 5×5 cm, HAP 10 cm, talpszelemen 15 cm, derékszelemen 200/135 cm, szembefutó szarufák.
 
@@ -78,9 +78,9 @@ Gyártói termékválasztással a workflow ebben a munkamenetben nem lett bizony
 
 ### 3. Tetőszerkezet faanyag és vágáslista — PASS
 
-Nyeregtetőn a 1000/800 cm, 35°, 60/30 cm kiosztás és a 8×20 / 5×5 cm kézi keresztmetszetek után a KARMI-csomóponti blokk HAP 10 cm, talpszelemen 15 cm és derékszelemen 200/135 cm adatokkal teljes eredményt adott.
+Nyeregtetőn a 1000/800 cm, 35°, 60/30 cm kiosztás és a 8×20 / 5×5 cm kézi keresztmetszetek után a Karmi-csomóponti blokk HAP 10 cm, talpszelemen 15 cm és derékszelemen 200/135 cm adatokkal teljes eredményt adott.
 
-Bizonyított eredmény: 36 szarufa, 175,792 m geometriai összhossz, 35 léc, 350 m geometriai összhossz, továbbá KARMI-vágásrajz, Talpszelemen/Derékszelemen részlet és a felsővég-vágás korlátainak jelzése.
+Bizonyított eredmény: 36 szarufa, 175,792 m geometriai összhossz, 35 léc, 350 m geometriai összhossz, továbbá Karmi-vágásrajz, Talpszelemen/Derékszelemen részlet és a felsővég-vágás korlátainak jelzése.
 
 ## Tetőforma-mátrix
 
@@ -95,8 +95,8 @@ Ez a mátrix nem állít teljes framing- vagy statikai támogatást. A felület 
 
 ## UI és paritás QA
 
-- Desktop Brave képernyőn az aktív KARMI/HAP szövegek, a kézi DEMO mezők és a részletrajz láthatóan megjelentek; fedés vagy elcsúszás nem volt látható.
-- Accessibility állapotban a számított eredmények, a kiválasztott részletnézetek és a `KARMI` feliratok visszaolvashatók voltak.
+- Desktop Brave képernyőn az aktív Karmi/HAP szövegek, a kézi DEMO mezők és a részletrajz láthatóan megjelentek; fedés vagy elcsúszás nem volt látható.
+- Accessibility állapotban a számított eredmények, a kiválasztott részletnézetek és a `Karmi` feliratok visszaolvashatók voltak.
 - A `Szarufa vágásai`, `Szarufaosztás`, `Térbeli részlet` és `Tetőforma` nézetválasztó jelen volt a két érintett tetős kalkulátorban.
 - Mobil- és tablet-viewportok külön, mérőszámos ellenőrzése ebben a mérföldkőben **NOT VERIFIED**.
 - Mentés, újranyitás, szerveroldali action és DB-ellenőrzés **NOT RUN**; a kérés terminológiai és lokális workflow-QA hatókörű volt.
@@ -110,7 +110,7 @@ Ez a mátrix nem állít teljes framing- vagy statikai támogatást. A felület 
 
 ## Ismert korlátok és következő mérföldkő-jelöltek
 
-- A KARMI itt geometriai kivágási és jelölési fogalom; statikai, gyártói vagy kivitelezési jóváhagyást nem jelent.
+- A Karmi itt geometriai kivágási és jelölési fogalom; statikai, gyártói vagy kivitelezési jóváhagyást nem jelent.
 - A fedési darabszám kézi DEMO-specifikációból bizonyítható; gyártói katalógus- és árparitás külön anyagkezelői QA-t igényel.
 - Kontyél-/vápaszarufa, komplex felsővágás, teljes framing terv, mobil/tablet viewport-mátrix és mentett szerveres újranyitás külön következő scope.
 
@@ -136,6 +136,6 @@ Ez a mátrix nem állít teljes framing- vagy statikai támogatást. A felület 
 
 ## Átadás
 
-Javasolt commit: `feat(M9.13): standardize KARMI terminology and verify roof workflows`
+Javasolt commit: `feat(M9.13): standardize Karmi terminology and verify roof workflows`
 
 Commit, push, deploy és éles adatbázis-módosítás nem történt.

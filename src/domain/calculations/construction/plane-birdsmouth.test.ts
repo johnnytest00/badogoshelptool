@@ -70,7 +70,7 @@ describe("birdsmouth per roof plane (D1: roof plane = rafter upper edge, roof wi
     const lines = birdsmouthLines(calculatePlaneBirdsmouths(geometry, layout, input));
     expect(lines.map((line) => line.label)).toEqual([...new Set(lines.map((line) => line.label))]);
     expect(lines.find((line) => line.label.endsWith("Vízszintes ülékhossz"))).toMatchObject({ value: expect.closeTo(200, 9), unit: "mm" });
-    expect(lines.every((line) => line.label.startsWith("KARMI · 36,87°"))).toBe(true);
+    expect(lines.every((line) => line.label.startsWith("Karmi · 36,87°"))).toBe(true);
     expect(birdsmouthLines(calculatePlaneBirdsmouths(geometry, layout, {}))).toEqual([]);
   });
 

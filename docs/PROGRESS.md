@@ -1,8 +1,15 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
-## M9.15 — KARMI workflow és szarufatermék-választó (2026-10-26)
+## M9.16 — Karmi-kiszabás szakmai és használhatósági véglegesítése (2026-10-26)
 
-Státusz: **PARTIAL / célzott UI-változás ellenőrizve; a teljes elfogadási mátrix nincs bizonyítva.** A három tetőkalkulátorban a KARMI- és csatlakozási beállítások önálló, „Szarufák és bevágások” nevű blokkba kerültek, a generikus opcionális számítások disclosure-ja mellől. Az anyagkimutatás és a faanyag-vágáslista meglévő bekapcsolója indítja a progresszív mezősort: szarufa-keresztmetszet → talpszelemen/szarufa → derékszelemen → gerinckapcsolat. A közös szarufatermék/kézi keresztmetszet-szerkesztő ebben a szekcióban használható; ugyanaz a state táplálja a bevágásszámítást és a faanyagkalkulátort, duplikált szerkesztő nélkül. A szarufa-kiszabás HAP mezője az alapgeometriában marad.
+Státusz: **PASS WITH LIMITATIONS**. A „Vízszintes ereszkiülés” mező korábbi, lejtésirányú megfogalmazása ("Ereszkiülés a lejtés irányában") javítva mindhárom kalkulátorban (közös definíció, `eaveOverhangMm`); a domainkód bizonyítottan vízszintes vetületi távolságként kezeli ezt az értéket. HAP, derékszelemen és gerinckapcsolat mezői felülvizsgálva: már korábban pontosak, nem módosítottam. Felhasználói jóváhagyás után helyi teszt-bejelentkezéssel (`demo.owner@local.test`) élő böngészős workflow-QA mindhárom kalkulátoron: Karmi-only, anyag-only, kombinált, kontytető-fallback és mentés–újranyitás E2E mind PASS, a 88,00 m² vízszintes vetületi terület pontosan igazolja az ereszkiülés-javítást. Derékszelemen disclosure élő tesztje nem reprodukálta a korábban dokumentált korlátot. NOT VERIFIED maradt: teljes nézetméret×téma mátrix, fizikai telefonteszt, régi snapshotok kompatibilitása. Részletek: [M9.16 QA riport](M916_KARMI_PROFESSIONAL_WORKFLOW_QA.md).
+
+- **Ellenőrzés:** célzott `npx vitest run src/features/calculators` 16 fájl/90 teszt PASS; teljes `npm test` 192 fájl PASS/8 SKIP, 1184 teszt PASS/19 SKIP; `npm run lint` PASS; izolált git worktree-ben `npm run typecheck` és `npm run build` PASS; `git diff --check` PASS.
+- **Javasolt Conventional Commit:** `fix(M9.16): correct the horizontal eave-overhang label and finalize Karmi terminology QA`.
+
+## M9.15 — Karmi workflow és szarufatermék-választó (2026-10-26)
+
+Státusz: **PARTIAL / célzott UI-változás ellenőrizve; a teljes elfogadási mátrix nincs bizonyítva.** A három tetőkalkulátorban a Karmi- és csatlakozási beállítások önálló, „Szarufák és bevágások” nevű blokkba kerültek, a generikus opcionális számítások disclosure-ja mellől. Az anyagkimutatás és a faanyag-vágáslista meglévő bekapcsolója indítja a progresszív mezősort: szarufa-keresztmetszet → talpszelemen/szarufa → derékszelemen → gerinckapcsolat. A közös szarufatermék/kézi keresztmetszet-szerkesztő ebben a szekcióban használható; ugyanaz a state táplálja a bevágásszámítást és a faanyagkalkulátort, duplikált szerkesztő nélkül. A szarufa-kiszabás HAP mezője az alapgeometriában marad.
 
 - **HAP terminológia:** a UI mezőcíme most „Szarufa felső élének magassága a talpszelemen felett (HAP)”. A magyar tetőfedő mesteroktatási jegyzet a „kármi” szót kivágásként használja, de nem ad külön magyar nevet ennek a függőleges bemeneti méretnek. A forrás és geometriai összevetés: [M9.15 riport](M915_KARMI_WORKFLOW_UX.md). A kód és az input adapter mindhárom kalkulátorban ugyanazt a `seatCutHeightMm` bemenetet használja.
 - **Rajz és adat:** a meglévő méretezett áttekintő, csatlakozásválasztó és részletrajz változatlan domain-eredményekből épül. A képletek, snapshotkulcsok, domainazonosítók, mentési validáció és jogosultsági/DB-határok nem változtak. A HAP domain eredménysorának stabil régi címkéje megmaradt; csak a beviteli mező elnevezése változott.
@@ -10,15 +17,15 @@ Státusz: **PARTIAL / célzott UI-változás ellenőrizve; a teljes elfogadási 
 - **Még nem ellenőrzött / korlát:** az új `roof.material-takeoff` és `roof.timber-cutlist` teljes adatbeviteles böngészős workflow-ja, 375 px/812 px/tablet viewportok és téma/szövegméret mátrix, valamint a részleges/hibás csatlakozás-rajz nincs bizonyítva. Nincs új derékszelemen jelenlét-választó vagy új rajzinterakció; a mezők opcionális csoportban vannak, és a már létező csatlakozásválasztó/részletrajz viselkedés maradt. Valódi ácsszakmai peer review nem történt.
 - **Javasolt Conventional Commit:** `feat(M9.15): surface the rafter joint workflow across roof calculators`.
 
-## M9.13 — KARMI terminológiai egységesítés és tető workflow QA (2026-10-26)
+## M9.13 — Karmi terminológiai egységesítés és tető workflow QA (2026-10-26)
 
-Státusz: **PASS WITH LIMITATIONS**. A felhasználói felületen és az aktív kalkulátor-szövegekben a korábbi „madárszáj” megnevezés egységesen **KARMI** lett; a belső `birdsmouth*` típusok, property-k, kulcsok, snapshotok, RPC-k, migrációk és történeti bizonyítékok változatlanok. A célzott terminológiai teszt, az érintett kalkulátortesztje és a kitöltött helyi böngészős workflow-k PASS állapotot adtak. A részletes bemeneteket, eredményeket, korlátokat és a teljes verifikációs naplót a [KARMI terminológia és tető workflow QA riport](KARMI_TERMINOLOGY_AND_ROOF_WORKFLOW_QA.md) tartalmazza.
+Státusz: **PASS WITH LIMITATIONS**. A felhasználói felületen és az aktív kalkulátor-szövegekben a korábbi „madárszáj” megnevezés egységesen **Karmi** lett; a belső `birdsmouth*` típusok, property-k, kulcsok, snapshotok, RPC-k, migrációk és történeti bizonyítékok változatlanok. A célzott terminológiai teszt, az érintett kalkulátortesztje és a kitöltött helyi böngészős workflow-k PASS állapotot adtak. A részletes bemeneteket, eredményeket, korlátokat és a teljes verifikációs naplót a [Karmi terminológia és tető workflow QA riport](KARMI_TERMINOLOGY_AND_ROOF_WORKFLOW_QA.md) tartalmazza.
 
-- **Aktív felület:** `roof.rafter-cut`, `roof.material-takeoff` és `roof.timber-cutlist` látható szövegei, HAP-/csomópont-segédek, eredménysorok és rajzfeliratok KARMI-t használnak.
-- **Böngészős bizonyíték:** helyi, hitelesített DEMO Brave munkamenetben mentés nélkül ellenőrizve: kitöltött szarufa-kiszabás KARMI-részletrajzzal; teljes nyereg tetőanyag-kimutatás kézi, `DEMO` forrású alátét- és fedőtábla-adatokkal; kitöltött faanyag-vágáslista; konty- és sátortető geometriai smoke, dokumentált nem támogatott felsővágásokkal.
+- **Aktív felület:** `roof.rafter-cut`, `roof.material-takeoff` és `roof.timber-cutlist` látható szövegei, HAP-/csomópont-segédek, eredménysorok és rajzfeliratok Karmi-t használnak.
+- **Böngészős bizonyíték:** helyi, hitelesített DEMO Brave munkamenetben mentés nélkül ellenőrizve: kitöltött szarufa-kiszabás Karmi-részletrajzzal; teljes nyereg tetőanyag-kimutatás kézi, `DEMO` forrású alátét- és fedőtábla-adatokkal; kitöltött faanyag-vágáslista; konty- és sátortető geometriai smoke, dokumentált nem támogatott felsővágásokkal.
 - **Adatbiztonság:** DB-migráció, mentés, éles Supabase-művelet, commit és deploy nem történt. A kézi anyagadatok csak helyi előnézetben szerepeltek, gyártói vagy áradatként nem lettek bemutatva.
 - **Korlát:** a gyártói termékkatalógusos fedés workflow nem volt igazolható kiválasztott termékkel; a rendszer ezt helyesen hiányzó specifikációként jelzi. A mobil/tablet nézet e mérföldkőben nem kapott külön viewport-szintű újramérést.
-- **Javasolt Conventional Commit:** `feat(M9.13): standardize KARMI terminology and verify roof workflows`.
+- **Javasolt Conventional Commit:** `feat(M9.13): standardize Karmi terminology and verify roof workflows`.
 
 ## M9.12 — Egymást fedő csomópont-buborékok javítása a szarufarajzokon (2026-10-26)
 
@@ -1456,6 +1463,6 @@ Részletes történeti bejegyzés: [archívum](archive/PROGRESS_HISTORY.md#histo
 
 Részletes történeti bejegyzés: [archívum](archive/PROGRESS_HISTORY.md#history-216).
 
-- M9.15.1 (PARTIAL): a „Szarufa vágásai” KARMI-rajz a „Szarufa és léc” kiosztás nélkül is megjelenik (megjelenítési előnézet, számítás/mentés változatlan). Részletek: `docs/M9151_KARMI_WORKFLOW_FINALIZATION.md`.
-- M9.15.2 (PARTIAL): a KARMI-előnézet bizonyított előfeltételhez kötött (téglalap síkok: nyereg/félnyereg), kapcsolócsempés „KARMI és csatlakozások” / „Anyagszükséglet” UI. Részletek: `docs/M9152_KARMI_PREVIEW_VERIFICATION.md`.
-- M9.15.3 (PARTIAL): a KARMI-előnézet kiosztás nélkül, a kanonikus tetősíkokból számol (nyereg/félnyereg bizonyítva), külön KARMI- és anyagállapot. Részletek: `docs/M9153_KARMI_GEOMETRY_AND_UX_FINALIZATION.md`.
+- M9.15.1 (PARTIAL): a „Szarufa vágásai” Karmi-rajz a „Szarufa és léc” kiosztás nélkül is megjelenik (megjelenítési előnézet, számítás/mentés változatlan). Részletek: `docs/M9151_KARMI_WORKFLOW_FINALIZATION.md`.
+- M9.15.2 (PARTIAL): a Karmi-előnézet bizonyított előfeltételhez kötött (téglalap síkok: nyereg/félnyereg), kapcsolócsempés „Karmi és csatlakozások” / „Anyagszükséglet” UI. Részletek: `docs/M9152_KARMI_PREVIEW_VERIFICATION.md`.
+- M9.15.3 (PARTIAL): a Karmi-előnézet kiosztás nélkül, a kanonikus tetősíkokból számol (nyereg/félnyereg bizonyítva), külön Karmi- és anyagállapot. Részletek: `docs/M9153_KARMI_GEOMETRY_AND_UX_FINALIZATION.md`.

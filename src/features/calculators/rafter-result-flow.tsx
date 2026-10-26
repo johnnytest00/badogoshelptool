@@ -25,7 +25,7 @@ export function RafterCutFlow({ status, drawing, main, limits, details }: Readon
 export function RafterJointsInvitation({ onEnable }: Readonly<{ onEnable: () => void }>) {
   return <section className="technical-drawing is-compact rafter-joints-invitation" role="status">
     <div className="technical-drawing-header"><div className="technical-drawing-title"><h2>Szarufa vágásai · még nincs kiszámítva</h2></div></div>
-    <p className="construction-suite-limit">A KARMI és a szelemencsatlakozások rajzához a tetőformán felül két adat kell: a <strong>szarufa keresztmetszet-magassága</strong> és a <strong>HAP</strong> — a szarufa felső élének magassága a talpszelemen felett. Derékszelemen és gerinckapcsolat megadása opcionális.</p>
+    <p className="construction-suite-limit">A Karmi és a szelemencsatlakozások rajzához a tetőformán felül két adat kell: a <strong>szarufa keresztmetszet-magassága</strong> és a <strong>HAP</strong> — a szarufa felső élének magassága a talpszelemen felett. Derékszelemen és gerinckapcsolat megadása opcionális.</p>
     <button type="button" className="secondary-button" onClick={onEnable}>Szarufacsatlakozások bekapcsolása</button>
   </section>;
 }

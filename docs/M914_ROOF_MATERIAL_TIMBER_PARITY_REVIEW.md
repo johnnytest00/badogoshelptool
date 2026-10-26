@@ -13,7 +13,7 @@
 | 175,792 m vs. 193,371 m szarufa-összhossz | **PASS — helyes geometriai különbség** | 175,792 m a 0 mm ereszkiüléses, 4 000 mm-es vízszintes félfutás; 193,371 m a 400 mm ereszkiüléses, 4 400 mm-es vízszintes félfutás eredménye. |
 | Azonos inputú kalkulátoreredmény | **PASS** | A két kalkulátor 10 000 × 8 000 mm, 35°, 400 mm, 600/300 mm bemenetekkel ugyanazt adta: 36 szarufa / 193,371 m és 37 léc / 370 m. |
 | Ereszkiülés kezelése | **PASS** | A gable geometria az ereszkiülést a ferde tetősíkba és a tetősík-polygonba beépíti. |
-| Tényleges fizikai vágáslista | **NOT VERIFIED / támogatottan korlátozott** | A rendszer geometriai vonalakat és névleges hosszt ad, nem gyártási vagy statikai tervet; KARMI-, vágási ráhagyás-, toldás- és száloptimalizálás nincs a timber-layout mennyiségben. |
+| Tényleges fizikai vágáslista | **NOT VERIFIED / támogatottan korlátozott** | A rendszer geometriai vonalakat és névleges hosszt ad, nem gyártási vagy statikai tervet; Karmi-, vágási ráhagyás-, toldás- és száloptimalizálás nincs a timber-layout mennyiségben. |
 
 **Összesített státusz: PASS WITH DOCUMENTATION LIMITATION.** Valódi számítási vagy paritási hiba nem bizonyított. A javítandó pont a M9.13 bizonyítékának pontosítása: a vágáslista futásánál az ereszkiülés nem szerepelt explicit inputként.
 
@@ -188,7 +188,7 @@ A 175,792 m és 193,371 m nem gyártási beszerzési mennyiség. A kód és a UI
 - „Névleges geometriai hosszak, vágási ráhagyás és toldás nélkül”;
 - fizikai framing-layout: támogatottan `unsupported`.
 
-A valódi kiszabási hosszhoz külön kellene kezelni legalább a KARMI/ülékbevágást, végvágásokat, csomóponti levonásokat, kereskedelmi szálhosszakat, toldást, hulladékot és statikai/framing-döntéseket. Ezeket ez a kalkulátor nem állítja elő. A HAP és a KARMI-részlet a kapcsolati geometria ellenőrzését szolgálja; nem írja át a timber-layout alapvonal-hosszát.
+A valódi kiszabási hosszhoz külön kellene kezelni legalább a Karmi/ülékbevágást, végvágásokat, csomóponti levonásokat, kereskedelmi szálhosszakat, toldást, hulladékot és statikai/framing-döntéseket. Ezeket ez a kalkulátor nem állítja elő. A HAP és a Karmi-részlet a kapcsolati geometria ellenőrzését szolgálja; nem írja át a timber-layout alapvonal-hosszát.
 
 Így a **175,792 m megnevezése a jelenlegi „geometriai összhossz” címkével pontos**, de önmagában, az ereszkiülés és a geometriai korlátok feltüntetése nélkül félreérthető lehet.
 

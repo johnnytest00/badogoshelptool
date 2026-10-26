@@ -1,4 +1,4 @@
-# M9.15.2 — KARMI-előnézet megerősítése és workflow-QA
+# M9.15.2 — Karmi-előnézet megerősítése és workflow-QA
 
 ## Státusz: PARTIAL
 A két mesterséges próbatáv megszűnt, helyette bizonyított geometriai előfeltétel van, de a rétegkiosztás-híváshoz egyetlen rögzített tengelytáv még kell (lásd 2.). Mentés–újranyitás: **NOT VERIFIED**.
@@ -16,14 +16,14 @@ Az egyezésből nem következett bizonyítottan a függetlenség: egy hosszabb b
 
 ## 3. Módosítások
 `construction-computation.ts` (előfeltétel + egyszerűsített előnézet), `construction-suite.tsx`, új `feature-toggle.tsx`, `material-spec-editor.tsx`, `rafter-connection-fields.ts`, `globals.css`, tesztek.
-UI: „Szarufák és bevágások” alatt egy „KARMI és csatlakozások” kapcsolócsempe („Szarufabevágások, szelemen- és gerinckapcsolatok méretezése.”), ismétlődő hosszú cím nélkül; „Anyagszükséglet · mennyiségszámítás” alatt három csempe: Faanyag — szarufa és léc, Alátétfólia, Fedőanyag. Mindkét csoport külön kapcsolható; egyik sem kapcsolja be a másikat. Számítási mezők, kulcsok, snapshot nem változtak. Egy szakaszállapot-hiba javítva (kitöltött, de seat nélkül várakozó derékszelemen „Nincs még elég adat”).
+UI: „Szarufák és bevágások” alatt egy „Karmi és csatlakozások” kapcsolócsempe („Szarufabevágások, szelemen- és gerinckapcsolatok méretezése.”), ismétlődő hosszú cím nélkül; „Anyagszükséglet · mennyiségszámítás” alatt három csempe: Faanyag — szarufa és léc, Alátétfólia, Fedőanyag. Mindkét csoport külön kapcsolható; egyik sem kapcsolja be a másikat. Számítási mezők, kulcsok, snapshot nem változtak. Egy szakaszállapot-hiba javítva (kitöltött, de seat nélkül várakozó derékszelemen „Nincs még elég adat”).
 
 ## 4. Böngészős tesztek (beépített pane; ideiglenes, törölt útvonal a bejelentkezési kapu miatt)
 Nyeregtető 10×8 m, 35°, 40 cm ereszkiülés, 8×20 cm szarufa, HAP 10 cm.
-- Tetőanyag-kimutatás, négy kombináció: mindkettő ki → nincs csatlakozási rész, „Válassz legalább egy anyagcsoportot”; csak KARMI → „Szarufa vágásai” nézet, tengelytáv-mező nincs; csak faanyag → tengelytáv-mező, nincs KARMI; mindkettő → KARMI + Szarufaosztás.
+- Tetőanyag-kimutatás, négy kombináció: mindkettő ki → nincs csatlakozási rész, „Válassz legalább egy anyagcsoportot”; csak Karmi → „Szarufa vágásai” nézet, tengelytáv-mező nincs; csak faanyag → tengelytáv-mező, nincs Karmi; mindkettő → Karmi + Szarufaosztás.
 - Függővágás 14,4 cm / 144,155 mm az eredményben és a rajzon; kézi számítás: 200/cos35° − 100 = 144,15 mm ✔. Azonos érték kiosztással és anélkül (90 cm tengelytáv).
-- Szarufa kiszabása: 400/290,08/40/10/20 cm → „Teljes eredmény”, 14,4 cm ✔. Faanyag-vágáslista: KARMI tengelytáv nélkül előnézet („Hiányos”), tengelytávval teljes, 144,155 mm ✔.
-- Derékszelemen nélkül „Nincs megadva · opcionális”; megadva „Számítható”; három gerinckapcsolat (szembefutó, deszka, szelemen) külön számítható, a megfelelő mezőkkel; derékszelemen felső síkja 140 cm → „Hibás…”, a KARMI és a gerinc marad „Számítható”; HAP törlése → „Nincs még elég adat”.
+- Szarufa kiszabása: 400/290,08/40/10/20 cm → „Teljes eredmény”, 14,4 cm ✔. Faanyag-vágáslista: Karmi tengelytáv nélkül előnézet („Hiányos”), tengelytávval teljes, 144,155 mm ✔.
+- Derékszelemen nélkül „Nincs megadva · opcionális”; megadva „Számítható”; három gerinckapcsolat (szembefutó, deszka, szelemen) külön számítható, a megfelelő mezőkkel; derékszelemen felső síkja 140 cm → „Hibás…”, a Karmi és a gerinc marad „Számítható”; HAP törlése → „Nincs még elég adat”.
 - Nézetméretek 375×812, 812×375, 768×1024, 1440×900; sötét és világos (375-ön): nincs vízszintes túlcsordulás, minden érintési cél ≥ 44 px (csempék 65–89 px), rajz 321–719 px, a kapcsoló fókuszkerete látszik. Mérés JS-sel + képernyőkép; szimulált viewport, nem valódi touch.
 
 ## 5. Tesztek

@@ -6,9 +6,9 @@
 **Részletes forrásfájlleltár utolsó felmérése:** F9.37.3 (2026-10-17); a lentebbi fájlszintű export korabeli leltár, nem mai útvonal- vagy aktív fogyasztói bizonyíték. Útvonal vagy hívó állapot előtt ellenőrizd a `src/` fáit és az aktuális `docs/PROJECT_MAP.md`-et.
 **A korabeli leltár hatóköre:** projekt által karbantartott `.ts` / `.tsx` fájlok; build-, dependency- és generált Next.js fájlok kizárva. Az akkori számlálás 454 forrásútvonalat talált.
 
-**Terminológiai megjegyzés (M9.13, 2026-10-26):** az aktív kalkulátor-felületeken és az aktuális felhasználói szövegekben a talpszelemen-bemetszés megnevezése **KARMI**. A lenti mérföldkő-narratíva korabeli, történeti bizonyíték; ezért az abban szereplő régi megnevezéseket nem írtam át visszamenőleg. A belső `birdsmouth*` azonosítók szándékosan változatlanok.
+**Terminológiai megjegyzés (M9.13, 2026-10-26):** az aktív kalkulátor-felületeken és az aktuális felhasználói szövegekben a talpszelemen-bemetszés megnevezése **Karmi**. A lenti mérföldkő-narratíva korabeli, történeti bizonyíték; ezért az abban szereplő régi megnevezéseket nem írtam át visszamenőleg. A belső `birdsmouth*` azonosítók szándékosan változatlanok.
 
-**KARMI workflow (M9.15, 2026-10-26):** a három tetőkalkulátorban önálló „Szarufák és bevágások” szekció emeli ki a meglévő csatlakozás-számítást. Az anyagkimutatás és a faanyag-vágáslista bekapcsolt csatlakozásnál ugyanott engedi kiválasztani a szarufaterméket vagy kézi keresztmetszetet; a közös state táplálja a bevágásszámítást és a faanyagkalkulátort. A HAP mező neve „Szarufa felső élének magassága a talpszelemen felett (HAP)”; részletek és korlátok: [M9.15 riport](docs/M915_KARMI_WORKFLOW_UX.md).
+**Karmi workflow (M9.15, 2026-10-26):** a három tetőkalkulátorban önálló „Szarufák és bevágások” szekció emeli ki a meglévő csatlakozás-számítást. Az anyagkimutatás és a faanyag-vágáslista bekapcsolt csatlakozásnál ugyanott engedi kiválasztani a szarufaterméket vagy kézi keresztmetszetet; a közös state táplálja a bevágásszámítást és a faanyagkalkulátort. A HAP mező neve „Szarufa felső élének magassága a talpszelemen felett (HAP)”; részletek és korlátok: [M9.15 riport](docs/M915_KARMI_WORKFLOW_UX.md).
 
 ## Aktuális funkcióállapot — 2026-10-23
 

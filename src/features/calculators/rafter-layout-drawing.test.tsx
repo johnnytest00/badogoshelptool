@@ -40,6 +40,6 @@ describe("rafter layout drawing", () => {
     const geometry = calculateRoofGeometry(GABLE);
     const layout = calculateRoofTimberLayout(geometry, { rafter: { maxSpacingMm: 600, startInsetMm: 0, endInsetMm: 0 } }) as RoofTimberLayout;
     const content = text(renderToStaticMarkup(<RafterLayoutDrawing geometry={geometry} timberLayout={layout} birdsmouths={calculatePlaneBirdsmouths(geometry, layout, {})} />).replace(/<!-- -->/g, ""));
-    expect(content).toContain("Talpszelemen-KARMI: hiányzó adat · Szarufa keresztmetszet magassága, HAP · szarufa felső élének magassága a talpszelemen felett");
+    expect(content).toContain("Talpszelemen-Karmi: hiányzó adat · Szarufa keresztmetszet magassága, HAP · szarufa felső élének magassága a talpszelemen felett");
   });
 });

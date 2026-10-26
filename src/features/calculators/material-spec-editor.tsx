@@ -120,7 +120,7 @@ type InputsProps = Readonly<{
   rafterSpecInConnections?: boolean;
 }>;
 
-const RAFTER_JOINT_NOTE = "A magasság adja a szarufacsatlakozások (KARMI, szelemenek) bevágás-számításának „Szarufa magassága (keresztmetszet)” bemenetét is.";
+const RAFTER_JOINT_NOTE = "A magasság adja a szarufacsatlakozások (Karmi, szelemenek) bevágás-számításának „Szarufa magassága (keresztmetszet)” bemenetét is.";
 
 export function RafterMaterialSpecInput({ profiles, catalogError, state, onChange, jointsOn }: Readonly<{
   profiles: readonly MaterialProfile[]; catalogError?: boolean; state: SpecState; onChange: (next: SpecState) => void; jointsOn: boolean;

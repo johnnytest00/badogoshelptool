@@ -1,7 +1,7 @@
-# M9.15.1 — KARMI-részletrajz a szarufakiosztás nélkül
+# M9.15.1 — Karmi-részletrajz a szarufakiosztás nélkül
 
 ## Státusz: PARTIAL
-Kész: a KARMI-rajz függetlenítése a „Szarufa és léc”-től, szakaszállapotok, a derékszelemen nyitható csoportja, viewport/téma mérések. Nem készült: új desktop két oszlopos elrendezés (a munkaterület 1440 px-en is csak 741 px széles, a bal oldalt a kalkulátorlista foglalja, ezért az egyoszlopos marad), „van derékszelemen?” választó, valódi telefonteszt, mentés–újranyitás E2E.
+Kész: a Karmi-rajz függetlenítése a „Szarufa és léc”-től, szakaszállapotok, a derékszelemen nyitható csoportja, viewport/téma mérések. Nem készült: új desktop két oszlopos elrendezés (a munkaterület 1440 px-en is csak 741 px széles, a bal oldalt a kalkulátorlista foglalja, ezért az egyoszlopos marad), „van derékszelemen?” választó, valódi telefonteszt, mentés–újranyitás E2E.
 
 ## 1. A függőség oka
 `planeBirdsmouthsFor` (`plane-birdsmouth.ts`) a `RoofTimberLayout.rafters` szarufavonalaiból veszi a tetősíkonkénti futást és ereszkiülést, ezért `computeConstruction` csak kért faanyag + megadott tengelytáv esetén ad `birdsmouths`-ot. A „Szarufa vágásai” nézet ettől függött.
@@ -22,7 +22,7 @@ Nem ellenőrzött: Faanyag-vágáslista böngészőben (csak unit teszt), derék
 
 ## 5b. Szakaszállapotok és derékszelemen (2. kör)
 `jointGroupState` (`rafter-connection-fields.ts`, tesztelve) minden csatlakozási csoport fejléce alatt mutatja: Nincs még elég adat · Számítható · Hibás vagy ellentmondásos geometria · Dokumentált korláttal számítható · Nem támogatott (opcionális, üres derékszelemen: „Nincs megadva · opcionális”). Az állapot a már számított csatlakozásokból származik, csak megjelenítés. A derékszelemen csoport zárt `GlassDisclosure`, nyitva, ha valamely mezője ki van töltve; nem vezettem be jelenlétválasztót, így nincs adatmodell-változás és a régi mentett értékek jelentése sem változik.
-Böngésző (mock, 375×812, 812×375, 768×1024, 1440×900; sötét és világos 375-ön): nincs vízszintes túlcsordulás, a rajz 321–719 px széles, a mezők/gombok ≥ 36 px magasak; HAP + keresztmetszet megadása után a KARMI-állapot „Nincs még elég adat” → „Számítható”. Az ellenőrzés JS-méréssel történt, nem szemrevételezéssel; szimulált viewport, nem valódi touch. Izolált `npm run build` PASS; teljes Vitest 1178 PASS.
+Böngésző (mock, 375×812, 812×375, 768×1024, 1440×900; sötét és világos 375-ön): nincs vízszintes túlcsordulás, a rajz 321–719 px széles, a mezők/gombok ≥ 36 px magasak; HAP + keresztmetszet megadása után a Karmi-állapot „Nincs még elég adat” → „Számítható”. Az ellenőrzés JS-méréssel történt, nem szemrevételezéssel; szimulált viewport, nem valódi touch. Izolált `npm run build` PASS; teljes Vitest 1178 PASS.
 
 ## 6. Korlátok
 - Nem nyeregtetős formáknál (pl. kontyolt) az előnézet tengelytávfüggés miatt elmaradhat; ilyenkor a „Szarufa és léc” szükséges.

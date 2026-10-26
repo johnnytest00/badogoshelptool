@@ -16,8 +16,8 @@ const activeRoofCopy = [
 ].join("\n");
 
 describe("active roof calculator terminology", () => {
-  it("uses KARMI and does not expose the retired Hungarian term", () => {
-    expect(activeRoofCopy).toContain("KARMI");
+  it("uses Karmi and does not expose the retired Hungarian term", () => {
+    expect(activeRoofCopy).toContain("Karmi");
     expect(activeRoofCopy).not.toMatch(/madárszáj/i);
   });
 });

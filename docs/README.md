@@ -5,7 +5,7 @@ Az implementált működéshez a kód, az adatbázis-migrációk és a ténylege
 ## Aktuális belépési pontok
 
 - [Fejlesztési állapot és legutóbbi bizonyíték](PROGRESS.md)
-- [M9.15 KARMI workflow UI/UX riport](M915_KARMI_WORKFLOW_UX.md)
+- [M9.15 Karmi workflow UI/UX riport](M915_KARMI_WORKFLOW_UX.md)
 - [Projekt- és adatfolyam-térkép](PROJECT_MAP.md)
 - [Fejlesztői átadás](CLAUDE_HANDOFF.md)
 - [Codex-eszközleltár](AI_TOOLING.md)

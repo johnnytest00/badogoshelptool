@@ -62,10 +62,14 @@ type Props = Readonly<{
   planLinks?: ConstructionPlanLinks | null;
   /** True only when the server tried and failed to load work logs for this saved calculation. */
   planLinksUnavailable?: boolean;
+  /** M10 Fázis 0: a jelenlegi mezőkbe átvett roof.rafter-cut revízió; a következő mentés calculation_dependencies sorként rögzíti. */
+  sourceCalculationRevisionId?: string | null;
+  /** A forrás elfogyasztása után (sikeres mentés), hogy egy következő, immár saját szerkesztés ne örökölje tovább. */
+  onSourceConsumed?: () => void;
 }>;
 
 /** Save, reopen and revision controls; an unsaved result is always labelled as a local preview. */
-export function ConstructionSavePanel({ organizationId, calculatorId, definition, session, input, liveOutput, saveable, onSessionChange, onLoadRevision, onPendingChange, onDiscard, planLinks = null, planLinksUnavailable = false }: Props) {
+export function ConstructionSavePanel({ organizationId, calculatorId, definition, session, input, liveOutput, saveable, onSessionChange, onLoadRevision, onPendingChange, onDiscard, planLinks = null, planLinksUnavailable = false, sourceCalculationRevisionId = null, onSourceConsumed }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [revisionPending, startRevisionTransition] = useTransition();
@@ -92,7 +96,7 @@ export function ConstructionSavePanel({ organizationId, calculatorId, definition
 
   const save = () => {
     if (!saveable || !nameValid || comparison.incompatible || busy) return;
-    const request = { organizationId, calculationId: session.calculationId, expectedRevisionNumber: session.revisionNumber, name: session.name.trim(), input };
+    const request = { organizationId, calculationId: session.calculationId, expectedRevisionNumber: session.revisionNumber, name: session.name.trim(), input, ...(sourceCalculationRevisionId ? { sourceCalculationRevisionId } : {}) };
     const key = stableJsonStringify(request);
     // A retry of the exact same request reuses its operation id, so a lost response cannot create a second revision.
     if (attempt.current?.key !== key) attempt.current = { key, operationId: generateSecureUuid() };
@@ -103,6 +107,7 @@ export function ConstructionSavePanel({ organizationId, calculatorId, definition
       if (!result.ok) { setMessage({ kind: "error", text: result.error, conflict: result.conflict }); return; }
       attempt.current = null;
       onSessionChange({ ...session, name: request.name, revisionNumber: result.revisionNumber, baselineInput: inputJson, savedName: request.name, viewedRevisionNumber: result.revisionNumber });
+      onSourceConsumed?.();
       setMessage({ kind: "success", text: `Mentve · V${result.revisionNumber}` });
       router.replace(`/kalkulatorok?organization=${organizationId}&calculator=${calculatorId}&calculation=${result.calculationId}`, { scroll: false });
       router.refresh();

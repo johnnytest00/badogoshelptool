@@ -15,9 +15,9 @@ const EDGE_NAME: Record<RafterEndCut["edgeKind"], string> = { ridge: "gerinc", u
 
 /** What to do with one rafter end; only a plumb cut at a ridge or upper edge has a geometric angle. */
 function endText(end: RafterEndCut, birdsmouth: PlaneBirdsmouth | undefined) {
-  if (end.edgeKind === "eave" && birdsmouth?.status === "computed") return "KARMI (bevágás) a talpszelemenen; méretei és kijelölése a „Szarufák és támaszok” rajznál";
+  if (end.edgeKind === "eave" && birdsmouth?.status === "computed") return "Karmi (bevágás) a talpszelemenen; méretei és kijelölése a „Szarufák és támaszok” rajznál";
   if (end.plumbAngleDegrees !== null) return `függővágás ${formatJointValue(end.plumbAngleDegrees)}° a szarufa éléhez (beépítve függőleges)`;
-  if (end.edgeKind === "eave") return "KARMI (bevágás) a talpszelemenen; méreteihez kapcsold be a „Szarufacsatlakozások számítása” jelölőt a Részletes számításnál, vagy használd a „Szarufa kiszabása” kalkulátort";
+  if (end.edgeKind === "eave") return "Karmi (bevágás) a talpszelemenen; méreteihez kapcsold be a „Szarufacsatlakozások számítása” jelölőt a Részletes számításnál, vagy használd a „Szarufa kiszabása” kalkulátort";
   if (end.edgeKind === "hip" || end.edgeKind === "valley") return "ferde (kettős) vágás, a rendszer nem számolja";
   return "a vágás a megadott adatokból nem határozható meg";
 }
@@ -121,8 +121,8 @@ export function RafterLayoutDrawing({ geometry, timberLayout, birdsmouths = null
         {endGroups(rafters, "upperEnd").map(({ end, count }) => <li key={`u${end.edgeKind}${end.plumbAngleDegrees}`}><strong>Felső vég · {EDGE_NAME[end.edgeKind]}</strong> ({count} db): {endText(end, birdsmouth)}</li>)}
         {endGroups(rafters, "lowerEnd").map(({ end, count }) => <li key={`l${end.edgeKind}${end.plumbAngleDegrees}`}><strong>Alsó vég · {EDGE_NAME[end.edgeKind]}</strong> ({count} db): {endText(end, birdsmouth)}</li>)}
       </ul>
-      {birdsmouth?.status === "incomplete" && <p className="material-takeoff-incomplete" role="status"><strong>Talpszelemen-KARMI: hiányzó adat</strong> · {birdsmouth.missing.join(", ")}</p>}
-      {(birdsmouth?.status === "invalid" || birdsmouth?.status === "not-applicable") && birdsmouth.reason && <p className={`material-takeoff-incomplete${birdsmouth.status === "invalid" ? " is-invalid" : ""}`} role={birdsmouth.status === "invalid" ? "alert" : "status"}><strong>Talpszelemen-KARMI:</strong> {birdsmouth.reason}</p>}
+      {birdsmouth?.status === "incomplete" && <p className="material-takeoff-incomplete" role="status"><strong>Talpszelemen-Karmi: hiányzó adat</strong> · {birdsmouth.missing.join(", ")}</p>}
+      {(birdsmouth?.status === "invalid" || birdsmouth?.status === "not-applicable") && birdsmouth.reason && <p className={`material-takeoff-incomplete${birdsmouth.status === "invalid" ? " is-invalid" : ""}`} role={birdsmouth.status === "invalid" ? "alert" : "status"}><strong>Talpszelemen-Karmi:</strong> {birdsmouth.reason}</p>}
       <details className="rafter-joint-all"><summary>Szarufavonalak helye az 1. vonaltól</summary>
         <dl className="rafter-joint-rows">{rafters.map((rafter) => <div key={rafter.id}><dt>{rafter.number}. vonal</dt><dd>{show(rafter.offsetMm)} <small>· {show(rafter.lengthMm)} hosszú</small></dd></div>)}</dl>
       </details>
