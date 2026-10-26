@@ -2,7 +2,7 @@ import { constructionCalculatorCatalog } from "@/domain/calculations/constructio
 
 import { calculateExistingRoofGeometry, calculateRafterGeometry, calculateTriangularTrussGeometry } from "@/domain/calculations/construction/roofs";
 
-import { calculateRafterJoints, HAP_HELP, HAP_LABEL, PURLIN_FACE_HELP, PURLIN_TOP_HELP, rafterJointInputFromFields } from "@/domain/calculations/construction/rafter-joints";
+import { calculateRafterJoints, HAP_HELP, HAP_INPUT_LABEL, PURLIN_FACE_HELP, PURLIN_TOP_HELP, rafterJointInputFromFields } from "@/domain/calculations/construction/rafter-joints";
 
 import { calculateRoofMaterialTakeoff, type RoofMaterialTakeoffInputs } from "@/domain/calculations/roof-material-takeoff";
 
@@ -59,8 +59,8 @@ const jointsOn = { key: "birdsmouth", values: ["true"] } as const;
  * Order: wall plate and HAP, optional purlin, ridge type, then only the data that ridge type needs. Same keys and meaning as roof.rafter-cut.
  */
 const birdsmouthFields: readonly Field[] = [
-  { key: "birdsmouth", label: "Szarufacsatlakozások számítása (madárszáj, szelemenek, gerinc)", unit: "", kind: "checkbox", advanced: true },
-  { key: "seatCutHeightMm", label: HAP_LABEL, help: HAP_HELP, figure: "hap", unit: "mm", advanced: true, visibleWhen: jointsOn },
+  { key: "birdsmouth", label: "Szarufacsatlakozások számítása (KARMI, szelemenek, gerinc)", unit: "", kind: "checkbox", advanced: true },
+  { key: "seatCutHeightMm", label: HAP_INPUT_LABEL, help: HAP_HELP, figure: "hap", unit: "mm", advanced: true, visibleWhen: jointsOn },
   { key: "plateWidthMm", label: "Talpszelemen szélessége · ellenőrzéshez", unit: "mm", advanced: true, positive: true, placeholder: "nincs megadva", visibleWhen: jointsOn },
   { key: "purlinFaceMm", label: "Derékszelemen ereszoldali síkja · vízszintesen a talpszelemen külső síkjától", help: PURLIN_FACE_HELP, unit: "mm", advanced: true, placeholder: "nincs derékszelemen", visibleWhen: jointsOn },
   { key: "purlinTopMm", label: "Derékszelemen felső síkja · a talpszelemen felső síkja felett", help: PURLIN_TOP_HELP, figure: "purlin", unit: "mm", advanced: true, placeholder: "nincs derékszelemen", visibleWhen: jointsOn },
@@ -85,9 +85,9 @@ export function takeoffLines(input: Record<string, unknown>, context: RoofMateri
 
 export const definitions: Record<string, CalculatorDefinition> = {
 "roof.rafter-cut": {
-    reference: reference("roof.rafter-cut"), draw: "rafter", note: "Egyetlen szarufa kiszabása. A hosszak a szarufa felső éle mentén értendők; a HAP a szarufa felső élének magassága a talpszelemen felett, a külső függővágási síkban. A fél fesztáv a talpszelemen külső síkjától (a madárszáj függővágásától) a gerinctengelyig, a gerincemelkedés a talpszelemen felső síkjától a felső élig mérendő.",
-    advancedHelp: "Csomópontok: a szarufa magasságával a madárszáj bevágása, a szelemenek helyével és magasságával a felfekvések számíthatók. A magasságokat a talpszelemen felső síkjától, a vízszintes helyeket a talpszelemen külső síkjától mérd. A bevágás megengedhetőségét a rendszer nem ellenőrzi.",
-    fields: [{ key: "horizontalHalfSpanMm", label: "Fél fesztáv", unit: "mm" }, { key: "riseMm", label: "Gerincemelkedés", unit: "mm" }, { key: "eaveProjectionMm", label: "Vízszintes ereszkiülés", unit: "mm", initial: "0" }, { key: "seatCutHeightMm", label: HAP_LABEL, help: HAP_HELP, figure: "hap", unit: "mm", initial: "0" },
+    reference: reference("roof.rafter-cut"), draw: "rafter", note: "Egyetlen szarufa kiszabása. A hosszak a szarufa felső éle mentén értendők; a HAP a szarufa felső élének magassága a talpszelemen felett, a külső függővágási síkban. A fél fesztáv a talpszelemen külső síkjától (a KARMI függővágásától) a gerinctengelyig, a gerincemelkedés a talpszelemen felső síkjától a felső élig mérendő.",
+    advancedHelp: "Csomópontok: a szarufa magasságával a KARMI bevágása, a szelemenek helyével és magasságával a felfekvések számíthatók. A magasságokat a talpszelemen felső síkjától, a vízszintes helyeket a talpszelemen külső síkjától mérd. A bevágás megengedhetőségét a rendszer nem ellenőrzi.",
+    fields: [{ key: "horizontalHalfSpanMm", label: "Fél fesztáv", unit: "mm" }, { key: "riseMm", label: "Gerincemelkedés", unit: "mm" }, { key: "eaveProjectionMm", label: "Vízszintes ereszkiülés", unit: "mm", initial: "0" }, { key: "seatCutHeightMm", label: HAP_INPUT_LABEL, help: HAP_HELP, figure: "hap", unit: "mm", initial: "0" },
       { key: "rafterDepthMm", label: "Szarufa magassága (keresztmetszet)", unit: "mm", advanced: true, positive: true, placeholder: "nincs megadva" },
       { key: "ridgeJoint", label: "Gerinckapcsolat", unit: "", initial: "opposed", kind: "select", advanced: true, options: RIDGE_JOINT_OPTIONS },
       { key: "ridgeBoardThicknessMm", label: "Gerincdeszka vastagsága", unit: "mm", advanced: true, positive: true, visibleWhen: { key: "ridgeJoint", values: ["board"] } },

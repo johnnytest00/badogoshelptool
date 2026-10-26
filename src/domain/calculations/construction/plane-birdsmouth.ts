@@ -87,11 +87,11 @@ export function calculatePlaneBirdsmouths(geometry: RoofGeometry, layout: RoofTi
     const { planeId, label, pitchDegrees, eaveProjectionMm, tan, direction } = item;
     const halfSpan = item.runMm;
     const base = { planeId, label, pitchDegrees, seat: null, joints: null, missing: [], eaveProjectionMm, plateFit: null, runMm: halfSpan, direction, lineCount: item.planeLayout.count, spacingMm: item.planeLayout.actualSpacingMm };
-    if (!item.eave) return { ...base, eaveProjectionMm: 0, status: "not-applicable", reason: "A tetősík szarufái nem eresznél kezdődnek: itt nincs talpszelemen, madárszáj nem értelmezett." };
+    if (!item.eave) return { ...base, eaveProjectionMm: 0, status: "not-applicable", reason: "A tetősík szarufái nem eresznél kezdődnek: itt nincs talpszelemen, KARMI nem értelmezett." };
     const depth = positive(input.rafterDepthMm), hap = input.seatCutHeightMm;
     const missing = [...(depth === undefined ? [BIRDSMOUTH_DEPTH_LABEL] : []), ...(hap === undefined || !Number.isFinite(hap) ? [BIRDSMOUTH_SEAT_LABEL] : [])];
     if (missing.length || depth === undefined || hap === undefined) return { ...base, status: "incomplete", missing };
-    if (!(halfSpan > 0) || !(tan > 0)) return { ...base, status: "not-applicable", reason: "A tetősík szarufái a talpszelemen síkján nem nyúlnak túl; madárszáj nem értelmezett." };
+    if (!(halfSpan > 0) || !(tan > 0)) return { ...base, status: "not-applicable", reason: "A tetősík szarufái a talpszelemen síkján nem nyúlnak túl; KARMI nem értelmezett." };
     const ridgeIssue = item.upperKind !== "ridge" ? TOP_REASON[item.upperKind] ?? "A szarufák felső vége nem azonosítható tetőélen van: a csatlakozás nincs modellezve."
       : !item.alongRidge ? TOP_REASON.ridgeEnd! : !mainSection(item) ? OTHER_SECTION : null;
     const purlinIssue = purlinRequested && !mainSection(item) ? OTHER_SECTION : null;
@@ -123,7 +123,7 @@ export function planeBirdsmouthsFor(input: Record<string, unknown>, context: Roo
 }
 
 const pitchText = (degrees: number) => new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 2 }).format(degrees);
-const LINE_PREFIX = { seat: "Madárszáj", purlin: "Derékszelemen", ridge: "Gerinc" } as const;
+const LINE_PREFIX = { seat: "KARMI", purlin: "Derékszelemen", ridge: "Gerinc" } as const;
 
 /**
  * Result lines to save with the revision: one set per joint and distinct pitch, so equal planes are not repeated.

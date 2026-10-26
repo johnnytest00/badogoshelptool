@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { calculateRafterJoints, HAP_HELP, HAP_LABEL } from "@/domain/calculations/construction/rafter-joints";
+import { calculateRafterJoints, HAP_HELP, HAP_INPUT_LABEL } from "@/domain/calculations/construction/rafter-joints";
 import { definitions } from "./roof-calculator-definitions";
 import { HapMeasuringHelp } from "./hap-figure";
 import { RafterCutFlow, RafterJointsInvitation, RoofDrawingViews } from "./rafter-result-flow";
@@ -13,7 +13,7 @@ const joints = calculateRafterJoints({ horizontalHalfSpanMm: 4000, riseMm: 3100,
 describe("M9.6 rafter result presentation", () => {
   it("keeps the HAP definition at the field and the sketch in a closed, labelled disclosure in all three calculators", () => {
     for (const id of ["roof.rafter-cut", "roof.material-takeoff", "roof.timber-cutlist"]) {
-      expect(definitions[id]!.fields.find((field) => field.key === "seatCutHeightMm")).toMatchObject({ label: HAP_LABEL, help: HAP_HELP, figure: "hap" });
+      expect(definitions[id]!.fields.find((field) => field.key === "seatCutHeightMm")).toMatchObject({ label: HAP_INPUT_LABEL, help: HAP_HELP, figure: "hap" });
     }
     const html = renderToStaticMarkup(<HapMeasuringHelp />);
     expect(html).toMatch(/^<details class="glass-disclosure hap-help">/);

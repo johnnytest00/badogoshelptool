@@ -3852,6 +3852,10 @@ html[data-glass-frame-free="true"] :is(
 .construction-suite :is(button, a, input, summary):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
 .construction-suite-advanced { margin-top: .15rem; }
 .construction-suite-advanced .glass-disclosure-content { padding-top: .75rem; }
+.construction-suite-connections { display: grid; gap: .7rem; min-width: 0; margin-top: .15rem; padding: .85rem; border: 1px solid var(--glass-border); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-glass) 62%, transparent); }
+.construction-suite-connections > h3, .construction-suite-connection-step h4 { margin: 0; color: var(--foreground); font-size: calc(1rem * var(--tp-text-scale)); }
+.construction-suite-connections > .construction-suite-note, .construction-suite-connections > .construction-suite-field-help { margin: 0; }
+.construction-suite-connection-step { display: grid; gap: .5rem; min-width: 0; padding-top: .65rem; border-top: 1px solid var(--glass-border); }
 .construction-suite-results, .construction-suite-echo { display: grid; gap: .55rem; border: 1px solid var(--glass-border); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-glass) 62%, transparent); padding: .85rem; }
 .construction-suite-results h3, .construction-suite-echo h3 { margin: 0; color: var(--foreground); font-size: 1rem; }
 .construction-suite-results dl, .construction-suite-echo dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; margin: 0; }

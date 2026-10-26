@@ -24,9 +24,11 @@ export const jointName = (id: "seat" | "purlin" | "ridge", ridgeJoint: RidgeJoin
 /** An upper end the roof adapter could not match to a ridge joint is named for what it is, not for the requested ridge type. */
 export const jointDisplayName = (joint: RafterJointResult, ridgeJoint: RidgeJoint) =>
   joint.id === "ridge" && (joint.status === "unsupported" || joint.status === "not-applicable") ? "Felső vég" : jointName(joint.id, ridgeJoint);
-/** HAP as the domain uses it (CRR-01): shown next to the input in every calculator and in the saved input echo. */
+/** Kept stable for domain reasons and saved result rows. */
 export const HAP_LABEL = "HAP · szarufa felső élének magassága a talpszelemen felett";
-export const HAP_HELP = "Függőlegesen mérd: a talpszelemen felső síkjától a szarufa felső éléig, a talpszelemen külső síkjában (a madárszáj függővágásának vonalában). Nem a bevágás mélysége és nem az ülék hossza.";
+/** Plain-language input label; the domain/output label above stays backward compatible. */
+export const HAP_INPUT_LABEL = "Szarufa felső élének magassága a talpszelemen felett (HAP)";
+export const HAP_HELP = "Függőlegesen mérd: a talpszelemen felső síkjától a szarufa felső éléig, a talpszelemen külső síkjában (a KARMI függővágásának vonalában). Nem a bevágás mélysége és nem az ülék hossza.";
 /** Derékszelemen (purlin) seat: same origin as HAP (CRR-01) — x = 0 at the plate's outer plumb plane, y = 0 at its top plane. */
 export const PURLIN_FACE_HELP = "Vízszintesen mérd: a talpszelemen külső függővágási síkjától (ugyanattól a nullaponttól, mint a HAP-nál) a derékszelemen eresz felőli síkjáig, a szarufa futásirányában.";
 export const PURLIN_TOP_HELP = "Függőlegesen mérd: a talpszelemen felső síkjától a derékszelemen felső síkjáig — ugyanaz a magassági nullapont, mint a HAP-nál.";

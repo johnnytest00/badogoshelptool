@@ -117,7 +117,7 @@ type InputsProps = Readonly<{
   jointsOn?: boolean;
 }>;
 
-const RAFTER_JOINT_NOTE = "A magasság adja a szarufacsatlakozások (madárszáj, szelemenek) bevágás-számításának „Szarufa magassága (keresztmetszet)” bemenetét is.";
+const RAFTER_JOINT_NOTE = "A magasság adja a szarufacsatlakozások (KARMI, szelemenek) bevágás-számításának „Szarufa magassága (keresztmetszet)” bemenetét is.";
 
 export function RoofMaterialInputs({ timberOnly, profiles, catalogError, state, onChange, jointsOn = false }: InputsProps) {
   const requested = timberOnly ? { ...state.requested, timber: true } : state.requested;

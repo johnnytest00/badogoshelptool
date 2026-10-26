@@ -9,7 +9,7 @@ export const rafterGeometryInputSchema = z.object({
   riseMm: roofDimension,
   eaveProjectionMm: z.number().finite().nonnegative().max(100_000),
   seatCutHeightMm: z.number().finite().nonnegative().max(100_000).optional(),
-}).refine((value) => (value.seatCutHeightMm ?? 0) < value.riseMm, { path: ["seatCutHeightMm"], message: "A madárszáj vízszintes vágása nem érheti el a gerincemelkedést." });
+}).refine((value) => (value.seatCutHeightMm ?? 0) < value.riseMm, { path: ["seatCutHeightMm"], message: "A KARMI vízszintes vágása nem érheti el a gerincemelkedést." });
 export type RafterGeometryInput = z.infer<typeof rafterGeometryInputSchema>;
 export type RafterGeometry = {
   horizontalRunMm: number;

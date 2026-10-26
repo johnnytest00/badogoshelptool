@@ -27,6 +27,7 @@ import { RafterLayoutDrawing } from "./rafter-layout-drawing";
 import { RafterJointsPanel } from "./rafter-joints-panel";
 import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition } from "./construction-calculator-loading";
 import type { CalculatorDefinition, Field } from "./construction-calculator-types";
+import { isRafterConnectionField } from "./rafter-connection-fields";
 import { computeConstruction, constructionInputSnapshot, constructionOutputSnapshot, inputRecord, isFieldVisible, isSaveableComputation, isSaveableConstructionCalculator, materialStateFromSnapshot, roofGeometryTypeForDefinition, roofShapeOf } from "./construction-computation";
 import { ConstructionSavePanel, newConstructionSession, savedInputComparison, type ConstructionPlanLinks, type ConstructionSaveSession } from "./construction-save-panel";
 import type { SavedConstructionCalculation, SavedConstructionRevision } from "@/features/calculations/construction-data";
@@ -291,7 +292,8 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
     field.focus({ preventScroll: true });
   }, [jumpToHap, values]);
   const basicFields = definition.fields.filter((field) => !field.advanced && isFieldVisible(field, values));
-  const advancedFields = definition.fields.filter((field) => field.advanced && isFieldVisible(field, values));
+  const connectionFields = definition.fields.filter((field) => isRafterConnectionField(field, selectedId) && (selectedId === "roof.rafter-cut" ? field.advanced : true) && isFieldVisible(field, values));
+  const advancedFields = definition.fields.filter((field) => field.advanced && !isRafterConnectionField(field, selectedId) && isFieldVisible(field, values));
   const renderField = (field: Field) => {
     const isRequired = !field.advanced && field.initial === undefined && field.kind !== "checkbox";
     const isLength = !field.kind && field.unit === "mm";
@@ -304,8 +306,25 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   };
   const headingContent = <header className="construction-suite-title"><div><p className="section-eyebrow">ELLENŐRZÖTT GEOMETRIAI SZÁMÍTÁS</p><h2>{definition.reference.title}</h2></div></header>;
   const noteContent = <><p className="construction-suite-note">{definition.note}</p>{activeGuide && <MeasurementGuidance compact guide={activeGuide} />}</>;
+  const connectionGroups = [
+    { title: "1. Talpszelemen és szarufa", keys: ["seatCutHeightMm", "rafterDepthMm", "plateWidthMm"] },
+    { title: "2. Derékszelemen · opcionális", keys: ["purlinFaceMm", "purlinTopMm"] },
+    { title: "3. Gerinckapcsolat", keys: ["ridgeJoint", "ridgeBoardThicknessMm", "ridgePurlinWidthMm", "ridgePurlinTopMm"] },
+  ];
+  const connectionFieldsContent = usesMaterials && connectionFields.length > 0 && <section className="construction-suite-connections" aria-labelledby="rafter-connections-heading">
+    <h3 id="rafter-connections-heading">Szarufák és bevágások</h3>
+    <p className="construction-suite-note">Szarufák méretezése, KARMI, szelemen-csatlakozások és vágási jelölések.</p>
+    <>{renderField(connectionFields.find((field) => field.key === "birdsmouth")!)}{values.birdsmouth === "true" && connectionGroups.map((group) => {
+        const fields = connectionFields.filter((field) => group.keys.includes(field.key));
+        return fields.length ? <div className="construction-suite-connection-step" key={group.title}><h4>{group.title}</h4><div className="construction-suite-form-grid">{fields.map(renderField)}</div></div> : null;
+      })}</>
+  </section>;
   const fieldsContent = <>
-    <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>
+    {selectedId === "roof.rafter-cut" ? <section className="construction-suite-connections" aria-labelledby="rafter-connections-heading"><h3 id="rafter-connections-heading">Szarufák és bevágások</h3><p className="construction-suite-note">Szarufák méretezése, KARMI, szelemen-csatlakozások és vágási jelölések.</p><p className="construction-suite-field-help">A tetőgeometria és a HAP megadása a szarufa alapméreteinek része; a keresztmetszet és a további csatlakozási méretek opcionálisak.</p><div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>{connectionGroups.map((group) => {
+      const fields = connectionFields.filter((field) => group.keys.includes(field.key));
+      return fields.length ? <div className="construction-suite-connection-step" key={group.title}><h4>{group.title}</h4><div className="construction-suite-form-grid">{fields.map(renderField)}</div></div> : null;
+    })}</section> : <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>}
+    {usesMaterials && connectionFieldsContent}
     {usesMaterials && <RoofMaterialInputs timberOnly={timberOnly} profiles={profiles} catalogError={catalogError} state={materialState} jointsOn={values.birdsmouth === "true"} onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: next })); markDirty(); }} />}
     {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="Részletes számítás · opcionális">{definition.advancedHelp && <p className="construction-suite-note">{definition.advancedHelp}</p>}{!definition.advancedHelp && <p className="construction-suite-note">Ezek az adatok további mennyiségi eredményt vagy ellenőrzést kapcsolnak be. Az alapgeometriai számításhoz nem szükségesek.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}
   </>;
