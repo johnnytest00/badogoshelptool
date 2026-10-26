@@ -1,9 +1,9 @@
 begin;
 select plan(17);
 
-select ok(not has_function_privilege('authenticated','public.save_standalone_construction_calculation(uuid,uuid,uuid,integer,text,text,jsonb,jsonb,uuid)','EXECUTE'),
+select ok(not has_function_privilege('authenticated','public.save_standalone_construction_calculation(uuid,uuid,uuid,integer,text,text,jsonb,jsonb,uuid,uuid)','EXECUTE'),
   'browser sessions cannot call the construction writer');
-select ok(has_function_privilege('tetopro_covering_writer','public.save_standalone_construction_calculation(uuid,uuid,uuid,integer,text,text,jsonb,jsonb,uuid)','EXECUTE'),
+select ok(has_function_privilege('tetopro_covering_writer','public.save_standalone_construction_calculation(uuid,uuid,uuid,integer,text,text,jsonb,jsonb,uuid,uuid)','EXECUTE'),
   'the restricted writer can call it');
 select ok(not has_table_privilege('authenticated','public.standalone_construction_save_operations','SELECT'),
   'the operation ledger is not readable by browser sessions');

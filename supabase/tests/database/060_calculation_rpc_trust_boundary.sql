@@ -3,9 +3,9 @@ create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 select plan(27);
 
-select ok(not has_function_privilege('authenticated','public.save_standalone_construction_calculation(uuid,uuid,uuid,integer,text,text,jsonb,jsonb,uuid)','EXECUTE'),
+select ok(not has_function_privilege('authenticated','public.save_standalone_construction_calculation(uuid,uuid,uuid,integer,text,text,jsonb,jsonb,uuid,uuid)','EXECUTE'),
   'authenticated clients cannot call the authoritative construction writer');
-select ok(has_function_privilege('tetopro_covering_writer','public.save_standalone_construction_calculation(uuid,uuid,uuid,integer,text,text,jsonb,jsonb,uuid)','EXECUTE'),
+select ok(has_function_privilege('tetopro_covering_writer','public.save_standalone_construction_calculation(uuid,uuid,uuid,integer,text,text,jsonb,jsonb,uuid,uuid)','EXECUTE'),
   'the restricted server writer remains the only application writer');
 select ok(case when pg_catalog.to_regclass('private.construction_revision_attestations') is null then false
   else not has_table_privilege('authenticated','private.construction_revision_attestations','SELECT') end,
