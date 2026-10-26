@@ -306,7 +306,7 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const noteContent = <><p className="construction-suite-note">{definition.note}</p>{activeGuide && <MeasurementGuidance compact guide={activeGuide} />}</>;
   const fieldsContent = <>
     <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>
-    {usesMaterials && <RoofMaterialInputs timberOnly={timberOnly} profiles={profiles} catalogError={catalogError} state={materialState} onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: next })); markDirty(); }} />}
+    {usesMaterials && <RoofMaterialInputs timberOnly={timberOnly} profiles={profiles} catalogError={catalogError} state={materialState} jointsOn={values.birdsmouth === "true"} onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: next })); markDirty(); }} />}
     {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="Részletes számítás · opcionális">{definition.advancedHelp && <p className="construction-suite-note">{definition.advancedHelp}</p>}{!definition.advancedHelp && <p className="construction-suite-note">Ezek az adatok további mennyiségi eredményt vagy ellenőrzést kapcsolnak be. Az alapgeometriai számításhoz nem szükségesek.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}
   </>;
   // Joint values are saved with the result lines but shown in their own section.
