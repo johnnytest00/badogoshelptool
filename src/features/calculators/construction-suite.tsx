@@ -22,6 +22,7 @@ import { ConstructionCalculatorThumbnail } from "./construction-thumbnails";
 import { RafterJointDrawing, RoofJointDrawing } from "./rafter-joint-drawing";
 import { HapMeasuringHelp } from "./hap-figure";
 import { PurlinMeasuringHelp } from "./purlin-figure";
+import { FeatureToggle } from "./feature-toggle";
 import { RafterCutFlow, RafterJointsInvitation, RoofDrawingViews, type RoofDrawingView } from "./rafter-result-flow";
 import { RafterLayoutDrawing } from "./rafter-layout-drawing";
 import { RafterJointsPanel } from "./rafter-joints-panel";
@@ -319,20 +320,20 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.rafter
   const renderConnectionGroups = () => connectionGroups.map((group) => {
     const fields = connectionFields.filter((field) => group.keys.includes(field.key));
     if (!fields.length) return null;
-    const state = jointGroupState(jointStatuses.filter((item) => item.joint === group.joint).map((item) => item.status), group.optional);
+    const state = jointGroupState(jointStatuses.filter((item) => item.joint === group.joint).map((item) => item.status), group.optional && !group.keys.some((key) => (values[key] ?? "").trim() !== ""));
     const body = <div className="construction-suite-form-grid">{fields.map(renderField)}</div>;
     const status = <p className={`construction-suite-joint-state is-${state.tone}`} role="status">{state.label}</p>;
     return group.optional
       ? <div className="construction-suite-connection-step" key={group.title}><GlassDisclosure summary={group.title} defaultOpen={group.keys.some((key) => (values[key] ?? "").trim() !== "")}>{status}{body}</GlassDisclosure></div>
       : <div className="construction-suite-connection-step" key={group.title}><h4>{group.title}</h4>{status}{body}</div>;
   });
-  const connectionFieldsContent = usesMaterials && connectionFields.length > 0 && <section className="construction-suite-connections" aria-labelledby="rafter-connections-heading">
+  const connectionFieldsContent = usesMaterials && connectionFields.length > 0 && <section className="construction-suite-connections is-flat" aria-labelledby="rafter-connections-heading">
     <h3 id="rafter-connections-heading">Szarufák és bevágások</h3>
-    <p className="construction-suite-note">Szarufák méretezése, KARMI, szelemen-csatlakozások és vágási jelölések.</p>
-    <>{renderField(connectionFields.find((field) => field.key === "birdsmouth")!)}{values.birdsmouth === "true" && <><RafterMaterialSpecInput profiles={profiles} catalogError={catalogError} state={materialState.specs.rafter} jointsOn onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: { ...materialState, specs: { ...materialState.specs, rafter: next } } })); markDirty(); }} /><p className="construction-suite-field-help">A KARMI bevágási rajza a HAP és a keresztmetszet megadása után a „Szarufa vágásai” nézetben jelenik meg; a tetősíkonkénti szarufaosztáshoz külön a „Szarufa és léc” kiosztás szükséges.</p></>}{values.birdsmouth === "true" && renderConnectionGroups()}</>
+    <FeatureToggle id="birdsmouth" title="KARMI és csatlakozások" hint="Szarufabevágások, szelemen- és gerinckapcsolatok méretezése." checked={values.birdsmouth === "true"} onChange={(checked) => updateValue("birdsmouth", String(checked))} />
+    <>{values.birdsmouth === "true" && <><RafterMaterialSpecInput profiles={profiles} catalogError={catalogError} state={materialState.specs.rafter} jointsOn onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: { ...materialState, specs: { ...materialState.specs, rafter: next } } })); markDirty(); }} /><p className="construction-suite-field-help">A bevágási rajz a „Szarufa vágásai” nézetben jelenik meg; a szarufaosztás külön, az Anyagszükséglet alatt kérhető.</p></>}{values.birdsmouth === "true" && renderConnectionGroups()}</>
   </section>;
   const fieldsContent = <>
-    {selectedId === "roof.rafter-cut" ? <section className="construction-suite-connections" aria-labelledby="rafter-connections-heading"><h3 id="rafter-connections-heading">Szarufák és bevágások</h3><p className="construction-suite-note">Szarufák méretezése, KARMI, szelemen-csatlakozások és vágási jelölések.</p><p className="construction-suite-field-help">A tetőgeometria és a HAP megadása a szarufa alapméreteinek része; a keresztmetszet és a további csatlakozási méretek opcionálisak.</p><div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>{renderConnectionGroups()}</section> : <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>}
+    {selectedId === "roof.rafter-cut" ? <section className="construction-suite-connections" aria-labelledby="rafter-connections-heading"><h3 id="rafter-connections-heading">Szarufák és bevágások</h3><p className="construction-suite-field-help">A tetőgeometria és a HAP megadása a szarufa alapméreteinek része; a keresztmetszet és a további csatlakozási méretek opcionálisak.</p><div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>{renderConnectionGroups()}</section> : <div className="construction-suite-form-grid">{basicFields.map(renderField)}</div>}
     {usesMaterials && connectionFieldsContent}
     {usesMaterials && <RoofMaterialInputs timberOnly={timberOnly} profiles={profiles} catalogError={catalogError} state={materialState} jointsOn={values.birdsmouth === "true"} rafterSpecInConnections={values.birdsmouth === "true"} onChange={(next) => { setMaterialByCalculator((current) => ({ ...current, [selectedId]: next })); markDirty(); }} />}
     {advancedFields.length > 0 && <GlassDisclosure className="construction-suite-advanced" summary="Részletes számítás · opcionális">{definition.advancedHelp && <p className="construction-suite-note">{definition.advancedHelp}</p>}{!definition.advancedHelp && <p className="construction-suite-note">Ezek az adatok további mennyiségi eredményt vagy ellenőrzést kapcsolnak be. Az alapgeometriai számításhoz nem szükségesek.</p>}<div className="construction-suite-form-grid">{advancedFields.map(renderField)}</div></GlassDisclosure>}

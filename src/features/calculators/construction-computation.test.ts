@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEMO_MATERIAL_PROFILES, initialSpecState } from "@/domain/calculations/roof-material-spec";
 import { definitions } from "./roof-calculator-definitions";
 import {
-  computeConstruction, previewPlaneBirdsmouths, constructionInputSnapshot, isFieldVisible, constructionInputSnapshotSchema, constructionOutputSnapshot, isSaveableComputation,
+  computeConstruction, previewPlaneBirdsmouths, rafterChordsAreSpacingIndependent, constructionInputSnapshot, isFieldVisible, constructionInputSnapshotSchema, constructionOutputSnapshot, isSaveableComputation,
   isCompleteConstructionOutput, isSaveableConstructionCalculator, materialStateFromSnapshot, normalizedConstructionInput, comparableConstructionInput,
 } from "./construction-computation";
 import type { RoofMaterialUiState } from "./material-spec-editor";
@@ -304,5 +304,30 @@ describe("KARMI preview without the rafter layout (M9.15.1)", () => {
     const result = computeConstruction(timber, values, noSpacing, DEMO_MATERIAL_PROFILES);
     expect(result.birdsmouths).toBeNull();
     expect(previewPlaneBirdsmouths(timber, values, noSpacing, DEMO_MATERIAL_PROFILES, result.geometry)?.every((plane) => plane.status === "computed")).toBe(true);
+  });
+
+  it("is proven spacing independent only for rectangular planes along the fall line", () => {
+    const g = (input: Record<string, string>) => computeConstruction(takeoff, { ...input, birdsmouth: "true", seatCutHeightMm: "100" }, noLayout, DEMO_MATERIAL_PROFILES).geometry!;
+    expect(rafterChordsAreSpacingIndependent(g(timberValues))).toBe(true);
+    expect(rafterChordsAreSpacingIndependent(g({ roofShape: "shed", lengthMm: "10000", widthMm: "4000", pitchDegrees: "15", eaveOverhangMm: "0" }))).toBe(true);
+    const shapes = { hip: timberValues, pyramid: { pitchDegrees: "35", sideMm: "8000" }, halfHip: { ...timberValues, hipEaveHeightMm: "2000" }, lShape: { ...timberValues, wingWidthMm: "4000", wingProjectionMm: "3000" }, tShape: { ...timberValues, wingWidthMm: "4000", wingProjectionMm: "3000" } };
+    for (const [shape, extra] of Object.entries(shapes)) expect(rafterChordsAreSpacingIndependent(g({ ...extra, roofShape: shape })), shape).toBe(false);
+  });
+
+  it("shows no preview for a hip roof and leaves the layout path unchanged", () => {
+    const hip = { ...values, roofShape: "hip" };
+    const base = computeConstruction(takeoff, hip, noLayout, DEMO_MATERIAL_PROFILES);
+    expect(previewPlaneBirdsmouths(takeoff, hip, noLayout, DEMO_MATERIAL_PROFILES, base.geometry)).toBeNull();
+    expect(computeConstruction(takeoff, hip, { ...noLayout, requested: { timber: true, underlay: false, covering: false }, layout: { rafterMaxSpacingMm: 900 } }, DEMO_MATERIAL_PROFILES).birdsmouths).not.toBeNull();
+  });
+
+  it("gives the joint values of the layout path for any spacing (gable and shed)", () => {
+    for (const input of [values, { roofShape: "shed", lengthMm: "10000", widthMm: "4000", pitchDegrees: "15", eaveOverhangMm: "0", birdsmouth: "true", seatCutHeightMm: "60" }]) {
+      const preview = previewPlaneBirdsmouths(takeoff, input, noLayout, DEMO_MATERIAL_PROFILES, geometryOf(noLayout, input).geometry)!;
+      for (const spacing of [300, 900, 2500]) {
+        const full = geometryOf({ ...noLayout, requested: { timber: true, underlay: false, covering: false }, layout: { rafterMaxSpacingMm: spacing } }, input).birdsmouths!;
+        expect(full.map((plane) => [plane.status, plane.seat?.values, plane.joints?.joints.map((joint) => joint.status)])).toEqual(preview.map((plane) => [plane.status, plane.seat?.values, plane.joints?.joints.map((joint) => joint.status)]));
+      }
+    }
   });
 });

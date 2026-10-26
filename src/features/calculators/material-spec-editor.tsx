@@ -1,5 +1,6 @@
 "use client";
 
+import { FeatureToggle } from "./feature-toggle";
 import { useState } from "react";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { LengthField } from "@/components/ui/length-field";
@@ -130,10 +131,10 @@ export function RafterMaterialSpecInput({ profiles, catalogError, state, onChang
 export function RoofMaterialInputs({ timberOnly, profiles, catalogError, state, onChange, jointsOn = false, rafterSpecInConnections = false }: InputsProps) {
   const requested = timberOnly ? { ...state.requested, timber: true } : state.requested;
   const setSpec = (group: MaterialGroup) => (next: SpecState) => onChange({ ...state, specs: { ...state.specs, [group]: next } });
-  const toggles = [["timber", "Szarufa és léc"], ["underlay", "Alátétfólia"], ["covering", "Fedőtábla"]] as const;
+  const toggles = [["timber", "Faanyag — szarufa és léc", "Mennyiség és vágáslista"], ["underlay", "Alátétfólia", "Felület és tekercsek"], ["covering", "Fedőanyag", "Fedőtábla mennyisége"]] as const;
   return <div className="material-inputs">
-    {!timberOnly && <fieldset className="material-spec-picker"><legend>Mit számoljon?</legend>
-      {toggles.map(([key, label]) => <label key={key} className="material-spec-toggle"><input type="checkbox" aria-label={label} checked={requested[key]} onChange={(event) => onChange({ ...state, requested: { ...state.requested, [key]: event.target.checked } })} /><span>{label}</span></label>)}
+    {!timberOnly && <fieldset className="material-spec-picker is-tiles"><legend>Anyagszükséglet · mennyiségszámítás</legend>
+      {toggles.map(([key, label, hint]) => <FeatureToggle key={key} title={label} hint={hint} checked={requested[key]} onChange={(checked) => onChange({ ...state, requested: { ...state.requested, [key]: checked } })} />)}
     </fieldset>}
     {requested.timber && <>
       <fieldset className="material-spec"><legend>Faanyag kiosztása</legend>
