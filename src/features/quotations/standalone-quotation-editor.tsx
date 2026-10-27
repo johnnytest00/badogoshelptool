@@ -24,6 +24,7 @@ import { BackNavigation } from "@/components/navigation/back-navigation";
 import { LaborRatePanel } from "./labor-rate-panel";
 import { quotationQuantity, type CalculationQuoteCandidate, type QuotationCalculationSource } from "./calculation-quotation-source";
 import { appliedLaborKeys, quantityAtSix, sameQuantity, type LaborBase, type LaborRate } from "@/domain/quotations/labor-rate";
+import { QuotationItemOverlapWarning } from "./quotation-item-overlap-warning";
 
 type Line = QuotationDraftValues["lines"][number];
 type EditorLine = Line & { localId: string };
@@ -359,6 +360,11 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
           <button type="button" className="secondary-button" disabled={historical || usedCalculationKeys.has(candidate.sourceKey)} onClick={() => addCalculationLine(candidate)}>{usedCalculationKeys.has(candidate.sourceKey) ? "Felvéve" : "Tételként felvétel"}</button></li>)}</ul>}
       {calculationSource.informational.length > 0 && <details><summary>Tájékoztató eredmények · nem ajánlati mennyiség</summary><dl>{calculationSource.informational.map((line, index) => <div key={`${line.label}-${index}`}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(line.value) : line.value} {line.unit}</dd></div>)}</dl></details>}
     </section>}
+    <QuotationItemOverlapWarning
+      lines={lines.map(({ localId, ...line }) => ({ ...line, id: localId }))}
+      materialSourceLabel={materialSource ? `Anyaglista · ${materialSource.listName} · V${materialSource.revisionNumber}` : "Anyaglista-forrás"}
+      calculationSourceLabel={calculationSource ? `Kalkuláció · ${calculationSource.calculationName} · V${calculationSource.revisionNumber}` : "Kalkulációs forrás"}
+    />
     {!historical && materialSource && <LaborRatePanel organizationId={organizationId} canEditRates={documentSources.canEditIssuer} rates={laborRates} bases={laborBases} quotationClass={lines[0]?.priceClass ?? null} appliedKeys={appliedLaborKeys(lines)} source={materialSource} onApply={addPrebuiltLine} />}
     <div className="standalone-quotation-toolbar">
     <div className="standalone-revision-bar" aria-label="Ajánlati revíziók">

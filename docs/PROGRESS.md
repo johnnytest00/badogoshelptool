@@ -1,5 +1,13 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M10.3.2 — Keresztforrásos ajánlati tételátfedés jelzése (2026-10-27)
+
+Státusz: **PASS WITH LIMITATIONS**. Az ajánlatszerkesztő a pontosan egyező, normalizált megnevezésű és egységű, anyaglista- és kalkulációs forrásból származó anyagsorokat nem blokkoló figyelmeztetéssel jelzi, megmutatva a forrást és a rögzített revíziót. Az eredeti sorok, mennyiségek, egységárak és összegek változatlanok maradnak; automatikus összevonás, mennyiségi korrekció, fuzzy egyezés és DB/üzleti szabály nem került be.
+
+- **Bizonyíték:** `src/features/quotations` Vitest: 15 fájl / 57 teszt PASS; érintett ESLint PASS; izolált `npm run typecheck` és production build PASS. Böngészős DEMO V1-ben a jelzés újranyitás után megjelent (ajánlat `e3308e98-cfb1-402e-af38-ac844dd4ae71`, V1 `6f4f8259-8fb4-4de7-9175-5ee3484a8ef3`); az eltérő megnevezésű V2-ben eltűnt, majd a változatlan történeti V1 megnyitásakor visszatért. 375×812 és 1440×900 méreten világos/sötét témában vizuálisan ellenőrizve; 375/1440 px vízszintes túlcsordulás nem volt, konzolhiba nem jelent meg.
+- **Korlátok:** csak pontos név+egység egyezést jelez; az eltérő specifikációkat, mennyiségeket nem értelmezi. Fizikai mobilteszt, PDF újrarenderelés és adatbázis-teszt nem futott; nem volt PDF-, DB- vagy jogosultsági kód/migráció változás. A PDF/UI pénzügyi újraegyeztetéshez az ár nélküli DEMO sorok nem alkalmasak.
+- **Javasolt Conventional Commit:** `feat(M10.3.2): warn about potential cross-source quotation item overlaps`.
+
 ## M10.3.1 — Kombinált anyaglista + kalkulációs forrás egy ajánlati revízióban (2026-10-27)
 
 Státusz: **PASS WITH LIMITATIONS**. A végső QA lefedte az E11 RPC negatív eseteit és atomikus rollbackjét (18/18 combined-source pgTAP), a többoldalas PDF-et, a pénzügyi paritást, a négy kért Chromium responsive viewportot, a célzott Vitestet (51/51), lintet, izolált typechecket/buildet és a kapcsolódó pgTAP-regressziót (összesen 61/61). A teljes Vitest-regressziót nem futtattam újra, a responsive ellenőrzés nem valódi eszközön történt, E03 lehetséges átfedési jelzése pedig csak dokumentált, nem implementált UX-javaslat. Részletek: [M10.3.1 végső QA](M10_PHASE3_QA_REMEDIATION.md).

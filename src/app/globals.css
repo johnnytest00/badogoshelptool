@@ -570,6 +570,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .quotation-current-total strong { font-size: clamp(1.55rem, 3vw, 2rem); }
 .standalone-quotation-editor .quotation-summary .quotation-saved-total { min-height: 0; align-self: end; padding: .7rem .85rem; }
 .quotation-saved-total strong { font-size: 1rem; }
+.quotation-overlap-warning { display: grid; gap: .45rem; min-width: 0; border-left: 3px solid color-mix(in srgb, #b7791f 65%, var(--border)); padding: .75rem .9rem; }
+.quotation-overlap-warning h3, .quotation-overlap-warning p { margin: 0; }
+.quotation-overlap-warning h3 { color: var(--foreground); font-size: .95rem; }
+.quotation-overlap-warning p, .quotation-overlap-warning li { color: var(--muted); font-size: .78rem; line-height: 1.45; overflow-wrap: anywhere; }
+.quotation-overlap-warning > ul, .quotation-overlap-warning details > ul { display: grid; gap: .4rem; margin: 0; padding-left: 1.15rem; }
+.quotation-overlap-warning li > strong { color: var(--foreground); }
+.quotation-overlap-warning li > ul { display: grid; gap: .15rem; margin: .2rem 0; padding-left: 1rem; }
+.quotation-overlap-warning summary { min-height: 2.5rem; color: var(--foreground); cursor: pointer; font-size: .8rem; font-weight: 700; }
 
 @media (max-width: 900px) {
   .quotation-compact-row { grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(4.6rem, .55fr)) minmax(6.2rem, .75fr) minmax(7rem, .8fr) auto; gap: .5rem; }

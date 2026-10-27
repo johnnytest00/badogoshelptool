@@ -1,3 +1,21 @@
+# M10.3.2 — Keresztforrásos tételátfedés: implementáció és célzott QA
+
+Dátum: 2026-10-27
+Döntés: **PASS WITH LIMITATIONS**
+
+Az M10.3.1 riportjában dokumentált E03 UX-javaslat megvalósult: a kombinált standalone ajánlat pontosan egyező, normalizált megnevezésű és egységű anyaglista- és kalkulációs sorainál nem blokkoló, akadálymentes státuszjelzés jelenik meg. A jelzés a forrás nevét és revízióját, valamint az eredeti mennyiséget/egységet mutatja. Az összes eredeti sort külön hagyja; sem összevonás, sem automatikus mennyiségi vagy pénzügyi változtatás nincs. A jelzés az aktuális revízió tételeiből származik, így egy későbbi revízió szerkesztése nem változtatja meg a történeti pillanatképet. A PDF és a mentési/adózási szerződés változatlan.
+
+| Terület | Státusz | Bizonyíték |
+|---|---|---|
+| E03 átfedés és adatmegőrzés | **PASS** | Négy domain teszt a pontos egyezésről, egység-normalizálásról, eltérő specifikációk/kategóriák kizárásáról, több csoportról és bemenet mutációmentességéről; két szervermarkup teszt a státusz és a forrás/revízió megjelenítéséről. Böngészőben a DEMO ajánlat V1 jelezte a 36 db-os `Szarufa` két forrását (anyaglista V2 és kalkuláció V1). A név módosítása után V2 nem jelzett; a változatlan történeti V1 újbóli megnyitásakor a jelzés visszatért. |
+| Megjelenítés és konzol | **PASS WITH LIMITATIONS** | 375×812 világos/sötét és 1440×900 világos/sötét Chromium-emulációban a figyelmeztetés olvasható és tördelődik; 375 és 1440 px-en a dokumentum szélessége megegyezett a viewporttal. Alkalmazáshiba nem látszott a konzolban. Ez nem valódi mobilkészülék-teszt. |
+| Teszt és kódminőség | **PASS** | `rtk bypass npm exec vitest run src/features/quotations`: 15 fájl / 57 teszt PASS; érintett fájlokra ESLint PASS; izolált másolaton `npm run typecheck` PASS és `npm run build` PASS. |
+| E11, DB, PDF és pénzügyi szerződés | **NOT RE-RUN / UNCHANGED** | Ebben a célzott, csak megjelenítést érintő változásban nem módosult forrásfeloldás, mentési RPC, jogosultság, séma/migráció, PDF vagy pénzügyi/adólogika; az M10.3.1 riport E11/PDF/pgTAP bizonyítéka történeti bizonyíték marad, nem új M10.3.2 futás. A PDF-et nem rendereltem újra. A QA DEMO sorai árazatlanok, ezért pénzügyi paritást ez a böngészős eset nem igazol. |
+
+**E03 UX-határ:** a figyelmeztetés csak normalizált, pontos név- és ismert egység-egyezést vizsgál, kizárólag egy anyaglista-eredetű és egy kalkulációs eredetű `MATERIAL` sor között. Nem állítja, hogy a sorok valódi duplikátumok; nem blokkol, nem von össze, és nem számít át mennyiséget. Fuzzy/specifikációs összehasonlítás nem része ennek a mérföldkőnek.
+
+A kizárólag DEMO-ból létrehozott próbaajánlat ID-ja `e3308e98-cfb1-402e-af38-ac844dd4ae71`; V1 `6f4f8259-8fb4-4de7-9175-5ee3484a8ef3`, V2 `9dd0fa42-3536-4ec8-95a0-6e7dfb587752`. A V1/V2 piszkozatok és az adatbázis változatlanul megmaradtak; ár nélküli sorok miatt az összeg `0,00 Ft`, nem pénzügyi ellenőrzési eredmény. A változás javasolt commitja: `feat(M10.3.2): warn about potential cross-source quotation item overlaps`.
+
 # M10.3.1 remediation és átvételi QA
 
 Dátum: 2026-10-27  

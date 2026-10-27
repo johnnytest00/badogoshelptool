@@ -8,7 +8,7 @@ export function quotationPurchasingUnitLabel(unit: string): string {
   return materialPurchasingUnitLabels[unit as MaterialPurchasingUnit] ?? unit;
 }
 
-function normalizedUnitIdentity(unit: string): string {
+export function quotationPurchasingUnitIdentity(unit: string): string {
   const normalized = unit.trim().toLocaleLowerCase("hu-HU");
   const known = Object.entries(materialPurchasingUnitLabels).find(([code, label]) =>
     code.toLocaleLowerCase("hu-HU") === normalized || label.toLocaleLowerCase("hu-HU") === normalized,
@@ -17,7 +17,7 @@ function normalizedUnitIdentity(unit: string): string {
 }
 
 export function quotationPurchasingUnitsMatch(current: string, next: string): boolean {
-  return normalizedUnitIdentity(current) === normalizedUnitIdentity(next);
+  return quotationPurchasingUnitIdentity(current) === quotationPurchasingUnitIdentity(next);
 }
 
 export function quotationPricesEqual(current: string, next: string): boolean {
