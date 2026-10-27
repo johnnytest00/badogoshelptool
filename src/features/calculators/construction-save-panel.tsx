@@ -40,23 +40,42 @@ const driftComparisonFields = (output: Pick<ConstructionOutputSnapshot, "lines" 
 const formatValue = (value: number | string) => typeof value === "number" ? new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value) : value;
 
 // M10.1.7: an identical input re-run can differ from the saved result in the last bit of a double (~1e-14 on
-// Karmi trig results), which is not a real output drift. Both tolerances sit ~1e7x above that noise and ~1e3x
-// below the smallest professionally meaningful difference (a count of 1, 0.01 mm, 0.001°), so no real
-// quantity, count or index difference is swallowed.
+// Karmi trig results), which is not a real output drift. Both base tolerances sit ~1e7x above that noise and
+// ~1e3x below the smallest professionally meaningful difference (a count of 1, 0.01 mm, 0.001°).
+// M10.1.9: the relative term alone grows without bound, so at billion-scale LAYOUT piece counts (reachable with
+// valid but extreme covering inputs, see docs/M10_PHASE1_FINAL_NUMERICAL_QA.md) it swallowed a real +1 count
+// drift. DRIFT_NUMERIC_MAX_TOLERANCE caps the continuous-value tolerance well above that same ULP noise but
+// below any domain-bounded (roof dimensions ≤100 000 mm) meaningful length/angle/area/volume difference, so a
+// huge-magnitude continuous value can no longer hide a real difference behind the relative term. Discrete
+// counts (unit "db", or a cutList "count") are compared exactly instead, independent of magnitude.
 const DRIFT_NUMERIC_ABSOLUTE_TOLERANCE = 1e-9;
 const DRIFT_NUMERIC_RELATIVE_TOLERANCE = 1e-9;
-const numbersEquivalent = (a: number, b: number) => a === b || (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= DRIFT_NUMERIC_ABSOLUTE_TOLERANCE + DRIFT_NUMERIC_RELATIVE_TOLERANCE * Math.max(Math.abs(a), Math.abs(b)));
+const DRIFT_NUMERIC_MAX_TOLERANCE = 1e-6;
+const numbersEquivalent = (a: number, b: number, exact: boolean) => {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false; // NaN/Infinity: never a valid, driftless result, even against itself
+  if (a === b) return true;
+  if (exact) return false;
+  const tolerance = Math.min(DRIFT_NUMERIC_ABSOLUTE_TOLERANCE + DRIFT_NUMERIC_RELATIVE_TOLERANCE * Math.max(Math.abs(a), Math.abs(b)), DRIFT_NUMERIC_MAX_TOLERANCE);
+  return Math.abs(a - b) <= tolerance;
+};
 
-/** Structural output-drift comparison: same shape, keys and values, numbers allowed machine-precision noise only. */
-export function outputsEquivalent(a: unknown, b: unknown): boolean {
-  if (typeof a === "number" && typeof b === "number") return numbersEquivalent(a, b);
+/**
+ * Structural output-drift comparison: same shape, keys and values. Numbers allowed machine-precision noise
+ * only, except discrete counts (a "value" next to `unit: "db"`, or a "count" key, as in `lines`, `takeoff`
+ * quantities and `cutList`), which must match exactly regardless of magnitude.
+ */
+export function outputsEquivalent(a: unknown, b: unknown, exact = false): boolean {
+  if (typeof a === "number" && typeof b === "number") return numbersEquivalent(a, b, exact);
   if (a === b) return true;
   if (typeof a !== typeof b || a === null || b === null || typeof a !== "object") return false;
   if (Array.isArray(a) !== Array.isArray(b)) return false;
-  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, index) => outputsEquivalent(item, b[index]));
-  const keysA = Object.keys(a as object);
-  const keysB = Object.keys(b as object);
-  return keysA.length === keysB.length && keysA.every((key) => key in (b as object) && outputsEquivalent((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, index) => outputsEquivalent(item, b[index], exact));
+  const objA = a as Record<string, unknown>;
+  const objB = b as Record<string, unknown>;
+  const keysA = Object.keys(objA);
+  const keysB = Object.keys(objB);
+  const isCountUnit = objA.unit === "db" || objB.unit === "db";
+  return keysA.length === keysB.length && keysA.every((key) => key in objB && outputsEquivalent(objA[key], objB[key], key === "count" || (key === "value" && isCountUnit)));
 }
 
 /**

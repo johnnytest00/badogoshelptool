@@ -1,5 +1,12 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M10.1.9 — Domain-aware output-drift összehasonlítás véglegesítése (2026-10-27)
+
+Státusz: **PASS**. A független M10.1.8 numerikus QA ([`M10_PHASE1_FINAL_NUMERICAL_QA.md`](M10_PHASE1_FINAL_NUMERICAL_QA.md)) bizonyított P2-jét javítottam: a korábbi `outputsEquivalent` korlátlanul a nagysággal növő relatív toleranciája milliárdos `LAYOUT` darabszámnál elrejthetett egy valódi `+1` eltérést. A javítás diszkrét mezőket (`unit: "db"`, `cutList`-`count`) pontosan hasonlít össze, függetlenül a nagyságtól; a folytonos mezők (hossz, szög, terület, térfogat) toleranciáját egy domain-kontraktushoz illesztett felső korláttal (`1e-6`) zártam le. `NaN`/`Infinity` mostantól sosem egyenértékű, még önmagával összevetve sem. Részletek: [M10.1.9 riport](M10_PHASE1_FINAL_NUMERIC_REMEDIATION.md).
+
+- **Ellenőrzés:** célzott `construction-save-panel.test.tsx` 13/13 PASS (4 új/kibővített teszt); teljes Vitest 192 fájl PASS/8 SKIP, 1221 teszt PASS/19 SKIP; ESLint PASS; izolált (`git worktree`) typecheck és production build PASS; `git diff --check` PASS. Böngészős ellenőrzés egy élő `roof.timber-cutlist` mentett revízión hamis drift nélkül; a feladatban megnevezett két konkrét DEMO azonosító ebben a szervezetben nem volt elérhető — a két konkrét revízió újranyitása **nem verifikált**.
+- **Javasolt Conventional Commit:** `fix(M10.1.9): cap continuous-value drift tolerance and compare discrete counts exactly`.
+
 ## M10.1.7 — Output-drift tolerancia és M10.1 lezárása (2026-10-27)
 
 Státusz: **PASS WITH LIMITATIONS**. A független M10.1.6 QA ([`M10_PHASE1_DRIFT_INDEPENDENT_QA.md`](M10_PHASE1_DRIFT_INDEPENDENT_QA.md)) által bizonyított egyetlen nyitott P2-t javítottam: a mentett vs. élő output-összehasonlítás eddig pontos JSON-string egyezést követelt, ezért a Karmi trigonometrikus eredmények gépi pontosságú (`~1e-14`) utolsó-bit eltérése hamis drift-figyelmeztetést okozott. Az összehasonlítás mostantól egy rekurzív, strukturális `outputsEquivalent` függvény (`construction-save-panel.tsx`), amely csak `number`–`number` pár között enged szűk (`1e-9` abszolút + relatív) toleranciát; struktúra, típus, string, hiányzó/`null` mező és minden érdemi numerikus/darabszám-eltérés továbbra is driftet jelez. Az M10.1.5 ideiglenes dev-only drift-logoló `useEffect`/`console.debug` eltávolítva; a `outputDriftDiffPaths` diagnosztikai helper tiszta, tesztelt utilityként megmaradt. Részletek: [M10.1.7 javítási riport](M10_PHASE1_DRIFT_FIX_AND_CLOSURE.md).

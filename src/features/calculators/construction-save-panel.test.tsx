@@ -94,8 +94,23 @@ describe("ConstructionSavePanel", () => {
     expect(outputsEquivalent([1, 2], [1, 2, 3])).toBe(false); // array length
     expect(outputsEquivalent("x", "y")).toBe(false); // text
     expect(outputsEquivalent(NaN, NaN)).toBe(false); // invalid number never falsely equal
-    expect(outputsEquivalent(Infinity, Infinity)).toBe(true);
+    expect(outputsEquivalent(Infinity, Infinity)).toBe(false); // non-finite is never a valid driftless result, even against itself
+    expect(outputsEquivalent(-Infinity, -Infinity)).toBe(false);
     expect(outputsEquivalent(Infinity, 1e300)).toBe(false);
+  });
+
+  it("compares discrete counts exactly, regardless of magnitude (M10.1.9, docs/M10_PHASE1_FINAL_NUMERICAL_QA.md P2)", () => {
+    // A "db" unit marks a discrete count: no relative tolerance may hide a real +1, however large.
+    expect(outputsEquivalent({ value: 1_000_000_000, unit: "db" }, { value: 1_000_000_001, unit: "db" })).toBe(false);
+    expect(outputsEquivalent({ value: 1_000_000_000, unit: "db" }, { value: 1_000_000_000, unit: "db" })).toBe(true);
+    // A continuous ("m") LAYOUT quantity of the same huge magnitude still tolerates only machine noise, not a real difference.
+    expect(outputsEquivalent({ value: 1_000_000, unit: "m" }, { value: 1_000_000.001, unit: "m" })).toBe(false);
+    expect(outputsEquivalent({ value: 1_000_000, unit: "m" }, { value: 1_000_000 + 1e-10, unit: "m" })).toBe(true);
+    // A bare `count` key (cutList rows) is exact even without a sibling unit.
+    expect(outputsEquivalent({ lengthMm: 4826, count: 36 }, { lengthMm: 4826, count: 37 })).toBe(false);
+    expect(outputsEquivalent({ lengthMm: 4826, count: 36 }, { lengthMm: 4826, count: 36 })).toBe(true);
+    // 100.000 vs 100.001 stays a real, professionally meaningful difference at ordinary magnitude.
+    expect(outputsEquivalent(100.0, 100.001)).toBe(false);
   });
 
   it("suppresses a saved-vs-live drift warning that is only ULP noise but keeps a real one", () => {
@@ -103,6 +118,14 @@ describe("ConstructionSavePanel", () => {
     expect(render(noisy)).not.toContain("A mentett V1 eredménye eltér a mostani számítástól.");
     const real = { ...savedSession, viewedRevisionNumber: 1, baselineInput: stableJsonStringify(input), revisions: [revision(2), revision(1, input, { ...output, lines: output.lines.map((line, index) => index === 0 && typeof line.value === "number" ? { ...line, value: line.value + 1 } : line) })] };
     expect(render(real)).toContain("A mentett V1 eredménye eltér a mostani számítástól.");
+  });
+
+  it("flags a real billion-scale LAYOUT count +1 as drift but tolerates the same-scale angle's ULP noise (M10.1.9)", () => {
+    const hugeTakeoff = { status: "OK", parts: [{ id: "covering", label: "Fedés", status: "OK", quantities: [{ label: "Fedőtábla darabszám", value: 1_000_000_000, unit: "db", meaning: "LAYOUT" }] }] };
+    const base = { ...savedSession, viewedRevisionNumber: 1, baselineInput: stableJsonStringify(input), revisions: [revision(2), revision(1, input, { ...output, takeoff: hugeTakeoff })] };
+    const countDrift = { ...base, revisions: [revision(2), revision(1, input, { ...output, takeoff: { ...hugeTakeoff, parts: [{ ...hugeTakeoff.parts[0], quantities: [{ ...hugeTakeoff.parts[0].quantities[0], value: 1_000_000_001 }] }] } })] };
+    expect(render(countDrift, true, { ...output, takeoff: hugeTakeoff })).toContain("A mentett V1 eredménye eltér a mostani számítástól.");
+    expect(render(base, true, { ...output, takeoff: hugeTakeoff })).not.toContain("A mentett V1 eredménye eltér a mostani számítástól.");
   });
 
   it("offers work log linking for the latest saved revision and blocks it while changes are unsaved", () => {
