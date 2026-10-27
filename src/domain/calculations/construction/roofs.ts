@@ -63,6 +63,30 @@ export function convertGableGeometryFromRafterCut(source: Readonly<{ horizontalH
   return { ok: true, widthMm, pitchDegrees };
 }
 
+export type RafterCutGeometryTransferResult =
+  | Readonly<{ ok: true; horizontalHalfSpanMm: number; riseMm: number; eaveProjectionMm: number }>
+  | Readonly<{ ok: false; reason: GableGeometryTransferReason }>;
+
+/**
+ * M10.2: the exact inverse of convertGableGeometryFromRafterCut — symmetric-gable widthMm/pitchDegrees (plus the
+ * already-proven eaveOverhangMm ↔ eaveProjectionMm mapping, see rafter-connection-fields.ts) to the rafter-cut
+ * calculator's horizontalHalfSpanMm/riseMm/eaveProjectionMm, only under the same caller-confirmed symmetry
+ * precondition. Missing HAP (seatCutHeightMm) is never silently treated as zero, same as the forward direction.
+ */
+export function convertRafterCutGeometryFromGable(source: Readonly<{ widthMm?: string; pitchDegrees?: string; eaveOverhangMm?: string; seatCutHeightMm?: string }>): RafterCutGeometryTransferResult {
+  const widthMm = Number(source.widthMm);
+  const pitchDegrees = Number(source.pitchDegrees);
+  if (!Number.isFinite(widthMm) || widthMm <= 0 || !Number.isFinite(pitchDegrees) || !targetPitchDegrees.safeParse(pitchDegrees).success) return { ok: false, reason: "INVALID_SOURCE_GEOMETRY" };
+  if (source.seatCutHeightMm === undefined) return { ok: false, reason: "MISSING_HAP" };
+  const seatCutHeightMm = Number(source.seatCutHeightMm);
+  if (!Number.isFinite(seatCutHeightMm) || seatCutHeightMm < 0) return { ok: false, reason: "INVALID_HAP" };
+  const halfSpanMm = widthMm / 2;
+  const riseMm = seatCutHeightMm + halfSpanMm * Math.tan(pitchDegrees * Math.PI / 180);
+  const eaveProjectionMm = source.eaveOverhangMm !== undefined && Number.isFinite(Number(source.eaveOverhangMm)) ? Number(source.eaveOverhangMm) : 0;
+  if (!rafterGeometryInputSchema.safeParse({ horizontalHalfSpanMm: halfSpanMm, riseMm, eaveProjectionMm, seatCutHeightMm }).success) return { ok: false, reason: "TARGET_RANGE" };
+  return { ok: true, horizontalHalfSpanMm: halfSpanMm, riseMm, eaveProjectionMm };
+}
+
 export const triangularTrussGeometryInputSchema = z.object({
   spanMm: roofDimension,
   riseMm: roofDimension,

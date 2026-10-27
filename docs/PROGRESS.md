@@ -1,5 +1,19 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M10.2 — Kalkulátorok közötti geometriai adatkapcsolatok bővítése (2026-10-27)
+
+Státusz: **PASS WITH LIMITATIONS**. Az M10.1 egyirányú (`roof.rafter-cut → roof.material-takeoff`/`roof.timber-cutlist`) mezőátviteli rendszere két új, szakmailag bizonyított iránnyal bővült: (1) `roof.material-takeoff ↔ roof.timber-cutlist` teljes mezőkészlet-átvétel (azonos mezőséma, bármely tetőforma, konverzió nélkül); (2) `roof.material-takeoff`/`roof.timber-cutlist` (gable) → `roof.rafter-cut`, az M10.1 gable-geometria konverzió matematikai inverze (`convertRafterCutGeometryFromGable`), kötelező forrás-HAP-pal és explicit szimmetria-jóváhagyással. A `save_standalone_construction_calculation` RPC forrás/cél-ellenőrzése egy új, forward-only migrációban (`20261027010000`) egy explicit pármátrixra általánosítva; a `roof.truss-members` tudatosan kimaradt (nincs közös mező semelyik másik kalkulátorral). Nincs új Felmérés/Projekt modul, a Kalkulátorok maradtak a kiindulópont. Részletek: [M10.2 riport](M10_PHASE2_CALCULATOR_CONNECTIONS.md).
+
+- **Ellenőrzés:** célzott Vitest (domain reverse-konverzió, mezőleképezés, adatlekérdezés) 60 teszt PASS; teljes Vitest 192 fájl PASS/8 SKIP, 1235 teszt PASS/19 SKIP; ESLint PASS; `tsc --noEmit` PASS; izolált (rsync-elt) production build PASS; `git diff --check` PASS; helyi, reset nélküli migráció-alkalmazás és rollback-be csomagolt funkcionális RPC-smoke (új párok sikeresek, `truss-members` forrás elutasítva) PASS; élő böngészős E2E mindkét új irányra valós DEMO forrásokkal (8000mm/35°/HAP 60mm gable → rafter-cut teljes eredményig, és teljes 23 mezős material-takeoff↔timber-cutlist diff) PASS. NOT VERIFIED: teljes viewport×téma mátrix, Undo élő próbája az új irányokra, pgTAP (nincs séma/RLS-változás).
+- **Javasolt Conventional Commit:** `feat(M10.2): add material-takeoff/timber-cutlist sibling transfer and reverse gable geometry into rafter-cut`.
+
+## M10.1.10 — Végső numerikus QA és M10.1 lezárás (2026-10-27)
+
+Státusz: **PASS WITH LIMITATIONS**. Függetlenül ellenőriztem az M10.1.9 production outputsEquivalent comparatorát. A unit: "db"-s lines és beágyazott takeoff értékek, valamint a cutList.count pontos összehasonlítása nagy nagyságrenden is driftet jelez; a folytonos eltérések 1e-6 felső toleranciával, a struktúra/type/missing-field eltérések pedig szigorúan viselkednek. A három dokumentált Karmi ULP-különbség nem okoz hamis driftet. A két kért DEMO V1 rekordot frissen újranyitottam: mindkettő Mentve · V1, drift nélkül, letiltott V2 mentéssel és látható számított eredményekkel. Nincs fennmaradó bizonyított P1/P2; az M10.1 lezárható.
+
+- **Ellenőrzés:** célzott save-panel Vitest 13/13 PASS; ideiglenes production-comparator szélsőérték-teszt 3/3 PASS (a fájlt eltávolítottam); mindkét V1 friss böngészős újranyitása PASS; git diff --check PASS. A m²/m³ szakmai toleranciája nincs külön formalizálva, ez P3 korlát; teljes suite, build, lint, typecheck és DB előtte/utána lekérdezés nem futott.
+- **Javasolt Conventional Commit:** docs(M10.1.10): record final numerical QA and close M10.1
+
 ## M10.1.9 — Domain-aware output-drift összehasonlítás véglegesítése (2026-10-27)
 
 Státusz: **PASS**. A független M10.1.8 numerikus QA ([`M10_PHASE1_FINAL_NUMERICAL_QA.md`](M10_PHASE1_FINAL_NUMERICAL_QA.md)) bizonyított P2-jét javítottam: a korábbi `outputsEquivalent` korlátlanul a nagysággal növő relatív toleranciája milliárdos `LAYOUT` darabszámnál elrejthetett egy valódi `+1` eltérést. A javítás diszkrét mezőket (`unit: "db"`, `cutList`-`count`) pontosan hasonlít össze, függetlenül a nagyságtól; a folytonos mezők (hossz, szög, terület, térfogat) toleranciáját egy domain-kontraktushoz illesztett felső korláttal (`1e-6`) zártam le. `NaN`/`Infinity` mostantól sosem egyenértékű, még önmagával összevetve sem. Részletek: [M10.1.9 riport](M10_PHASE1_FINAL_NUMERIC_REMEDIATION.md).

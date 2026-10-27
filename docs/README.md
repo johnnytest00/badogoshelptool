@@ -5,6 +5,7 @@ Az implementált működéshez a kód, az adatbázis-migrációk és a ténylege
 ## Aktuális belépési pontok
 
 - [Fejlesztési állapot és legutóbbi bizonyíték](PROGRESS.md)
+- [M10.1.10 végső numerikus QA és lezárási döntés](M10_PHASE1_FINAL_SIGNOFF.md)
 - [M9.15 Karmi workflow UI/UX riport](M915_KARMI_WORKFLOW_UX.md)
 - [Projekt- és adatfolyam-térkép](PROJECT_MAP.md)
 - [Fejlesztői átadás](CLAUDE_HANDOFF.md)

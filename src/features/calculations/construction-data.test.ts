@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
-import { getConstructionCalculation, getConstructionRevision, getConstructionRevisionPage, isCompleteConstructionRevision } from "./construction-data";
+import { getConstructionCalculation, getConstructionRevision, getConstructionRevisionPage, isCompleteConstructionRevision, listRoofShapeTransferSources } from "./construction-data";
 
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/features/auth/auth.server", () => ({ getAuthContext: vi.fn() }));
@@ -13,11 +13,12 @@ function client() {
       const filters: Array<[string, unknown]> = [];
       const orders: Array<[string, boolean]> = [];
       let maxRows: number | null = null;
-      const matches = (row: Record<string, unknown>) => filters.every(([column, value]) => typeof value === "object" && value !== null && "lt" in value ? Number(row[column]) < Number(value.lt) : column === "calculator_type" && typeof value === "string" && value.endsWith("%") ? String(row[column]).startsWith(value.slice(0, -1)) : row[column] === value);
+      const matches = (row: Record<string, unknown>) => filters.every(([column, value]) => typeof value === "object" && value !== null && "lt" in value ? Number(row[column]) < Number(value.lt) : typeof value === "object" && value !== null && "in" in value ? (value.in as unknown[]).includes(row[column]) : column === "calculator_type" && typeof value === "string" && value.endsWith("%") ? String(row[column]).startsWith(value.slice(0, -1)) : row[column] === value);
       const query = {
         select: () => query,
         eq: (column: string, value: unknown) => { filters.push([column, value]); return query; },
         like: (column: string, value: string) => { filters.push([column, value]); return query; },
+        in: (column: string, values: unknown[]) => { filters.push([column, { in: values }]); return query; },
         lt: (column: string, value: unknown) => { filters.push([column, { lt: value }]); return query; },
         order: (column: string, options?: { ascending?: boolean }) => { orders.push([column, options?.ascending !== false]); return query; },
         limit: (value: number) => { maxRows = value; return query; },
@@ -100,5 +101,43 @@ describe("construction revision history pagination", () => {
     const result = await getConstructionCalculation("org", "calc");
     expect(result?.revisions.map((item) => item.revisionNumber)).toEqual([3, 1]);
     expect(result?.hasOlderRevisions).toBe(false);
+  });
+});
+
+describe("listRoofShapeTransferSources (M10.2)", () => {
+  beforeEach(() => {
+    vi.mocked(getAuthContext).mockResolvedValue({ userId: "user", organizations: [{ id: "org" }] } as never);
+  });
+
+  it("offers the other roof-shape calculator's saved revisions, copying the full known field snapshot verbatim", async () => {
+    rows = {
+      calculations: [{ id: "calc-cutlist", organization_id: "org", ownership_scope: "standalone", calculator_type: "construction.roof.timber-cutlist", display_name: "DEMO vágáslista", current_revision_id: "r1", created_by: "user", updated_at: "2026-10-27T10:00:00Z" }],
+      calculation_revisions: [{ id: "r1", organization_id: "org", revision_number: 1, input_snapshot: { schemaVersion: "construction-suite.input.v1", calculatorId: "roof.timber-cutlist", fields: { roofShape: "hip", widthMm: "8000", lengthMm: "10000", pitchDegrees: "30", seatCutHeightMm: "100" }, material: null } }],
+    };
+    vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
+    const result = await listRoofShapeTransferSources("org", "roof.material-takeoff");
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.sources).toEqual([{
+      calculationId: "calc-cutlist", displayName: "DEMO vágáslista", revisionId: "r1", revisionNumber: 1,
+      sourceCalculatorId: "roof.timber-cutlist", roofShape: "hip",
+      fields: { roofShape: "hip", widthMm: "8000", lengthMm: "10000", pitchDegrees: "30", seatCutHeightMm: "100" },
+      geometry: { widthMm: "8000", pitchDegrees: "30", eaveOverhangMm: undefined, seatCutHeightMm: "100" },
+    }]);
+  });
+
+  it("excludes the target calculator itself from its own transfer sources", async () => {
+    rows = {
+      calculations: [{ id: "calc-self", organization_id: "org", ownership_scope: "standalone", calculator_type: "construction.roof.material-takeoff", display_name: "DEMO önmaga", current_revision_id: "r1", created_by: "user", updated_at: "2026-10-27T10:00:00Z" }],
+      calculation_revisions: [{ id: "r1", organization_id: "org", revision_number: 1, input_snapshot: { schemaVersion: "construction-suite.input.v1", calculatorId: "roof.material-takeoff", fields: { roofShape: "gable" }, material: null } }],
+    };
+    vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
+    const result = await listRoofShapeTransferSources("org", "roof.material-takeoff");
+    expect(result).toEqual({ ok: true, sources: [] });
+  });
+
+  it("denies access outside the caller's organizations", async () => {
+    rows = { calculations: [], calculation_revisions: [] };
+    vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
+    expect(await listRoofShapeTransferSources("other-org", "roof.material-takeoff")).toEqual({ ok: false });
   });
 });

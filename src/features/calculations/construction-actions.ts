@@ -10,7 +10,7 @@ import {
   isSaveableConstructionCalculator, materialStateFromSnapshot, usesMaterialInputs,
 } from "@/features/calculators/construction-computation";
 import { getCalculatorMaterialProfiles } from "@/features/materials/material-data";
-import { listRafterCutTransferSources, type RafterCutTransferSourcesResult } from "./construction-data";
+import { listRafterCutTransferSources, listRoofShapeTransferSources, type RafterCutTransferSourcesResult, type RoofShapeTransferSourcesResult } from "./construction-data";
 import { persistStandaloneConstructionCalculation } from "@/infrastructure/supabase/construction-calculation-writer";
 
 const saveSchema = z.object({
@@ -25,6 +25,16 @@ const saveSchema = z.object({
 export async function listRafterCutTransferSourcesAction(organizationId: string): Promise<RafterCutTransferSourcesResult> {
   if (!z.string().uuid().safeParse(organizationId).success) return { ok: false };
   return listRafterCutTransferSources(organizationId);
+}
+
+/**
+ * M10.2: saved roof.material-takeoff/roof.timber-cutlist calculations offered for "Adatok átvétele" in the other
+ * of those two, or in roof.rafter-cut. `excludeCalculatorId` is the target calculator itself (so it never offers
+ * itself as its own source); omit it when the target is roof.rafter-cut, which isn't one of the two source types.
+ */
+export async function listRoofShapeTransferSourcesAction(organizationId: string, excludeCalculatorId?: "roof.material-takeoff" | "roof.timber-cutlist"): Promise<RoofShapeTransferSourcesResult> {
+  if (!z.string().uuid().safeParse(organizationId).success) return { ok: false };
+  return listRoofShapeTransferSources(organizationId, excludeCalculatorId);
 }
 
 export type ConstructionSaveResult = { ok: true; calculationId: string; revisionId: string; revisionNumber: number } | { ok: false; error: string; conflict?: boolean };
@@ -44,7 +54,9 @@ export async function saveConstructionCalculationAction(raw: unknown): Promise<C
   const knownKeys = new Set(definition.fields.map((field) => field.key));
   if (Object.keys(request.input.fields).some((key) => !knownKeys.has(key))) return { ok: false, error: "A kalkuláció ismeretlen mezőt tartalmaz." };
   if (usesMaterialInputs(calculatorId) !== (request.input.material !== null)) return { ok: false, error: "A kalkuláció anyagadatai hiányosak vagy feleslegesek." };
-  if (request.sourceCalculationRevisionId && calculatorId !== "roof.material-takeoff" && calculatorId !== "roof.timber-cutlist") return { ok: false, error: "Ehhez a kalkulátorhoz nem vehető át adat." };
+  // M10.2: roof.rafter-cut added as a transfer TARGET (reverse of the M10.1 direction); the exact source/target
+  // pair is re-checked, authoritatively, by the save RPC itself (construction_field_transfer_pairs migration).
+  if (request.sourceCalculationRevisionId && calculatorId !== "roof.material-takeoff" && calculatorId !== "roof.timber-cutlist" && calculatorId !== "roof.rafter-cut") return { ok: false, error: "Ehhez a kalkulátorhoz nem vehető át adat." };
 
   const material = materialStateFromSnapshot(request.input);
   let profiles: readonly MaterialProfile[] = DEMO_MATERIAL_PROFILES;

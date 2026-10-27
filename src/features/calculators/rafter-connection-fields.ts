@@ -1,4 +1,4 @@
-import { convertGableGeometryFromRafterCut } from "@/domain/calculations/construction/roofs";
+import { convertGableGeometryFromRafterCut, convertRafterCutGeometryFromGable } from "@/domain/calculations/construction/roofs";
 import type { RafterCutTransferSource } from "@/features/calculations/construction-data";
 import type { Field } from "./construction-calculator-types";
 
@@ -50,6 +50,31 @@ export function rafterCutTransferFields(source: RafterCutTransferSource, roofSha
   const conversion = roofShape === "gable" && symmetryConfirmed ? convertGableGeometryFromRafterCut(source.geometry) : null;
   const gableFields: Readonly<Record<string, string>> = conversion?.ok ? { widthMm: String(conversion.widthMm), pitchDegrees: String(conversion.pitchDegrees) } : {};
   return { ...source.fields, ...gableFields, birdsmouth: "true" };
+}
+
+/**
+ * M10.2: the exact inverse of RAFTER_JOINT_TRANSFER_FIELD_MAP, for a roof.material-takeoff/roof.timber-cutlist
+ * source transferring its Karmi/gerinc/eresz fields into roof.rafter-cut (same keys, same meaning — only the
+ * direction is new). Derived, not duplicated, so the two directions can never drift apart.
+ */
+const ROOF_SHAPE_TO_RAFTER_CUT_FIELD_MAP: Readonly<Record<string, string>> = Object.fromEntries(Object.entries(RAFTER_JOINT_TRANSFER_FIELD_MAP).map(([rafterCutKey, roofShapeKey]) => [roofShapeKey, rafterCutKey]));
+
+/** Only the transferable keys with a value in the source, keyed by the rafter-cut TARGET field. */
+export function roofShapeToRafterCutTransferValues(sourceFields: Readonly<Record<string, string>>): Record<string, string> {
+  return Object.fromEntries(Object.entries(ROOF_SHAPE_TO_RAFTER_CUT_FIELD_MAP).flatMap(([sourceKey, targetKey]) => sourceFields[sourceKey] ? [[targetKey, sourceFields[sourceKey]]] : []));
+}
+
+/**
+ * M10.2: a confirmed transfer from a saved roof.material-takeoff/roof.timber-cutlist source into roof.rafter-cut
+ * — the joint/eave fields always, plus horizontalHalfSpanMm/riseMm/eaveProjectionMm only when the source itself
+ * is a symmetric gable roof and the caller has explicitly confirmed that symmetry. Mirrors rafterCutTransferFields.
+ */
+export function rafterCutTargetTransferFields(source: Readonly<{ fields: Readonly<Record<string, string>>; geometry: Readonly<{ widthMm?: string; pitchDegrees?: string; eaveOverhangMm?: string; seatCutHeightMm?: string }> }>, sourceRoofShape: string, symmetryConfirmed: boolean): Readonly<Record<string, string>> {
+  const conversion = sourceRoofShape === "gable" && symmetryConfirmed ? convertRafterCutGeometryFromGable(source.geometry) : null;
+  const geometryFields: Readonly<Record<string, string>> = conversion?.ok
+    ? { horizontalHalfSpanMm: String(conversion.horizontalHalfSpanMm), riseMm: String(conversion.riseMm), eaveProjectionMm: String(conversion.eaveProjectionMm) }
+    : {};
+  return { ...roofShapeToRafterCutTransferValues(source.fields), ...geometryFields };
 }
 
 export type AppliedTransfer = Readonly<{ newFields: Readonly<Record<string, string>>; snapshot: Readonly<Record<string, string>> }>;

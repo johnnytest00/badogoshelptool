@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateConcreteMix, calculateConcreteRing, calculateCylindricalPiles, calculateFoundationSlab, calculatePavingMaterials, calculateRectangularBlindArea, calculateReinforcementBars, calculateReinforcementMesh, calculateRightAngleDiagonal, calculateStripFoundation, concreteRingInputSchema, reinforcementMeshInputSchema } from "./concrete";
-import { calculateRafterGeometry, calculateTriangularTrussGeometry, convertGableGeometryFromRafterCut } from "./roofs";
+import { calculateRafterGeometry, calculateTriangularTrussGeometry, convertGableGeometryFromRafterCut, convertRafterCutGeometryFromGable } from "./roofs";
 import { pitch as targetPitchDegreesSchema } from "../roof-geometry";
 import { calculateBeveledRiserGeometry, calculateConcreteStairGeometry, calculateLandingStairGeometry, calculateSpiralStairGeometry, calculateStraightStairGeometry, spiralStairGeometryInputSchema } from "./stairs";
 import { calculateGableRoof } from "../gable-roof";
@@ -71,6 +71,30 @@ describe("independent construction calculations", () => {
     // Exactly 80° is strictly excluded by the target schema itself (`lt(80)`), the authority the helper now reuses.
     expect(targetPitchDegreesSchema.safeParse(80).success).toBe(false);
     expect(targetPitchDegreesSchema.safeParse(79.9).success).toBe(true);
+  });
+
+  it("converts rafter-cut half-span/rise from a symmetric gable width/pitch source, the exact inverse of the forward direction (M10.2)", () => {
+    const forward = convertGableGeometryFromRafterCut({ horizontalHalfSpanMm: "4000", riseMm: "2800", seatCutHeightMm: "100" });
+    expect(forward.ok).toBe(true);
+    const back = forward.ok && convertRafterCutGeometryFromGable({ widthMm: String(forward.widthMm), pitchDegrees: String(forward.pitchDegrees), seatCutHeightMm: "100", eaveOverhangMm: "0" });
+    expect(back && back.ok && back.horizontalHalfSpanMm).toBeCloseTo(4000, 6);
+    expect(back && back.ok && back.riseMm).toBeCloseTo(2800, 6);
+    expect(back && back.ok && back.eaveProjectionMm).toBe(0);
+  });
+
+  it("maps the proven eaveOverhangMm <-> eaveProjectionMm equivalence in the reverse direction too (M10.2)", () => {
+    const result = convertRafterCutGeometryFromGable({ widthMm: "8000", pitchDegrees: "30", seatCutHeightMm: "0", eaveOverhangMm: "500" });
+    expect(result).toEqual({ ok: true, horizontalHalfSpanMm: 4000, riseMm: expect.closeTo(4000 * Math.tan(30 * Math.PI / 180), 6), eaveProjectionMm: 500 });
+  });
+
+  it("rejects missing, invalid or out-of-range reverse gable conversion inputs instead of estimating (M10.2)", () => {
+    expect(convertRafterCutGeometryFromGable({ widthMm: "8000", pitchDegrees: "30" })).toEqual({ ok: false, reason: "MISSING_HAP" });
+    expect(convertRafterCutGeometryFromGable({ widthMm: "8000", pitchDegrees: "30", seatCutHeightMm: "-10" })).toEqual({ ok: false, reason: "INVALID_HAP" });
+    expect(convertRafterCutGeometryFromGable({ widthMm: "0", pitchDegrees: "30", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "INVALID_SOURCE_GEOMETRY" });
+    expect(convertRafterCutGeometryFromGable({ widthMm: "8000", pitchDegrees: "80", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "INVALID_SOURCE_GEOMETRY" });
+    expect(convertRafterCutGeometryFromGable({ widthMm: "8000", pitchDegrees: "abc", seatCutHeightMm: "0" })).toEqual({ ok: false, reason: "INVALID_SOURCE_GEOMETRY" });
+    // A HAP that would push riseMm itself above the rafter-cut target's own bound: TARGET_RANGE, not a silent clamp.
+    expect(convertRafterCutGeometryFromGable({ widthMm: "8000", pitchDegrees: "79.9", seatCutHeightMm: String(2_000_000) })).toEqual({ ok: false, reason: "TARGET_RANGE" });
   });
 
   it("calculates triangular truss envelope lengths", () => {

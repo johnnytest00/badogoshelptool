@@ -150,3 +150,57 @@ describe("invalidateGableGeometryOnShapeChange (M10.1.2 P1 — M10_PHASE1_INDEPE
     expect(backToGable).toBeNull();
   });
 });
+
+import { roofShapeToRafterCutTransferValues, rafterCutTargetTransferFields } from "./rafter-connection-fields";
+describe("roofShapeToRafterCutTransferValues (M10.2 — reverse of rafterJointTransferValues)", () => {
+  it("maps the target's known joint/eave keys back onto roof.rafter-cut's own keys", () => {
+    expect(roofShapeToRafterCutTransferValues({ seatCutHeightMm: "100", ridgeJoint: "purlin", eaveOverhangMm: "500" }))
+      .toEqual({ seatCutHeightMm: "100", ridgeJoint: "purlin", eaveProjectionMm: "500" });
+  });
+  it("never includes widthMm/pitchDegrees, which have no proven mapping outside the gable geometry helper", () => {
+    const result = roofShapeToRafterCutTransferValues({ widthMm: "8000", pitchDegrees: "30", roofShape: "gable", seatCutHeightMm: "0" });
+    expect(result).toEqual({ seatCutHeightMm: "0" });
+  });
+  it("is the exact inverse of the forward map — round-tripping every key returns the original value", () => {
+    const forward = rafterJointTransferValues({ seatCutHeightMm: "1", plateWidthMm: "1", purlinFaceMm: "1", purlinTopMm: "1", ridgeJoint: "board", ridgeBoardThicknessMm: "1", ridgePurlinWidthMm: "1", ridgePurlinTopMm: "1", eaveProjectionMm: "1" });
+    expect(roofShapeToRafterCutTransferValues(forward)).toEqual({ seatCutHeightMm: "1", plateWidthMm: "1", purlinFaceMm: "1", purlinTopMm: "1", ridgeJoint: "board", ridgeBoardThicknessMm: "1", ridgePurlinWidthMm: "1", ridgePurlinTopMm: "1", eaveProjectionMm: "1" });
+  });
+});
+
+describe("rafterCutTargetTransferFields (M10.2)", () => {
+  const siblingSource = { fields: { seatCutHeightMm: "100", ridgeJoint: "purlin", eaveOverhangMm: "0" }, geometry: { widthMm: "8000", pitchDegrees: "34.01934998982646", seatCutHeightMm: "100", eaveOverhangMm: "0" } };
+
+  it("always transfers the joint fields, independent of the gable symmetry decision", () => {
+    expect(rafterCutTargetTransferFields(siblingSource, "hip", false)).toEqual({ seatCutHeightMm: "100", ridgeJoint: "purlin", eaveProjectionMm: "0" });
+    expect(rafterCutTargetTransferFields(siblingSource, "gable", false)).toEqual({ seatCutHeightMm: "100", ridgeJoint: "purlin", eaveProjectionMm: "0" });
+  });
+
+  it("adds horizontalHalfSpanMm/riseMm/eaveProjectionMm only for a gable source with explicit symmetry confirmation", () => {
+    const result = rafterCutTargetTransferFields(siblingSource, "gable", true);
+    expect(Number(result.horizontalHalfSpanMm)).toBeCloseTo(4000, 6);
+    expect(Number(result.riseMm)).toBeCloseTo(2800, 6);
+    expect(result.eaveProjectionMm).toBe("0");
+    expect(result.seatCutHeightMm).toBe("100");
+  });
+
+  it("never writes the geometry fields for a non-gable source, even with symmetry confirmed", () => {
+    const result = rafterCutTargetTransferFields(siblingSource, "hip", true);
+    expect(result).not.toHaveProperty("horizontalHalfSpanMm");
+    expect(result).not.toHaveProperty("riseMm");
+  });
+
+  it("skips the geometry fields when the source HAP is missing, without estimating", () => {
+    const missingHap = { ...siblingSource, geometry: { widthMm: "8000", pitchDegrees: "34.01934998982646", eaveOverhangMm: "0" } };
+    const result = rafterCutTargetTransferFields(missingHap, "gable", true);
+    expect(result).not.toHaveProperty("horizontalHalfSpanMm");
+    expect(result).not.toHaveProperty("riseMm");
+  });
+
+  it("round-trips with rafterCutTransferFields: converting forward then back recovers the original half-span/rise", () => {
+    const rafterCutSource: RafterCutTransferSource = { calculationId: "c1", displayName: "x", revisionId: "r1", revisionNumber: 1, fields: {}, geometry: { horizontalHalfSpanMm: "4000", riseMm: "2800", seatCutHeightMm: "100" } };
+    const forward = rafterCutTransferFields(rafterCutSource, "gable", true);
+    const back = rafterCutTargetTransferFields({ fields: {}, geometry: { widthMm: forward.widthMm, pitchDegrees: forward.pitchDegrees, seatCutHeightMm: "100", eaveOverhangMm: "0" } }, "gable", true);
+    expect(Number(back.horizontalHalfSpanMm)).toBeCloseTo(4000, 6);
+    expect(Number(back.riseMm)).toBeCloseTo(2800, 6);
+  });
+});
