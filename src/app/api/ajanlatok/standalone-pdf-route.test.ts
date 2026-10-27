@@ -15,6 +15,12 @@ type MockQueryBuilder = {
 };
 
 vi.mock("@/features/auth/auth.server", () => ({ getAuthContext: async () => state.auth }));
+vi.mock("@/features/quotations/standalone-quotation-actions", () => ({
+  getStandaloneQuotationMaterialSourceAction: async () => ({ ok: true, data: null }),
+}));
+vi.mock("@/features/quotations/calculation-quotation-data", () => ({
+  getQuotationRevisionCalculationSource: async () => null,
+}));
 vi.mock("@/infrastructure/supabase/server", () => ({
   createClient: async () => ({
     from: () => {

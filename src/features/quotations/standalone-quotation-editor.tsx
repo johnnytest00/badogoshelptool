@@ -417,7 +417,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
         {serverReadiness && <small role="status">Az ellenőrzés hitelesített szerveroldali adatokkal lefutott.</small>}
         </div>
       </details>
-      <div className="quotation-lines"><div className="section-heading"><div><h3>Tételek</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("MATERIAL")}>+ Kézi anyag</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
+      <div className="quotation-lines"><div className="section-heading"><div><h3>Tételek ({lines.length})</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("MATERIAL")}>+ Kézi anyag</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
         {lines.length === 0 && <p className="empty-state">Még nincs tétel. Üres piszkozatot is elmenthetsz.</p>}
         {lines.map((line, index) => {
           const selected = line.variantId ? catalogVariant(line.variantId) : undefined;

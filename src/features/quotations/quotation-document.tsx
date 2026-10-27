@@ -1,5 +1,6 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import "./pdf-fonts";
+import { quotationPurchasingUnitLabel } from "./quotation-material-state";
 
 export type QuotationDocumentData = {
   organizationName: string;
@@ -21,6 +22,8 @@ export type StandaloneDraftQuotationDocumentData = {
   validUntil: string | null;
   notes: string | null;
   terms: string | null;
+  materialSource: { listName: string; revisionLabel: string } | null;
+  calculationSource: { calculationName: string; calculatorLabel: string; revisionLabel: string } | null;
 };
 
 export type QuotationPdfData = QuotationDocumentData | StandaloneDraftQuotationDocumentData;
@@ -58,6 +61,7 @@ const styles = StyleSheet.create({
 });
 
 const asText = (value: unknown) => typeof value === "string" ? value : value == null ? "" : String(value);
+const unitText = (value: unknown) => quotationPurchasingUnitLabel(asText(value));
 const categoryName = (type: unknown) => type === "MATERIAL" ? "Anyag" : type === "LABOR" ? "Munkadíj" : "Egyéb";
 const money = (value: unknown, currency = "HUF") => {
   if (value == null || value === "") return "-";
@@ -104,7 +108,7 @@ export function QuotationPdfDocument({ data }: Readonly<{ data: QuotationDocumen
       </View></View>
       <View style={styles.section}><Text style={styles.sectionTitle}>Tételek</Text><View style={styles.table}>
         <View style={styles.tableHeader}><Text style={styles.colNo}>#</Text><Text style={styles.colDescription}>Megnevezés</Text><Text style={styles.colQty}>Menny.</Text><Text style={styles.colUnit}>Egység</Text><Text style={styles.colPrice}>Egységár</Text><Text style={styles.colTotal}>Összeg</Text></View>
-        {grouped.map((group) => <View key={group.type} wrap={false}><Text style={styles.category}>{categoryName(group.type)}</Text>{group.lines.map((line, index) => <View style={styles.row} key={`${group.type}-${index}`} wrap={false}><Text style={styles.colNo}>{index + 1}</Text><View style={styles.colDescription}><Text>{asText(line.description) || "Nincs megadva"}</Text>{line.notes ? <Text style={styles.note}>{asText(line.notes)}</Text> : null}</View><Text style={styles.colQty}>{asText(line.quantity)}</Text><Text style={styles.colUnit}>{asText(line.unit)}</Text><Text style={styles.colPrice}>{money(line.unitPrice, data.quotation.currency)}</Text><Text style={styles.colTotal}>{money(line.lineTotal, data.quotation.currency)}</Text></View>)}</View>)}
+        {grouped.map((group) => <View key={group.type} wrap={false}><Text style={styles.category}>{categoryName(group.type)}</Text>{group.lines.map((line, index) => <View style={styles.row} key={`${group.type}-${index}`} wrap={false}><Text style={styles.colNo}>{index + 1}</Text><View style={styles.colDescription}><Text>{asText(line.description) || "Nincs megadva"}</Text>{line.notes ? <Text style={styles.note}>{asText(line.notes)}</Text> : null}</View><Text style={styles.colQty}>{asText(line.quantity)}</Text><Text style={styles.colUnit}>{unitText(line.unit)}</Text><Text style={styles.colPrice}>{money(line.unitPrice, data.quotation.currency)}</Text><Text style={styles.colTotal}>{money(line.lineTotal, data.quotation.currency)}</Text></View>)}</View>)}
       </View></View>
       <View style={styles.summaryWrap}><View style={styles.summary}><Text style={styles.label}>Pénzügyi összesítés</Text>{categoryTotals.map(([label, value]) => value != null ? <View style={styles.summaryRow} key={label}><Text style={styles.summaryLabel}>{label}</Text><Text>{money(value, data.quotation.currency)}</Text></View> : null)}<View style={[styles.summaryRow, styles.total]}><Text>Ajánlati összeg</Text><Text>{money(data.revision.subtotal, data.quotation.currency)}</Text></View><Text style={styles.note}>{data.revision.priceClass === "net" ? "Nettó összeg" : data.revision.priceClass === "gross" ? "Bruttó összeg" : "Az árbesorolás nincs megadva"}</Text></View></View>
       {!complete || data.revision.priceClass == null ? <Text style={styles.warning}>FIGYELMEZTETÉS: Ez a dokumentum hiányos ajánlati piszkozat. Az itt nem szereplő ár- vagy adóinformációt a rendszer nem pótolja, és a dokumentum nem minősül számlának.</Text> : null}
@@ -144,6 +148,8 @@ export function StandaloneDraftQuotationPdfDocument({ data }: Readonly<{ data: S
           </View>
         </View>
       </View>
+      {data.materialSource ? <Text style={styles.reference}>Anyaglista-forrás: {data.materialSource.listName} · {data.materialSource.revisionLabel}</Text> : null}
+      {data.calculationSource ? <Text style={styles.reference}>Kalkulációs forrás: {data.calculationSource.calculatorLabel} · {data.calculationSource.calculationName} · {data.calculationSource.revisionLabel}</Text> : null}
       {data.notes ? <View style={styles.section}><Text style={styles.sectionTitle}>Megjegyzés</Text><Text>{data.notes}</Text></View> : null}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Tételek</Text>
@@ -151,7 +157,7 @@ export function StandaloneDraftQuotationPdfDocument({ data }: Readonly<{ data: S
           <View style={styles.tableHeader}><Text style={styles.colNo}>#</Text><Text style={styles.colDescription}>Megnevezés</Text><Text style={styles.colQty}>Menny.</Text><Text style={styles.colUnit}>Egység</Text><Text style={styles.colPrice}>Nettó egységár</Text><Text style={styles.colTotal}>Nettó tételösszeg</Text></View>
           {data.revision.lines.map((line, index) => <View style={styles.row} key={`${data.revision.id}-${index}`} wrap={false}>
             <Text style={styles.colNo}>{index + 1}</Text><View style={styles.colDescription}><Text>{asText(line.description) || "Nincs megadva"}</Text>{line.notes ? <Text style={styles.note}>{asText(line.notes)}</Text> : null}<Text style={styles.note}>{asText(line.type) === "LABOR" ? "Munkadíj" : asText(line.type) === "MATERIAL" ? "Anyag" : "Egyéb"}</Text></View>
-            <Text style={styles.colQty}>{asText(line.quantity)}</Text><Text style={styles.colUnit}>{asText(line.unit)}</Text><Text style={styles.colPrice}>{money(line.unitPrice, "HUF")}</Text><Text style={styles.colTotal}>{money(line.lineTotal, "HUF")}</Text>
+            <Text style={styles.colQty}>{asText(line.quantity)}</Text><Text style={styles.colUnit}>{unitText(line.unit)}</Text><Text style={styles.colPrice}>{money(line.unitPrice, "HUF")}</Text><Text style={styles.colTotal}>{money(line.lineTotal, "HUF")}</Text>
           </View>)}
         </View>
       </View>

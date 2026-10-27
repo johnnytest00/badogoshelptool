@@ -3,6 +3,9 @@ import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
 import { renderQuotationPdf, safeStandaloneDraftFilename } from "@/features/quotations/quotation-pdf";
 import { buildStandaloneDraftPdfData } from "@/features/quotations/standalone-quotation-pdf";
+import { getQuotationRevisionCalculationSource } from "@/features/quotations/calculation-quotation-data";
+import { constructionCalculatorLabels } from "@/features/calculators/construction-computation";
+import { getStandaloneQuotationMaterialSourceAction } from "@/features/quotations/standalone-quotation-actions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,10 +61,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ quot
     ? input.document as Record<string, unknown> : {};
   const issuer = document.issuer && typeof document.issuer === "object" && !Array.isArray(document.issuer)
     ? document.issuer as Record<string, unknown> : {};
+  let calculationSource: Awaited<ReturnType<typeof getQuotationRevisionCalculationSource>>;
+  try { calculationSource = await getQuotationRevisionCalculationSource(quotation.organization_id, revision.id); }
+  catch { return response("Az ajánlat forrása nem tölthető be; a PDF-előnézet jelenleg nem készíthető el.", 500); }
+  const materialSourceResult = await getStandaloneQuotationMaterialSourceAction(quotation.organization_id, quotation.id, revision.id);
+  if (!materialSourceResult.ok) return response("Az ajánlat forrása nem tölthető be; a PDF-előnézet jelenleg nem készíthető el.", 500);
   const built = buildStandaloneDraftPdfData({
     quotation: { id: quotation.id, name: quotation.name, currency: quotation.currency },
     organizationName: typeof issuer.organizationName === "string" ? issuer.organizationName : "",
     revision,
+    materialSource: materialSourceResult.data ? {
+      listName: materialSourceResult.data.listName,
+      revisionNumber: materialSourceResult.data.revisionNumber,
+    } : null,
+    calculationSource: calculationSource ? {
+      calculationName: calculationSource.calculationName,
+      calculatorLabel: constructionCalculatorLabels[calculationSource.calculatorId as keyof typeof constructionCalculatorLabels] ?? calculationSource.calculatorId,
+      revisionNumber: calculationSource.revisionNumber,
+    } : null,
   });
   if (!built.ok) return response(built.error, 422);
 

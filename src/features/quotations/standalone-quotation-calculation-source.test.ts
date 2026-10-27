@@ -39,12 +39,22 @@ describe("standalone quotation calculation source", () => {
     expect(state.rpc.mock.calls[0][0]).toBe("save_standalone_quotation_draft_with_document");
   });
 
-  it("rejects a source key without its revision, a malformed key and a mixed material/calculation source", async () => {
+  it("rejects a source key without its revision and a malformed key", async () => {
     expect((await saveStandaloneQuotationDraftAction(form([line({ calculationSourceKey: "cut/rafters/0" })]))).ok).toBe(false);
     expect((await saveStandaloneQuotationDraftAction(form([line({ calculationSourceKey: "lines/0" })], { calculationRevisionId }))).ok).toBe(false);
-    expect((await saveStandaloneQuotationDraftAction(form([line({ calculationSourceKey: "cut/rafters/0" }), line({ sourceMaterialItemId: "00000000-0000-4000-8000-000000000701" })],
-      { calculationRevisionId, materialListId: "00000000-0000-4000-8000-000000000702", materialRevisionId: "00000000-0000-4000-8000-000000000703" }))).ok).toBe(false);
     expect(state.rpc).not.toHaveBeenCalled();
+  });
+
+  it("routes a mix of calculation- and material-list-sourced lines to the combined wrapper", async () => {
+    const result = await saveStandaloneQuotationDraftAction(form([line({ calculationSourceKey: "cut/rafters/0" }), line({ type: "OTHER", sourceMaterialItemId: "00000000-0000-4000-8000-000000000701" })],
+      { calculationRevisionId, materialListId: "00000000-0000-4000-8000-000000000702", materialRevisionId: "00000000-0000-4000-8000-000000000703" }));
+    expect(result.ok).toBe(true);
+    const [name, args] = state.rpc.mock.calls[0];
+    expect(name).toBe("save_standalone_quotation_from_material_list_and_calculation");
+    expect(args.p_calculation_revision_id).toBe(calculationRevisionId);
+    expect(args.p_calculation_source_line_map).toEqual([{ quotationLineIndex: 0, sourceKey: "cut/rafters/0" }]);
+    expect(args.p_material_list_id).toBe("00000000-0000-4000-8000-000000000702");
+    expect(args.p_material_source_line_map).toEqual([{ materialItemId: "00000000-0000-4000-8000-000000000701", quotationLineIndex: 1 }]);
   });
 
   it("explains a calculation source the database rejects", async () => {

@@ -1927,6 +1927,11 @@ isOneToOne: false
               "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number,"totals_snapshot": Json
             }[]
                            },
+"save_standalone_quotation_from_material_list_and_calculation":
+{ Args: { "p_calculation_revision_id": string,"p_calculation_source_line_map": Json,"p_client_id": string,"p_document": Json,"p_expected_version": number,"p_lines": Json,"p_material_list_id": string,"p_material_revision_id": string,"p_material_source_line_map": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_quotation_id": string }; Returns: {
+              "quotation_id": string,"revision_created": boolean,"revision_id": string,"revision_number": number,"totals_snapshot": Json
+            }[]
+                           },
 "save_standalone_roof_geometry_calculation":
 { Args: { "p_actor_id": string,"p_calculation_id": string,"p_expected_revision_number": number,"p_input_data": Json,"p_name": string,"p_operation_id": string,"p_organization_id": string,"p_output_data": Json }; Returns: {
               "calculation_id": string,"calculation_revision_id": string,"reused": boolean,"revision_number": number

@@ -33,6 +33,17 @@ describe("standalone draft PDF snapshot", () => {
     expect(JSON.stringify(result.data)).not.toMatch(/VAT|ÁFA|bruttó|fizetendő/i);
   });
 
+  it("keeps both source names and revision numbers available for the customer PDF", () => {
+    const result = buildStandaloneDraftPdfData({ ...fixture(),
+      materialSource: { listName: "DEMO anyaglista", revisionNumber: 2 },
+      calculationSource: { calculationName: "DEMO kalkuláció", calculatorLabel: "Faanyag és vágáslista", revisionNumber: 3 },
+    } as Parameters<typeof buildStandaloneDraftPdfData>[0]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.materialSource).toEqual({ listName: "DEMO anyaglista", revisionLabel: "V2" });
+    expect(result.data.calculationSource).toEqual({ calculationName: "DEMO kalkuláció", calculatorLabel: "Faanyag és vágáslista", revisionLabel: "V3" });
+  });
+
   it("rejects gross basis and inconsistent saved totals", () => {
     expect(buildStandaloneDraftPdfData(fixture({ price_class: "gross" })).ok).toBe(false);
     expect(buildStandaloneDraftPdfData(fixture({ subtotal: "10501.00" })).ok).toBe(false);

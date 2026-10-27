@@ -1,5 +1,35 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M10.3.1 — Kombinált anyaglista + kalkulációs forrás egy ajánlati revízióban (2026-10-27)
+
+Státusz: **PASS WITH LIMITATIONS**. Az implementáció és a kombinált mentés működik; az eredeti átadási riportban jelzett PDF, számláló, normál forrásválasztó és React key hibákat célzottan javítottam. A kötelező teljes viewport-/témamátrix, a hosszú PDF és az összes negatív jogosultsági eset nem bizonyított, ezért a mérföldkő teljes PASS státusza nem állítható. A friss E2E és verifikáció részletei: [M10.3.1 remediation QA](M10_PHASE3_QA_REMEDIATION.md).
+
+Egy standalone ajánlat-piszkozat mostantól **egy mentésben** vehet át mennyiséget egy anyaglista-revízióból ÉS egy kalkulációs revízióból is. A `save_standalone_quotation_from_calculation`/`save_standalone_quotation_from_material_list` RPC-k és validációik változatlanok; az új, forward-only migráció (`20261027030000_quotation_combined_source.sql`) regisztrálja a `save_standalone_quotation_from_material_list_and_calculation` wrappert. Az action-réteg a meglévő form-adatok alapján választja ki a három RPC közül a megfelelőt.
+
+### Az eredeti implementációs napló (remediáció előtti állapot)
+
+Az alábbi állítások az első combined-source implementáció átadáskori állapotát rögzítik, a fenti remediation még nem történt meg. Az ottani teszt- és QA-eredmények történeti jelentések; a friss átvételi bizonyíték a [remediation riportban](M10_PHASE3_QA_REMEDIATION.md) található.
+
+- **Nem változott:** a két meglévő önálló RPC, a kliens UI forráspanelek, a PDF-generálás, a pénzügyi/ÁFA szerződés, a korábbi (csak egy forrású) ajánlatok és revízióik.
+- **Ellenőrzés:** új `063_quotation_combined_source.sql` pgTAP 10/10 PASS (kombinált mentés, idempotens retry duplikáció nélkül, ütköző sor-hozzárendelés elutasítása); teljes `supabase test db --local` 65 fájl/1362 teszt PASS; `database.types.ts` újragenerálva (`npm run db:types`); célzott Vitest (`standalone-quotation-calculation-source.test.ts` + teljes `src/features/quotations`/`src/app/ajanlatok`) 12 fájl/49 teszt PASS; teljes `npm test` 192 fájl PASS/8 SKIP, 1236 teszt PASS/19 SKIP; ESLint PASS; izolált (`git worktree`) `npm run typecheck` és production build PASS; `git diff --check` PASS. Böngészős E2E nem futott ebben a menetben (a hatókör egy DB RPC + action-routing változás, UI-komponens nem módosult).
+- **Javasolt Conventional Commit:** `feat(M10.3.1): allow a standalone quotation to combine a material-list and a calculation source in one revision`.
+
+### M10.3.1 remediation ellenőrzés
+
+- **Megvalósítva:** normál UI két egymástól független, mentett revíziót választó vezérlője; PDF egység- és forrás/revízió címkéi; helyes tételszám; stabil React-listakulcsok. A kombinált V1 mentés/újranyitás és V2 létrehozás böngészőből ellenőrizve.
+- **Friss ellenőrzés:** `npm test` — 193 fájl PASS / 8 SKIP, 1238 teszt PASS / 19 SKIP; érintett ESLint fájlok PASS; izolált typecheck/build korábban sikeres; `git diff --check` a riport lezárásakor fut.
+- **Nem futott:** a célzott pgTAP újrafuttatása, mert a helyi Postgres nem futott (`127.0.0.1:54322`, `ECONNREFUSED`); a 375×812 világos/sötét, 812×375 és többoldalas PDF; teljes negatív jogosultsági/forrás-hiba E2E.
+- **Javasolt Conventional Commit:** `fix(M10.3.1): complete combined-source acceptance and PDF provenance`.
+
+## M10.3 — Anyagszükséglet → árajánlat: felmérés és a PDF-forrásjelzés lezárása (2026-10-27)
+
+Státusz: **PASS WITH LIMITATIONS**. A kért "mentett anyagszükséglet → árajánlat" munkafolyamat célzott felmérése azt mutatta, hogy a teljes folyamat (kalkuláció → ajánlattétel-jelölt, kézi anyag-/munkadíjsor, árazás, mentés, revízió, nyomtatás) **már megvalósult** az M4 (`687a9cc`, 2026-10-25) és a megelőző F8/F9.x mérföldkövekben — nem épült mellé második árajánlat-rendszer. Három, a felmérésben dokumentált, nyitott korlátból egyet zártam le; a másik kettő tudatosan nyitva maradt.
+- **Lezárva:** a standalone piszkozat PDF (`/api/ajanlatok/[quotationId]/pdf`) mostantól feltünteti a mennyiségi forrás kalkulátorát, nevét és revízióját (`Mennyiségi forrás: <kalkulátor> · <név> · v<szám>`), ha a revízióhoz van kalkulációs forrás. Érintett fájlok: [`standalone-quotation-pdf.ts`](../src/features/quotations/standalone-quotation-pdf.ts), [`quotation-document.tsx`](../src/features/quotations/quotation-document.tsx), [`route.ts`](../src/app/api/ajanlatok/[quotationId]/pdf/route.ts).
+- **Már megvolt, nem igényelt kódot:** önálló munkadíjsor bármely ajánlathoz szabadon felvehető ("+ Munkadíj" az ajánlatszerkesztőben), tetszőleges mennyiséggel/egységgel/árral — függetlenül attól, hogy a többi tétel kalkulációból vagy anyaglistából érkezett.
+- **Tudatosan nyitva maradt, később lezárva:** egy ajánlati revízió ekkor még csak egyféle automatikus forrásból (anyaglista VAGY kalkuláció) vehetett át mennyiséget. Lásd [M10.3.1](#m1031--kombinált-anyaglista--kalkulációs-forrás-egy-ajánlati-revízióban-2026-10-27) — a felhasználó jóváhagyásával, külön menetben lezárva.
+- **Ellenőrzés:** célzott Vitest (`standalone-quotation-pdf.test.ts`, `calculation-quotation-source.test.ts`, teljes `src/features/quotations` + `src/app/api/ajanlatok`) 13 fájl/62 teszt PASS; izolált (`git worktree`) `npm run typecheck` és ESLint PASS a módosított fájlokra. Teljes Vitest-regresszió, production build és böngészős E2E ebben a menetben nem futott (a hatókör — egy opcionális PDF-sor hozzáadása — nem indokolta).
+- **Javasolt Conventional Commit:** `feat(M10.3): show the calculation source on the standalone quotation PDF`.
+
 ## M10.2.1 — RPC trust-boundary javítás és négyirányú E2E véglegesítés (2026-10-27)
 
 Státusz: **PASS**. A független M10.2 QA ([`M10_PHASE2_INDEPENDENT_QA.md`](M10_PHASE2_INDEPENDENT_QA.md), FAIL) két blokkolóját javítottam: (1) a `save_standalone_construction_calculation` RPC forrás-lekérdezése NULL-ra futott idegen létrehozójú/szervezetű vagy nem létező forrásnál, ezért a tervezett korai `42501` guard helyett a dependency-trigger `P0001` hibájával bukott el — javítva egy új, forward-only migrációval (`20261027020000`) explicit `is null` ellenőrzéssel, ugyanazzal a nem-szivárogtató hibaüzenettel. (2) A négy új kapcsolat (material-takeoff↔timber-cutlist, material-takeoff/timber-cutlist→rafter-cut) teljes mentés–újranyitás E2E-je élő böngészőből, DB-vel kereszt-ellenőrizve lezajlott; a fordított geometria (8000 mm/35°/HAP 60 mm) pontosan `4000 mm` fél fesztávot és `2860.830152838839 mm` gerincemelkedést adott mindkét forrásnál. Részletek: [M10.2.1 riport](M10_PHASE2_P1_REMEDIATION_AND_E2E.md).

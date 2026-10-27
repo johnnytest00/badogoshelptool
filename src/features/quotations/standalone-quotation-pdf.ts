@@ -29,6 +29,8 @@ export function buildStandaloneDraftPdfData(input: {
   quotation: { id: string; name: string; currency: string };
   organizationName: string;
   revision: RevisionSnapshot;
+  materialSource?: { listName: string; revisionNumber: number } | null;
+  calculationSource?: { calculationName: string; calculatorLabel: string; revisionNumber: number } | null;
 }): StandalonePdfDataResult {
   const { quotation, revision } = input;
   if (quotation.currency !== "HUF" || revision.currency !== "HUF" || revision.price_class !== "net") {
@@ -54,6 +56,10 @@ export function buildStandaloneDraftPdfData(input: {
   }
   if (!Array.isArray(revision.line_items_snapshot) || revision.line_items_snapshot.length === 0 || revision.line_items_snapshot.length > 200) {
     return { ok: false, error: "Ehhez a revízióhoz nincs PDF-ben biztonságosan megjeleníthető nettó tételsor." };
+  }
+  if ((input.materialSource && (!input.materialSource.listName.trim() || !Number.isSafeInteger(input.materialSource.revisionNumber) || input.materialSource.revisionNumber < 1))
+    || (input.calculationSource && (!input.calculationSource.calculationName.trim() || !input.calculationSource.calculatorLabel.trim() || !Number.isSafeInteger(input.calculationSource.revisionNumber) || input.calculationSource.revisionNumber < 1))) {
+    return { ok: false, error: "A forrás neve vagy revíziószáma nem jeleníthető meg megbízhatóan a PDF-ben." };
   }
   const lines: Array<Record<string, unknown>> = [];
   try {
@@ -84,5 +90,7 @@ export function buildStandaloneDraftPdfData(input: {
     revision: { id: revision.id, number: revision.revision_number, lines, subtotal: String(revision.subtotal), currency: "HUF" },
     issuer, recipient, reference: textOrNull(snapshot.reference), validUntil: textOrNull(snapshot.validUntil),
     notes: textOrNull(snapshot.notes), terms: textOrNull(snapshot.terms),
+    materialSource: input.materialSource ? { listName: input.materialSource.listName, revisionLabel: `V${input.materialSource.revisionNumber}` } : null,
+    calculationSource: input.calculationSource ? { calculationName: input.calculationSource.calculationName, calculatorLabel: input.calculationSource.calculatorLabel, revisionLabel: `V${input.calculationSource.revisionNumber}` } : null,
   } };
 }

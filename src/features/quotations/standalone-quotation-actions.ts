@@ -91,7 +91,6 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
     || (calculationRevisionId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(calculationRevisionId))) {
     return failure("VALIDATION", "A kalkulációs forrás és a forrástételek kapcsolata érvénytelen.");
   }
-  if (calculationSourceMap.length > 0 && sourceLineMap.length > 0) return failure("VALIDATION", "Egy ajánlati revízió egyszerre csak egy forrásból (anyaglista vagy kalkuláció) vehet át mennyiséget.");
   if (materialListId && (!/^[0-9a-f-]{36}$/i.test(materialListId) || !/^[0-9a-f-]{36}$/i.test(materialRevisionId ?? ""))) {
     return failure("VALIDATION", "A forrás anyaglista vagy revízió azonosítója érvénytelen.");
   }
@@ -101,9 +100,12 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
 
   const supabase = await createClient();
   const db = supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: SavedDraft[] | null; error: { code?: string; message?: string } | null }> };
-  const rpcName = calculationSourceMap.length > 0 ? "save_standalone_quotation_from_calculation"
-    : materialListId && sourceLineMap.length > 0 ? "save_standalone_quotation_from_material_list"
-      : "save_standalone_quotation_draft_with_document";
+  const hasMaterialSource = Boolean(materialListId) && sourceLineMap.length > 0;
+  const hasCalculationSource = calculationSourceMap.length > 0;
+  const rpcName = hasMaterialSource && hasCalculationSource ? "save_standalone_quotation_from_material_list_and_calculation"
+    : hasCalculationSource ? "save_standalone_quotation_from_calculation"
+      : hasMaterialSource ? "save_standalone_quotation_from_material_list"
+        : "save_standalone_quotation_draft_with_document";
   const rpcArgs = {
     p_organization_id: organizationId, p_operation_id: operationId, p_quotation_id: quotationId,
     p_name: parsed.data.name, p_client_id: document.recipientSource === "client" ? document.recipientClientId : null,
@@ -118,12 +120,19 @@ export async function saveStandaloneQuotationDraftAction(form: FormData): Promis
       p_calculation_revision_id: calculationRevisionId,
       p_source_line_map: calculationSourceMap,
     } : {}),
+    ...(rpcName === "save_standalone_quotation_from_material_list_and_calculation" ? {
+      p_material_list_id: materialListId,
+      p_material_revision_id: materialRevisionId,
+      p_material_source_line_map: sourceLineMap,
+      p_calculation_revision_id: calculationRevisionId,
+      p_calculation_source_line_map: calculationSourceMap,
+    } : {}),
   };
   const { data, error } = await db.rpc(rpcName, rpcArgs);
   if (error || !data?.[0]) {
     const issue = error?.code === "23503" && lines.some((line) => line.variantId || line.priceId)
       ? { code: "CATALOG_SOURCE" as const, error: "A kiválasztott katalógus- vagy árforrás nem érvényes ebben a műhelyben." }
-      : rpcName === "save_standalone_quotation_from_calculation" && /calculation|layout|cut-list/.test(error?.message ?? "")
+      : hasCalculationSource && /calculation|layout|cut-list/.test(error?.message ?? "")
         ? { code: "VALIDATION" as const, error: "A kalkulációs forrás nem érhető el, vagy a kiválasztott mennyiség nem szerepel a mentett revízióban." }
         : classify(error, "Az önálló ajánlat mentése nem sikerült.");
     return failure(issue.code, issue.error);
