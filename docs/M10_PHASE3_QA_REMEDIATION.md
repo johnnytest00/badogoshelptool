@@ -3,6 +3,22 @@
 Dátum: 2026-10-27  
 Döntés: **PASS WITH LIMITATIONS**
 
+## Végső QA-zárás (2026-10-27)
+
+Ez a szakasz felülírja az alábbi korábbi „NOT VERIFIED/BLOCKED” jelöléseket a most ténylegesen lefuttatott ellenőrzések alapján.
+
+| Terület | Státusz | Bizonyíték |
+|---|---|---|
+| E11 jogosultság és forrásintegritás | **PASS** | A `063_quotation_combined_source.sql` 18/18 assertionje lefedi a hiányzó forrás/revízió, eltérő lista–revízió, idegen szervezet, jogosulatlan azonos szervezeti tag és a hibás mentés utáni teljes rollback esetét. A hibaüzenetek általánosak, idegen forrásadatot nem tartalmaznak. A `033`, `058`, `062` tesztekkel együtt 61/61 pgTAP assertion futott sikeresen a helyi Supabase-en. |
+| Többoldalas PDF és UI-pénzügy | **PASS** | A helyi, egyértelműen DEMO jelölt 36 soros piszkozat PDF-je ténylegesen renderelődött 4 A4 álló oldalra. A sorok oldalhatáron belül maradtak; az első oldal forrásai és V2/V1 revíziói, a `m²`, `db`, `óra` egységek, az utolsó oldal nettó 366 200 HUF összesenje olvasható. Az UI ugyanazt a 366 200 Ft nettó értéket mutatja. ÁFA/bruttó érték nincs kitalálva. |
+| Reszponzív nézet és konzol | **PASS WITH LIMITATION** | 375×812 világos és sötét, 812×375 fekvő és 1440×900 desktop Chromium responsive-emulációban ellenőrizve. A 375 és 812 px nézetekben a DOM `scrollWidth` megegyezett a `clientWidth` értékével; a desktop vizuálisan nem lógott túl. Hosszú ajánlat-/forráscímek tördelődnek, a kombinált létrehozó két forrásválasztója 375 px szélességen látható. Görgetés szükséges; az alsó navigáció és mentési sáv rögzített, keskeny/landscape nézetben csökkenti az egyszerre látható szerkesztőteret. A frissített oldalak konzoljában alkalmazáshiba nem jelent meg. Az emuláció nem helyettesít valódi mobil eszköztesztet. |
+| E03 átfedő tételek | **PASS WITH LIMITATION** | Az eredeti sorok, mennyiségek és forrásjelölések külön maradnak; a két azonosnak látszó 36 db-os szarufasor nem olvad össze és mindkettő beleszámít. Automatikus korrekció nincs. UX-javaslat lent. |
+| Automatizált ellenőrzés | **PASS** | `npm exec vitest run src/features/quotations`: 26 tesztfájl, 51/51 teszt PASS; célzott ESLint: nincs hiba. Izolált másolaton a `npm run typecheck` és `npm run build` sikeres. A teljes Vitest-regressziót ebben a záró menetben nem futtattam újra. |
+
+**E03 UX-javaslat (nem implementált):** nem blokkoló, megerősítést nem igénylő „Lehetséges átfedés” jelzés jelenjen meg, ha külön forrásokból egyező normalizált megnevezés és mértékegység kerül az ajánlatba. A jelzés mutassa meg az érintett sorokat és forrásokat, de hagyja meg mindet, és ne változtasson mennyiséget vagy összeget. Az egyezés önmagában nem bizonyít duplikációt; ezért a felhasználó dönthessen a sorok megtartásáról. Jóváhagyás nélkül üzleti szabály nem készült.
+
+Az ellenőrző ajánlatot a helyi adatbázis meglévő mentési RPC-jével hoztam létre, majd böngészőben nyitottam meg; helyi DEMO-piszkozat maradt, neve: `DEMO M10.3.1 többoldalas PDF QA` (ID: `23cc45af-cc56-4e2d-a784-c94b9deb2b97`). A 32 új oldalazási sor egyenként `DEMO` megjegyzést és kizárólag QA célú 100 Ft nettó egységárat kapott. Az adatot nem töröltem. A pénzügyi/ÁFA-szerződés és migráció nem változott.
+
 ## Átvétel és állapot
 
 A `KARMI-kiszabás szakmai véglegesítése` Claude session elérhető projektlogját megtaláltam. A látható transcript alapján a munkamenet az M10.3.1 körüli munkánál, a használati limit elérésekor szakadt meg. A döntéseket a transcript, a working tree, az [M10.3 független QA](M10_PHASE3_INDEPENDENT_QA.md), az aktuális kód és a tesztek alapján rekonstruáltam; rejtett gondolatmenetet nem rekonstruáltam.
@@ -35,35 +51,33 @@ A normál választó kiválasztott értéke a forrásrekord és revízió azonos
 | E08 — PDF tartalma | **PASS** | A renderelt V1 PDF egy A4 oldalra fért; `m²`, `db`, forrásnevek és V2/V1 látszott, belső UUID és hibás revision glyph nélkül. Draft jelölés megmaradt. |
 | E09 — PDF/UI pénzügyi paritás | **PASS** | A PDF és a mentett V1 UI összege 358 000 Ft nettó HUF; V2 UI összege 363 000 Ft. Adókezelés nem lett kitalálva. |
 | E10 — egyforrásos és kézi ajánlat regresszió | **PASS** | Külön, normál felületi DEMO próbában egy csak anyaglista-forrású V1 210 000 Ft-tal mentődött és teljes újratöltés után 2 sort mutatott. Egy teljesen kézi V1 szintén mentődött, újratöltés után 1 sorral és 2 000 Ft-tal jelent meg. |
-| E11 — jogosulatlan vagy hiányzó forrás | **NOT VERIFIED** | A mentési útvonal forrás- és revisionazonosságát a meglévő action/RPC szerződés validálja; friss, negatív böngészős esetet a helyi DB elérhetetlensége miatt nem futtattam. A route meglévő auth tesztjei a teljes Vitestben lefutottak. |
+| E11 — jogosulatlan vagy hiányzó forrás | **PASS (pgTAP)** | A végső, soros helyi DB regresszió 18/18 combined-source, 13/13 material-list-source, 16/16 calculation-source és 14/14 save/rollback assertionnel futott. A negatív E11 esetek adatbázis-RPC szinten bizonyítottak; külön böngészős, jogosulatlan mentési próbát nem futtattam. |
 | E12 — runtime és duplicate-key konzolhiba | **PASS** | A konzol ürítése után a kalkulátor oldal frissen betöltött. A normál Next/HMR tájékoztatókon kívül nem jelent meg új runtime vagy duplicate-key üzenet. |
 
-### PDF és nézetmátrix
+### PDF és nézetmátrix — korábbi futás
 
-- A PDF-et böngészőben ténylegesen rendereltem és vizuálisan ellenőriztem, nem csak a HTTP-választ. A rövid négysoros változat egy A4 oldalra fért. Többoldalas PDF-et nem készítettem.
-- A korábbi független QA 393×852 sötét mobilnézetet nézett. E menetben a kombinált mentési folyamat sötét desktop nézetben futott; 1440×900-at a DevTools mezőivel megbízhatóan újrabeállítani nem sikerült.
-- **NOT VERIFIED:** 375×812 világos, 375×812 sötét, 812×375 fekvő, ellenőrzött 1440×900 és többoldalas A4 oldaltörés. A világos témát ebben a menetben nem vizsgáltam.
+- A korábbi négy soros változat egy A4 oldalra fért. A végső, 36 soros piszkozat és a pontos nézetmátrix bizonyítéka a jelen riport „Végső QA-zárás” szakaszában van.
 
 ## Adat, jogosultság, konzisztencia
 
 - A felhasznált szervezet és tételek DEMO adatok; minden kézi egységár mellett DEMO megjegyzés szerepelt. Nincs kitalált adókulcs vagy bruttósítás.
-- A regressziós ellenőrzés két további, egyértelműen DEMO címkézett piszkozatot hagyott a helyi szervezetben: material-only V1 és kézi V1. Ezeket nem töröltem.
+- A korábbi regressziós ellenőrzés két további, egyértelműen DEMO címkézett piszkozatot hagyott a helyi szervezetben: material-only V1 és kézi V1. A végső PDF QA további egy 36 soros DEMO piszkozatot hozott létre. Ezeket nem töröltem.
 - A böngészős mentés/újranyitás igazolta a revisionhöz kötött források és a sorok fennmaradását. V1 és V2 külön állapotként jelent meg; a V1 újranyitása nem mutatta a V2 kézi mennyiségváltozását.
 - A kód változatlanul az existing standalone quotation actiont, forráslekérő műveleteket, revision snapshotot és provenance-táblákat használja. A kérésben szereplő kombinált migrációhoz és RPC-hez nem adtam új jogosultsági réteget.
-- A korábbi független QA riport helyi migráció- és 53 pgTAP assertion eredményt rögzít. Ezt nem állítom friss eredménynek. Saját pgTAP újrafuttatásom blokkolt: `ECONNREFUSED 127.0.0.1:54322`; Supabase adatbázist nem indítottam és nem reseteltem.
+- A végső pgTAP-futtatás helyi Supabase-en történt, reset nélkül: a 063, 033, 058 és 062 fájl soros futtatása 61/61 assertiont adott. A hibafecskendezés és rollback teszt azonos tranzakcióban futott.
 
 ## Automatizált ellenőrzés
 
 - Célzott quotation/source/PDF Vitest: **18 teszt PASS**; későbbi PDF/source selector célfutás: **7 teszt PASS**.
 - A teljes Vitest első futásakor a standalone PDF route teszt hibásan 500-at kapott, mert a mock Supabase kliens minden táblához ugyanazt a quotation sort adta vissza, és nem modellezte az új, opcionális source lookupokat. A tesztben a két új külső source lekérdezést külön mockoltam; a route viselkedése nem változott.
 - Végső `npm test`: **193 fájl PASS / 8 SKIP; 1238 teszt PASS / 19 SKIP**.
-- Érintett fájlokra futtatott ESLint: **PASS, nincs hiba**.
+- Érintett fájlokra futtatott ESLint: **PASS, nincs hiba**. A záró quotation suite: 26 fájl / 51 teszt **PASS**.
 - Izolált ellenőrző másolaton futott `npm run typecheck` és `npm run build`: **PASS**. A checkoutban futó dev szerver `.next` könyvtárát nem használtam buildkimenetként.
-- PgTAP célfuttatás: **BLOCKED**, mert a helyi Postgres nem futott. Nem futtattam resetet.
-- `git diff --check`: a dokumentáció és diff lezárása előtt futtatandó.
+- Záró Vitest-futtatás célzott volt, nem teljes regresszió: 26 quotation tesztfájl / 51 teszt PASS. A teljes `npm test` korábbi futásának számai történeti eredményként maradnak a fenti szakaszban.
+- `git diff --check`: **PASS** a végleges diffen.
 
 ## Végső döntés és nyitott pontok
 
-Nem találtam bizonyított nyitott P1 hibát a rövid PDF-ben vagy a kombinált UI-mentésben. A mérföldkő **PASS WITH LIMITATIONS**, nem teljes PASS: E03-nál nincs automatikus duplikációs figyelmeztetés, E11, a pontos viewport-/téma mátrix, a többoldalas PDF és a friss pgTAP ellenőrzés hiányzik. Ezeket a korlátokat nem tekintem bizonyított hibamentességnek.
+Nem találtam bizonyított nyitott P1 hibát. A mérföldkő **PASS WITH LIMITATIONS**: az E11 RPC-negatív esetek, a 4 oldalas A4 PDF, az UI/PDF nettó paritás, a kért emulált nézetmátrix, a célzott Vitest/Lint, az izolált typecheck/build és a helyi pgTAP mind bizonyítottak. Korlát: a teljes Vitest-regressziót nem futtattam újra; a responsive teszt Chromium emuláció, nem fizikai készülék; E03 figyelmeztetés csak UX-javaslat maradt, üzleti szabály jóváhagyására vár.
 
 **Javasolt Conventional Commit:** `fix(M10.3.1): complete combined-source acceptance and PDF provenance`

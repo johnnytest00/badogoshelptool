@@ -2,7 +2,7 @@
 
 ## M10.3.1 — Kombinált anyaglista + kalkulációs forrás egy ajánlati revízióban (2026-10-27)
 
-Státusz: **PASS WITH LIMITATIONS**. Az implementáció és a kombinált mentés működik; az eredeti átadási riportban jelzett PDF, számláló, normál forrásválasztó és React key hibákat célzottan javítottam. A kötelező teljes viewport-/témamátrix, a hosszú PDF és az összes negatív jogosultsági eset nem bizonyított, ezért a mérföldkő teljes PASS státusza nem állítható. A friss E2E és verifikáció részletei: [M10.3.1 remediation QA](M10_PHASE3_QA_REMEDIATION.md).
+Státusz: **PASS WITH LIMITATIONS**. A végső QA lefedte az E11 RPC negatív eseteit és atomikus rollbackjét (18/18 combined-source pgTAP), a többoldalas PDF-et, a pénzügyi paritást, a négy kért Chromium responsive viewportot, a célzott Vitestet (51/51), lintet, izolált typechecket/buildet és a kapcsolódó pgTAP-regressziót (összesen 61/61). A teljes Vitest-regressziót nem futtattam újra, a responsive ellenőrzés nem valódi eszközön történt, E03 lehetséges átfedési jelzése pedig csak dokumentált, nem implementált UX-javaslat. Részletek: [M10.3.1 végső QA](M10_PHASE3_QA_REMEDIATION.md).
 
 Egy standalone ajánlat-piszkozat mostantól **egy mentésben** vehet át mennyiséget egy anyaglista-revízióból ÉS egy kalkulációs revízióból is. A `save_standalone_quotation_from_calculation`/`save_standalone_quotation_from_material_list` RPC-k és validációik változatlanok; az új, forward-only migráció (`20261027030000_quotation_combined_source.sql`) regisztrálja a `save_standalone_quotation_from_material_list_and_calculation` wrappert. Az action-réteg a meglévő form-adatok alapján választja ki a három RPC közül a megfelelőt.
 
@@ -17,8 +17,8 @@ Az alábbi állítások az első combined-source implementáció átadáskori á
 ### M10.3.1 remediation ellenőrzés
 
 - **Megvalósítva:** normál UI két egymástól független, mentett revíziót választó vezérlője; PDF egység- és forrás/revízió címkéi; helyes tételszám; stabil React-listakulcsok. A kombinált V1 mentés/újranyitás és V2 létrehozás böngészőből ellenőrizve.
-- **Friss ellenőrzés:** `npm test` — 193 fájl PASS / 8 SKIP, 1238 teszt PASS / 19 SKIP; érintett ESLint fájlok PASS; izolált typecheck/build korábban sikeres; `git diff --check` a riport lezárásakor fut.
-- **Nem futott:** a célzott pgTAP újrafuttatása, mert a helyi Postgres nem futott (`127.0.0.1:54322`, `ECONNREFUSED`); a 375×812 világos/sötét, 812×375 és többoldalas PDF; teljes negatív jogosultsági/forrás-hiba E2E.
+- **Végső ellenőrzés:** helyi pgTAP `063` 18/18, `033` 13/13, `058` 16/16 és `062` 14/14 PASS; `npm exec vitest run src/features/quotations` 26 fájl / 51 teszt PASS; érintett ESLint PASS; izolált `npm run typecheck` és `npm run build` PASS. A PDF valódi, 4 oldalas A4 render; a felülettel egyező nettó összeg 366 200 HUF. A kért 375×812 világos/sötét, 812×375 fekvő és 1440×900 Chromium responsive-emulációban ellenőrizve; 375/812 szélességen mért vízszintes túlcsordulás nincs; konzolhiba nem jelent meg.
+- **Korlátok:** teljes Vitest-regressziót ebben a záró menetben nem futtattam; fizikai mobil eszközt nem teszteltem; E03 nem blokkoló duplikációs figyelmeztetés nincs implementálva (az ajánlást lásd a QA riportban). A végső `git diff --check` PASS.
 - **Javasolt Conventional Commit:** `fix(M10.3.1): complete combined-source acceptance and PDF provenance`.
 
 ## M10.3 — Anyagszükséglet → árajánlat: felmérés és a PDF-forrásjelzés lezárása (2026-10-27)
