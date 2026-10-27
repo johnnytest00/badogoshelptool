@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(17);
+select plan(19);
 
 create function pg_temp.m10_rafter_input() returns jsonb language sql immutable as $$
   select '{"schemaVersion":"construction-suite.input.v1","calculatorId":"roof.rafter-cut",
@@ -110,6 +110,27 @@ select throws_ok($$select * from public.save_standalone_construction_calculation
   'construction.roof.timber-cutlist','DEMO M10 idegen forrás próba',pg_temp.m10_timber_input(),pg_temp.m10_timber_output(),
   '00000000-0000-4000-8000-000000000001',current_setting('test.m10.foreign_source')::uuid)$$,
   '42501', null, 'másik felhasználó standalone forrása nem használható fel mezőátvételhez');
+
+-- M10.2.1: nem létező forrásrevízió sem fogadható el (nincs sor a forrás-lekérdezésnek, NULL-biztos guard).
+select throws_ok($$select * from public.save_standalone_construction_calculation(
+  '00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000610007','00000000-0000-4000-8000-000000610107',0,
+  'construction.roof.timber-cutlist','DEMO M10 nem létező forrás próba',pg_temp.m10_timber_input(),pg_temp.m10_timber_output(),
+  '00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000619999')$$,
+  '42501', null, 'nem létező forrásrevízió korán, 42501-gyel elutasított');
+
+-- M10.2.1: idegen szervezet standalone forrásrevíziója sem fogadható el, azonos létrehozóval sem.
+insert into public.organizations(id,name) values('00000000-0000-4000-8000-000000000011','DEMO M10 másik műhely') on conflict do nothing;
+insert into public.organization_members(organization_id,user_id,role) values
+  ('00000000-0000-4000-8000-000000000011','00000000-0000-4000-8000-000000000001','member') on conflict do nothing;
+select set_config('test.m10.foreign_org_source', (select calculation_revision_id::text from public.save_standalone_construction_calculation(
+  '00000000-0000-4000-8000-000000000011','00000000-0000-4000-8000-000000610008','00000000-0000-4000-8000-000000610108',0,
+  'construction.roof.rafter-cut','DEMO M10 másik szervezet forrása',pg_temp.m10_rafter_input(),pg_temp.m10_rafter_output(),
+  '00000000-0000-4000-8000-000000000001')), true);
+select throws_ok($$select * from public.save_standalone_construction_calculation(
+  '00000000-0000-4000-8000-000000000010','00000000-0000-4000-8000-000000610009','00000000-0000-4000-8000-000000610109',0,
+  'construction.roof.timber-cutlist','DEMO M10 idegen szervezet próba',pg_temp.m10_timber_input(),pg_temp.m10_timber_output(),
+  '00000000-0000-4000-8000-000000000001',current_setting('test.m10.foreign_org_source')::uuid)$$,
+  '42501', null, 'másik szervezet standalone forrása ugyanazon létrehozóval sem használható fel');
 
 -- Konkurens/stale revízió mezőátvétellel sem hagy hátra attestációt vagy dependency-t.
 select throws_ok($$select * from public.save_standalone_construction_calculation(
