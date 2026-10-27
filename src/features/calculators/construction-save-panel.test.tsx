@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { stableJsonStringify } from "@/features/roof-models/stable-json";
-import { ConstructionSavePanel, outputDriftDiffPaths, type ConstructionSaveSession } from "./construction-save-panel";
+import { ConstructionSavePanel, outputDriftDiffPaths, outputsEquivalent, type ConstructionSaveSession } from "./construction-save-panel";
 import { computeConstruction, constructionInputSnapshot, constructionOutputSnapshot } from "./construction-computation";
 import { definitions } from "./roof-calculator-definitions";
 
@@ -71,6 +71,38 @@ describe("ConstructionSavePanel", () => {
     expect(outputDriftDiffPaths({ lines: [{ label: "A", value: 1, unit: "mm" }], takeoff: null, cutList: null }, { lines: [{ label: "A", value: 1, unit: "mm" }], takeoff: null, cutList: null })).toEqual([]);
     expect(outputDriftDiffPaths({ lines: [{ label: "A", value: 1, unit: "mm" }], takeoff: null, cutList: null }, { lines: [{ label: "A", value: 2, unit: "mm" }], takeoff: null, cutList: null })).toEqual(["lines[0].value"]);
     expect(outputDriftDiffPaths({ lines: [{ label: "A", value: 1, unit: "mm" }] }, { lines: [] })).toEqual(["lines (length 1 vs 0)"]);
+  });
+
+  it("tolerates only machine-precision numeric noise, not any real difference (M10.1.7)", () => {
+    // The three reproduced ~1e-14 Karmi ULP diffs (docs/M10_PHASE1_DRIFT_INDEPENDENT_QA.md §2).
+    expect(outputsEquivalent(55.98065001017354, 55.98065001017355)).toBe(true);
+    expect(outputsEquivalent(34.01934998982646, 34.01934998982645)).toBe(true);
+    expect(outputsEquivalent(209.33121517077495, 209.33121517077498)).toBe(true);
+    // Negative, near-zero and large magnitudes with the same ULP-scale noise.
+    expect(outputsEquivalent(-55.98065001017354, -55.98065001017355)).toBe(true);
+    expect(outputsEquivalent(0, 1e-15)).toBe(true);
+    expect(outputsEquivalent(123456.789012345, 123456.789012346)).toBe(true);
+    // Object key order never matters; array order does.
+    expect(outputsEquivalent({ a: 1, b: 2 }, { b: 2, a: 1 })).toBe(true);
+    expect(outputsEquivalent([1, 2], [2, 1])).toBe(false);
+
+    // Real differences stay drift.
+    expect(outputsEquivalent(55.98, 56.5)).toBe(false); // meaningfully different angle
+    expect(outputsEquivalent(5, 6)).toBe(false); // count
+    expect(outputsEquivalent({ a: 1 }, { a: 1, b: null })).toBe(false); // missing field vs explicit null
+    expect(outputsEquivalent({ a: 1 }, { a: "1" })).toBe(false); // type difference
+    expect(outputsEquivalent([1, 2], [1, 2, 3])).toBe(false); // array length
+    expect(outputsEquivalent("x", "y")).toBe(false); // text
+    expect(outputsEquivalent(NaN, NaN)).toBe(false); // invalid number never falsely equal
+    expect(outputsEquivalent(Infinity, Infinity)).toBe(true);
+    expect(outputsEquivalent(Infinity, 1e300)).toBe(false);
+  });
+
+  it("suppresses a saved-vs-live drift warning that is only ULP noise but keeps a real one", () => {
+    const noisy = { ...savedSession, viewedRevisionNumber: 1, baselineInput: stableJsonStringify(input), revisions: [revision(2), revision(1, input, { ...output, lines: output.lines.map((line, index) => index === 0 && typeof line.value === "number" ? { ...line, value: line.value + Number.EPSILON } : line) })] };
+    expect(render(noisy)).not.toContain("A mentett V1 eredménye eltér a mostani számítástól.");
+    const real = { ...savedSession, viewedRevisionNumber: 1, baselineInput: stableJsonStringify(input), revisions: [revision(2), revision(1, input, { ...output, lines: output.lines.map((line, index) => index === 0 && typeof line.value === "number" ? { ...line, value: line.value + 1 } : line) })] };
+    expect(render(real)).toContain("A mentett V1 eredménye eltér a mostani számítástól.");
   });
 
   it("offers work log linking for the latest saved revision and blocks it while changes are unsaved", () => {

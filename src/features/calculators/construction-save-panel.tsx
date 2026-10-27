@@ -37,13 +37,32 @@ export const newConstructionSession = (name: string): ConstructionSaveSession =>
   ({ calculationId: generateSecureUuid(), name, revisionNumber: 0, baselineInput: null, savedName: null, viewedRevisionNumber: null, revisions: [], hasOlderRevisions: false, nextBeforeRevisionNumber: null });
 
 const driftComparisonFields = (output: Pick<ConstructionOutputSnapshot, "lines" | "takeoff" | "cutList">) => ({ lines: output.lines, takeoff: output.takeoff, cutList: output.cutList });
-const comparableOutput = (output: Pick<ConstructionOutputSnapshot, "lines" | "takeoff" | "cutList">) => stableJsonStringify(driftComparisonFields(output));
 const formatValue = (value: number | string) => typeof value === "number" ? new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(value) : value;
 
+// M10.1.7: an identical input re-run can differ from the saved result in the last bit of a double (~1e-14 on
+// Karmi trig results), which is not a real output drift. Both tolerances sit ~1e7x above that noise and ~1e3x
+// below the smallest professionally meaningful difference (a count of 1, 0.01 mm, 0.001°), so no real
+// quantity, count or index difference is swallowed.
+const DRIFT_NUMERIC_ABSOLUTE_TOLERANCE = 1e-9;
+const DRIFT_NUMERIC_RELATIVE_TOLERANCE = 1e-9;
+const numbersEquivalent = (a: number, b: number) => a === b || (Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= DRIFT_NUMERIC_ABSOLUTE_TOLERANCE + DRIFT_NUMERIC_RELATIVE_TOLERANCE * Math.max(Math.abs(a), Math.abs(b)));
+
+/** Structural output-drift comparison: same shape, keys and values, numbers allowed machine-precision noise only. */
+export function outputsEquivalent(a: unknown, b: unknown): boolean {
+  if (typeof a === "number" && typeof b === "number") return numbersEquivalent(a, b);
+  if (a === b) return true;
+  if (typeof a !== typeof b || a === null || b === null || typeof a !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((item, index) => outputsEquivalent(item, b[index]));
+  const keysA = Object.keys(a as object);
+  const keysB = Object.keys(b as object);
+  return keysA.length === keysB.length && keysA.every((key) => key in (b as object) && outputsEquivalent((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]));
+}
+
 /**
- * M10.1.5 temporary dev-only diagnostic (docs/M10_PHASE1_VALIDATION_AND_DRIFT_REMEDIATION.md §2): the exact JSON
- * paths where two comparable output projections differ, so an output-drift warning can be localized without
- * exposing internal values in the UI. Not wired into the drift decision itself — display/logging only.
+ * Dev/test diagnostic: the exact JSON paths where two comparable output projections differ, so an output-drift
+ * warning can be localized without exposing internal values in the UI. Exact equality only — use
+ * `outputsEquivalent` for the actual drift decision, which tolerates floating-point noise.
  */
 export function outputDriftDiffPaths(a: unknown, b: unknown, path = ""): readonly string[] {
   if (a === b) return [];
@@ -103,7 +122,7 @@ export function ConstructionSavePanel({ organizationId, calculatorId, definition
   const viewed = session.revisions.find((revision) => revision.revisionNumber === session.viewedRevisionNumber) ?? null;
   const viewedIsOlder = viewed !== null && viewed.revisionNumber !== session.revisionNumber;
   const comparableViewed = viewed && comparableConstructionInput(definition, viewed.input);
-  const outputDrift = viewed !== null && comparableViewed !== null && stableJsonStringify(comparableViewed) === inputJson && comparableOutput(viewed.output) !== comparableOutput(liveOutput);
+  const outputDrift = viewed !== null && comparableViewed !== null && stableJsonStringify(comparableViewed) === inputJson && !outputsEquivalent(driftComparisonFields(viewed.output), driftComparisonFields(liveOutput));
   const latestRevision = session.revisions.find((revision) => revision.revisionNumber === session.revisionNumber) ?? null;
   const latestRevisionId = latestRevision?.revisionId ?? null;
   const latestComplete = latestRevision !== null && isCompleteConstructionOutput(latestRevision.output);
@@ -111,14 +130,6 @@ export function ConstructionSavePanel({ organizationId, calculatorId, definition
   const busy = pending || revisionPending;
   useUnsavedChangeGuard({ dirty, pending: busy, discard: onDiscard });
   useEffect(() => { onPendingChange?.(busy); }, [busy, onPendingChange]);
-  const loggedDrift = useRef<string | null>(null);
-  useEffect(() => {
-    if (process.env.NODE_ENV === "production" || !outputDrift || !viewed) return;
-    const key = `${viewed.revisionId}:${inputJson}`;
-    if (loggedDrift.current === key) return;
-    loggedDrift.current = key;
-    console.debug("[construction-save-panel] output drift paths", viewed.revisionId, outputDriftDiffPaths(driftComparisonFields(viewed.output), driftComparisonFields(liveOutput)));
-  }, [outputDrift, viewed, inputJson, liveOutput]);
 
   const save = () => {
     if (!saveable || !nameValid || comparison.incompatible || busy) return;
