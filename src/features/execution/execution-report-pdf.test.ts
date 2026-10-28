@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderExecutionReportPdf, safeExecutionReportFilename } from "./execution-report-pdf";
+import { renderExecutionReportPdf, renderExecutionReportPdfStream, safeExecutionReportFilename } from "./execution-report-pdf";
 import type { ExecutionReportData } from "./execution-report-document";
 
 const data: ExecutionReportData = {
@@ -16,6 +16,15 @@ describe("execution report PDF", () => {
     expect(buffer.subarray(0, 4).toString()).toBe("%PDF");
     expect(buffer.length).toBeGreaterThan(1000);
     expect(safeExecutionReportFilename("Árvíz / projekt", "Terv #1")).toBe("Kivitelezesi_osszefoglalo_Arviz-projekt-Terv-1.pdf");
+  });
+
+  it("streams a valid PDF document", async () => {
+    const stream = await renderExecutionReportPdfStream(data);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    const pdf = Buffer.concat(chunks);
+    expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
+    expect(pdf.length).toBeGreaterThan(1000);
   });
 
   it("renders a multi-page journal with 101 distinct entries", async () => {

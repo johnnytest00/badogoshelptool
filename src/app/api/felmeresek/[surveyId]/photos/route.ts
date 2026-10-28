@@ -6,8 +6,8 @@ import { createClient } from "@/infrastructure/supabase/server";
 import { attachFieldSurveyPhoto, cancelFieldSurveyPhotoUpload, removeFieldSurveyPhoto, reserveFieldSurveyPhoto } from "@/infrastructure/supabase/field-survey-photo-writer";
 import { normalizeSurveyPhoto } from "@/infrastructure/images/normalize-survey-photo";
 
-const maxPhotoBytes = 10 * 1024 * 1024;
-const maxRequestBytes = maxPhotoBytes + 1024 * 1024;
+const maxPhotoBytes = 3 * 1024 * 1024;
+const maxRequestBytes = 4 * 1024 * 1024;
 const allowedTypes = new Map([["image/jpeg", "jpg"], ["image/png", "png"], ["image/webp", "webp"]]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const failure = (error: string, status: number) => Response.json({ ok: false, error }, { status, headers: { "Cache-Control": "no-store" } });
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ su
   if (!uuidPattern.test(organizationId) || !uuidPattern.test(requestKey) || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1
     || description.length > 1000 || !(file instanceof File)) return failure("A fénykép feltöltési adatai hiányosak.", 422);
   if (!auth.organizations.some((organization) => organization.id === organizationId)) return failure("Nincs hozzáférés ehhez a műhelyhez.", 403);
-  if (file.size < 1 || file.size > maxPhotoBytes) return failure("A fénykép mérete legfeljebb 10 MB lehet.", 413);
+  if (file.size < 1 || file.size > maxPhotoBytes) return failure("A fénykép optimalizálás után legfeljebb 3 MB lehet.", 413);
   const extension = allowedTypes.get(file.type);
   if (!extension) return failure("A rendszer JPEG, PNG és WebP képet fogad. iPhone-on HEIC helyett válaszd a Kompatibilis formátumot a Kamera beállításainál.", 415);
   const survey = await getFieldSurvey(organizationId, surveyId);

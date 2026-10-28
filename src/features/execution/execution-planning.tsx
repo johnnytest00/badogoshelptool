@@ -12,6 +12,7 @@ import { ExecutionSubsection } from "./execution-section";
 import { createIdempotencyKey } from "@/lib/secure-uuid";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { GlassSectionHeader } from "@/components/ui/glass-section-header";
+import { optimizeUploadPhoto } from "@/lib/optimize-upload-photo";
 
 const statusLabels = { todo: "Teendő", in_progress: "Folyamatban", done: "Kész" } as const;
 const quotationStatusLabels: Record<string, string> = { draft: "Piszkozat", finalized: "Véglegesített", sent: "Elküldött", accepted: "Elfogadott", rejected: "Elutasított" };
@@ -28,7 +29,33 @@ export function ExecutionPlanning({ organizationId, projectId, projectName, clie
   const submitPlan = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); const form = new FormData(event.currentTarget); form.set("organizationId", organizationId); if (projectId) form.set("projectId", projectId); else form.delete("projectId"); form.set("requestKey", planRequestKey.current()); start(async () => { const result = await createExecutionPlanAction(form); setMessage(result.ok ? "A munkanapló létrejött." : result.error ?? "A mentés nem sikerült."); if (result.ok) { planRequestKey.renew(); if (!projectId && result.planId) { router.push(`/kivitelezes/${result.planId}?organization=${organizationId}`); return; } setShowCreate(false); router.refresh(); } }); };
   const submitTask = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!selectedPlan) return; const form = new FormData(event.currentTarget); form.set("organizationId", organizationId); if (projectId) form.set("projectId", projectId); form.set("planId", selectedPlan.id); form.set("requestKey", taskRequestKey.current()); start(async () => { const result = await saveExecutionTaskAction(form); setMessage(result.ok ? "A feladat mentve." : result.error ?? "A mentés nem sikerült."); if (result.ok) { taskRequestKey.renew(); router.refresh(); } }); };
   const submitJournal = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!selectedPlan) return; const formElement = event.currentTarget; const form = new FormData(formElement); form.set("organizationId", organizationId); if (projectId) form.set("projectId", projectId); form.set("planId", selectedPlan.id); form.set("requestKey", journalRequestKey.current()); start(async () => { const result = await createExecutionJournalEntryAction(form); setMessage(result.ok ? "A napi bejegyzés mentve." : result.error ?? "A mentés nem sikerült."); if (result.ok) { journalRequestKey.renew(); formElement.reset(); setJournalSaveToken((value) => value + 1); router.refresh(); } }); };
-  const submitPhoto = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!selectedPlan) return; const formElement = event.currentTarget; const form = new FormData(formElement); form.set("organizationId", organizationId); if (projectId) form.set("projectId", projectId); form.set("planId", selectedPlan.id); start(async () => { const result = await createExecutionPhotoAction(form); setMessage(result.ok ? `${result.uploaded} fénykép feltöltve.` : result.error ?? "A feltöltés nem sikerült."); if (result.ok) { formElement.reset(); router.refresh(); } }); };
+  const submitPhoto = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); if (!selectedPlan) return;
+    const formElement = event.currentTarget;
+    const selectedFiles = Array.from(new FormData(formElement).getAll("photos")).filter((value): value is File => value instanceof File && value.size > 0);
+    start(async () => {
+      let uploaded = 0, originalBytes = 0, optimizedBytes = 0, failures = 0, uploadStateUnknown = false;
+      for (const [index, source] of selectedFiles.entries()) {
+        setMessage(`Képek optimalizálása és feltöltése: ${index + 1}/${selectedFiles.length}`);
+        let optimized;
+        try { optimized = await optimizeUploadPhoto(source); }
+        catch { failures += 1; continue; }
+        originalBytes += optimized.originalBytes; optimizedBytes += optimized.optimizedBytes;
+        const form = new FormData(formElement);
+        form.delete("photos"); form.set("photos", optimized.file); form.set("organizationId", organizationId);
+        if (projectId) form.set("projectId", projectId);
+        form.set("planId", selectedPlan.id);
+        try {
+          const result = await createExecutionPhotoAction(form);
+          if (!result.ok) { failures += 1; continue; }
+          uploaded += result.uploaded;
+        } catch { failures += 1; uploadStateUnknown = true; break; }
+      }
+      if (uploaded || uploadStateUnknown) { formElement.reset(); router.refresh(); }
+      const saved = originalBytes ? Math.round((1 - optimizedBytes / originalBytes) * 100) : 0;
+      setMessage(`${uploaded} fénykép feltöltve${saved ? ` · ${saved}% méretcsökkentés` : ""}${uploadStateUnknown ? " · a hálózati válasz megszakadt; ellenőrizd a frissített galériát" : failures ? ` · ${failures} nem sikerült, ezeket válaszd ki újra` : "."}`);
+    });
+  };
   const updatePhotoCategory = (photoId: string, category: ExecutionPhotoCategory) => { const form = new FormData(); form.set("organizationId", organizationId); if (projectId) form.set("projectId", projectId); form.set("planId", selectedPlan?.id ?? ""); form.set("photoId", photoId); form.set("category", category); start(async () => { const result = await setExecutionPhotoCategoryAction(form); setMessage(result.ok ? "A fényképkategória mentve." : result.error ?? "A kategória mentése nem sikerült."); if (result.ok) router.refresh(); }); };
   return <section className="detail-surface execution-planning">{showHeading && <div className="roof-list-heading"><h2>Munkanaplók</h2><button className="primary-button" type="button" onClick={() => setShowCreate((value) => !value)}>+ Új munkanapló</button></div>}{showDescription && <p className="detail-description">{projectId ? "A projektkapcsolat és az elfogadott ajánlat forrásrevíziója változatlan." : "A munkanapló önálló munkatér; felmérés és ügyfél nélkül is kezelhető."}</p>}<ExecutionOverview organizationId={organizationId} projectId={projectId} projectName={projectName} clientName={clientName} location={location} plan={selectedPlan ?? null} timeline={selectedPlan ? timelineByPlan.get(selectedPlan.id) ?? [] : []} />{showCreate && <form className="stack-form execution-create-form" onSubmit={submitPlan} onChange={() => planRequestKey.renew()}><label>Munkanapló neve<input name="title" required maxLength={200} placeholder="Például: Tetőfelújítás" /></label><label>Leírás<textarea name="description" rows={3} maxLength={2000} /></label><label>Elfogadott ajánlat forrásként<select name="sourceQuotationId" defaultValue={preselectedQuotationId ?? ""} onChange={(event) => { const quote = acceptedQuotations.find((item) => item.id === event.currentTarget.value); const revision = event.currentTarget.form?.elements.namedItem("sourceRevisionId"); if (revision instanceof HTMLInputElement) revision.value = quote?.finalizedRevisionId ?? ""; }}><option value="">Nincs ajánlati forrás</option>{acceptedQuotations.map((quote) => <option key={quote.id} value={quote.id}>{quote.name}</option>)}</select></label><input type="hidden" name="sourceRevisionId" defaultValue={acceptedQuotations.find((item) => item.id === preselectedQuotationId)?.finalizedRevisionId ?? ""} /><button className="primary-button" disabled={pending}>Munkanapló létrehozása</button></form>}{plans.length > 0 && <>{showPlanTabs && <div className="execution-plan-tabs" role="tablist" aria-label="Munkanaplók">{plans.map((plan) => <button key={plan.id} type="button" role="tab" aria-selected={selectedPlan?.id === plan.id} className={selectedPlan?.id === plan.id ? "is-active" : ""} onClick={() => { if (selected !== plan.id) { taskRequestKey.renew(); journalRequestKey.renew(); setSelected(plan.id); } }}>{plan.title}</button>)}</div>}{selectedPlan && <PlanPanel organizationId={organizationId} projectId={projectId} plan={selectedPlan} timeline={timelineByPlan.get(selectedPlan.id) ?? []} onSubmit={submitTask} onJournalSubmit={submitJournal} onTaskChange={() => taskRequestKey.renew()} onJournalChange={() => journalRequestKey.renew()} onPhotoSubmit={submitPhoto} onCategoryChange={updatePhotoCategory} pending={pending} journalSaveToken={journalSaveToken} />}</>}{message && <p className="form-message" role="status">{message}</p>}</section>;
 }
@@ -137,7 +164,7 @@ function PlanPanel({ organizationId, projectId, plan, timeline, onSubmit, onJour
       {projectId && <ExecutionReportPreparation organizationId={organizationId} projectId={projectId} plan={plan} />}
       <section className="execution-photos">
         <h3>Kivitelezési fényképek</h3>
-        <p className="missing-data">Privát tárhely, legfeljebb 10 MB/kép. A kategória kézzel választható; a feltöltés időpontja nem minősít automatikusan.</p>
+        <p className="missing-data">Privát tárhely, legfeljebb 10 MB kiválasztáskor; automatikus optimalizálás legfeljebb 3 MB-os feltöltésre. A kategória kézzel választható; a feltöltés időpontja nem minősít automatikusan.</p>
         <form className="stack-form" onSubmit={onPhotoSubmit}>
           <div className="execution-photo-form-grid">
             <label>Képek<input name="photos" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" multiple required /></label>
@@ -145,7 +172,7 @@ function PlanPanel({ organizationId, projectId, plan, timeline, onSubmit, onJour
             <label>Kapcsolódó bejegyzés<select name="journalEntryId" defaultValue=""><option value="">Nincs kapcsolódó bejegyzés</option>{timeline.filter((item) => item.type === "journal").map((item) => <option key={item.id} value={item.id}>{item.date} · {item.content?.slice(0, 70)}</option>)}</select></label>
           </div>
           <label>Képaláírás / megjegyzés<textarea name="caption" rows={2} maxLength={1000} placeholder="Opcionális rövid megjegyzés" /></label>
-          <button className="primary-button" disabled={pending}>{pending ? "Feltöltés…" : "Fényképek feltöltése"}</button>
+          <button className="primary-button" disabled={pending}>{pending ? "Optimalizálás és feltöltés…" : "Fényképek feltöltése"}</button>
         </form>
         <div className="execution-photo-filters">
           <label>Kategória<select value={filterCategory} onChange={(event) => setFilterCategory(event.target.value as ExecutionPhotoCategory | "all")}><option value="all">Minden kategória</option>{Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>

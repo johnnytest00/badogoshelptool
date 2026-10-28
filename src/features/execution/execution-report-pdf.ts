@@ -1,9 +1,13 @@
 import { createElement } from "react";
-import { renderToBuffer } from "@react-pdf/renderer";
+import { renderToBuffer, renderToStream } from "@react-pdf/renderer";
 import { ExecutionReportDocument, type ExecutionReportData } from "./execution-report-document";
 
 export async function renderExecutionReportPdf(data: ExecutionReportData) {
   return renderToBuffer(createElement(ExecutionReportDocument, { data }) as never);
+}
+
+export async function renderExecutionReportPdfStream(data: ExecutionReportData) {
+  return renderToStream(createElement(ExecutionReportDocument, { data }) as never);
 }
 
 export function safeExecutionReportFilename(projectName: string, planTitle: string) {

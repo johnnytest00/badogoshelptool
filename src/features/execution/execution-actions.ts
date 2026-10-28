@@ -6,10 +6,11 @@ import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { executionJournalCategorySchema, executionPhotoCategorySchema, executionPlanSchema, executionTaskSchema } from "@/domain/execution/contracts";
 import { userFacingActionError } from "@/lib/user-facing-action-error";
+import { normalizeSurveyPhoto } from "@/infrastructure/images/normalize-survey-photo";
 
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const PHOTO_BUCKET = "execution-photos";
-const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
+const MAX_PHOTO_SIZE = 3 * 1024 * 1024;
 const supportedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 type Rpc = { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: any; error: { code?: string; message?: string } | null }> };
 function errorMessage(error: { code?: string; message?: string } | null, fallback: string) { return userFacingActionError(error, fallback); }
@@ -53,7 +54,7 @@ export async function createExecutionJournalEntryAction(data: FormData) {
 function safeDisplayFilename(name: string, mimeType: string) {
   const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/png" ? "png" : "webp";
   const candidate = name.split(/[\\/]/).pop()?.split("").filter((character) => { const code = character.charCodeAt(0); return code >= 32 && code !== 127; }).join("").trim().slice(0, 240);
-  return candidate || `kivitelezesi-fenykep.${extension}`;
+  return `${candidate?.replace(/\.[^.]*$/, "") || "kivitelezesi-fenykep"}.${extension}`;
 }
 
 async function matchesImageSignature(file: File, mimeType: string) {
@@ -68,21 +69,24 @@ export async function createExecutionPhotoAction(data: FormData) {
   if (!await access(organizationId)) return { ok: false, uploaded: 0, error: "Nincs jogosultságod ehhez a műhelyhez." };
   if (projectId && !z.string().uuid().safeParse(projectId).success) return { ok: false, uploaded: 0, error: "Érvénytelen projektkapcsolat." };
   const values = data.getAll("photos").filter((value): value is File => typeof value === "object" && value !== null && "arrayBuffer" in value);
-  if (!values.length) return { ok: false, uploaded: 0, error: "Válassz legalább egy JPEG, PNG vagy WebP képet." };
+  if (values.length !== 1) return { ok: false, uploaded: 0, error: "Egyszerre egy JPEG, PNG vagy WebP képet tölts fel." };
   const supabase = await createClient();
   let uploaded = 0;
   for (const file of values) {
     const mimeType = file.type.toLowerCase();
     if (!supportedMimeTypes.has(mimeType)) return { ok: false, uploaded, error: "Csak JPEG, PNG és WebP kép tölthető fel. HEIC/HEIF jelenleg nem támogatott." };
-    if (file.size < 1 || file.size > MAX_PHOTO_SIZE) return { ok: false, uploaded, error: "Egy kép legfeljebb 10 MB lehet." };
+    if (file.size < 1 || file.size > MAX_PHOTO_SIZE) return { ok: false, uploaded, error: "Egy optimalizált kép legfeljebb 3 MB lehet." };
     if (!await matchesImageSignature(file, mimeType)) return { ok: false, uploaded, error: "A fájl tartalma nem egyezik a megadott képformátummal." };
+    let normalized: Buffer;
+    try { normalized = await normalizeSurveyPhoto(new Uint8Array(await file.arrayBuffer()), mimeType); }
+    catch { return { ok: false, uploaded, error: "A kép sérült, nem támogatott vagy 3 MB fölé nőtt a szerveres ellenőrzés során." }; }
     const requestKey = crypto.randomUUID();
     const extension = mimeType === "image/jpeg" ? "jpg" : mimeType === "image/png" ? "png" : "webp";
     const objectKey = projectId ? `${organizationId}/${projectId}/${planId}/${requestKey}.${extension}` : `${organizationId}/${planId}/${requestKey}.${extension}`;
-    const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(objectKey, file, { contentType: mimeType, cacheControl: "3600", upsert: false });
+    const { error: uploadError } = await supabase.storage.from(PHOTO_BUCKET).upload(objectKey, normalized, { contentType: mimeType, cacheControl: "3600", upsert: false });
     if (uploadError) return { ok: false, uploaded, error: "A kép feltöltése nem sikerült. Ellenőrizd a kapcsolatot, majd próbáld újra." };
     const db = supabase as unknown as Rpc;
-    const { data: result, error: metadataError } = await db.rpc("create_execution_photo", { p_organization_id: organizationId, p_project_id: projectId, p_plan_id: planId, p_task_id: text(data, "taskId") || null, p_journal_entry_id: text(data, "journalEntryId") || null, p_object_key: objectKey, p_display_filename: safeDisplayFilename(file.name, mimeType), p_mime_type: mimeType, p_file_size: file.size, p_caption: text(data, "caption") || null, p_request_key: requestKey });
+    const { data: result, error: metadataError } = await db.rpc("create_execution_photo", { p_organization_id: organizationId, p_project_id: projectId, p_plan_id: planId, p_task_id: text(data, "taskId") || null, p_journal_entry_id: text(data, "journalEntryId") || null, p_object_key: objectKey, p_display_filename: safeDisplayFilename(file.name, mimeType), p_mime_type: mimeType, p_file_size: normalized.length, p_caption: text(data, "caption") || null, p_request_key: requestKey });
     if (metadataError || !result?.[0]?.photo_id) {
       await supabase.storage.from(PHOTO_BUCKET).remove([objectKey]);
       return { ok: false, uploaded, error: "A kép metaadatainak mentése nem sikerült; a feltöltött fájlt eltávolítottuk." };

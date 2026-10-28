@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { Readable } from "node:stream";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getExecutionPlanningWorkspace } from "@/features/execution/execution-data";
-import { renderExecutionReportPdf, safeExecutionReportFilename } from "@/features/execution/execution-report-pdf";
+import { renderExecutionReportPdfStream, safeExecutionReportFilename } from "@/features/execution/execution-report-pdf";
 import type { ExecutionReportSection } from "@/features/execution/execution-report-document";
+import { optimizeExecutionReportPhoto } from "@/infrastructure/images/optimize-execution-report-photo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,18 +49,21 @@ export async function GET(request: Request, { params }: { params: Promise<{ proj
   const reportPhotos = [];
   const supabase = await createClient();
   for (const photo of selectedPhotos) {
-    if (!['image/jpeg', 'image/png'].includes(photo.mimeType)) return badRequest("A PDF csak JPEG és PNG fényképet tud biztonságosan beágyazni; a kiválasztott WebP kép maradjon a galériában.", 422);
+    if (photo.mimeType !== "image/jpeg" && photo.mimeType !== "image/png") return badRequest("A PDF csak JPEG és PNG fényképet tud biztonságosan beágyazni; a kiválasztott WebP kép maradjon a galériában.", 422);
     if (photo.fileSize > maxPhotoBytes || totalBytes + photo.fileSize > maxTotalPhotoBytes) return badRequest(`A riport fényképmérete meghaladja a támogatott korlátot (${maxPhotos} kép, képenként 4 MB, összesen 12 MB).`, 413);
     const { data: blob, error } = await supabase.storage.from("execution-photos").download(photo.objectKey);
     if (error || !blob) return badRequest("A kiválasztott privát fénykép nem tölthető be.", 502);
     const bytes = Buffer.from(await blob.arrayBuffer());
     totalBytes += bytes.length;
-    reportPhotos.push({ ...photo, dataUri: `data:${photo.mimeType};base64,${bytes.toString("base64")}` });
+    try {
+      const optimized = await optimizeExecutionReportPhoto(bytes, photo.mimeType);
+      reportPhotos.push({ ...photo, dataUri: `data:${photo.mimeType};base64,${optimized.toString("base64")}` });
+    } catch { return badRequest("A kiválasztott fénykép nem dolgozható fel a PDF-hez.", 422); }
   }
   const { data: organization } = await supabase.from("organizations").select("name").eq("id", organizationId).maybeSingle();
   if (!organization) return badRequest("A műhely nem található.", 404);
   const generatedAt = new Date().toISOString();
-  const buffer = await renderExecutionReportPdf({ organizationName: organization.name, generatedAt, project: { name: project.name, clientName: project.clientName, location: project.location }, plan: { title: plan.title, description: plan.description, tasks: plan.tasks, timeline: workspace.timelineByPlan.get(plan.id) ?? [], sourceQuotationName: plan.sourceQuotationName, sourceQuotationStatus: plan.sourceQuotationStatus, sourceRevisionId: plan.sourceRevisionId, sourceRevisionNumber: plan.sourceRevisionNumber, sourceSubtotal: plan.sourceSubtotal, photos: reportPhotos }, sections: selectedSections });
+  const stream = await renderExecutionReportPdfStream({ organizationName: organization.name, generatedAt, project: { name: project.name, clientName: project.clientName, location: project.location }, plan: { title: plan.title, description: plan.description, tasks: plan.tasks, timeline: workspace.timelineByPlan.get(plan.id) ?? [], sourceQuotationName: plan.sourceQuotationName, sourceQuotationStatus: plan.sourceQuotationStatus, sourceRevisionId: plan.sourceRevisionId, sourceRevisionNumber: plan.sourceRevisionNumber, sourceSubtotal: plan.sourceSubtotal, photos: reportPhotos }, sections: selectedSections });
   const disposition = query.get("download") === "1" ? "attachment" : "inline";
-  return new NextResponse(new Uint8Array(buffer), { status: 200, headers: { "Content-Type": "application/pdf", "Content-Disposition": `${disposition}; filename="${safeExecutionReportFilename(project.name, plan.title)}"`, "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff" } });
+  return new NextResponse(Readable.toWeb(stream as Readable) as unknown as BodyInit, { status: 200, headers: { "Content-Type": "application/pdf", "Content-Disposition": `${disposition}; filename="${safeExecutionReportFilename(project.name, plan.title)}"`, "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff" } });
 }

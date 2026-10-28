@@ -6,6 +6,7 @@ import { validateSurveyPhotoSelection } from "@/domain/field-surveys/photo-file"
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { useAppInteraction } from "@/components/feedback/app-interaction-provider";
 import { generateSecureUuid } from "@/lib/secure-uuid";
+import { optimizeUploadPhoto } from "@/lib/optimize-upload-photo";
 
 type Photo = { id: string; filename: string; mimeType: string; fileSize: number; description: string | null; uploadedAt?: string; url: string | null };
 type QueuedPhoto = { key: string; file: File };
@@ -58,6 +59,7 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
     if (busyRef.current || historical || items.length === 0) return;
     busyRef.current = true; setUploading(true); setError(""); setUploadStep(0); setUploadTotal(items.length);
     let activeSurveyId = surveyId;
+    let originalBytes = 0, optimizedBytes = 0;
     try {
       {
         const saved = await onEnsureSaved();
@@ -66,9 +68,11 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
       }
       for (const [index, item] of items.entries()) {
         setUploadStep(index + 1);
+        const optimized = await optimizeUploadPhoto(item.file);
+        originalBytes += optimized.originalBytes; optimizedBytes += optimized.optimizedBytes;
         const data = new FormData();
         data.set("organizationId", organizationId); data.set("requestKey", item.key);
-        data.set("expectedVersion", String(versionRef.current)); data.set("description", description); data.set("file", item.file);
+        data.set("expectedVersion", String(versionRef.current)); data.set("description", description); data.set("file", optimized.file);
         const response = await fetch(`/api/felmeresek/${activeSurveyId}/photos`, { method: "POST", body: data });
         const result = await response.json();
         if (!response.ok || !result.ok) throw new Error(result.error ?? "A fénykép feltöltése nem sikerült.");
@@ -79,7 +83,8 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
       }
       setDescription("");
       onUploadComplete(activeSurveyId);
-      notify({ kind: "success", message: items.length === 1 ? "Fénykép feltöltve és mentve." : `${items.length} fénykép feltöltve és mentve.` });
+      const saved = Math.round((1 - optimizedBytes / originalBytes) * 100);
+      notify({ kind: "success", message: `${items.length === 1 ? "Fénykép" : `${items.length} fénykép`} feltöltve és mentve. ${saved > 0 ? `${saved}% méretcsökkentés.` : "Nem volt szükség tömörítésre."}` });
     } catch (cause) {
       setError(photoErrorMessage(cause, "A kapcsolat megszakadt. A kép várakozik; kapcsolódás után próbáld újra.", "A fénykép feltöltése nem sikerült. A mérési adatok megmaradtak."));
       if (activeSurveyId && !(cause instanceof TypeError)) await refreshPhotos(activeSurveyId, versionRef.current);
@@ -127,9 +132,9 @@ export function FieldSurveyPhotos({ organizationId, surveyId, version, historica
       <input ref={inputRef} className="sr-only" aria-label="Fényképek kiválasztása" tabIndex={-1} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple capture="environment" disabled={uploading || removingPhotoId !== null} onChange={(event) => { selectFiles(event.currentTarget.files); event.currentTarget.value = ""; }} /></>}
     </div>
     {!historical && <><GlassDisclosure className="field-survey-photo-details" summary="Leírás a kiválasztott fényképekhez · opcionális"><label><span>Fényképleírás</span><input maxLength={1000} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Például északi ereszcsomópont" /></label></GlassDisclosure>
-    <p className="field-survey-photo-help">JPEG, PNG vagy WebP · legfeljebb 10 MB/kép. HEIC/HEIF képnél az iPhone Kamera beállításaiban válaszd a „Leginkább kompatibilis” formátumot, majd készíts új képet.</p></>}
+      <p className="field-survey-photo-help">JPEG, PNG vagy WebP · legfeljebb 10 MB kiválasztáskor; feltöltés előtt automatikus optimalizálás, legfeljebb 3 MB feltöltött fájlonként. HEIC/HEIF képnél az iPhone Kamera beállításaiban válaszd a „Leginkább kompatibilis” formátumot.</p></>}
     {loading && <p role="status">Fényképek betöltése…</p>}
-    {uploading && <div role="status"><p>Fénykép feltöltése: {uploadStep}/{uploadTotal}</p><progress className="field-survey-photo-progress" aria-label="Fényképfeltöltés folyamatban" value={Math.max(0, uploadStep - 1)} max={uploadTotal} /></div>}
+    {uploading && <div role="status"><p>Feldolgozás és feltöltés: {uploadStep}/{uploadTotal}</p><progress className="field-survey-photo-progress" aria-label="Fényképfeldolgozás és -feltöltés folyamatban" value={Math.max(0, uploadStep - 1)} max={uploadTotal} /></div>}
     {removingPhotoId && <p role="status">Fénykép eltávolítása…</p>}
     {queue.length > 0 && !historical && <div className="field-survey-photo-queue"><p>{queue.length} kiválasztott fénykép vár feltöltésre.</p>{queue.map((item) => <div key={item.key}><span>{item.file.name}</span><button className="secondary-button" type="button" disabled={uploading} onClick={() => setQueue((current) => current.filter((queued) => queued.key !== item.key))}>Elvetés</button></div>)}<button className="secondary-button" type="button" disabled={uploading} onClick={() => void uploadQueued(queue)}>Feltöltés újrapróbálása</button></div>}
     {photos.length > 0 && <div className="field-survey-photo-grid">{photos.map((photo) => <article className="field-survey-photo-card" key={photo.id}>

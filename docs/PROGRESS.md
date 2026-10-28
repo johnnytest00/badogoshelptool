@@ -1,5 +1,12 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M11.1 — Vercel DEMO feltöltési előkészítés (2026-10-28)
+
+Státusz: **READY WITH LIMITATIONS**. A felmérési és kivitelezési fotók kliensoldali optimalizálást kaptak, 3 MiB fájl/4 MiB kérés határral; kivitelezési képek egyesével mennek Server Actionön keresztül. A szerver mindkét úton Sharp-pal újrakódol és eltávolítja az EXIF/GPS adatokat. A fotós kivitelezési PDF beágyazott képei legfeljebb 2000 px-esek, a PDF streamelve készül. A writer adapterek transaction-pooler kompatibilisek: a 10 s statement timeout role-level migrationben van, nem session startup paraméterként. Nincs adatmodell- vagy táblaséma-változás. Részletek: [Vercel DEMO preflight](VERCEL_DEMO_PREFLIGHT.md).
+
+- **Ellenőrzés:** célzott Vitest 5 fájl / 15 teszt PASS (optimalizáló, felmérési fotók, report képméretezés, normalizáló, riport PDF/stream); ESLint PASS; `npm run typecheck` PASS; izolált `npm run build` Next.js 16.4.2-vel PASS; `git diff --check` PASS. QA-ban a 12 Node `pg.Client` writer egyedi `statement_timeout` startup paraméterét kiváltottam; új `064` pgTAP assertion és forward migration a 10 s timeoutot restricted role-ra teszi. Migration pgTAP nem futott, mert a local Supabase sem futott. Böngészős smoke nem futott (local app/DB port nem hallgatott; Playwright nincs telepítve), és nincs valós DEMO-képkészlet. Hosted Supabase/Vercel, valós DEMO fotóminőség, jogosultsági ellenőrzés és restore **nem ellenőrzött**.
+- **Javasolt Conventional Commit:** `feat(M11.1): optimize photo uploads and prepare Vercel DEMO limits`
+
 ## M10.3.2 — Keresztforrásos ajánlati tételátfedés jelzése (2026-10-27)
 
 Státusz: **PASS WITH LIMITATIONS**. Az ajánlatszerkesztő a pontosan egyező, normalizált megnevezésű és egységű, anyaglista- és kalkulációs forrásból származó anyagsorokat nem blokkoló figyelmeztetéssel jelzi, megmutatva a forrást és a rögzített revíziót. Az eredeti sorok, mennyiségek, egységárak és összegek változatlanok maradnak; automatikus összevonás, mennyiségi korrekció, fuzzy egyezés és DB/üzleti szabály nem került be.

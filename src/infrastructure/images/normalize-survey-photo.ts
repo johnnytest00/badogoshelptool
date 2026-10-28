@@ -1,7 +1,7 @@
 import sharp from "sharp";
 
 const maxPixels = 40_000_000;
-const maxBytes = 10 * 1024 * 1024;
+const maxBytes = 3 * 1024 * 1024;
 const formats = { "image/jpeg": "jpeg", "image/png": "png", "image/webp": "webp" } as const;
 
 export async function normalizeSurveyPhoto(bytes: Uint8Array, mimeType: string): Promise<Buffer> {

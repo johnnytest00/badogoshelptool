@@ -19,7 +19,7 @@ type CoveringWrite = {
 export async function persistGableCovering(write: CoveringWrite) {
   const connectionString = process.env.COVERING_WRITER_DATABASE_URL;
   if (!connectionString) throw new Error("COVERING_WRITER_DATABASE_URL is not configured");
-  const client = new Client({ connectionString, connectionTimeoutMillis: 5000, statement_timeout: 10000 });
+  const client = new Client({ connectionString, connectionTimeoutMillis: 5000 });
   try {
     await client.connect();
     const { rows } = await client.query<{
