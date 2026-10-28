@@ -1,5 +1,15 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M11.2 — Supabase Auth jelszó-helyreállítás (2026-10-28)
+
+Státusz: **READY WITH LIMITATIONS**. A bejelentkezésről elérhető az elfelejtett jelszó oldal. A helyreállító kérelem a Supabase `resetPasswordForEmail()`-t és ugyanazon origin dedikált PKCE callbackjét használja; a callback egyszer használatos kódot cserél sessionre, majd rövid életű HttpOnly recovery-jelölést állít be. Jelszó csak érvényes Supabase-felhasználói session és callback-jelölés mellett módosítható; siker után a helyi session lezárul. A Beállítások jelszócseréje ugyanazt az új jelszó/megerősítés validációt használja, és támogatja az opcionálisan megadott jelenlegi jelszót (`current_password`). Séma, RLS, kalkulátor és üzleti adat nem változott.
+
+- **Ok:** korábban nem volt helyreállító űrlap vagy callback útvonal; a Supabase alap Site URL-re irányíthatta a levelet, ezért a felhasználó a bejelentkezésre jutott. SSR-kliens `@supabase/ssr` PKCE flow-ja már létezett.
+- **Ellenőrzés:** célzott Vitest **4 fájl / 11 teszt PASS**; érintett ESLint **PASS**; izolált `npm run build` Next.js 16.4.2-vel **PASS**; a builden belüli TypeScript ellenőrzés **PASS**. Helyi `localhost:3000` böngészőben a belépési link, recovery űrlap, üres/hibás e-mail validációja és code nélküli callback hibája ellenőrizve; recovery levélküldés nem történt.
+- **Hosted beállítás szükséges:** a Supabase Auth Redirect URLs listájához vedd fel pontosan `https://badogoshelptool.vercel.app/auth/callback/recovery` címet. A meglévő Site URL maradjon az éles app gyökere. Ellenőrizd, hogy a Recovery email template linkje a `{{ .ConfirmationURL }}`-t használja; egyedi template esetén az oda-visszairányítás a `{{ .RedirectTo }}` értékét tartsa meg.
+- **Korlát:** hosted Supabase redirect/template konfigurációt, valódi emailt, lejárt/újrahasznált hosted recovery kódot és tényleges új jelszavas belépést nem teszteltem. Light theme és 375 px viewport böngészős ellenőrzése sem történt; fizikai mobilteszt nincs.
+- **Javasolt Conventional Commit:** `feat(M11.2): add PKCE password recovery and unify password changes`.
+
 ## M11.1 — Vercel DEMO feltöltési előkészítés (2026-10-28)
 
 Státusz: **READY WITH LIMITATIONS**. A felmérési és kivitelezési fotók kliensoldali optimalizálást kaptak, 3 MiB fájl/4 MiB kérés határral; kivitelezési képek egyesével mennek Server Actionön keresztül. A szerver mindkét úton Sharp-pal újrakódol és eltávolítja az EXIF/GPS adatokat. A fotós kivitelezési PDF beágyazott képei legfeljebb 2000 px-esek, a PDF streamelve készül. A writer adapterek transaction-pooler kompatibilisek: a 10 s statement timeout role-level migrationben van, nem session startup paraméterként. Nincs adatmodell- vagy táblaséma-változás. Részletek: [Vercel DEMO preflight](VERCEL_DEMO_PREFLIGHT.md).

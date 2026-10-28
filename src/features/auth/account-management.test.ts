@@ -7,9 +7,10 @@ describe("F9.14.9 account credential validation", () => {
     expect(accountEmailSchema.safeParse({ email: "not-an-email" }).success).toBe(false);
   });
 
-  it("matches password confirmation and leaves password policy to Supabase Auth", () => {
+  it("matches password confirmation and accepts an optional current password", () => {
     expect(accountPasswordSchema.safeParse({ password: "a", confirmation: "a" }).success).toBe(true);
     expect(accountPasswordSchema.safeParse({ password: "a", confirmation: "b" }).success).toBe(false);
+    expect(accountPasswordSchema.safeParse({ password: "a", confirmation: "a", currentPassword: "old" }).success).toBe(true);
     expect(getAccountAuthErrorMessage({ code: "weak_password" })).toContain("biztonsági követelményeknek");
   });
 
@@ -18,5 +19,7 @@ describe("F9.14.9 account credential validation", () => {
     expect(getAccountAuthErrorMessage({ code: "otp_expired" })).toContain("lejárt");
     expect(getAccountAuthErrorMessage({ status: 429 })).toContain("Túl sok kérés");
     expect(getAccountAuthErrorMessage({ code: "reauthentication_needed" })).toContain("jelentkezz be újra");
+    expect(getAccountAuthErrorMessage({ code: "bad_code_verifier" })).toContain("lejárt");
+    expect(getAccountAuthErrorMessage({ code: "flow_state_expired" })).toContain("lejárt");
   });
 });

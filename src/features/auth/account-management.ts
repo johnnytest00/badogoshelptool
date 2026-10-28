@@ -7,6 +7,7 @@ export const accountEmailSchema = z.object({
 export const accountPasswordSchema = z.object({
   password: z.string().min(1, "Add meg az új jelszót."),
   confirmation: z.string().min(1, "Erősítsd meg az új jelszót."),
+  currentPassword: z.string().optional(),
 }).refine((value) => value.password === value.confirmation, {
   message: "A két jelszó nem egyezik.",
   path: ["confirmation"],
@@ -21,6 +22,9 @@ export function getAccountAuthErrorMessage(error: Readonly<{ code?: string; stat
     case "same_password": return "Az új jelszó egyezzen a jelenlegivel. Válassz másikat.";
     case "reauthentication_needed":
     case "reauthentication_not_valid": return "A biztonsági beállítások miatt jelentkezz be újra, majd ismételd meg a módosítást.";
+    case "bad_code_verifier":
+    case "flow_state_expired":
+    case "flow_state_not_found":
     case "otp_expired":
     case "token_expired": return "A megerősítő hivatkozás lejárt. Indíts új kérést.";
     case "session_not_found":

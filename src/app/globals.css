@@ -281,6 +281,8 @@ html[data-theme="light"] body { background: var(--background); }
 .login-submit { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: calc(3.1rem * var(--tp-ui-scale)); margin-top: .25rem; border: 0; border-radius: calc(var(--radius-control) * var(--tp-ui-scale)); background: var(--brand); color: white; cursor: pointer; font: inherit; font-weight: 700; }.login-submit:disabled { cursor: wait; opacity: .65; }
 .login-error { margin: 0; border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--glass-border)); border-radius: var(--radius-control); background: var(--tone-danger); color: var(--danger); padding: .7rem .8rem; font-size: .8rem; line-height: 1.45; }.login-note { margin: 1.25rem 0 0; color: var(--muted); font-size: .75rem; line-height: 1.5; }
 .login-secondary-link { display: inline-flex; color: var(--brand); font-size: .85rem; font-weight: 700; text-decoration: none; }.login-secondary-link:hover { text-decoration: underline; }
+.login-notice { margin: 0; border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--glass-border)); border-radius: var(--radius-control); background: var(--brand-soft); color: var(--foreground); padding: .7rem .8rem; font-size: .85rem; line-height: 1.5; }
+.login-recovery-link { width: 100%; text-decoration: none; }
 .projects-workspace { margin-top: clamp(2rem, 6vw, 4rem); }
 .projects-toolbar, .project-detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .projects-toolbar h1, .project-detail-header h1, .form-page-card h1 { margin: .35rem 0 .5rem; color: var(--foreground); font-size: clamp(2rem, 6vw, 3.4rem); letter-spacing: -.05em; line-height: 1.05; }

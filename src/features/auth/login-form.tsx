@@ -5,6 +5,7 @@ import { Eye, EyeOff, LogIn } from "lucide-react";
 import { z } from "zod";
 import { createClient } from "@/infrastructure/supabase/browser";
 import { getSafeReturnTo } from "@/features/auth/redirect";
+import Link from "next/link";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Adj meg érvényes e-mail-címet."),
@@ -47,6 +48,7 @@ export function LoginForm({ returnTo }: Readonly<{ returnTo: string }>) {
       <label className="login-field">Jelszó<span className="password-input"><input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" aria-label={showPassword ? "Jelszó elrejtése" : "Jelszó megjelenítése"} onClick={() => setShowPassword((value) => !value)}>{showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}</button></span></label>
       {error && <p className="login-error" role="alert">{error}</p>}
       <button className="login-submit" type="submit" disabled={isPending}><LogIn aria-hidden="true" />{isPending ? "Ellenőrzés…" : "Belépés"}</button>
+      <Link className="login-secondary-link" href="/jelszo-visszaallitas">Elfelejtetted a jelszavad?</Link>
     </form>
   );
 }

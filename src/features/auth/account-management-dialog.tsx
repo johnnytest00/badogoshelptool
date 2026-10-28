@@ -29,11 +29,18 @@ export function AccountManagementDialog({ open, onClose }: AccountManagementDial
   const [emailNotice, setEmailNotice] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordNotice, setPasswordNotice] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [busy, setBusy] = useState<"email" | "password" | null>(null);
+
+  function closeDialog() {
+    setPassword(""); setConfirmation(""); setCurrentPassword("");
+    setShowPassword(false); setShowConfirmation(false);
+    onClose();
+  }
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -100,9 +107,9 @@ export function AccountManagementDialog({ open, onClose }: AccountManagementDial
       const client = createClient();
       const { data: currentData, error: currentError } = await client.auth.getUser();
       if (currentError || !currentData.user) { setPasswordError(currentError ? getAccountAuthErrorMessage(currentError) : "A munkamenet lejárt. Jelentkezz be újra."); return; }
-      const { error } = await client.auth.updateUser({ password: parsed.data.password });
+      const { error } = await client.auth.updateUser({ password: parsed.data.password, ...(parsed.data.currentPassword ? { current_password: parsed.data.currentPassword } : {}) });
       if (error) { setPasswordError(getAccountAuthErrorMessage(error)); return; }
-      setPassword(""); setConfirmation("");
+      setPassword(""); setConfirmation(""); setCurrentPassword("");
       setPasswordNotice("A Supabase Auth visszaigazolta a jelszó módosítását.");
     } catch {
       setPasswordError("A hitelesítési szolgáltatás nem érhető el. Próbáld újra.");
@@ -110,8 +117,8 @@ export function AccountManagementDialog({ open, onClose }: AccountManagementDial
   }
 
   return (
-    <dialog ref={dialogRef} className="account-management-dialog" aria-labelledby="account-management-title" onCancel={(event) => { event.preventDefault(); onClose(); }}>
-      <div className="account-management-heading"><div className="account-management-title"><span className="account-management-avatar"><UserRound aria-hidden="true" className="size-5" /></span><div><p className="section-eyebrow">TetőPro-fiók</p><h2 id="account-management-title">Fiókbeállítások</h2></div></div><button className="account-management-close" type="button" onClick={onClose} aria-label="Fiókbeállítások bezárása"><X aria-hidden="true" className="size-5" /></button></div>
+    <dialog ref={dialogRef} className="account-management-dialog" aria-labelledby="account-management-title" onCancel={(event) => { event.preventDefault(); closeDialog(); }}>
+      <div className="account-management-heading"><div className="account-management-title"><span className="account-management-avatar"><UserRound aria-hidden="true" className="size-5" /></span><div><p className="section-eyebrow">TetőPro-fiók</p><h2 id="account-management-title">Fiókbeállítások</h2></div></div><button className="account-management-close" type="button" onClick={closeDialog} aria-label="Fiókbeállítások bezárása"><X aria-hidden="true" className="size-5" /></button></div>
       <p className="account-dialog-intro">Az itt megadott adatok a fiókod azonosítására szolgálnak.</p>
       {loadingError ? <p className="account-message is-error" role="alert">{loadingError}</p> : !account ? <p className="account-message" role="status">Fiókadatok betöltése…</p> : <>
         <section className="account-current"><span>Bejelentkezett e-mail-cím</span><strong>{account.email || "Nincs e-mail-cím megadva"}</strong><small>{providerLabel(account.providers)}</small></section>
@@ -122,14 +129,16 @@ export function AccountManagementDialog({ open, onClose }: AccountManagementDial
           <button className="secondary-button" type="submit" disabled={busy !== null}>{busy === "email" ? "Kérelem küldése…" : "E-mail-cím módosításának kérése"}</button>
         </form>
         <form className="account-form" onSubmit={changePassword} noValidate>
-          <h3><LockKeyhole aria-hidden="true" className="size-4" /> Jelszó módosítása</h3><label htmlFor="account-new-password">Új jelszó</label><span className="account-password-field"><input id="account-new-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} disabled={busy !== null} /><button type="button" aria-label={showPassword ? "Új jelszó elrejtése" : "Új jelszó megjelenítése"} aria-pressed={showPassword} onClick={() => setShowPassword((shown) => !shown)}>{showPassword ? <EyeOff aria-hidden="true" className="size-5" /> : <Eye aria-hidden="true" className="size-5" />}</button></span>
+          <h3><LockKeyhole aria-hidden="true" className="size-4" /> Jelszó módosítása</h3>
+          <label htmlFor="account-current-password">Jelenlegi jelszó (ha kéri a biztonsági beállítás)</label><input id="account-current-password" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} disabled={busy !== null} />
+          <label htmlFor="account-new-password">Új jelszó</label><span className="account-password-field"><input id="account-new-password" type={showPassword ? "text" : "password"} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} disabled={busy !== null} /><button type="button" aria-label={showPassword ? "Új jelszó elrejtése" : "Új jelszó megjelenítése"} aria-pressed={showPassword} onClick={() => setShowPassword((shown) => !shown)}>{showPassword ? <EyeOff aria-hidden="true" className="size-5" /> : <Eye aria-hidden="true" className="size-5" />}</button></span>
           <label htmlFor="account-confirm-password">Új jelszó megerősítése</label><span className="account-password-field"><input id="account-confirm-password" type={showConfirmation ? "text" : "password"} autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={busy !== null} /><button type="button" aria-label={showConfirmation ? "Jelszó-megerősítés elrejtése" : "Jelszó-megerősítés megjelenítése"} aria-pressed={showConfirmation} onClick={() => setShowConfirmation((shown) => !shown)}>{showConfirmation ? <EyeOff aria-hidden="true" className="size-5" /> : <Eye aria-hidden="true" className="size-5" />}</button></span>
-          <p className="account-hint">A jelszó szabályait a Supabase Auth érvényesíti. {providerLabel(account.providers)} Külső bejelentkezésnél a szolgáltató fiókbeállítása is szükséges lehet.</p>
+          <p className="account-hint">Az új jelszóra a Supabase Auth beállított biztonsági szabályai vonatkoznak. Ha a módosításhoz újrahitelesítés kell, add meg a jelenlegi jelszót. {providerLabel(account.providers)} Külső bejelentkezésnél a szolgáltató fiókbeállítása is szükséges lehet.</p>
           {passwordError && <p className="account-message is-error" role="alert">{passwordError}</p>}{passwordNotice && <p className="account-message" role="status">{passwordNotice}</p>}
           <button className="secondary-button" type="submit" disabled={busy !== null}>{busy === "password" ? "Jelszó módosítása…" : "Jelszó módosítása"}</button>
         </form>
       </>}
-      <button className="account-dialog-done" type="button" onClick={onClose}>Bezárás</button>
+      <button className="account-dialog-done" type="button" onClick={closeDialog}>Bezárás</button>
     </dialog>
   );
 }
