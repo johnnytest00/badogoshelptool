@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 /** Telepíthetőség. Offline működés NINCS: nincs service worker, a szerveres munkafolyamatok hálózatot igényelnek. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "TetőPro — bádogos műhely",
+    name: "TetőPro",
     short_name: "TetőPro",
     description: "Tetőfedő és bádogos munkafolyamatok egy helyen: felmérés, kalkuláció, anyaglista, ajánlat, munkanapló.",
     lang: "hu",
@@ -11,8 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait-primary",
-    background_color: "#111923",
-    theme_color: "#e85d04",
+    background_color: "#f5f7fb",
+    theme_color: "#f5f7fb",
     categories: ["business", "productivity", "utilities"],
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

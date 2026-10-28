@@ -16,6 +16,10 @@ export function getEffectiveTheme(mode: ThemeMode, systemIsDark: boolean): Exclu
   return mode === "system" ? (systemIsDark ? "dark" : "light") : mode;
 }
 
+export function getThemeChromeColor(theme: Exclude<ThemeMode, "system">): string {
+  return theme === "dark" ? "#0b1220" : "#f5f7fb";
+}
+
 export function getToggleLabel(effectiveTheme: Exclude<ThemeMode, "system">): string {
   return effectiveTheme === "dark" ? "Világos" : "Sötét";
 }

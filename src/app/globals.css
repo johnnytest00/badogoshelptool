@@ -5089,6 +5089,16 @@ main[id="main-content"]:focus { outline: none; }
   .settings-background-animation { display: none; }
 }
 
+/* Home Screen standalone draws under the iOS status bar; keep page content in its safe area. */
+@media (display-mode: standalone) {
+  .page-shell, .dashboard-shell { padding-top: calc(clamp(.75rem, 3.5vw, 2.5rem) + env(safe-area-inset-top)); }
+  .auth-state-shell { padding-top: calc(var(--space-page) + env(safe-area-inset-top)); }
+  .auth-page-shell {
+    padding-top: calc(var(--space-page) + env(safe-area-inset-top));
+    padding-bottom: calc(var(--space-page) + env(safe-area-inset-bottom));
+  }
+}
+
 /* A .glass-bubble eddig csak szegélyszínt és háttérszínt kapott, szegélyvastagságot nem,
    így a munkadíj- és ajánlat-paneleknek világos témában nem látszott a felülete. */
 .glass-bubble {

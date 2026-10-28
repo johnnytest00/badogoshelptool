@@ -1,5 +1,13 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## M11.3 — iPhone PWA és edge-to-edge megjelenés (2026-10-29)
+
+Státusz: **READY WITH LIMITATIONS**. Az App Router manifest neve `TetőPro`, a standalone telepítési mód és a meglévő ikonok változatlanul használatban maradtak; a Next.js meglévő `apple-icon.png` assetje biztosítja az Apple ikont. A viewport `cover` módban marad, a standalone oldalak a felső/alsó safe-area insetet figyelembe veszik. A theme-color a korai téma-bootstrapban és a téma váltásakor a tényleges light/dark app-háttérhez igazodik. Auth útvonal, alsó navigáció, üzleti logika és adatbázis nem változott; offline cache/service worker nincs bevezetve.
+
+- **Ellenőrzés:** célzott Vitest 5 fájl / 14 teszt PASS; érintett ESLint PASS; `npx tsc --noEmit -p tsconfig.typecheck.json` PASS; izolált `npm run build` Next.js 16.4.2-vel PASS; `git diff --check` PASS. A manifest, Apple ikon, bejelentkezés és recovery callback útvonal szerepelt a sikeres buildben. A helyi böngésző accessibility tree-je a dashboardot és navigációt megjelenítette.
+- **Korlát:** iPhone Safari, telepített Home Screen app, 375 px-es viewport, fizikai safe-area/keyboard viselkedés és valódi téma-váltás böngészőben nem ellenőrizhető ebben a környezetben; ezekhez külön Browser/Playwright eszköz és/vagy fizikai iPhone szükséges. Az iOS Safari böngésző eszköztára továbbra is a rendszer része; a weboldal csak harmonizáló theme-color/háttérszínt adhat.
+- **Javasolt Conventional Commit:** `feat(M11.3): add iPhone PWA edge-to-edge support`.
+
 ## M11.2 — Supabase Auth jelszó-helyreállítás (2026-10-28)
 
 Státusz: **READY WITH LIMITATIONS**. A bejelentkezésről elérhető az elfelejtett jelszó oldal. A helyreállító kérelem a Supabase `resetPasswordForEmail()`-t és ugyanazon origin dedikált PKCE callbackjét használja; a callback egyszer használatos kódot cserél sessionre, majd rövid életű HttpOnly recovery-jelölést állít be. Jelszó csak érvényes Supabase-felhasználói session és callback-jelölés mellett módosítható; siker után a helyi session lezárul. A Beállítások jelszócseréje ugyanazt az új jelszó/megerősítés validációt használja, és támogatja az opcionálisan megadott jelenlegi jelszót (`current_password`). Séma, RLS, kalkulátor és üzleti adat nem változott.

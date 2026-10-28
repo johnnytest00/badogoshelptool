@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { getEffectiveTheme, isThemeMode, themeStorageKey, type ThemeMode } from "@/lib/theme";
+import { getEffectiveTheme, getThemeChromeColor, isThemeMode, themeStorageKey, type ThemeMode } from "@/lib/theme";
 
 type ThemeContextValue = {
   mode: ThemeMode;
@@ -10,6 +10,14 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+function applyTheme(theme: Exclude<ThemeMode, "system">) {
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
+  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => {
+    meta.content = getThemeChromeColor(theme);
+  });
+}
 
 export function ThemeProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const [mode, setModeState] = useState<ThemeMode>("system");
@@ -32,16 +40,14 @@ export function ThemeProvider({ children }: Readonly<{ children: React.ReactNode
     setModeState(nextMode);
     window.localStorage.setItem(themeStorageKey, nextMode);
     const nextEffectiveTheme = getEffectiveTheme(nextMode, systemIsDark);
-    document.documentElement.dataset.theme = nextEffectiveTheme;
-    document.documentElement.style.colorScheme = nextEffectiveTheme;
+    applyTheme(nextEffectiveTheme);
   }, [systemIsDark]);
 
   const effectiveTheme = getEffectiveTheme(mode, systemIsDark);
 
   useEffect(() => {
     if (!initialized) return;
-    document.documentElement.dataset.theme = effectiveTheme;
-    document.documentElement.style.colorScheme = effectiveTheme;
+    applyTheme(effectiveTheme);
   }, [effectiveTheme, initialized]);
 
   const value = useMemo(() => ({ mode, effectiveTheme, setMode }), [mode, effectiveTheme]);

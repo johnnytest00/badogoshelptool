@@ -7,7 +7,7 @@ import { ScalingBubble } from "@/components/accessibility/scaling-bubble";
 import { MobileFocusSupport } from "@/components/accessibility/mobile-focus-support";
 import { AppNavigation } from "@/components/navigation/app-navigation";
 import { PremiumGlassBackground } from "@/components/background/premium-glass-background";
-import { themeStorageKey } from "@/lib/theme";
+import { getThemeChromeColor, themeStorageKey } from "@/lib/theme";
 import { scalingStorageKey } from "@/features/preferences/scaling";
 import { LiquidGlassProvider } from "@/features/preferences/liquid-glass-provider";
 import { liquidGlassStorageKey } from "@/features/preferences/liquid-glass";
@@ -28,6 +28,7 @@ const appearanceBootstrap = `(() => {
     const dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
     root.dataset.theme = dark ? 'dark' : 'light';
     root.style.colorScheme = dark ? 'dark' : 'light';
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.setAttribute('content', dark ? '${getThemeChromeColor("dark")}' : '${getThemeChromeColor("light")}'));
     const storedScale = JSON.parse(localStorage.getItem('${scalingStorageKey}') || '{}');
     const scale = (value, fallback, min, max) => {
       const normalized = typeof value === 'number' && Number.isFinite(value) ? (value > 2.5 ? value / 100 : value) : fallback;
@@ -61,8 +62,8 @@ export const metadata: Metadata = {
 /** viewportFit: "cover" — enélkül az env(safe-area-inset-*) értékek 0-k maradnak telepített/iOS nézetben. */
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f3ed" },
-    { media: "(prefers-color-scheme: dark)", color: "#111923" },
+    { media: "(prefers-color-scheme: light)", color: getThemeChromeColor("light") },
+    { media: "(prefers-color-scheme: dark)", color: getThemeChromeColor("dark") },
   ],
   colorScheme: "light dark",
   viewportFit: "cover",
