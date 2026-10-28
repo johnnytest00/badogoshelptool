@@ -5078,6 +5078,17 @@ main[id="main-content"]:focus { outline: none; }
   .app-nav-item.is-active { background: var(--brand-soft); box-shadow: none; }
 }
 
+/* Mobile-only navigation preference reuses the existing 700px mobile settings breakpoint. */
+.settings-mobile-navigation { display: none; }
+@media (max-width: 700px) {
+  :root { --app-nav-bar: 0px; }
+  .app-nav { display: none; }
+  html[data-mobile-nav="visible"] { --app-nav-bar: calc(3.5rem * var(--tp-ui-scale) + env(safe-area-inset-bottom)); }
+  html[data-mobile-nav="visible"] .app-nav { display: flex; }
+  .settings-mobile-navigation { display: block; }
+  .settings-background-animation { display: none; }
+}
+
 /* A .glass-bubble eddig csak szegélyszínt és háttérszínt kapott, szegélyvastagságot nem,
    így a munkadíj- és ajánlat-paneleknek világos témában nem látszott a felülete. */
 .glass-bubble {

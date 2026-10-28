@@ -11,6 +11,7 @@ import { themeStorageKey } from "@/lib/theme";
 import { scalingStorageKey } from "@/features/preferences/scaling";
 import { LiquidGlassProvider } from "@/features/preferences/liquid-glass-provider";
 import { liquidGlassStorageKey } from "@/features/preferences/liquid-glass";
+import { mobileNavigationStorageKey } from "@/features/preferences/mobile-navigation";
 import "@fontsource/noto-sans/400.css";
 import "@fontsource/noto-sans/500.css";
 import "@fontsource/noto-sans/600.css";
@@ -20,6 +21,8 @@ import "./globals.css";
 const appearanceBootstrap = `(() => {
   try {
     const root = document.documentElement;
+    if (localStorage.getItem('${mobileNavigationStorageKey}') === 'true') root.dataset.mobileNav = 'visible';
+    else delete root.dataset.mobileNav;
     const storedTheme = localStorage.getItem('${themeStorageKey}');
     const mode = ['system', 'light', 'dark'].includes(storedTheme) ? storedTheme : 'system';
     const dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);

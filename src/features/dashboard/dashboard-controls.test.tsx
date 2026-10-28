@@ -47,7 +47,7 @@ describe("dashboard shared mobile header and full settings", () => {
     expect(html).toContain('id="liquid-glass-opacity"');
     expect(html).toContain('value="10"');
     expect(html).toContain('name="liquid-glass-tint"');
-    expect(html.match(/<details/g)).toHaveLength(3);
+    expect(html.match(/<details/g)).toHaveLength(4);
     expect(html).toContain('class="settings-logout-form"');
     expect(html).toContain("Kilépés");
     expect(html.match(/Kilépés/g)).toHaveLength(1);
@@ -58,5 +58,13 @@ describe("dashboard shared mobile header and full settings", () => {
     expect(html).toContain("Szöveg 100% · Felület 115%");
     expect(html).toContain("Átlátszóság 10% · automatikus szín");
     expect(html).toContain("Bekapcsolva");
+  });
+
+  it("offers the mobile navigation preference in the existing settings panel", () => {
+    const html = renderToStaticMarkup(createElement(ScalingProvider, null, createElement(LiquidGlassProvider, null, createElement(DashboardSettings, { onOpenAccount: () => undefined }))));
+    expect(html).toContain("Alsó navigáció megjelenítése");
+    expect(html).toContain("Az alsó menüsáv megjelenítése a gyors navigációhoz.");
+    expect(html).toContain('class="glass-disclosure settings-disclosure settings-mobile-navigation"');
+    expect(html).toMatch(/<strong>Alsó navigáció megjelenítése<\/strong>[\s\S]*?<input type="checkbox"\/>/);
   });
 });
