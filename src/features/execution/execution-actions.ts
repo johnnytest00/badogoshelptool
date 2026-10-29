@@ -7,6 +7,7 @@ import { getAuthContext } from "@/features/auth/auth.server";
 import { executionJournalCategorySchema, executionPhotoCategorySchema, executionPlanSchema, executionTaskSchema } from "@/domain/execution/contracts";
 import { userFacingActionError } from "@/lib/user-facing-action-error";
 import { normalizeSurveyPhoto } from "@/infrastructure/images/normalize-survey-photo";
+import { isCompleteConstructionRevision } from "@/features/calculations/construction-data";
 
 const text = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const PHOTO_BUCKET = "execution-photos";
@@ -22,10 +23,25 @@ export async function createExecutionPlanAction(data: FormData) {
   if (projectId && !z.string().uuid().safeParse(projectId).success) return { ok: false, error: "Érvénytelen projektkapcsolat." };
   const parsed = executionPlanSchema.safeParse({ title: text(data, "title"), description: text(data, "description") });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ellenőrizd a munkanapló adatait." };
+  const calculationRevisionIds = [...new Set(data.getAll("calculationRevisionIds").map(String))];
+  if (calculationRevisionIds.length > 100 || calculationRevisionIds.some((id) => !z.string().uuid().safeParse(id).success)) return { ok: false, error: "Érvénytelen kalkulációválasztás." };
+  for (const revisionId of calculationRevisionIds) {
+    if (!await isCompleteConstructionRevision(organizationId, revisionId)) return { ok: false, error: "Csak saját, teljes, elérhető kalkulációs revízió kapcsolható a munkanaplóhoz." };
+  }
   const db = await createClient() as unknown as Rpc;
   const { data: result, error } = await db.rpc("create_execution_plan", { p_organization_id: organizationId, p_project_id: projectId, p_title: parsed.data.title, p_description: parsed.data.description || null, p_source_quotation_id: text(data, "sourceQuotationId") || null, p_source_revision_id: text(data, "sourceRevisionId") || null, p_request_key: text(data, "requestKey") || crypto.randomUUID() });
   if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A terv létrehozása nem sikerült.") };
-  revalidatePath("/kivitelezes"); revalidatePath(`/kivitelezes/${result[0].plan_id}`); if (projectId) revalidatePath(`/projektek/${projectId}`); return { ok: true, planId: result[0].plan_id };
+  const planId = result[0].plan_id as string;
+  for (const revisionId of calculationRevisionIds) {
+    const { data: linked, error: linkError } = await db.rpc("link_execution_plan_document", {
+      p_organization_id: organizationId, p_execution_plan_id: planId, p_document_kind: "calculation", p_document_id: revisionId, p_request_key: crypto.randomUUID(),
+    });
+    if (linkError || !linked?.[0]) {
+      revalidatePath("/kivitelezes"); revalidatePath(`/kivitelezes/${planId}`);
+      return { ok: false, planId, error: `A munkanapló elkészült, de egy kalkuláció kapcsolása nem sikerült: ${errorMessage(linkError, "próbáld újra")}` };
+    }
+  }
+  revalidatePath("/kivitelezes"); revalidatePath(`/kivitelezes/${planId}`); if (projectId) revalidatePath(`/projektek/${projectId}`); return { ok: true, planId };
 }
 
 export async function saveExecutionTaskAction(data: FormData) {

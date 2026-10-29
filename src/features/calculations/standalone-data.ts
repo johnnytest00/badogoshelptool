@@ -31,6 +31,20 @@ export type StandaloneCalculationRevision = Readonly<{
 }>;
 export type StandaloneCalculationRecord = StandaloneCalculationSummary & Readonly<{ revisions: readonly StandaloneCalculationRevision[] }>;
 
+export async function listExecutionPlanCalculationOptions(organizationId: string) {
+  const summaries = (await Promise.all(SAVEABLE_CONSTRUCTION_CALCULATORS.map((calculatorId) =>
+    listStandaloneCalculations(organizationId, constructionCalculatorType(calculatorId)),
+  ))).flat();
+  return summaries.flatMap((item) => item.currentRevisionId ? [{
+    calculationId: item.calculationId,
+    revisionId: item.currentRevisionId,
+    calculatorId: item.calculatorType.slice("construction.".length) as (typeof SAVEABLE_CONSTRUCTION_CALCULATORS)[number],
+    name: item.displayName,
+    revisionNumber: item.currentRevisionNumber,
+    savedAt: item.updatedAt,
+  }] : []).sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
+
 async function assertOrganizationMember(organizationId: string) {
   const auth = await getAuthContext();
   if (!auth?.organizations.some((organization) => organization.id === organizationId)) throw new Error("Ehhez a műhelyhez nincs hozzáférésed.");

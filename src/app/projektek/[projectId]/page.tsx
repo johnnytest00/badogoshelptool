@@ -13,6 +13,7 @@ import { ExecutionSection } from "@/features/execution/execution-section";
 import { ProjectCalculatorLinks } from "@/features/projects/project-calculator-links";
 import { ProjectRoofDrawings } from "@/features/roof-models/project-roof-drawings";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
+import { listExecutionPlanCalculationOptions } from "@/features/calculations/standalone-data";
 
 export default async function ProjectDetailPage({ params, searchParams }: Readonly<{ params: Promise<{ projectId: string }>; searchParams: Promise<{ organization?: string; sourceQuotation?: string; execution?: string }> }>) {
   const { projectId } = await params;
@@ -23,9 +24,12 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
   if (!selected.organization) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Több szervezet</p><h1>Válassz műhelyt a projekthez.</h1><OrganizationSelector organizations={selected.auth.organizations} /></section></main>;
   const project = await getProjectForOrganization(selected.organization.id, projectId);
   if (!project) return <main id="main-content" tabIndex={-1} className="auth-state-shell"><section className="auth-state-card"><p className="eyebrow">Projekt</p><h1>A projekt nem található.</h1><p>Azonosító alapján nincs elérhető projekt ebben a műhelyben.</p><Link className="login-secondary-link" href={`/?organization=${selected.organization.id}`}>Vissza a műhelyhez</Link></section></main>;
-  const roofModels = await getRoofModelsForProject(selected.organization.id, projectId);
-  const execution = await getExecutionPlanningWorkspace(selected.organization.id, projectId);
   const organizationId = selected.organization.id;
+  const [roofModels, execution, savedCalculations] = await Promise.all([
+    getRoofModelsForProject(organizationId, projectId),
+    getExecutionPlanningWorkspace(organizationId, projectId),
+    listExecutionPlanCalculationOptions(organizationId),
+  ]);
   return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container project-workspace">
     <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
     <GlassPageHeader className="project-detail-header" title={project.name} context={
@@ -48,7 +52,7 @@ export default async function ProjectDetailPage({ params, searchParams }: Readon
         {project.description && <p className="detail-description">{project.description}</p>}
       </section>
     </div>
-    <ExecutionSection defaultOpen={pageQuery.execution === "1"}><ExecutionPlanning organizationId={organizationId} projectId={projectId} projectName={project.name} clientName={project.clientName} location={project.location} plans={execution.plans} acceptedQuotations={execution.acceptedQuotations} timelineByPlan={execution.timelineByPlan} preselectedQuotationId={pageQuery.sourceQuotation} /></ExecutionSection>
+    <ExecutionSection defaultOpen={pageQuery.execution === "1"}><ExecutionPlanning organizationId={organizationId} projectId={projectId} projectName={project.name} clientName={project.clientName} location={project.location} plans={execution.plans} acceptedQuotations={execution.acceptedQuotations} savedCalculations={savedCalculations} timelineByPlan={execution.timelineByPlan} preselectedQuotationId={pageQuery.sourceQuotation} /></ExecutionSection>
     <ProjectRoofDrawings models={roofModels} projectId={projectId} organizationId={organizationId} />
     <ProjectCalculatorLinks projectId={projectId} organizationId={organizationId} />
     <div className="future-module-grid project-workspace-links"><Link className="future-module" href={`/projektek/${projectId}/anyagkimutatas?organization=${organizationId}`}><span className="future-module-icon"><PackageOpen className="size-5" /></span><div><h2>Anyagkimutatás</h2><p>Mentett kalkulációból készíthető anyaglista.</p></div><span className="project-calculator-open">Megnyitás</span></Link><Link className="future-module" href={`/projektek/${projectId}/beszerzes?organization=${organizationId}`}><span className="future-module-icon"><ClipboardList className="size-5" /></span><div><h2>Beszerzés és gyártás</h2><p>Jóváhagyott anyagmennyiségek és műhelyfeladatok.</p></div><span className="project-calculator-open">Megnyitás</span></Link><Link className="future-module" href={`/projektek/${projectId}/ajanlatok?organization=${organizationId}`}><span className="future-module-icon"><FolderOpen className="size-5" /></span><div><h2>Árajánlatok</h2><p>Verziózott belső ajánlati piszkozatok.</p></div><span className="project-calculator-open">Megnyitás</span></Link></div>

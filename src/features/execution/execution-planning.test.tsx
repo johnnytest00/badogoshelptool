@@ -56,6 +56,23 @@ describe("execution planning workspace", () => {
     />);
     expect(html).toContain("execution-create-form");
     expect(html).toContain("Elfogadott ajánlat forrásként");
+    expect(html).toContain("Mentett kalkulációk (opcionális)");
+    expect(html).toContain("Kalkulátorok megnyitása");
+  });
+
+  it("renders saved calculation options with calculator type, revision and a search field", () => {
+    const html = renderToStaticMarkup(<ExecutionPlanning
+      organizationId="org-1" projectId={null} projectName="" clientName={null} location={null}
+      plans={[emptyPlan]} acceptedQuotations={[]} timelineByPlan={new Map([[emptyPlan.id, []]])}
+      savedCalculations={[{ revisionId: "revision-1", calculationId: "calculation-1", calculatorId: "roof.material-takeoff", name: "DEMO tető", revisionNumber: 2, savedAt: "2026-10-20T00:00:00Z" }]}
+      initialCreate showHeading={false} showDescription={false} showPlanTabs={false}
+    />);
+
+    expect(html).toContain("Mentett kalkulációk keresése");
+    expect(html).toContain("DEMO tető");
+    expect(html).toContain("Tetőanyag-kimutatás");
+    expect(html).toContain("V2");
+    expect(html).toContain('name="calculationRevisionIds"');
   });
 
   it("prioritizes daily entries and shows one concise empty state with task actions", () => {
