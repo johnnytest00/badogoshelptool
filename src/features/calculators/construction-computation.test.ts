@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fallLineRaftersOf } from "@/domain/calculations/construction/plane-birdsmouth";
 import { DEMO_MATERIAL_PROFILES, initialSpecState } from "@/domain/calculations/roof-material-spec";
+import { replayRoofCalculation } from "@/domain/calculations/roof-calculation-snapshot";
 import { definitions } from "./roof-calculator-definitions";
 import {
   computeConstruction, previewPlaneBirdsmouths, constructionInputSnapshot, isFieldVisible, constructionInputSnapshotSchema, constructionOutputSnapshot, isSaveableComputation,
@@ -18,6 +19,107 @@ const material: RoofMaterialUiState = {
 const timberValues = { roofShape: "gable", lengthMm: "10000", widthMm: "8000", pitchDegrees: "35", eaveOverhangMm: "0" };
 
 describe("computeConstruction", () => {
+  it("normalizes an old unversioned persisted snapshot to explicit legacy-wall for editor round-trip", () => {
+    const snapshot = constructionInputSnapshot(definitions["roof.material-takeoff"], timberValues, null);
+    const legacy = { ...snapshot };
+    delete legacy.geometryContractVersion;
+    const loaded = constructionInputSnapshotSchema.parse(legacy);
+    const hydrated = normalizedConstructionInput(loaded);
+    expect(hydrated.geometryContractVersion).toBe("legacy-wall");
+    expect(constructionInputSnapshot(definitions["roof.material-takeoff"], { ...timberValues, __geometryContractVersion: hydrated.geometryContractVersion! }, null).geometryContractVersion).toBe("legacy-wall");
+  });
+
+  it("rejects unknown explicit geometry contract versions", () => {
+    const snapshot = constructionInputSnapshot(definitions["roof.material-takeoff"], timberValues, null);
+    expect(constructionInputSnapshotSchema.safeParse({ ...snapshot, geometryContractVersion: "future" }).success).toBe(false);
+  });
+
+  it("uses the supported roof-shape dimensions with the explicit outer-footprint contract", () => {
+    const result = computeConstruction(definitions["roof.material-takeoff"], { roofShape: "gable", lengthMm: "12000", widthMm: "6000", pitchDegrees: "35", __geometryContractVersion: "outer-footprint" }, null, []);
+    expect(result.geometry?.projectedAreaMm2).toBe(72_000_000);
+  });
+
+  it("calculates V2 gable footprint from the full roof bounds regardless of eave input", () => {
+    const values = { roofShape: "gable", lengthMm: "12000", widthMm: "6000", pitchDegrees: "35", frontGableOverhangMm: "500", rearGableOverhangMm: "250", __geometryContractVersion: "outer-footprint" };
+    for (const eaveOverhangMm of [undefined, "0", "500"]) {
+      const result = computeConstruction(definitions["roof.material-takeoff"], { ...values, ...(eaveOverhangMm === undefined ? {} : { eaveOverhangMm }) }, null, []);
+      expect(result.error).toBeNull();
+      expect(result.geometry?.projectedAreaMm2).toBe(72_000_000);
+      expect(result.geometry?.totalAreaMm2).toBeCloseTo(72_000_000 / Math.cos(35 * Math.PI / 180), 2);
+    }
+    const savedPreview = computeConstruction(definitions["roof.material-takeoff"], { ...values, eaveOverhangMm: "500" }, material, DEMO_MATERIAL_PROFILES);
+    const snapshot = savedPreview.materialTakeoff?.calculationSnapshot;
+    expect(snapshot?.geometryContractVersion).toBe("outer-footprint");
+    expect(snapshot && replayRoofCalculation(JSON.parse(JSON.stringify(snapshot))).geometry.projectedAreaMm2).toBe(72_000_000);
+  });
+
+  it("preserves the legacy V1 eave calculation", () => {
+    const result = computeConstruction(definitions["roof.material-takeoff"], { roofShape: "gable", lengthMm: "12000", widthMm: "6000", pitchDegrees: "35", eaveOverhangMm: "500", __geometryContractVersion: "legacy-wall" }, null, []);
+    expect(result.geometry?.projectedAreaMm2).toBe(84_000_000);
+  });
+
+  it("keeps shed overhang one-sided in V1 and already-included in V2", () => {
+    const base = { roofShape: "shed", lengthMm: "10000", widthMm: "6000", pitchDegrees: "25", eaveOverhangMm: "500" };
+    const legacy = computeConstruction(definitions["roof.material-takeoff"], { ...base, __geometryContractVersion: "legacy-wall" }, null, []);
+    const outer = computeConstruction(definitions["roof.material-takeoff"], { ...base, __geometryContractVersion: "outer-footprint" }, null, []);
+    expect(legacy.geometry?.projectedAreaMm2).toBe(65_000_000);
+    expect(outer.geometry?.projectedAreaMm2).toBe(60_000_000);
+  });
+
+  it("leaves the six other shape models unchanged under the V2 contract", () => {
+    const cases: Record<string, string>[] = [
+      { roofShape: "hip", lengthMm: "10000", widthMm: "6000", pitchDegrees: "35" },
+      { roofShape: "pyramid", sideMm: "6000", pitchDegrees: "35" },
+      { roofShape: "halfHip", lengthMm: "10000", widthMm: "6000", pitchDegrees: "35", hipEaveHeightMm: "1000" },
+      { roofShape: "lShape", lengthMm: "10000", widthMm: "6000", pitchDegrees: "35", wingWidthMm: "2000", wingProjectionMm: "2000" },
+      { roofShape: "tShape", lengthMm: "10000", widthMm: "6000", pitchDegrees: "35", wingWidthMm: "2000", wingProjectionMm: "2000" },
+      { roofShape: "mansard", lengthMm: "10000", widthMm: "6000", lowerRunMm: "1000", lowerRiseMm: "2000", upperRiseMm: "1000" },
+    ];
+    for (const fields of cases) {
+      const legacy = computeConstruction(definitions["roof.material-takeoff"], { ...fields, __geometryContractVersion: "legacy-wall" }, null, []);
+      const outer = computeConstruction(definitions["roof.material-takeoff"], { ...fields, __geometryContractVersion: "outer-footprint" }, null, []);
+      expect(outer.geometry?.projectedAreaMm2, fields.roofShape).toBe(legacy.geometry?.projectedAreaMm2);
+      expect(outer.geometry?.totalAreaMm2, fields.roofShape).toBe(legacy.geometry?.totalAreaMm2);
+    }
+  });
+
+  it("allows blank eave overhang while preserving blank and explicit zero provenance", () => {
+    const noMaterials: RoofMaterialUiState = { requested: { timber: false, underlay: false, covering: false }, layout: {}, specs: { covering: initialSpecState(false), underlay: initialSpecState(false), rafter: initialSpecState(false), batten: initialSpecState(false) } };
+    const missing = computeConstruction(definitions["roof.material-takeoff"], { roofShape: "gable", lengthMm: "12000", widthMm: "6000", pitchDegrees: "35", eaveOverhangMm: "" }, noMaterials, []);
+    expect(missing.inputsReady).toBe(true);
+    expect(missing.geometry?.projectedAreaMm2).toBeCloseTo(72_000_000, 3);
+    expect(missing.geometry?.totalAreaMm2).toBeCloseTo(72_000_000 / Math.cos(35 * Math.PI / 180), 3);
+
+    const explicitZero = computeConstruction(definitions["roof.material-takeoff"], { roofShape: "gable", lengthMm: "12000", widthMm: "6000", pitchDegrees: "35", eaveOverhangMm: "0" }, noMaterials, []);
+    expect(explicitZero.geometry).not.toBeNull();
+    expect(missing.materialTakeoff?.calculationSnapshot?.fields.eaveOverhangMm).toBeUndefined();
+    expect(explicitZero.materialTakeoff?.calculationSnapshot?.fields.eaveOverhangMm).toBe(0);
+
+    const positive = computeConstruction(definitions["roof.material-takeoff"], { roofShape: "gable", lengthMm: "12000", widthMm: "6000", pitchDegrees: "35", eaveOverhangMm: "500" }, noMaterials, []);
+    expect(positive.geometry?.projectedAreaMm2).toBeCloseTo(84_000_000, 3);
+  });
+
+  it("reopens a saved gable snapshot that predates the optional eave field", () => {
+    const fields = Object.fromEntries(definitions["roof.material-takeoff"].fields.map((field) => [field.key, field.initial ?? ""]));
+    Object.assign(fields, { roofShape: "gable", lengthMm: "12000", widthMm: "6000", pitchDegrees: "35" });
+    delete fields.eaveOverhangMm;
+    const historical = constructionInputSnapshot(definitions["roof.material-takeoff"], fields, null);
+    expect(comparableConstructionInput(definitions["roof.material-takeoff"], historical)?.fields.eaveOverhangMm).toBe("");
+  });
+
+  it("keeps valid geometry available when no material group is requested", () => {
+    const result = computeConstruction(definitions["roof.material-takeoff"], { roofShape: "gable", lengthMm: "10000", widthMm: "6000", pitchDegrees: "35", eaveOverhangMm: "0" }, {
+      requested: { timber: false, underlay: false, covering: false }, layout: {},
+      specs: { covering: initialSpecState(false), underlay: initialSpecState(false), rafter: initialSpecState(false), batten: initialSpecState(false) },
+    }, []);
+
+    expect(result.geometry).not.toBeNull();
+    expect(result.materialTakeoff?.parts.filter((part) => part.requested && part.id !== "geometry")).toHaveLength(0);
+    expect(result.completeness.status).toBe("incomplete");
+    expect(result.completeness.reasons).toEqual([]);
+    expect(isSaveableComputation(result)).toBe(false);
+  });
+
   it("reproduces the verified rafter-cut result", () => {
     const result = computeConstruction(rafter, { horizontalHalfSpanMm: "3000", riseMm: "2000", eaveProjectionMm: "500", seatCutHeightMm: "0" }, null, []);
     expect(isSaveableComputation(result)).toBe(true);

@@ -6,9 +6,9 @@ import { PackageOpen, Plus, Trash2 } from "lucide-react";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { useAppInteraction, useUnsavedChangeGuard } from "@/components/feedback/app-interaction-provider";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
-import { priceChoices, selectablePrices } from "@/domain/pricing";
+import { defaultPrice, materialOfferSelectionId, parseMaterialOfferSelectionId, priceChoices, selectablePrices, supplierLabel } from "@/domain/pricing";
 import { UnitPriceField, type UnitPriceOrigin } from "./unit-price-field";
-import { materialCategories, materialCategoryLabels, materialPriceKindLabels, materialPurchasingUnitLabels, materialPurchasingUnits, type MaterialCategory, type MaterialPriceKind, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
+import { materialCategories, materialPriceKindLabels, materialPurchasingUnitLabels, materialPurchasingUnits, type MaterialCategory, type MaterialPriceKind, type MaterialPurchasingUnit } from "@/domain/materials/contracts";
 import type { QuantityKind, SurveyMaterialProvenanceItem, SurveyMaterialSourceRef, SurveyMaterialSuggestion } from "@/domain/material-takeoffs/survey-material-suggestions";
 import { generateSecureUuid } from "@/lib/secure-uuid";
 import type { ExecutionPlanOption } from "@/features/execution/execution-data";
@@ -21,7 +21,6 @@ import { BackNavigation } from "@/components/navigation/back-navigation";
 import { MaterialListQuotationButton } from "@/features/quotations/material-list-quotation-button";
 import { ExecutionPlanLinkControl } from "@/features/execution/execution-plan-link-control";
 import type { DocumentPlanLink } from "@/features/execution/execution-document-links";
-import type { LinkedQuotationDraft } from "./material-list-links";
 
 type WorkflowLine = {
   id: string;
@@ -69,11 +68,13 @@ function verifiedPrice(variant: MaterialProductRecord["variants"][number]) {
   return variant.prices.find((price) => price.provenance === "verified" && price.currency === "HUF" && price.purchasingUnit === variant.purchasingUnit) ?? null;
 }
 
-function listProductOptions(products: readonly MaterialProductRecord[], categoryId: string | null, surveyMode: boolean): WorkflowMaterialProductOption[] {
-  return products.filter((product) => product.status === "active" && product.categoryActive && product.categoryId === categoryId).flatMap((product) => product.variants.map((variant) => {
-    const price = surveyMode ? verifiedPrice(variant) : variant.latestPrice;
-    const supplierCount = selectablePrices(variant.priceOptions, variant.purchasingUnit).length;
-    return { id: variant.id, name: variant.name === "Alap egység" ? product.name : `${product.name} · ${variant.name}`, detail: `${product.categoryName} · ${materialPurchasingUnitLabels[variant.purchasingUnit]}${price ? ` · ${priceLabel(price.amount, variant.purchasingUnit, price.priceKind)}` : supplierCount > 1 ? ` · ${supplierCount} beszállítói ár` : " · Ár nincs megadva"}`, searchText: `${product.name} ${variant.name} ${variant.sku ?? ""}` };
+export function listProductOptions(products: readonly MaterialProductRecord[], categoryId: string | null, surveyMode: boolean): WorkflowMaterialProductOption[] {
+  return products.filter((product) => product.status === "active" && product.categoryActive && product.categoryId === categoryId).flatMap((product) => product.variants.flatMap((variant) => {
+    const name = variant.name === "Alap egység" ? product.name : `${product.name} · ${variant.name}`;
+    const offers = surveyMode ? [] : selectablePrices(variant.priceOptions, variant.purchasingUnit);
+    const choices = offers.length ? offers.map((price) => ({ id: materialOfferSelectionId(variant.id, price.id), detail: `${supplierLabel(price) ?? "Beszerzési hely nincs megadva"} · ${materialPurchasingUnitLabels[variant.purchasingUnit]}`, search: supplierLabel(price) ?? "" }))
+      : [{ id: variant.id, detail: `${surveyMode && verifiedPrice(variant) && supplierLabel(verifiedPrice(variant)!) ? supplierLabel(verifiedPrice(variant)!) : "Beszerzési hely nincs megadva"} · ${materialPurchasingUnitLabels[variant.purchasingUnit]}`, search: "" }];
+    return choices.map((choice) => ({ id: choice.id, name, detail: choice.detail, searchText: `${product.name} ${variant.name} ${variant.sku ?? ""} ${choice.search}` }));
   }));
 }
 
@@ -162,9 +163,9 @@ function priceLabel(amount: string | number, unit: MaterialPurchasingUnit, kind:
 type DisplayUnitPrice = Readonly<{ amount: number; kind: MaterialPriceKind | null }>;
 
 function lineUnitPrice(line: WorkflowLine, products: readonly MaterialProductRecord[], surveyMode: boolean): DisplayUnitPrice | null {
-  if (line.manualPriceAmount && line.manualPriceKind) {
+  if (line.manualPriceAmount) {
     const amount = Number(line.manualPriceAmount.replace(",", "."));
-    return Number.isFinite(amount) && amount >= 0 ? { amount, kind: line.manualPriceKind } : null;
+    return Number.isFinite(amount) && amount >= 0 ? { amount, kind: line.manualPriceKind ?? "gross" } : null;
   }
   const variant = products.flatMap((product) => product.variants).find((item) => item.id === line.variantId);
   const selectedPrice = line.priceId ? variant?.prices.find((item) => item.id === line.priceId) : null;
@@ -199,7 +200,7 @@ function formatHuf(amount: number) {
   return `${amount.toLocaleString("hu-HU", { maximumFractionDigits: 2 })} Ft`;
 }
 
-export function WorkflowMaterialListEditor({ organizationId, products: initialProducts, plans, categories, list, requestedPlanId = "", surveySource = null, defaultName = "", quotations = [], planLinks = [], takeoffSource = null }: Readonly<{
+export function WorkflowMaterialListEditor({ organizationId, products: initialProducts, plans, categories, list, requestedPlanId = "", surveySource = null, defaultName = "", planLinks = [], takeoffSource = null }: Readonly<{
   organizationId: string;
   products: readonly MaterialProductRecord[];
   plans: readonly ExecutionPlanOption[];
@@ -208,7 +209,6 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
   requestedPlanId?: string;
   surveySource?: WorkflowMaterialListSurveyContext | null;
   defaultName?: string;
-  quotations?: readonly LinkedQuotationDraft[];
   planLinks?: readonly DocumentPlanLink[];
   takeoffSource?: { takeoffId: string; takeoffName: string; takeoffVersion: number } | null;
 }>) {
@@ -217,7 +217,7 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
   const { notify, requestConfirmation } = useAppInteraction();
   const [state, action, pending] = useActionState(saveWorkflowMaterialListAction, initialState);
   const [name, setName] = useState(list?.name ?? defaultName);
-  const [planId, setPlanId] = useState(list?.executionPlanId ?? requestedPlanId);
+  const planId = list?.executionPlanId ?? requestedPlanId;
   const [lines, setLines] = useState<WorkflowLine[]>(() => list ? listLines(list, products) : suggestionLines(surveySource?.suggestions ?? []));
   const [allowStaleSource, setAllowStaleSource] = useState(false);
   const [entryMode, setEntryMode] = useState<"catalog" | "manual">("catalog");
@@ -263,13 +263,16 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
 
   const updateLine = (id: string, patch: Partial<WorkflowLine>) => setLines((current) => current.map((line) => line.id === id ? { ...line, ...patch } : line));
   const selectCatalogVariant = (rawId: string) => {
-    const entry = categoryVariants.find(({ variant }) => variant.id === rawId);
+    const selection = parseMaterialOfferSelectionId(rawId);
+    const entry = categoryVariants.find(({ variant }) => variant.id === selection.variantId);
     if (!entry) {
       setNewItem((current) => ({ ...current, description: "", materialCategory: "other", categoryName: null, variantId: null, priceId: null, unit: "piece" }));
       return;
     }
     const { product, variant } = entry;
-    const selectedPrice = surveyMode ? verifiedPrice(variant) : variant.latestPrice;
+    const requestedPrice = selection.priceId ? selectablePrices(variant.priceOptions, variant.purchasingUnit).find((price) => price.id === selection.priceId) : null;
+    if (selection.priceId && !requestedPrice) return;
+    const selectedPrice = requestedPrice ?? (surveyMode ? verifiedPrice(variant) : defaultPrice(variant.priceOptions, variant.purchasingUnit));
     setNewItem((current) => ({
       ...current, kind: "catalog", materialCategory: product.category, categoryId: product.categoryId,
       categoryName: product.categoryName,
@@ -304,8 +307,7 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
     if (!quantityPattern.test(newItem.quantity) || Number(newItem.quantity.replace(",", ".")) <= 0) { setAddError("Adj meg nullánál nagyobb mennyiséget, legfeljebb 6 tizedesjeggyel."); return; }
     if (entryMode === "catalog" && (!newItem.categoryId || !newItem.variantId)) { setAddError("Válassz kategóriát és katalógusterméket."); return; }
     if (entryMode === "manual" && newItem.manualPriceAmount && !pricePattern.test(newItem.manualPriceAmount.replace(",", "."))) { setAddError("Az ár HUF-ban, legfeljebb két tizedesjeggyel adható meg."); return; }
-    if (entryMode === "manual" && newItem.manualPriceAmount && !newItem.manualPriceKind) { setAddError("Ár megadásakor válaszd ki, hogy nettó vagy bruttó."); return; }
-    setLines((current) => [...current, { ...newItem, kind: entryMode, description, id: generateSecureUuid(), priceSnapshot: null }]);
+    setLines((current) => [...current, { ...newItem, kind: entryMode, description, id: generateSecureUuid(), manualPriceKind: newItem.manualPriceAmount ? newItem.manualPriceKind ?? "gross" : null, priceSnapshot: null }]);
     setNewItem(entryMode === "catalog"
       ? { ...blankLine(newItem.categoryId), categoryName: newItem.categoryName }
       : { ...blankLine(), kind: "manual", materialCategory: "other", unit: newItem.unit });
@@ -326,12 +328,38 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
     if (accepted) setLines((current) => current.filter((item) => item.id !== line.id));
   };
 
+  const addMaterialPanel = <section className="workflow-material-add-panel" aria-labelledby="workflow-material-add-title">
+    <div className="workflow-material-add-heading"><div><h2 id="workflow-material-add-title">Anyag hozzáadása</h2></div><div className="workflow-material-entry-mode" role="group" aria-label="Anyag hozzáadása módja">
+      <button className={entryMode === "catalog" ? "is-selected" : ""} type="button" aria-pressed={entryMode === "catalog"} onClick={() => { setEntryMode("catalog"); setAddError(""); }}>Katalógusból</button>
+      <button className={entryMode === "manual" ? "is-selected" : ""} type="button" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); setAddError(""); setNewItem((current) => ({ ...current, kind: "manual", categoryId: null, categoryName: null, materialCategory: "other", variantId: null, priceId: null })); }}>Kézi tétel</button>
+    </div></div>
+    {entryMode === "catalog" ? <div className="workflow-material-add-fields workflow-material-catalog-entry" onKeyDown={(event) => { if (event.key === "Enter" && !event.defaultPrevented) { event.preventDefault(); addLine(); } }}>
+      <label className="workflow-material-field"><span>Kategória</span><select aria-label="Anyag kategóriája" value={newItem.categoryId ?? ""} onChange={(event) => { setNewItem((current) => ({ ...current, categoryId: event.target.value || null, categoryName: null, variantId: null, priceId: null, description: "", unit: "piece" })); }}><option value="">Válassz kategóriát…</option>{activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+      <div className="workflow-material-field workflow-material-product-field" ref={catalogPickerFieldRef} role="group" aria-label="Termék keresése"><span>Termék keresése</span><WorkflowMaterialProductPicker options={productPickerOptions} value={newItem.variantId ? materialOfferSelectionId(newItem.variantId, newItem.priceId) : ""} disabled={!newItem.categoryId} label="Termék keresése" loadOptions={async (search, page) => {
+        const result = await searchMaterialProductsAction(organizationId, { categoryId: newItem.categoryId ?? undefined, search, page });
+        setProducts((current) => [...new Map([...current, ...result.products].map((product) => [product.id, product])).values()]);
+        return { options: listProductOptions(result.products, newItem.categoryId, surveyMode), hasNext: result.hasNext };
+      }} onSelect={selectCatalogVariant} /></div>
+      <label className="workflow-material-field"><span>Mennyiség</span><input aria-label="Új tétel mennyisége" inputMode="decimal" value={newItem.quantity} onChange={(event) => setNewItem((current) => ({ ...current, quantity: event.target.value }))} /></label>
+      <div className="workflow-material-entry-facts"><span>{newItem.variantId ? `Egység · ${materialPurchasingUnitLabels[newItem.unit]}` : "Az egység a termékből töltődik be"}</span><span>{newItem.priceId ? (() => { const variant = categoryVariants.find(({ variant: item }) => item.id === newItem.variantId)?.variant; const price = variant?.prices.find((item) => item.id === newItem.priceId); return price ? `${supplierLabel(price) ?? "Beszerzési hely nincs megadva"} · ${priceLabel(price.amount, newItem.unit, price.priceKind)}` : "Ár nincs megadva"; })() : "Ár nincs megadva"}</span></div>
+      <button className="primary-button workflow-material-add-button" type="button" onClick={addLine} disabled={!newItem.variantId}><Plus aria-hidden="true" size={18} /> Hozzáadás</button>
+      {!activeCategories.length && <p className="workflow-material-hint">Még nincs aktív kategória. <Link href={`/anyagkezelo?organization=${organizationId}`}>Kezeld az Anyagkezelőben</Link>, vagy válts kézi tételre.</p>}
+    </div> : <div className="workflow-material-add-fields workflow-material-manual-entry" onKeyDown={(event) => { if (event.key === "Enter" && !event.defaultPrevented) { event.preventDefault(); addLine(); } }}>
+      <label className="workflow-material-field workflow-material-manual-name"><span>Megnevezés</span><input ref={manualNameInputRef} aria-label="Új kézi anyag megnevezése" value={newItem.description} maxLength={240} onChange={(event) => setNewItem((current) => ({ ...current, description: event.target.value }))} placeholder="Például: egyedi szegélylemez" /></label>
+      <label className="workflow-material-field"><span>Mennyiség</span><input aria-label="Új kézi tétel mennyisége" inputMode="decimal" value={newItem.quantity} onChange={(event) => setNewItem((current) => ({ ...current, quantity: event.target.value }))} /></label>
+      <label className="workflow-material-field"><span>Egység</span><select aria-label="Új kézi tétel egysége" value={newItem.unit} onChange={(event) => setNewItem((current) => ({ ...current, unit: event.target.value as MaterialPurchasingUnit }))}>{materialPurchasingUnits.map((unit) => <option key={unit} value={unit}>{materialPurchasingUnitLabels[unit]}</option>)}</select></label>
+      <label className="workflow-material-field"><span>Egységár <small>HUF · bruttó · opcionális</small></span><input aria-label="Új kézi tétel bruttó egységára HUF-ban" inputMode="decimal" value={newItem.manualPriceAmount} onChange={(event) => setNewItem((current) => ({ ...current, manualPriceAmount: event.target.value, manualPriceKind: event.target.value.trim() ? current.manualPriceKind ?? "gross" : null }))} placeholder="Nincs megadva" /></label>
+      <button className="primary-button workflow-material-add-button" type="button" onClick={addLine}><Plus aria-hidden="true" size={18} /> Hozzáadás</button>
+    </div>}
+    {addError && <p className="form-message is-error workflow-material-add-error" role="alert">{addError}</p>}
+  </section>;
+
   const headerContext = list
     ? `Mentett verzió V${list.version} · ${lines.length} tétel`
     : creatingFromSurvey ? `Felmérés V${surveySource!.surveyVersion} · önálló anyaglista` : "Önálló anyaglista · a munkanapló opcionális";
   return <div className="dashboard-shell"><div className="dashboard-container workflow-material-lists">
     <BackNavigation href={`/anyaglistak?organization=${organizationId}`} label="Anyaglisták" />
-    <GlassPageHeader title={list?.name ?? (defaultName || "Új anyaglista")} context={headerContext} className="workflow-material-page-header" actions={<>
+    <GlassPageHeader title="Anyaglista" context={headerContext} className="workflow-material-page-header" actions={<>
       <Link className="secondary-button workflow-material-manager-link" href={`/anyagkezelo?organization=${organizationId}`}>Anyagkezelő</Link>
     </>} />
     <form action={action} className="workflow-material-editor">
@@ -340,6 +368,7 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
       <input type="hidden" name="expectedVersion" value={list?.version ?? 0} />
       <input type="hidden" name="requestKey" value={requestKey} />
       <input type="hidden" name="items" value={JSON.stringify(lines)} />
+      <section className="workflow-material-work-surface">
       {creatingFromSurvey && <>
         <input type="hidden" name="sourceSurveyId" value={surveySource!.surveyId} />
         <input type="hidden" name="sourceSurveyRevisionId" value={surveySource!.surveyRevisionId} />
@@ -360,17 +389,13 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
         <div className="workflow-source-heading"><span className="workflow-source-mark" aria-hidden="true"><PackageOpen size={17} /></span><div><strong>{takeoffSource.takeoffName} · V{takeoffSource.takeoffVersion}</strong><p>Jóváhagyott, változtathatatlan anyagkimutatás</p></div></div>
         <Link className="text-action" href={`/anyagkimutatasok/${takeoffSource.takeoffId}?organization=${organizationId}`}>Forrás-anyagkimutatás megnyitása</Link>
       </aside>}
-      {list?.currentRevision && <div className="glass-bubble material-quotation-card"><MaterialListQuotationButton organizationId={organizationId} listId={list.id} listVersion={list.currentRevision.revisionNumber} itemCount={list.currentRevision.items.length} quotations={quotations} disabled={dirty} /></div>}
-      {list && <div className="glass-bubble material-quotation-card"><ExecutionPlanLinkControl organizationId={organizationId} kind="material_list" documentId={list.id} links={planLinks} plans={plans} /></div>}
-      <section className="glass-bubble workflow-material-meta" aria-label="Lista beállításai">
+      <section className="workflow-material-meta" aria-label="Lista beállításai">
         <label className="workflow-material-meta-name"><span>Anyaglista neve</span><input name="name" maxLength={120} required value={name} onChange={(event) => setName(event.target.value)} placeholder="Például: Tetőfelújítás anyagai" /></label>
-        {creatingFromSurvey ? <><input type="hidden" name="executionPlanId" value="" /><p className="workflow-material-hint">Önálló lista · munkanapló és ügyfél nem szükséges</p></>
-          : list ? <p className="workflow-material-hint">{list.executionPlanId ? "Munkanaplóban készült · a kapcsolatok fent kezelhetők" : "Önálló lista · munkanapló-kapcsolat fent kezelhető"}</p>
-          : <label className="workflow-material-meta-association"><span>Munkanapló <small>opcionális kapcsolat</small></span><select name="executionPlanId" value={planId} onChange={(event) => setPlanId(event.target.value)}><option value="">Önálló anyaglista</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.title}</option>)}</select></label>}
-        {list && <input type="hidden" name="executionPlanId" value={planId} />}
+        <input type="hidden" name="executionPlanId" value={list?.executionPlanId ?? (creatingFromSurvey ? "" : requestedPlanId)} />
       </section>
-      <section className="glass-bubble workflow-material-lines" aria-labelledby="workflow-material-lines-title">
-        <div className="workflow-list-section-heading"><div><p className="section-eyebrow">Anyagkimutatás</p><h2 id="workflow-material-lines-title">Tételek</h2></div><span className="workflow-material-item-count">{lines.length} tétel</span></div>
+      {addMaterialPanel}
+      <section className="workflow-material-lines" aria-labelledby="workflow-material-lines-title">
+        <div className="workflow-list-section-heading"><div><h2 id="workflow-material-lines-title">Tételek</h2></div><span className="workflow-material-item-count">{lines.length} tétel</span></div>
         {lines.length ? <div className="workflow-material-row-list">{lines.map((line) => {
           const product = products.find((entry) => entry.variants.some((variant) => variant.id === line.variantId));
           const variant = product?.variants.find((entry) => entry.id === line.variantId) ?? null;
@@ -380,17 +405,14 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
           const priceOrigin: UnitPriceOrigin = hasManualPrice ? (line.kind === "catalog" ? "override" : "manual") : line.priceId && selectedPriceRow ? "catalog" : linePrice ? (line.kind === "manual" ? "manual" : "snapshot") : line.kind === "manual" ? "manual" : "missing";
           const priceAmountText = hasManualPrice ? line.manualPriceAmount : linePrice ? String(linePrice.amount) : "";
           const lineTotal = linePrice ? calculateMaterialLineTotal(line.quantity, linePrice.amount) : null;
-          const selectableCategory = categories.find((category) => category.id === line.categoryId);
           const sourceProductOptions = line.sourceRef ? surveyProductOptions(products, line.sourceUnit) : [];
           return <article className="workflow-material-row" key={line.id}>
-            <div className="workflow-material-row-heading">
-              <div className="workflow-material-row-tags"><span className="workflow-material-category">{selectableCategory?.name ?? line.categoryName ?? materialCategoryLabels[line.materialCategory]}</span><span className={`workflow-material-origin${line.sourceRef ? " is-survey" : ""}`}>{line.sourceRef ? "Felmérésből" : line.kind === "catalog" ? "Katalógus" : "Kézi tétel"}</span></div>
-              <button className="workflow-material-remove" type="button" aria-label={`${line.description || "Tétel"} eltávolítása`} onClick={() => void removeLine(line)}><Trash2 aria-hidden="true" size={17} /><span>Eltávolítás</span></button>
-            </div>
-            {line.sourceLabel && <p className="workflow-material-source-label"><strong>Forrás:</strong> {line.sourceLabel}{line.quantityManuallyEdited && <span className="workflow-material-edited-note"> · A mennyiség módosult</span>}</p>}
-            {surveyMode && !line.sourceRef && <p className="workflow-material-source-label">Ehhez a tételhez nincs rögzített felmérési forrás.</p>}
             <div className="workflow-material-row-fields">
-              <label className="workflow-material-field workflow-material-description"><span>Anyag megnevezése</span><input aria-label={`${line.description || "Tétel"} megnevezése`} value={line.description} maxLength={240} onChange={(event) => updateLine(line.id, { description: event.target.value })} /></label>
+              <div className="workflow-material-description-cell">
+                <label className="workflow-material-field workflow-material-description"><span>Anyag megnevezése</span><input aria-label={`${line.description || "Tétel"} megnevezése`} value={line.description} maxLength={240} onChange={(event) => updateLine(line.id, { description: event.target.value })} /></label>
+                {line.sourceLabel && <p className="workflow-material-source-label"><strong>Forrás:</strong> {line.sourceLabel}{line.quantityManuallyEdited && <span className="workflow-material-edited-note"> · A mennyiség módosult</span>}</p>}
+                {surveyMode && !line.sourceRef && <p className="workflow-material-source-label">Ehhez a tételhez nincs rögzített felmérési forrás.</p>}
+              </div>
               <label className="workflow-material-field workflow-material-quantity-field"><span>Mennyiség</span><input aria-label={`${line.description || "Tétel"} mennyisége`} inputMode="decimal" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: event.target.value })} /></label>
               {line.kind === "manual" && !line.sourceRef
                 ? <label className="workflow-material-field workflow-material-unit-field"><span>Egység</span><select aria-label={`${line.description || "Kézi tétel"} egysége`} value={line.unit} onChange={(event) => updateLine(line.id, { unit: event.target.value as MaterialPurchasingUnit })}>{materialPurchasingUnits.map((unit) => <option key={unit} value={unit}>{materialPurchasingUnitLabels[unit]}</option>)}</select></label>
@@ -400,7 +422,10 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
                 choices={variant ? priceChoices(variant.priceOptions, line.unit, line.priceId).filter((item) => item.purchasingUnit === line.unit && (!surveyMode || (item.provenance === "verified" && item.currency === "HUF"))) : []}
                 onSelect={(priceId) => updateLine(line.id, { priceId, priceSnapshot: null, manualPriceAmount: "", manualPriceKind: null })}
                 onManual={(amount, kind) => updateLine(line.id, { priceId: null, priceSnapshot: null, manualPriceAmount: amount.replace(",", "."), manualPriceKind: amount.trim() ? kind : null })} />
-              <div className="workflow-material-line-total"><span>Részösszeg</span><strong>{lineTotal === null ? (linePrice ? "Mennyiség ellenőrzendő" : "Ár nincs megadva") : formatHuf(lineTotal)}</strong>{lineTotal !== null && linePrice?.kind && <small>{materialPriceKindLabels[linePrice.kind].toLowerCase()}</small>}</div>
+              <div className="workflow-material-line-total"><span>Részösszeg</span><div className="workflow-material-line-total-value"><strong>{lineTotal === null ? (linePrice ? "Mennyiség ellenőrzendő" : "Ár nincs megadva") : formatHuf(lineTotal)}</strong>{linePrice && (priceOrigin === "manual" || priceOrigin === "override")
+                ? <select className="workflow-material-price-kind" aria-label={`${line.description || "Tétel"} részösszegének ár típusa`} value={linePrice.kind ?? "gross"} onChange={(event) => { if (event.target.value === "net" || event.target.value === "gross") updateLine(line.id, { priceId: null, priceSnapshot: null, manualPriceAmount: priceAmountText.replace(",", "."), manualPriceKind: event.target.value }); }}><option value="gross">Bruttó</option><option value="net">Nettó</option></select>
+                : lineTotal !== null && linePrice?.kind && <small>{materialPriceKindLabels[linePrice.kind].toLowerCase()}</small>}</div></div>
+              <button className="workflow-material-remove" type="button" aria-label={`${line.description || "Tétel"} eltávolítása`} onClick={() => void removeLine(line)}><Trash2 aria-hidden="true" size={17} /><span>Eltávolítás</span></button>
             </div>
             {line.sourceRef && <div className="workflow-material-row-source-product"><div role="group" aria-label="Katalógustermék · az egység nem változik"><span>Katalógustermék · az egység nem változik</span><WorkflowMaterialProductPicker options={sourceProductOptions} value={line.variantId ?? ""} disabled={false} idPrefix={`survey-material-${line.id}`} label="Katalógustermék" loadOptions={async (search, page) => {
               const result = await searchMaterialProductsAction(organizationId, { search, page });
@@ -410,32 +435,6 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
           </article>;
         })}</div> : <div className="workflow-material-empty"><PackageOpen aria-hidden="true" size={22} /><div><strong>Még nincs anyag a listában</strong><p>Válassz katalógusterméket, vagy adj hozzá kézi tételt.</p></div></div>}
 
-        <section className="workflow-material-add-panel" aria-labelledby="workflow-material-add-title">
-          <div className="workflow-material-add-heading"><div><p className="section-eyebrow">Új tétel</p><h3 id="workflow-material-add-title">Anyag hozzáadása</h3></div><div className="workflow-material-entry-mode" role="group" aria-label="Anyag hozzáadása módja">
-            <button className={entryMode === "catalog" ? "is-selected" : ""} type="button" aria-pressed={entryMode === "catalog"} onClick={() => { setEntryMode("catalog"); setAddError(""); }}>Katalógusból</button>
-            <button className={entryMode === "manual" ? "is-selected" : ""} type="button" aria-pressed={entryMode === "manual"} onClick={() => { setEntryMode("manual"); setAddError(""); setNewItem((current) => ({ ...current, kind: "manual", categoryId: null, categoryName: null, materialCategory: "other", variantId: null, priceId: null })); }}>Kézi tétel</button>
-          </div></div>
-          {entryMode === "catalog" ? <div className="workflow-material-add-fields workflow-material-catalog-entry" onKeyDown={(event) => { if (event.key === "Enter" && !event.defaultPrevented) { event.preventDefault(); addLine(); } }}>
-            <label className="workflow-material-field"><span>Kategória</span><select aria-label="Anyag kategóriája" value={newItem.categoryId ?? ""} onChange={(event) => { setNewItem((current) => ({ ...current, categoryId: event.target.value || null, categoryName: null, variantId: null, priceId: null, description: "", unit: "piece" })); }}><option value="">Válassz kategóriát…</option>{activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-            <div className="workflow-material-field workflow-material-product-field" ref={catalogPickerFieldRef} role="group" aria-label="Termék keresése"><span>Termék keresése</span><WorkflowMaterialProductPicker options={productPickerOptions} value={newItem.variantId ?? ""} disabled={!newItem.categoryId} label="Termék keresése" loadOptions={async (search, page) => {
-              const result = await searchMaterialProductsAction(organizationId, { categoryId: newItem.categoryId ?? undefined, search, page });
-              setProducts((current) => [...new Map([...current, ...result.products].map((product) => [product.id, product])).values()]);
-              return { options: listProductOptions(result.products, newItem.categoryId, surveyMode), hasNext: result.hasNext };
-            }} onSelect={selectCatalogVariant} /></div>
-            <label className="workflow-material-field"><span>Mennyiség</span><input aria-label="Új tétel mennyisége" inputMode="decimal" value={newItem.quantity} onChange={(event) => setNewItem((current) => ({ ...current, quantity: event.target.value }))} /></label>
-            <div className="workflow-material-entry-facts"><span>{newItem.variantId ? `Egység · ${materialPurchasingUnitLabels[newItem.unit]}` : "Az egység a termékből töltődik be"}</span><span>{newItem.priceId ? (() => { const variant = categoryVariants.find(({ variant: item }) => item.id === newItem.variantId)?.variant; const price = variant ? (surveyMode ? verifiedPrice(variant) : variant.latestPrice) : null; return price ? `Ár · ${priceLabel(price.amount, newItem.unit, price.priceKind)}` : "Ár nincs megadva"; })() : "Ár nincs megadva"}</span></div>
-            <button className="primary-button workflow-material-add-button" type="button" onClick={addLine} disabled={!newItem.variantId}><Plus aria-hidden="true" size={18} /> Hozzáadás</button>
-            {!activeCategories.length && <p className="workflow-material-hint">Még nincs aktív kategória. <Link href={`/anyagkezelo?organization=${organizationId}`}>Kezeld az Anyagkezelőben</Link>, vagy válts kézi tételre.</p>}
-          </div> : <div className="workflow-material-add-fields workflow-material-manual-entry" onKeyDown={(event) => { if (event.key === "Enter" && !event.defaultPrevented) { event.preventDefault(); addLine(); } }}>
-            <label className="workflow-material-field workflow-material-manual-name"><span>Megnevezés</span><input ref={manualNameInputRef} aria-label="Új kézi anyag megnevezése" value={newItem.description} maxLength={240} onChange={(event) => setNewItem((current) => ({ ...current, description: event.target.value }))} placeholder="Például: egyedi szegélylemez" /></label>
-            <label className="workflow-material-field"><span>Mennyiség</span><input aria-label="Új kézi tétel mennyisége" inputMode="decimal" value={newItem.quantity} onChange={(event) => setNewItem((current) => ({ ...current, quantity: event.target.value }))} /></label>
-            <label className="workflow-material-field"><span>Egység</span><select aria-label="Új kézi tétel egysége" value={newItem.unit} onChange={(event) => setNewItem((current) => ({ ...current, unit: event.target.value as MaterialPurchasingUnit }))}>{materialPurchasingUnits.map((unit) => <option key={unit} value={unit}>{materialPurchasingUnitLabels[unit]}</option>)}</select></label>
-            <label className="workflow-material-field"><span>Egységár <small>HUF · opcionális</small></span><input aria-label="Új kézi tétel egységára HUF-ban" inputMode="decimal" value={newItem.manualPriceAmount} onChange={(event) => setNewItem((current) => ({ ...current, manualPriceAmount: event.target.value }))} placeholder="Nincs megadva" /></label>
-            {newItem.manualPriceAmount && <label className="workflow-material-field"><span>Ár típusa</span><select aria-label="Új kézi tétel árának típusa" value={newItem.manualPriceKind ?? ""} onChange={(event) => setNewItem((current) => ({ ...current, manualPriceKind: event.target.value === "net" || event.target.value === "gross" ? event.target.value : null }))}><option value="">Válassz…</option><option value="net">Nettó</option><option value="gross">Bruttó</option></select></label>}
-            <button className="primary-button workflow-material-add-button" type="button" onClick={addLine}><Plus aria-hidden="true" size={18} /> Hozzáadás</button>
-          </div>}
-          {addError && <p className="form-message is-error workflow-material-add-error" role="alert">{addError}</p>}
-        </section>
         <div className="workflow-material-summary" aria-label="Anyaglista árösszesítés">
           <span><strong>{lines.length}</strong> tétel</span>
           {lines.length === 0 ? <span>Az árösszesítés az első tétel után jelenik meg.</span> : <span className={priceSummary.missing ? "is-missing" : ""}>{priceSummary.missing ? `Ár nélkül: ${priceSummary.missing}` : "Minden tételhez tartozik ár"}</span>}
@@ -445,8 +444,16 @@ export function WorkflowMaterialListEditor({ organizationId, products: initialPr
           {priceSummary.unclassified > 0 && <span>Ártípus nélkül <strong>{priceSummary.unclassified} tétel</strong></span>}
         </div>
       </section>
+      </section>
       {state.error && <p className="form-message is-error" role="alert">{state.error}</p>}
-      <footer className="workflow-material-save"><p role="status" aria-live="polite">{pending ? "Mentés folyamatban…" : state.ok ? `Mentve · V${state.version}` : dirty ? "Nem mentett módosítások" : list ? `Mentve · V${list.version}` : "Az anyaglista mentésre kész."}</p><button className="primary-button" type="submit" disabled={pending || Boolean(creatingFromSurvey && lines.length === 0) || Boolean(creatingFromSurvey && surveySource!.stale && !allowStaleSource)}>{pending ? "Mentés…" : list ? `Változat mentése · V${list.version + 1}` : creatingFromSurvey ? "Mennyiségek megerősítése és mentése" : "Anyaglista mentése"}</button></footer>
+      <footer className="workflow-material-save">
+        <p role="status" aria-live="polite">{pending ? "Mentés folyamatban…" : state.error ? "A mentés nem sikerült" : dirty ? "Nem mentett módosítások" : state.ok ? `Mentve · V${state.version}` : list ? `Mentve · V${list.version}` : "Az anyaglista mentésre kész."}</p>
+        {list && <div className="workflow-material-handoff-actions">
+          <ExecutionPlanLinkControl organizationId={organizationId} kind="material_list" documentId={list.id} links={planLinks} plans={plans} compactHandoff linkBlockedReason={dirty ? "Mentetlen módosítás van. Mentsd el előbb, hogy a legfrissebb anyaglista-változat kapcsolódjon." : pending ? "A mentés folyamatban van." : undefined} />
+          {list.currentRevisionId && <MaterialListQuotationButton organizationId={organizationId} listId={list.id} revisionId={list.currentRevisionId} listVersion={list.currentRevision?.revisionNumber ?? list.version} itemCount={list.currentRevision?.items.length ?? 0} disabled={dirty || pending} />}
+        </div>}
+        <button className="primary-button" type="submit" disabled={pending || Boolean(creatingFromSurvey && lines.length === 0) || Boolean(creatingFromSurvey && surveySource!.stale && !allowStaleSource)}>{pending ? "Mentés…" : list ? `Változat mentése · V${list.version + 1}` : creatingFromSurvey ? "Mennyiségek megerősítése és mentése" : "Anyaglista mentése"}</button>
+      </footer>
     </form>
   </div></div>;
 }

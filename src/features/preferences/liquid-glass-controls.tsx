@@ -1,14 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { useLiquidGlass } from "@/features/preferences/liquid-glass-provider";
-import {
-  backgroundAnimationChangeEvent,
-  backgroundAnimationStorageKey,
-  parseBackgroundAnimationPreference,
-  persistBackgroundAnimationPreference,
-} from "@/features/preferences/background-animation";
 
 export function LiquidGlassControls() {
   const { opacity, tintMode, customTint, setOpacity, setTintMode, setCustomTint, resetLiquidGlass } = useLiquidGlass();
@@ -33,52 +26,4 @@ export function LiquidGlassControls() {
       <button type="button" className="secondary-button liquid-glass-reset" onClick={resetLiquidGlass}><RotateCcw aria-hidden="true" className="size-4" /> Alapértékek</button>
     </div>
   );
-}
-
-/** Shared device-local background animation preference, kept in step with the settings toggle through its change event. */
-export function useBackgroundAnimationEnabled(): [boolean, (next: boolean) => void] {
-  const [enabled, setEnabled] = useState(true);
-
-  useEffect(() => {
-    const restore = () => {
-      try {
-        setEnabled(parseBackgroundAnimationPreference(window.localStorage.getItem(backgroundAnimationStorageKey)));
-      } catch {
-        setEnabled(true);
-      }
-    };
-    restore();
-    const onPreferenceChange = (event: Event) => {
-      const detail = event instanceof CustomEvent ? event.detail as { enabled?: unknown } : null;
-      if (typeof detail?.enabled === "boolean") setEnabled(detail.enabled);
-      else restore();
-    };
-    window.addEventListener(backgroundAnimationChangeEvent, onPreferenceChange);
-    window.addEventListener("storage", restore);
-    return () => {
-      window.removeEventListener(backgroundAnimationChangeEvent, onPreferenceChange);
-      window.removeEventListener("storage", restore);
-    };
-  }, []);
-
-  return [enabled, setEnabled];
-}
-
-export function BackgroundAnimationControl() {
-  const [enabled, setEnabled] = useBackgroundAnimationEnabled();
-
-  const toggle = (next: boolean) => {
-    setEnabled(next);
-    try {
-      persistBackgroundAnimationPreference(window.localStorage, next);
-    } catch {
-      // The current tab still honors the in-memory setting if storage is unavailable.
-    }
-    window.dispatchEvent(new CustomEvent(backgroundAnimationChangeEvent, { detail: { enabled: next } }));
-  };
-
-  return <label className="background-animation-setting">
-    <span><strong>Háttéranimáció</strong><small>A háttér fényfoltjának lassú mozgása ezen az eszközön. A pontminta statikus marad.</small></span>
-    <input type="checkbox" checked={enabled} onChange={(event) => toggle(event.target.checked)} />
-  </label>;
 }

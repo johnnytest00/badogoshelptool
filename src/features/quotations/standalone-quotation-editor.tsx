@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList } from "lucide-react";
+import { Calculator, Plus, Trash2 } from "lucide-react";
 import { QuotationSaveBar, quotationSaveState } from "./quotation-save-bar";
 import { decimalToScaled, lineTotal, scaledToDecimal } from "@/domain/quotations/money";
 import { validateStandaloneLines } from "@/domain/quotations/standalone";
@@ -19,12 +19,15 @@ import type { MaterialCategoryRecord } from "@/features/materials/material-data"
 import { searchMaterialProductsAction } from "@/features/materials/material-actions";
 import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "@/features/material-takeoffs/workflow-material-product-picker";
 import { catalogReplacementNeedsConfirmation, changeQuotationMaterialCategory, quotationMaterialLinkState, quotationPricesEqual, quotationPurchasingUnitLabel, quotationPurchasingUnitsMatch } from "./quotation-material-state";
-import { emptyQuotationDocumentDraft, validateQuotationDocumentReadiness, type DocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
+import { defaultQuotationValidityDate, emptyQuotationDocumentDraft, validateQuotationDocumentReadiness, type DocumentReadiness, type IssuerDocumentProfile, type QuotationDocumentDraft } from "@/domain/quotations/document-readiness";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 import { LaborRatePanel } from "./labor-rate-panel";
-import { quotationQuantity, type CalculationQuoteCandidate, type QuotationCalculationSource } from "./calculation-quotation-source";
+import { calculationQuotePreviewIsValid, calculationQuotePreviewLines, quotationQuantity, type CalculationQuotePreviewItem, type QuotationCalculationSource } from "./calculation-quotation-source";
 import { appliedLaborKeys, quantityAtSix, sameQuantity, type LaborBase, type LaborRate } from "@/domain/quotations/labor-rate";
 import { QuotationItemOverlapWarning } from "./quotation-item-overlap-warning";
+import { ExecutionPlanLinkControl } from "@/features/execution/execution-plan-link-control";
+import type { DocumentPlanLink } from "@/features/execution/execution-document-links";
+import type { ExecutionPlanOption } from "@/features/execution/execution-data";
 
 type Line = QuotationDraftValues["lines"][number];
 type EditorLine = Line & { localId: string };
@@ -45,6 +48,7 @@ const money = (value: string | number | null) => {
 };
 const provenanceLabel = (value: unknown) => typeof value === "string" && Object.prototype.hasOwnProperty.call(materialProvenanceLabels, value)
   ? materialProvenanceLabels[value as keyof typeof materialProvenanceLabels] : "Forrás nincs megadva";
+const quantityDisplay = (value: string) => value.replace(/([.,]\d*?[1-9])0+$/, "$1").replace(/[.,]0+$/, "");
 const objectValue = (value: unknown): Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const textValue = (value: unknown) => typeof value === "string" ? value : "";
 
@@ -72,10 +76,11 @@ function quotationProductOptions(products: readonly MaterialProductRecord[], cat
   }));
 }
 
-export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products: initialProducts, categories, documentSources, materialSource = null, calculationSource = null, initialLines = [], laborRates = [], laborBases = [] }: Readonly<{
+export function StandaloneQuotationEditor({ userId, organizationId, quotationId, name: initialName, version, currentRevisionId, currentRevision, revisions, selectedRevisionId, products: initialProducts, categories, documentSources, materialSource = null, calculationSource = null, initialLines = [], laborRates = [], laborBases = [], planLinks = [], plans = [], showBackNavigation = true }: Readonly<{
   userId: string; organizationId: string; quotationId: string | null; name?: string; version: number; currentRevisionId: string | null;
   currentRevision?: CurrentRevision; revisions: Revision[]; selectedRevisionId?: string; products: MaterialProductRecord[]; categories: MaterialCategoryRecord[]; documentSources: StandaloneDocumentSources;
   materialSource?: QuotationMaterialSource | null; calculationSource?: QuotationCalculationSource | null; initialLines?: Line[]; laborRates?: readonly LaborRate[]; laborBases?: readonly LaborBase[];
+  planLinks?: readonly DocumentPlanLink[]; plans?: readonly ExecutionPlanOption[]; showBackNavigation?: boolean;
 }>) {
   const router = useRouter();
   const [products, setProducts] = useState(initialProducts);
@@ -87,7 +92,9 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const seed = historical ? currentRevision : currentRevision;
   const [name, setName] = useState(initialName ?? "");
   const savedDocument = revisionDocument(currentRevision);
-  const [document, setDocument] = useState<QuotationDocumentDraft>(savedDocument.draft);
+  const defaultedValidityDate = !historical && !savedDocument.draft.validUntil;
+  const initialDocument = defaultedValidityDate ? { ...savedDocument.draft, validUntil: defaultQuotationValidityDate() } : savedDocument.draft;
+  const [document, setDocument] = useState<QuotationDocumentDraft>(initialDocument);
   const [issuerProfile, setIssuerProfile] = useState<IssuerDocumentProfile>(() => historical && savedDocument.issuer ? {
     businessName: textValue(savedDocument.issuer.businessName) || null, businessAddress: textValue(savedDocument.issuer.businessAddress) || null,
     contactEmail: textValue(savedDocument.issuer.contactEmail) || null, contactPhone: textValue(savedDocument.issuer.contactPhone) || null,
@@ -122,11 +129,15 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   const [expandedLineIds, setExpandedLineIds] = useState<Record<string, boolean>>({});
   const [dirty, setDirty] = useState(false);
   const [pdfPromptOpen, setPdfPromptOpen] = useState(false);
+  const [focusedQuantityId, setFocusedQuantityId] = useState<string | null>(null);
+  const calculationDialogRef = useRef<HTMLDialogElement>(null);
+  const [calculationImportOpen, setCalculationImportOpen] = useState(false);
+  const [calculationPreview, setCalculationPreview] = useState<CalculationQuotePreviewItem[]>([]);
   const dirtyRef = useRef(false);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<StandaloneQuotationResult<{ quotation_id: string; revision_id: string; revision_number: number; revision_created: boolean; totals_snapshot: Record<string, unknown> }>>({ ok: false, code: "INTERNAL", error: "" });
   const [catalogMessage, setCatalogMessage] = useState("");
-  const baseline = useRef(JSON.stringify({ name: initialName ?? "", lines, document: savedDocument.draft }));
+  const baseline = useRef(JSON.stringify({ name: initialName ?? "", lines, document: initialDocument }));
   const recoveryKey = quotationRecoveryKey(userId, organizationId, "standalone", quotationId);
   const [recoveryReady, setRecoveryReady] = useState(false);
   const [recovery, setRecovery] = useState<{ value: QuotationRecovery; current: boolean } | null>(null);
@@ -167,6 +178,12 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
       else if (!recovery) window.sessionStorage.removeItem(recoveryKey);
     } catch { /* A privát mód vagy kvóta nem blokkolja a használatot. */ }
   }, [currentRevisionId, dirty, document, historical, lines, name, recovery, recoveryKey, recoveryReady, version]);
+  useEffect(() => {
+    const dialog = calculationDialogRef.current;
+    if (!dialog) return;
+    if (calculationImportOpen && !dialog.open) dialog.showModal();
+    if (!calculationImportOpen && dialog.open) dialog.close();
+  }, [calculationImportOpen]);
 
   const localEstimate = useMemo(() => lines.reduce((sum, line) => {
     try { return sum + lineTotal(line.quantity || "0", line.unitPrice || "0").minor; } catch { return sum; }
@@ -200,14 +217,27 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   });
   const displayedReadiness = serverReadiness ?? readiness;
   // Presentation only: an untouched, still-empty optional document group is "not provided", not an error.
-  const documentUntouched = displayedReadiness.status !== "valid_draft" && JSON.stringify(document) === JSON.stringify(emptyQuotationDocumentDraft());
+  const documentUntouched = displayedReadiness.status !== "valid_draft" && (JSON.stringify(document) === JSON.stringify(emptyQuotationDocumentDraft()) || (defaultedValidityDate && JSON.stringify({ ...document, validUntil: "" }) === JSON.stringify(emptyQuotationDocumentDraft())));
 
   const addLine = (type: Line["type"]) => { const next = [{ ...empty(type), localId: makeLocalId() }, ...lines]; setLines(next); syncDirty(name, next); };
   const addPrebuiltLine = (line: Line) => { const next = [{ ...line, localId: makeLocalId() }, ...lines]; setLines(next); syncDirty(name, next); };
   // A verified calculation quantity becomes an editable, unpriced material line; its source stays attached.
-  const addCalculationLine = (candidate: CalculationQuoteCandidate) => addPrebuiltLine({ ...empty("MATERIAL"), description: candidate.label, quantity: quotationQuantity(candidate.quantity), unit: candidate.unit, priceProvenance: "missing", calculationSourceKey: candidate.sourceKey });
   const usedCalculationKeys = new Set(lines.flatMap((line) => line.calculationSourceKey ? [line.calculationSourceKey] : []));
   const candidateByKey = new Map((calculationSource?.candidates ?? []).map((candidate) => [candidate.sourceKey, candidate]));
+  const openCalculationImport = () => {
+    if (!calculationSource || historical) return;
+    setCalculationPreview(calculationSource.candidates.filter((candidate) => !usedCalculationKeys.has(candidate.sourceKey)).map((candidate) => ({
+      sourceKey: candidate.sourceKey, description: candidate.label, quantity: quotationQuantity(candidate.quantity), unit: candidate.unit,
+    })));
+    setCalculationImportOpen(true);
+  };
+  const updateCalculationPreview = (sourceKey: string, patch: Partial<CalculationQuotePreviewItem>) => setCalculationPreview((items) => items.map((item) => item.sourceKey === sourceKey ? { ...item, ...patch } : item));
+  const applyCalculationImport = () => {
+    if (!calculationQuotePreviewIsValid(calculationPreview)) return;
+    const added = calculationQuotePreviewLines(calculationPreview).map((line) => ({ ...empty("MATERIAL"), ...line, localId: makeLocalId() }));
+    const next = [...added, ...lines];
+    setLines(next); syncDirty(name, next); setCalculationImportOpen(false);
+  };
   const moveLine = (index: number, offset: -1 | 1) => {
     const target = index + offset;
     if (target < 0 || target >= lines.length) return;
@@ -347,32 +377,9 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     });
   };
 
-  return <section className="quotation-editor detail-surface standalone-quotation-editor">
-    <BackNavigation href={`/ajanlatok?organization=${organizationId}`} label="Vissza az ajánlatokhoz" />
-    <div className="section-heading standalone-quotation-header glass-bubble"><div className="standalone-quotation-title"><ClipboardList aria-hidden="true" className="standalone-quotation-icon" /><div><p className="section-eyebrow">Önálló ajánlat</p><h2>{quotationId ? `${initialName || "Ajánlat"} · v${activeRevision?.revisionNumber ?? version}` : "Új árajánlat"}</h2><p className="standalone-quotation-subtitle">HUF · Menthető piszkozat</p></div></div><span className="status-pill status-draft">Piszkozat</span></div>
-    <p className="standalone-quotation-note">A véglegesítés, az ÁFA-kezelés és a hivatalos PDF még nem támogatott.</p>
-    {materialSource && <section className="glass-bubble quotation-material-source" aria-label="Anyaglista forrás"><strong>Anyaglista-forrás · <Link href={`/anyaglistak/${materialSource.materialListId}?organization=${organizationId}`}>{materialSource.listName}</Link></strong><span>V{materialSource.revisionNumber} revízió · {materialSource.sourceLineMap.length} forrástétel</span>{materialSource.currentRevisionId && materialSource.currentRevisionId !== materialSource.materialRevisionId && <p role="status">A lista azóta V{materialSource.currentVersion} verzióra változott. Az ajánlat a kiválasztott, változtathatatlan V{materialSource.revisionNumber} forrásból indul.</p>}</section>}
-    {calculationSource && <section className="glass-bubble quotation-material-source quotation-calculation-source" aria-label="Kalkulációs forrás">
-      <strong>Kalkulációs forrás · <Link href={`/kalkulatorok?organization=${organizationId}&calculator=${calculationSource.calculatorId}&calculation=${calculationSource.calculationId}`}>{calculationSource.calculationName}</Link></strong>
-      <span>V{calculationSource.revisionNumber} rögzített revízió · nettó ár, ÁFA nélkül · az árat a tételenként választott termék vagy kézi ár adja</span>
-      {calculationSource.candidates.length === 0 ? <p role="status">Ebben a revízióban nincs ajánlati mennyiségként átvehető kiosztási mennyiség vagy vágáslista-sor.</p>
-        : <ul className="quotation-calculation-candidates">{calculationSource.candidates.map((candidate) => <li key={candidate.sourceKey}><span>{candidate.label}<small>{new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 6 }).format(candidate.quantity)} {candidate.unit} · {candidate.meaning === "CUT_LIST" ? "vágáslista" : "kiosztási mennyiség"}</small></span>
-          <button type="button" className="secondary-button" disabled={historical || usedCalculationKeys.has(candidate.sourceKey)} onClick={() => addCalculationLine(candidate)}>{usedCalculationKeys.has(candidate.sourceKey) ? "Felvéve" : "Tételként felvétel"}</button></li>)}</ul>}
-      {calculationSource.informational.length > 0 && <details><summary>Tájékoztató eredmények · nem ajánlati mennyiség</summary><dl>{calculationSource.informational.map((line, index) => <div key={`${line.label}-${index}`}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(line.value) : line.value} {line.unit}</dd></div>)}</dl></details>}
-    </section>}
-    <QuotationItemOverlapWarning
-      lines={lines.map(({ localId, ...line }) => ({ ...line, id: localId }))}
-      materialSourceLabel={materialSource ? `Anyaglista · ${materialSource.listName} · V${materialSource.revisionNumber}` : "Anyaglista-forrás"}
-      calculationSourceLabel={calculationSource ? `Kalkuláció · ${calculationSource.calculationName} · V${calculationSource.revisionNumber}` : "Kalkulációs forrás"}
-    />
-    {!historical && materialSource && <LaborRatePanel organizationId={organizationId} canEditRates={documentSources.canEditIssuer} rates={laborRates} bases={laborBases} quotationClass={lines[0]?.priceClass ?? null} appliedKeys={appliedLaborKeys(lines)} source={materialSource} onApply={addPrebuiltLine} />}
-    <div className="standalone-quotation-toolbar">
-    <div className="standalone-revision-bar" aria-label="Ajánlati revíziók">
-      {revisions.map((revision) => <Link key={revision.id} className={`secondary-button ${revision.id === (selectedRevisionId ?? currentRevisionId) ? "is-current" : ""}`} href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`} aria-current={revision.id === (selectedRevisionId ?? currentRevisionId) ? "page" : undefined}>v{revision.revisionNumber} · {money(revision.subtotal)}</Link>)}
-      {historical && <Link className="primary-button" href={latestUrl}>Legfrissebb revízió megnyitása (v{version})</Link>}
-      {historical && <span className="form-message" role="status">Történeti, változtathatatlan revízió megtekintése.</span>}
-    </div>
-    {pdfUrl && <div className="standalone-pdf-actions">
+  return <section className="quotation-editor standalone-quotation-editor">
+    {showBackNavigation && <BackNavigation href={`/ajanlatok?organization=${organizationId}`} label="Vissza az ajánlatokhoz" />}
+    {(quotationId || historical || pdfUrl) && <div className="section-heading standalone-quotation-header glass-bubble"><div className="standalone-quotation-title"><h2>Árajánlat</h2></div><div className="standalone-header-actions">{historical && <Link className="secondary-button" href={latestUrl}>Legfrissebb revízió · v{version}</Link>}{pdfUrl && <div className="standalone-pdf-actions">
       {dirty || issuerDirty ? <button className="secondary-button" type="button" disabled={pending} onClick={() => setPdfPromptOpen(true)}>PDF-előnézet</button>
         : <a className="secondary-button" href={pdfUrl} target="_blank" rel="noreferrer">PDF-előnézet</a>}
       {pdfPromptOpen && <section className="form-message" aria-labelledby="standalone-pdf-unsaved-title">
@@ -385,45 +392,17 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
           <button className="text-button" type="button" onClick={() => setPdfPromptOpen(false)}>Mégse</button>
         </div>
       </section>}
-    </div>}
-    </div>
+    </div>}</div></div>}
+    <QuotationItemOverlapWarning
+      lines={lines.map(({ localId, ...line }) => ({ ...line, id: localId }))}
+      materialSourceLabel={materialSource ? `Anyaglista · ${materialSource.listName} · V${materialSource.revisionNumber}` : "Anyaglista-forrás"}
+      calculationSourceLabel={calculationSource ? `Kalkuláció · ${calculationSource.calculationName} · V${calculationSource.revisionNumber}` : "Kalkulációs forrás"}
+    />
     {recovery && !historical && <section className="form-message" role="status"><p>{recovery.current ? "Korábban nem mentett módosítás található ebben a munkamenetben." : "A helyi változat régebbi szerverrevízióból készült, ezért nem állítható vissza automatikusan."}</p>{recovery.current && <button className="secondary-button" type="button" onClick={restoreRecovery}>Változat visszaállítása</button>}<button className="text-button" type="button" onClick={discardRecovery}>Helyi változat elvetése</button></section>}
     <fieldset className="quotation-editor-fields" disabled={historical || pending || !recoveryReady} aria-busy={pending || !recoveryReady}>
-      <div className="quotation-meta"><label htmlFor="standalone-name">Ajánlat neve<input id="standalone-name" required maxLength={200} value={name} onChange={(event) => { setName(event.target.value); syncDirty(event.target.value); setResult({ ok: false, code: "INTERNAL", error: "" }); }} aria-describedby="standalone-name-hint" placeholder="Például: Tóth utca tetőfelújítás" /></label><small id="standalone-name-hint">Ez az egyetlen kötelező alapadat; a címzett és dokumentummezők opcionálisak.</small></div>
-      <details className="standalone-document-details quotation-document-disclosure" aria-labelledby="standalone-document-heading">
-        <summary id="standalone-document-heading" className="quotation-document-summary"><span><small>Opcionális</small><strong>Címzett és dokumentumadatok</strong></span><span className={`status-pill status-draft${documentUntouched ? " is-neutral" : ""}`}>{documentUntouched ? "Nincs megadva" : displayedReadiness.status === "valid_draft" ? "Adatok rendben" : displayedReadiness.status === "invalid_document_data" ? "Hibás adat" : "Hiányos kiállítási adatok"}</span></summary>
-        <div className="quotation-document-disclosure-body">
-        <p className="missing-data">Ez a piszkozat menthető. Az adókezelés és a véglegesítés még nincs támogatva; ez az összegzés nem jelent kiállíthatóságot.</p>
-        <div className="quotation-line-grid">
-            <label htmlFor="document-recipient-name">Címzett neve<input id="document-recipient-name" value={document.recipientName} onChange={(event) => setDocumentField("recipientName", event.target.value)} /></label>
-            <label htmlFor="document-recipient-address">Címzett címe<input id="document-recipient-address" value={document.recipientAddress} onChange={(event) => setDocumentField("recipientAddress", event.target.value)} /></label>
-            <label htmlFor="document-recipient-email">Címzett e-mail-címe<input id="document-recipient-email" type="email" value={document.recipientEmail} onChange={(event) => setDocumentField("recipientEmail", event.target.value)} /></label>
-            <label htmlFor="document-recipient-phone">Címzett telefonszáma<input id="document-recipient-phone" value={document.recipientPhone} onChange={(event) => setDocumentField("recipientPhone", event.target.value)} /></label>
-            <label htmlFor="document-recipient-tax">Címzett adóazonosító adata<input id="document-recipient-tax" value={document.recipientTaxIdentifier} onChange={(event) => setDocumentField("recipientTaxIdentifier", event.target.value)} /></label>
-          <label htmlFor="document-reference">Belső hivatkozás<input id="document-reference" value={document.reference} onChange={(event) => setDocumentField("reference", event.target.value)} /></label>
-          <label htmlFor="document-valid-until">Érvényesség dátuma<input id="document-valid-until" type="date" value={document.validUntil} onChange={(event) => setDocumentField("validUntil", event.target.value)} /></label>
-          <label htmlFor="document-notes">Ajánlati megjegyzés<textarea id="document-notes" rows={3} value={document.notes} onChange={(event) => setDocumentField("notes", event.target.value)} /></label>
-          <label htmlFor="document-terms">Feltételek<textarea id="document-terms" rows={4} value={document.terms} onChange={(event) => setDocumentField("terms", event.target.value)} /></label>
-        </div>
-        <div className="issuer-profile"><div><p className="section-eyebrow">Kibocsátó</p><strong>{historical ? textValue(savedDocument.issuer?.organizationName) || documentSources.issuer.organizationName : documentSources.issuer.organizationName}</strong></div>
-          <div className="quotation-line-grid">
-            <label htmlFor="issuer-business-name">Vállalkozás neve<input id="issuer-business-name" value={issuerProfile.businessName ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("businessName", event.target.value || null)} /></label>
-            <label htmlFor="issuer-business-address">Vállalkozás címe<input id="issuer-business-address" value={issuerProfile.businessAddress ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("businessAddress", event.target.value || null)} /></label>
-            <label htmlFor="issuer-contact-email">Kapcsolati e-mail<input id="issuer-contact-email" type="email" value={issuerProfile.contactEmail ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("contactEmail", event.target.value || null)} /></label>
-            <label htmlFor="issuer-contact-phone">Kapcsolati telefon<input id="issuer-contact-phone" value={issuerProfile.contactPhone ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("contactPhone", event.target.value || null)} /></label>
-            <label htmlFor="issuer-tax-id">Adóazonosító adat<input id="issuer-tax-id" value={issuerProfile.taxIdentifier ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("taxIdentifier", event.target.value || null)} /><small>Tájékoztató profiladat; nem adószámítási beállítás.</small></label>
-          </div>
-          {documentSources.canEditIssuer && !historical && <button className="secondary-button" type="button" disabled={pending} onClick={saveIssuerProfile}>Kibocsátói profil mentése</button>}
-          {issuerDirty && <small role="status">Mentetlen kibocsátói profil módosítás.</small>}
-          {!documentSources.canEditIssuer && <small>A kibocsátói adatokat csak műhelytulajdonos vagy admin módosíthatja.</small>}
-          {issuerMessage && <p className="form-message" role="status">{issuerMessage}</p>}
-        </div>
-        <ul className="document-readiness" aria-label="Kiállítási hiányosságok">{displayedReadiness.blockers.map((blocker) => <li key={blocker.code}>{blocker.message}</li>)}</ul>
-        {!historical && <button className="secondary-button" type="button" disabled={pending} onClick={checkReadiness}>{pending ? "Ellenőrzés folyamatban…" : "Dokumentumadatok szerveroldali ellenőrzése"}</button>}
-        {serverReadiness && <small role="status">Az ellenőrzés hitelesített szerveroldali adatokkal lefutott.</small>}
-        </div>
-      </details>
-      <div className="quotation-lines"><div className="section-heading"><div><h3>Tételek ({lines.length})</h3></div><div className="quotation-add-actions"><button className="secondary-button" type="button" onClick={() => addLine("MATERIAL")}>+ Kézi anyag</button><button className="secondary-button" type="button" onClick={() => addLine("LABOR")}>+ Munkadíj</button><button className="secondary-button" type="button" onClick={() => addLine("OTHER")}>+ Egyéb</button></div></div>
+      <section className="quotation-work-surface" aria-label="Ajánlat és tételei">
+      <div className="quotation-meta"><label htmlFor="standalone-name">Ajánlat neve<input id="standalone-name" required maxLength={200} value={name} onChange={(event) => { setName(event.target.value); syncDirty(event.target.value); setResult({ ok: false, code: "INTERNAL", error: "" }); }} placeholder="Például: Tóth utca tetőfelújítása" /></label></div>
+      <div className="quotation-lines"><div className="section-heading"><div><h3>Tételek ({lines.length})</h3></div><div className="quotation-add-actions" role="group" aria-label="Ajánlati tételek hozzáadása"><button className="primary-button quotation-add-button is-primary" type="button" onClick={() => addLine("MATERIAL")}><Plus aria-hidden="true" size={17} />Kézi anyag</button><button className="secondary-button quotation-add-button" type="button" onClick={() => addLine("OTHER")}><Plus aria-hidden="true" size={17} />Egyéb</button><button className="secondary-button quotation-add-button" type="button" onClick={() => addLine("LABOR")}><Plus aria-hidden="true" size={17} />Munkadíj</button>{!historical && materialSource && <LaborRatePanel organizationId={organizationId} canEditRates={documentSources.canEditIssuer} rates={laborRates} bases={laborBases} quotationClass={lines[0]?.priceClass ?? null} appliedKeys={appliedLaborKeys(lines)} source={materialSource} onApply={addPrebuiltLine} />}<button className="secondary-button quotation-add-button" type="button" disabled={historical || !calculationSource?.candidates.length} onClick={openCalculationImport}><Calculator aria-hidden="true" size={17} />Kalkuláció alapján</button></div></div>
         {lines.length === 0 && <p className="empty-state">Még nincs tétel. Üres piszkozatot is elmenthetsz.</p>}
         {lines.map((line, index) => {
           const selected = line.variantId ? catalogVariant(line.variantId) : undefined;
@@ -450,7 +429,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
           return <article className="quotation-line" key={line.localId}>
             <div className="quotation-compact-row">
               <div className="quotation-compact-title"><span className={`quotation-material-state state-${linkState}`}>{line.type === "MATERIAL" ? linkLabel : line.type === "LABOR" ? "Munkadíj" : "Egyéb tétel"}</span><strong>{line.description || "Névtelen tétel"}</strong><small>{category?.name ?? ""}</small></div>
-              <label className="quotation-compact-field"><span>Mennyiség</span><input aria-label={`${line.description || "Tétel"} mennyisége`} inputMode="decimal" value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} /></label>
+              <label className="quotation-compact-field"><span>Mennyiség</span><input aria-label={`${line.description || "Tétel"} mennyisége`} inputMode="decimal" value={focusedQuantityId === line.localId ? line.quantity : quantityDisplay(line.quantity)} onFocus={() => setFocusedQuantityId(line.localId)} onBlur={() => setFocusedQuantityId(null)} onChange={(event) => update(index, { quantity: event.target.value })} /></label>
               <div className="quotation-compact-field quotation-compact-unit"><span>Egység</span><strong>{unitLabel}</strong></div>
               <label className="quotation-compact-field"><span>{linePriceLabel}</span><input aria-label={`${line.description || "Tétel"} ${linePriceLabel.toLowerCase()}`} className={line.unitPrice.trim() ? undefined : "is-missing"} inputMode="decimal" value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value, priceId: "", priceProvenance: event.target.value.trim() ? "user_entered" : "missing" })} /></label>
               <output className={`quotation-compact-total${line.unitPrice.trim() ? "" : " is-missing"}`}><span>{lineTotalLabel}</span><strong>{lineAmount}</strong></output>
@@ -489,10 +468,66 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
           </article>;
         })}
       </div>
+      </section>
       {catalogMessage && <p className="form-message" role="status">{catalogMessage}</p>}
+      <details className="standalone-document-details quotation-document-disclosure" aria-labelledby="standalone-document-heading">
+        <summary id="standalone-document-heading" className="quotation-document-summary"><strong>Címzett és dokumentumadatok (opcionális)</strong>{!documentUntouched && <span className={`status-pill status-draft${displayedReadiness.status === "valid_draft" ? "" : " is-neutral"}`}>{displayedReadiness.status === "valid_draft" ? "Adatok rendben" : displayedReadiness.status === "invalid_document_data" ? "Hibás adat" : "Hiányos kiállítási adatok"}</span>}</summary>
+        <div className="quotation-document-disclosure-body"><p className="missing-data">Ez a piszkozat menthető. Az adókezelés és a véglegesítés még nincs támogatva; ez az összegzés nem jelent kiállíthatóságot.</p>
+          <div className="quotation-line-grid">
+            <label htmlFor="document-recipient-name">Címzett neve<input id="document-recipient-name" value={document.recipientName} onChange={(event) => setDocumentField("recipientName", event.target.value)} /></label>
+            <label htmlFor="document-recipient-address">Címzett címe<input id="document-recipient-address" value={document.recipientAddress} onChange={(event) => setDocumentField("recipientAddress", event.target.value)} /></label>
+            <label htmlFor="document-recipient-email">Címzett e-mail-címe<input id="document-recipient-email" type="email" value={document.recipientEmail} onChange={(event) => setDocumentField("recipientEmail", event.target.value)} /></label>
+            <label htmlFor="document-recipient-phone">Címzett telefonszáma<input id="document-recipient-phone" value={document.recipientPhone} onChange={(event) => setDocumentField("recipientPhone", event.target.value)} /></label>
+            <label htmlFor="document-recipient-tax">Címzett adóazonosító adata<input id="document-recipient-tax" value={document.recipientTaxIdentifier} onChange={(event) => setDocumentField("recipientTaxIdentifier", event.target.value)} /></label>
+            <label htmlFor="document-valid-until">Érvényesség dátuma<input id="document-valid-until" type="date" value={document.validUntil} onChange={(event) => setDocumentField("validUntil", event.target.value)} /></label>
+            <label htmlFor="document-notes">Megjegyzés<textarea id="document-notes" rows={3} value={document.notes} onChange={(event) => setDocumentField("notes", event.target.value)} /></label>
+          </div>
+          <div className="issuer-profile"><p className="section-eyebrow">Kibocsátó</p><strong>{historical ? textValue(savedDocument.issuer?.organizationName) || documentSources.issuer.organizationName : documentSources.issuer.organizationName}</strong>
+            <div className="quotation-line-grid">
+              <label htmlFor="issuer-business-name">Vállalkozás neve<input id="issuer-business-name" value={issuerProfile.businessName ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("businessName", event.target.value || null)} /></label>
+              <label htmlFor="issuer-business-address">Vállalkozás címe<input id="issuer-business-address" value={issuerProfile.businessAddress ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("businessAddress", event.target.value || null)} /></label>
+              <label htmlFor="issuer-contact-email">Kapcsolati e-mail<input id="issuer-contact-email" type="email" value={issuerProfile.contactEmail ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("contactEmail", event.target.value || null)} /></label>
+              <label htmlFor="issuer-contact-phone">Kapcsolati telefon<input id="issuer-contact-phone" value={issuerProfile.contactPhone ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("contactPhone", event.target.value || null)} /></label>
+              <label htmlFor="issuer-tax-id">Adóazonosító adat<input id="issuer-tax-id" value={issuerProfile.taxIdentifier ?? ""} disabled={!documentSources.canEditIssuer || pending} onChange={(event) => changeIssuerProfile("taxIdentifier", event.target.value || null)} /><small>Tájékoztató profiladat; nem adószámítási beállítás.</small></label>
+            </div>
+            {documentSources.canEditIssuer && !historical && <button className="secondary-button" type="button" disabled={pending} onClick={saveIssuerProfile}>Kibocsátói profil mentése</button>}{issuerDirty && <small role="status">Mentetlen kibocsátói profil módosítás.</small>}{!documentSources.canEditIssuer && <small>A kibocsátói adatokat csak műhelytulajdonos vagy admin módosíthatja.</small>}{issuerMessage && <p className="form-message" role="status">{issuerMessage}</p>}
+          </div>
+          <ul className="document-readiness" aria-label="Kiállítási hiányosságok">{displayedReadiness.blockers.map((blocker) => <li key={blocker.code}>{blocker.message}</li>)}</ul>
+          {!historical && <button className="secondary-button" type="button" disabled={pending} onClick={checkReadiness}>{pending ? "Ellenőrzés folyamatban…" : "Dokumentumadatok szerveroldali ellenőrzése"}</button>}{serverReadiness && <small role="status">Az ellenőrzés hitelesített szerveroldali adatokkal lefutott.</small>}
+        </div>
+      </details>
       <div className="quotation-summary"><div className="quotation-current-total"><span>{historical ? `Történeti revízió · ${savedAmountLabel}` : `Jelenlegi piszkozat becslése · ${currentPriceBasisLabel}`}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : mixedPriceClasses ? "Árbesorolás ellenőrzése" : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "Változtathatatlan ajánlati pillanatkép összege." : mixedPriceClasses ? "Nettó és bruttó tételek nem keverhetők; a mentés blokkolva marad." : missingPriceCount ? `${missingPriceCount} tétel egységára hiányzik; ez a részösszeg csak a megadott árakat tartalmazza, nem kész ajánlat.` : "A szerver mentéskor újraszámítja; nem végleges ajánlat."}</small></div>{!historical && dirty && savedSubtotal !== null && <div className="quotation-saved-total"><span>Legutóbb mentve · v{currentRevision?.revision_number ?? version} · {savedAmountLabel}</span><strong>{money(String(savedSubtotal))}</strong></div>}</div>
     </fieldset>
+    {(materialSource || calculationSource) && <details className="quotation-sources" aria-labelledby="quotation-sources-title"><summary id="quotation-sources-title" className="quotation-sources-summary">Felhasznált források</summary><div className="quotation-sources-content">
+    {materialSource && <details className="quotation-material-source quotation-source-disclosure" aria-label="Anyaglista-forrás">
+      <summary><span>Anyaglista-forrás · {materialSource.listName} · V{materialSource.revisionNumber} · {materialSource.sourceLineMap.length} tétel</span>{materialSource.currentRevisionId && materialSource.currentRevisionId !== materialSource.materialRevisionId && <strong role="status">A forrás újabb verziót kapott</strong>}</summary>
+      <p><Link href={`/anyaglistak/${materialSource.materialListId}?organization=${organizationId}`}>Forráslista megnyitása</Link> · V{materialSource.revisionNumber} rögzített revízió</p>
+      {materialSource.currentRevisionId && materialSource.currentRevisionId !== materialSource.materialRevisionId && <p role="status">A lista azóta V{materialSource.currentVersion} verzióra változott. Az ajánlat továbbra is a kiválasztott, változtathatatlan forrásból indul.</p>}
+    </details>}
+    {calculationSource && <details className="quotation-material-source quotation-source-disclosure" aria-label="Kalkulációs forrás">
+      <summary><span>Kalkulációs forrás · {calculationSource.calculationName} · V{calculationSource.revisionNumber} · {calculationSource.candidates.length} átvehető mennyiség</span>{calculationSource.candidates.length === 0 && <strong role="status">Nincs átvehető tétel</strong>}</summary>
+      <p><Link href={`/kalkulatorok?organization=${organizationId}&calculator=${calculationSource.calculatorId}&calculation=${calculationSource.calculationId}`}>Forráskalkuláció megnyitása</Link> · V{calculationSource.revisionNumber} rögzített revízió · ár nélkül</p>
+      {calculationSource.candidates.length > 0 && <p>{calculationSource.candidates.filter((candidate) => usedCalculationKeys.has(candidate.sourceKey)).length} mennyiség már az ajánlatban szerepel. A szerkeszthető átvételi előnézetet a „+ Kalkuláció alapján” gomb nyitja meg.</p>}
+      {calculationSource.informational.length > 0 && <details><summary>Tájékoztató eredmények · nem ajánlati mennyiség</summary><dl>{calculationSource.informational.map((line, index) => <div key={`${line.label}-${index}`}><dt>{line.label}</dt><dd>{typeof line.value === "number" ? new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 3 }).format(line.value) : line.value} {line.unit}</dd></div>)}</dl></details>}
+    </details>}
+    </div></details>}
+    <dialog ref={calculationDialogRef} className="glass-confirmation-dialog calculation-quotation-dialog" aria-labelledby="calculation-import-title" onCancel={(event) => { event.preventDefault(); setCalculationImportOpen(false); }} onClick={(event) => { if (event.target === event.currentTarget) setCalculationImportOpen(false); }}>
+      <div className="association-dialog-content">
+        <div className="section-heading"><div><p className="section-eyebrow">Mentett revízió · V{calculationSource?.revisionNumber ?? "—"}</p><h2 id="calculation-import-title">Kalkulációs tételek előnézete</h2><p>{calculationSource?.calculationName ?? ""}</p></div><button type="button" className="secondary-button" onClick={() => setCalculationImportOpen(false)}>Bezárás</button></div>
+        {calculationPreview.length === 0 ? <p role="status">Nincs új, átvehető mennyiség ebben a revízióban.</p> : <div className="calculation-import-preview">{calculationPreview.map((item) => <div key={item.sourceKey} className="calculation-import-preview-row">
+          <label>Megnevezés<input value={item.description} maxLength={240} onChange={(event) => updateCalculationPreview(item.sourceKey, { description: event.target.value })} /></label>
+          <label>Mennyiség<input inputMode="decimal" value={item.quantity} onChange={(event) => updateCalculationPreview(item.sourceKey, { quantity: event.target.value })} /></label>
+          <label>Egység<input value={item.unit} maxLength={40} onChange={(event) => updateCalculationPreview(item.sourceKey, { unit: event.target.value })} /></label>
+          <button type="button" className="icon-button" aria-label={`${item.description || "Tétel"} eltávolítása az előnézetből`} onClick={() => setCalculationPreview((items) => items.filter((candidate) => candidate.sourceKey !== item.sourceKey))}><Trash2 aria-hidden="true" size={18} /></button>
+          <small>{item.sourceKey} · nincs ajánlati ár</small>
+        </div>)}</div>}
+        <p>A módosítás csak az ajánlati piszkozat javasolt tételeire vonatkozik. A mentett kalkuláció nem változik.</p>
+        <div className="form-actions"><button type="button" className="secondary-button" onClick={() => setCalculationImportOpen(false)}>Mégse</button><button type="button" className="primary-button" disabled={!calculationQuotePreviewIsValid(calculationPreview)} onClick={applyCalculationImport}>Tételek átvétele</button></div>
+      </div>
+    </dialog>
     {!historical && !result.ok && result.error && <div className="form-message is-error" role="alert">{result.error}{result.code === "CONFLICT" && quotationId && <button type="button" className="secondary-button" onClick={async () => { const accepted = await requestConfirmation({ title: "Helyi változat elvetése", message: "A legfrissebb revízió megnyitása elveti ezt a helyi módosításcsomagot.", cancelLabel: "Maradok", actions: [{ label: "Legfrissebb revízió megnyitása", tone: "danger", run: () => undefined }] }); if (accepted) { discardRecovery(); router.replace(latestUrl); } }}>Legfrissebb revízió megnyitása</button>}</div>}
-    {!historical && <QuotationSaveBar state={quotationSaveState({ pending, error: !result.ok && Boolean(result.error), dirty, hasRevision: Boolean(currentRevisionId) || result.ok })} labels={{ saving: "Mentés folyamatban…", error: "A mentés nem sikerült", unsaved: "Nem mentett módosítások", saved: `Mentve · v${result.ok ? result.data.revision_number : currentRevision?.revision_number ?? version}`, new: "Még nincs mentve" }} disabled={pending || !recoveryReady} onSave={() => save()} />}
+    {!historical && <div className="quotation-bottom-actions">
+      <QuotationSaveBar state={quotationSaveState({ pending, error: !result.ok && Boolean(result.error), dirty, hasRevision: Boolean(currentRevisionId) || result.ok })} labels={{ saving: "Mentés folyamatban…", error: "A mentés nem sikerült", unsaved: "Nem mentett módosítások", saved: `Mentve · v${result.ok ? result.data.revision_number : currentRevision?.revision_number ?? version}`, new: "Még nincs mentve" }} disabled={pending || !recoveryReady} onSave={() => save()} previousRevisions={quotationId && revisions.some((revision) => revision.id !== currentRevisionId) && <nav className="quotation-savebar-revisions" aria-label="Korábbi ajánlati verziók">{[...revisions].filter((revision) => revision.id !== currentRevisionId).sort((left, right) => left.revisionNumber - right.revisionNumber).map((revision) => <Link key={revision.id} className="secondary-button" href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`}>v{revision.revisionNumber}</Link>)}</nav>} beforeSave={quotationId && <ExecutionPlanLinkControl organizationId={organizationId} kind="quotation" documentId={quotationId} links={planLinks} plans={plans} compactHandoff linkBlockedReason={dirty || issuerDirty ? "Mentetlen módosítás van. Mentsd el előbb, hogy a legfrissebb ajánlati változat kapcsolódjon." : pending ? "A mentés folyamatban van." : undefined} />} />
+    </div>}
   </section>;
 }

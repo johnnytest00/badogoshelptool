@@ -3,6 +3,21 @@ import { isCompleteConstructionOutput } from "@/features/calculators/constructio
 
 /** Decision 12/8: layout quantities and cut-list rows may become quotation quantities; everything else is informational. */
 export type CalculationQuoteCandidate = Readonly<{ sourceKey: string; label: string; quantity: number; unit: string; meaning: "LAYOUT" | "CUT_LIST" }>;
+export type CalculationQuotePreviewItem = Readonly<{ sourceKey: string; description: string; quantity: string; unit: string }>;
+
+export function calculationQuotePreviewIsValid(items: readonly CalculationQuotePreviewItem[]): boolean {
+  return items.length > 0 && items.every((item) => item.description.trim().length > 0
+    && /^\d{1,12}(?:[.,]\d{1,6})?$/.test(item.quantity) && Number(item.quantity.replace(",", ".")) > 0
+    && item.unit.trim().length > 0);
+}
+
+export function calculationQuotePreviewLines(items: readonly CalculationQuotePreviewItem[]) {
+  return items.map((item) => ({
+    type: "MATERIAL" as const, description: item.description.trim(), quantity: item.quantity.replace(",", "."), unit: item.unit.trim(),
+    unitPrice: "", priceClass: "net" as const, variantId: "", categoryId: "", priceId: "", takeoffItemId: "", sourceMaterialItemId: "",
+    priceProvenance: "missing" as const, notes: "", calculationSourceKey: item.sourceKey,
+  }));
+}
 
 export type QuotationCalculationSource = Readonly<{
   calculationId: string;

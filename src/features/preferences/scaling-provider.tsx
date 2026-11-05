@@ -16,6 +16,7 @@ import {
 type ScalingContextValue = ScalingPreferences & {
   setScale: (key: ScalingKey, value: number) => void;
   adjustScale: (key: ScalingKey, delta: number) => void;
+  setMobileStickyEnabled: (enabled: boolean) => void;
   resetScales: () => void;
 };
 
@@ -56,13 +57,21 @@ export function ScalingProvider({ children }: Readonly<{ children: React.ReactNo
     });
   }, []);
 
+  const setMobileStickyEnabled = useCallback((enabled: boolean) => {
+    setPreferences((current) => {
+      const next = { ...current, mobileStickyEnabled: enabled };
+      persistScalingPreferences(window.localStorage, next);
+      return next;
+    });
+  }, []);
+
   const resetScales = useCallback(() => {
     const next = resetScalingPreferences(window.localStorage);
     setPreferences(next);
     applyScalingVariables(next);
   }, []);
 
-  const value = useMemo(() => ({ ...preferences, setScale, adjustScale, resetScales }), [preferences, setScale, adjustScale, resetScales]);
+  const value = useMemo(() => ({ ...preferences, setScale, adjustScale, setMobileStickyEnabled, resetScales }), [preferences, setScale, adjustScale, setMobileStickyEnabled, resetScales]);
   return <ScalingContext.Provider value={value}>{children}</ScalingContext.Provider>;
 }
 

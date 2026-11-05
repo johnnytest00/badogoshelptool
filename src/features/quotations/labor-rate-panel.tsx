@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { LaborRateEditor } from "./labor-rate-editor";
-import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { pricedLineAmount } from "@/domain/pricing";
 import { buildLaborLine, isBillingQuantity, isUnitPrice, laborBasisLabels, offerLaborRates, sameQuantity, type LaborBase, type LaborRate, type LaborRateOffer } from "@/domain/quotations/labor-rate";
 
@@ -14,16 +13,29 @@ export function LaborRatePanel({ organizationId, rates, bases, quotationClass, a
   organizationId: string; canEditRates?: boolean; rates: readonly LaborRate[]; bases: readonly LaborBase[]; quotationClass: "net" | "gross" | null;
   appliedKeys: readonly string[]; source: Readonly<{ materialListId: string; materialRevisionId: string }>; onApply: (line: LaborLine) => void;
 }>) {
-  if (bases.length === 0) return <GlassDisclosure className="labor-rate-panel" summary={<>Munkadíj a felmérés alapján<span className="survey-optional-badge">Opcionális</span></>}>
-    <p className="plan-link-empty">Ehhez az anyaglistához nincs ellenőrzött felmérési mennyiség (tetőfelülethez ellenőrzött, figyelmeztetés nélküli nyeregtető-számítás, ereszhez mért hossz kell), ezért automatikus munkadíj nem ajánlható. Kézi munkadíjsort bármikor felvehetsz.</p>
-  </GlassDisclosure>;
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
   const offers = offerLaborRates(rates, bases, quotationClass, appliedKeys);
-  return <GlassDisclosure className="labor-rate-panel" summary={<>Munkadíj a felmérés alapján<span className="survey-optional-badge">Opcionális</span></>}>
-    <p className="plan-link-note">Csak az anyaglista ellenőrzött felmérési mennyiségére, azonos mértékegységű szabállyal. A geometriai forrásmennyiség, az anyagbeszerzési mennyiség és a munkadíj elszámolási mennyisége nem azonos: az elszámolt mennyiség alapértelmezetten a forrásérték, de itt vagy a sorban kifejezetten módosítható; az eltérés jelölve marad. Becslés, ÁFA és kedvezmény nincs.</p>
-    {rates.length === 0 ? <p className="plan-link-empty">Még nincs munkadíj-szabály. <Link href={`/beallitasok/munkadij?organization=${organizationId}`}>Szabály felvétele</Link></p>
-      : offers.length === 0 ? <p className="plan-link-empty">Nincs a forrás mértékegységéhez illő szabály. <Link href={`/beallitasok/munkadij?organization=${organizationId}`}>Szabályok kezelése</Link></p>
-      : <ul className="plan-link-list">{offers.map((offer) => <LaborOfferRow key={`${offer.rate.id}:${offer.base.itemId}`} offer={offer} source={source} onApply={onApply} organizationId={organizationId} canEditRate={canEditRates && !appliedKeys.some((key) => key.startsWith(`${offer.rate.id}:`))} />)}</ul>}
-  </GlassDisclosure>;
+  return <div className="labor-rate-panel">
+    <button className="secondary-button labor-rate-trigger" type="button" onClick={() => setOpen(true)}>Munkadíj felmérésből</button>
+    <dialog ref={dialogRef} className="glass-confirmation-dialog labor-rate-dialog" aria-labelledby="labor-rate-title" onCancel={(event) => { event.preventDefault(); setOpen(false); }} onClick={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+      <div className="association-dialog-content">
+        <div className="section-heading"><div><p className="section-eyebrow">Opcionális tételfelvétel</p><h2 id="labor-rate-title">Munkadíj felmérésből</h2></div><button type="button" className="secondary-button" onClick={() => setOpen(false)}>Mégse</button></div>
+        {bases.length === 0 ? <p className="plan-link-empty">Ehhez az anyaglistához nincs ellenőrzött felmérési mennyiség. Kézi munkadíjsort ettől függetlenül felvehetsz.</p> : <>
+          <p className="plan-link-note">Csak az anyaglista ellenőrzött felmérési mennyiségére, azonos mértékegységű szabállyal. A forrásmennyiséget és az elszámolt mennyiséget külön kezeljük; becslés, ÁFA és kedvezmény nincs.</p>
+          {rates.length === 0 ? <p className="plan-link-empty">Még nincs munkadíj-szabály. <Link href={`/beallitasok/munkadij?organization=${organizationId}`}>Szabály felvétele</Link></p>
+            : offers.length === 0 ? <p className="plan-link-empty">Nincs a forrás mértékegységéhez illő szabály. <Link href={`/beallitasok/munkadij?organization=${organizationId}`}>Szabályok kezelése</Link></p>
+              : <ul className="plan-link-list">{offers.map((offer) => <LaborOfferRow key={`${offer.rate.id}:${offer.base.itemId}`} offer={offer} source={source} onApply={(line) => { onApply(line); setOpen(false); }} organizationId={organizationId} canEditRate={canEditRates && !appliedKeys.some((key) => key.startsWith(`${offer.rate.id}:`))} />)}</ul>}
+        </>}
+      </div>
+    </dialog>
+  </div>;
 }
 
 function LaborOfferRow({ offer, source, onApply, organizationId, canEditRate }: Readonly<{ organizationId: string; canEditRate: boolean; offer: LaborRateOffer; source: Readonly<{ materialListId: string; materialRevisionId: string }>; onApply: (line: LaborLine) => void }>) {

@@ -21,6 +21,7 @@ import { createQuotationDraftFromMaterialListAction } from "./material-list-quot
 const list = (items: unknown[] = [{ id: itemId, kind: "manual", description: "DEMO eresz", quantity: "12.5", unit: "linear_meter", materialCategory: "gutter" }]) => ({
   id: listId, name: "DEMO lista", version: 1, currentRevisionId: revisionId,
   currentRevision: { id: revisionId, revisionNumber: 1, items },
+  history: [{ id: revisionId, revisionNumber: 1, items }],
 });
 
 describe("createQuotationDraftFromMaterialListAction", () => {
@@ -34,12 +35,12 @@ describe("createQuotationDraftFromMaterialListAction", () => {
 
   it("refuses callers without access to the organization", async () => {
     state.auth = { userId: "user-1", organizations: [] };
-    expect(await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, operationId })).toMatchObject({ ok: false });
+    expect(await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, sourceRevisionId: revisionId, operationId })).toMatchObject({ ok: false });
     expect(state.save).not.toHaveBeenCalled();
   });
 
   it("creates an unpriced, source-linked draft without inventing a price", async () => {
-    const result = await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, operationId });
+    const result = await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, sourceRevisionId: revisionId, operationId });
     expect(result).toEqual({ ok: true, quotationId: "q1", created: true, unpricedLines: 1, totalLines: 1 });
     const form = state.save.mock.calls[0][0] as FormData;
     expect(form.get("materialListId")).toBe(listId);
@@ -51,23 +52,32 @@ describe("createQuotationDraftFromMaterialListAction", () => {
     expect(lines[0]).toMatchObject({ type: "MATERIAL", unitPrice: "", priceProvenance: "missing", sourceMaterialItemId: itemId, quantity: "12.5" });
   });
 
+  it("creates from the exact explicitly chosen immutable list revision", async () => {
+    const olderRevisionId = "123e4567-e89b-42d3-a456-426614174009";
+    state.lists.mockResolvedValue([{ ...list(), history: [list().currentRevision, { ...list().currentRevision, id: olderRevisionId, revisionNumber: 0, items: [{ id: itemId, kind: "manual", description: "Korábbi tétel", quantity: "3", unit: "piece", materialCategory: "timber" }] }] }]);
+    await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, sourceRevisionId: olderRevisionId, operationId, allowAdditional: true });
+    const form = state.save.mock.calls[0][0] as FormData;
+    expect(form.get("materialRevisionId")).toBe(olderRevisionId);
+    expect(JSON.parse(String(form.get("lines")))[0].description).toBe("Korábbi tétel");
+  });
+
   it("returns the existing draft for the same list revision instead of creating a duplicate", async () => {
     state.existing.mockResolvedValue(new Map([[listId, [{ quotationId: "existing-q", name: "x", status: "draft", sourceListVersion: 1, currentListVersion: 1, createdAt: "" }]]]));
-    expect(await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, operationId })).toMatchObject({ ok: true, quotationId: "existing-q", created: false });
+    expect(await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, sourceRevisionId: revisionId, operationId })).toMatchObject({ ok: true, quotationId: "existing-q", created: false });
     expect(state.save).not.toHaveBeenCalled();
   });
 
   it("creates another draft only on explicit request", async () => {
     state.existing.mockResolvedValue(new Map([[listId, [{ quotationId: "existing-q", name: "x", status: "draft", sourceListVersion: 1, currentListVersion: 1, createdAt: "" }]]]));
-    expect(await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, operationId, allowAdditional: true })).toMatchObject({ ok: true, quotationId: "q1", created: true });
+    expect(await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, sourceRevisionId: revisionId, operationId, allowAdditional: true })).toMatchObject({ ok: true, quotationId: "q1", created: true });
     expect(state.save).toHaveBeenCalledTimes(1);
   });
 
   it("does not create a quotation from an empty list and surfaces save failures", async () => {
     state.lists.mockResolvedValue([list([])]);
-    expect(await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, operationId })).toMatchObject({ ok: false });
+    expect(await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, sourceRevisionId: revisionId, operationId })).toMatchObject({ ok: false });
     state.lists.mockResolvedValue([list()]);
     state.save.mockResolvedValue({ ok: false, code: "VALIDATION", error: "Ellenőrizd az ajánlat tételeit." });
-    expect(await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, operationId })).toEqual({ ok: false, error: "Ellenőrizd az ajánlat tételeit." });
+    expect(await createQuotationDraftFromMaterialListAction({ organizationId: org, listId, sourceRevisionId: revisionId, operationId })).toEqual({ ok: false, error: "Ellenőrizd az ajánlat tételeit." });
   });
 });

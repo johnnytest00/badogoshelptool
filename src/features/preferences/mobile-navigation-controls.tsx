@@ -43,7 +43,7 @@ export function useMobileNavigationPreference(): [boolean, (enabled: boolean) =>
 
 export function MobileNavigationControl({ enabled, onChange }: Readonly<{ enabled: boolean; onChange: (enabled: boolean) => void }>) {
   return <label className="background-animation-setting">
-    <span><strong>Alsó navigáció megjelenítése</strong><small>Az alsó menüsáv megjelenítése a gyors navigációhoz.</small></span>
+    <span><strong>Alsó navigáció megjelenítése</strong><small>A gyors menülinkek megjelenítése; a profilmenü mobilon mindig elérhető.</small></span>
     <input type="checkbox" checked={enabled} onChange={(event) => onChange(event.target.checked)} />
   </label>;
 }

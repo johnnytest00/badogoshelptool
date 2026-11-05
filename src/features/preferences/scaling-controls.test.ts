@@ -12,10 +12,17 @@ describe("F9.7.4 display preferences", () => {
     expect(parseScalingPreferences(serializeScalingPreferences({ ...scalingDefaults, ui: 120 })).ui).toBe(120);
   });
 
+  it("keeps the mobile sticky control enabled for existing settings and persists its preference", () => {
+    const legacy = JSON.stringify({ version: 1, text: 110, ui: 115, drawing: 100, spacing: 100 });
+    expect(parseScalingPreferences(legacy).mobileStickyEnabled).toBe(true);
+    const next = { ...scalingDefaults, mobileStickyEnabled: false };
+    expect(parseScalingPreferences(serializeScalingPreferences(next)).mobileStickyEnabled).toBe(false);
+  });
+
   it("adjusts sliders independently and persists the fourth spacing preference", () => {
     const next = updateScaling(scalingDefaults, "text", 150);
     const adjusted = updateScaling(next, "spacing", 125);
-    expect(adjusted).toEqual({ text: 150, ui: 115, drawing: 100, spacing: 125 });
+    expect(adjusted).toEqual({ ...scalingDefaults, text: 150, spacing: 125 });
     expect(parseScalingPreferences(serializeScalingPreferences(adjusted))).toEqual(adjusted);
     expect(parseScalingPreferences(null)).toEqual(scalingDefaults);
   });
@@ -23,7 +30,7 @@ describe("F9.7.4 display preferences", () => {
   it("persists preferences and stores defaults when reset is requested", () => {
     const stored = new Map<string, string>();
     const storage = { setItem: (key: string, value: string) => stored.set(key, value) };
-    persistScalingPreferences(storage, { text: 160, ui: 120, drawing: 140, spacing: 130 });
+    persistScalingPreferences(storage, { ...scalingDefaults, text: 160, ui: 120, drawing: 140, spacing: 130 });
     expect(JSON.parse(stored.get(scalingStorageKey)!)).toMatchObject({ text: 160, ui: 120, drawing: 140, spacing: 130 });
     expect(resetScalingPreferences(storage)).toEqual(scalingDefaults);
     expect(parseScalingPreferences(stored.get(scalingStorageKey)!)).toEqual(scalingDefaults);

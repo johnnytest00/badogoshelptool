@@ -5,8 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { closeBubbleOnKey, closeBubbleOnOutsideClick, toggleBubble } from "@/components/accessibility/scaling-bubble.utils";
 import { chooseFloatingPlacement, type FloatingPlacement } from "@/lib/floating-control-placement";
+import { useScaling } from "@/features/preferences/scaling-provider";
 
 export function ScalingBubble() {
+  const { mobileStickyEnabled } = useScaling();
   const [open, setOpen] = useState(false);
   const openRef = useRef(false);
   const placementRef = useRef<FloatingPlacement | null>(null);
@@ -95,7 +97,7 @@ export function ScalingBubble() {
   }, [open]);
 
   return (
-    <div className={`scaling-bubble ${open ? "is-open" : ""}`} ref={bubbleRef}>
+    <div className={`scaling-bubble ${open ? "is-open" : ""}`} data-mobile-sticky={mobileStickyEnabled} ref={bubbleRef}>
       {open && <div className="scaling-quick-cluster" id="scaling-quick-cluster" aria-label="Gyors méretezés">
         <button type="button" className="scaling-quick-close" onClick={() => setOpen(false)} aria-label="Méretező bezárása"><span aria-hidden="true">×</span></button>
         <section className="scaling-quick-bubble"><h2>Szövegméret</h2><ScalingControls compact keys={["text"]} labels={{ text: "Szövegméret" }} showReset={false} idPrefix="quick-scale" /></section>

@@ -195,7 +195,7 @@
 | Adatbázis/Auth/RLS/hosted | NEM ÉRINTETT / NEM FUTOTT | Nincs tartós írás, adatbázis-, jogosultsági, hosted vagy üzleti workflow változás; DB teszt nem releváns. |
 | Dokumentáció és diff | PASS | Hat kért dokumentációs fájl frissítve; végső git diff --check lefutott és PASS. |
 
-Az egyedi inputkészletet és a kalkulátoronkénti eredmény/rajz/korlát táblát a [F9.38.1 teljesítési riport](F9_38_CALCULATOR_COMPLETION_REPORT.md) tartalmazza. A vizuális smoke-ban talált nulla orrkiülés legendasort a teljes suite első futása után javítottam, majd a végső kódon újrafuttattam a teljes kört. Az alábbi számok a végleges futást mutatják.
+Az egyedi inputkészletet és a kalkulátoronkénti eredmény/rajz/korlát táblát a [F9.38.1 teljesítési riport](archive/milestones/F9_38_CALCULATOR_COMPLETION_REPORT.md) tartalmazza. A vizuális smoke-ban talált nulla orrkiülés legendasort a teljes suite első futása után javítottam, majd a végső kódon újrafuttattam a teljes kört. Az alábbi számok a végleges futást mutatják.
 
 ## F9.38 — Lépcső- és betonozási kalkulátorok
 
@@ -208,7 +208,7 @@ Az egyedi inputkészletet és a kalkulátoronkénti eredmény/rajz/korlát tábl
 | Hibás browser-bemenet | RÉSZLEGES | C4 külső Ø1500 mm, falvastagság 750 mm esetén a pozitív belső átmérőt megkövetelő magyar hibaüzenet jelent meg. A további 26 kalkulátor invalid-input browser próbája nem futott; domain tesztek néhány séma- és határesetet fednek, de a teljes 27-es mátrixot nem. |
 | Témák és rajzvezérlés | PASS, RÉSZLEGES | Sötét és világos téma megtekintve, a sötét visszaállítva. S1 rajz zoom 90→100→120%, Enteres nagyítás és dimenziófeliratból kapcsolt mezőfókusz megfigyelve. Pásztázás/húzás nem futott. |
 | Responsive viewport és fizikai eszköz | NEM FUTOTT | A böngészővezérlés nem kínált viewport emulációt; 1440/1024/768/390/320 px, érintés/pinch, fizikai mobil és teljes responsive overflow mátrix nincs bizonyítva. |
-| Zhitov referenciaoldalak | FORRÁS-AUDIT RÉSZLEGES | Mind a 27 publikus oldalt és a statikus mező-/kimenetleírást áttekintettem. A dinamikus beágyazott űrlapok egyedi referenciaeredményeit nem tudtam reprodukálni; a TetőPro teljes referencia-paritása nincs igazolva. Hivatkozások és kalkulátoronkénti korlátok: [F9.38 completion report](F9_38_CALCULATOR_COMPLETION_REPORT.md). |
+| Zhitov referenciaoldalak | FORRÁS-AUDIT RÉSZLEGES | Mind a 27 publikus oldalt és a statikus mező-/kimenetleírást áttekintettem. A dinamikus beágyazott űrlapok egyedi referenciaeredményeit nem tudtam reprodukálni; a TetőPro teljes referencia-paritása nincs igazolva. Hivatkozások és kalkulátoronkénti korlátok: [F9.38 completion report](archive/milestones/F9_38_CALCULATOR_COMPLETION_REPORT.md). |
 | Adatbázis, Auth/RLS, hosted, commit/deploy | NEM ÉRINTETT / NEM FUTOTT | Nincs adatbázis-migráció, jogosultsági vagy üzleti workflow változás; hosted művelet és commit/push/deploy nem történt. |
 
 ## F9.37.3 — Háttér finomítása és Safari React script-hiba

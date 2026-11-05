@@ -9,8 +9,8 @@ describe("PremiumGlassBackground", () => {
     const html = renderToStaticMarkup(createElement(PremiumGlassBackground));
 
     expect(html).toContain('class="premium-glass-background"');
-    expect(html).toContain('data-animation-enabled="false"');
     expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain('data-animation-enabled="false"');
     expect(html).toContain('class="premium-glass-background__ambient"');
     expect(html).toContain('class="premium-glass-background__dot-grid"');
     expect(html).not.toContain("<svg");
@@ -19,7 +19,6 @@ describe("PremiumGlassBackground", () => {
   it("keeps the dot pattern static and animates only one slow transform glow", () => {
     const css = readFileSync("src/app/globals.css", "utf8");
     const dotGridRule = css.match(/\.premium-glass-background__dot-grid\s*\{([^}]*)\}/)?.[1] ?? "";
-
     expect(css).toContain("--premium-background: #f5f3ed");
     expect(css).toContain("--premium-dot: rgba(71, 85, 105, .38)");
     expect(css).toContain("--premium-background: #111923");

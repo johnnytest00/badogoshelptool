@@ -13,15 +13,11 @@ import type { RoofGeometryInput, RoofGeometryType } from "@/domain/calculations/
 import { roofGeometryInputFromFields } from "@/domain/calculations/roof-calculation-snapshot";
 
 import type { CalculatorDefinition, Field, ResultLine } from "./construction-calculator-types";
+import { ROOF_SHAPE_OPTIONS } from "./roof-shape-support";
 
 const mm = (value: Record<string, unknown>, key: string) => Number(value[key]);
 
 const reference = (id: string) => constructionCalculatorCatalog.find((item) => item.id === id)!;
-
-const ROOF_SHAPE_OPTIONS = [
-  { value: "gable", label: "Nyeregtető" }, { value: "shed", label: "Félnyeregtető" }, { value: "hip", label: "Kontytető" }, { value: "pyramid", label: "Sátortető" },
-  { value: "halfHip", label: "Félkontytető" }, { value: "lShape", label: "L alaprajzú tető" }, { value: "tShape", label: "T alaprajzú tető" }, { value: "mansard", label: "Manzárdtető" },
-] as const;
 
 const RECTANGULAR_SHAPES = ["gable", "shed", "hip", "halfHip", "lShape", "tShape", "mansard"] as const;
 
@@ -34,7 +30,7 @@ const roofShapeFields: readonly Field[] = [
   { key: "lowerRunMm", label: "Alsó szakasz vízszintes futása · oldalanként", unit: "mm", integer: true, shapes: ["mansard"] },
   { key: "lowerRiseMm", label: "Alsó szakasz emelkedése", unit: "mm", integer: true, shapes: ["mansard"] },
   { key: "upperRiseMm", label: "Felső szakasz emelkedése", unit: "mm", integer: true, shapes: ["mansard"] },
-  { key: "eaveOverhangMm", label: "Vízszintes ereszkiülés", help: "Vízszintesen a falsíktól az eresz külső kontúrjáig mérve, nem a lejtős felületen.", unit: "mm", initial: "0", integer: true, shapes: ["gable", "shed"] },
+  { key: "eaveOverhangMm", label: "Vízszintes ereszkiülés (opcionális)", help: "Csak akkor add meg, ha a szélességet a falaknál mérted, és a tető túlnyúlik rajtuk.", unit: "mm", integer: true, shapes: ["gable", "shed"] },
   { key: "frontGableOverhangMm", label: "Homlokzati kiülés · elöl", unit: "mm", integer: true, advanced: true, placeholder: "nincs megadva", shapes: ["gable"] },
   { key: "rearGableOverhangMm", label: "Homlokzati kiülés · hátul", unit: "mm", integer: true, advanced: true, placeholder: "nincs megadva", shapes: ["gable"] },
   { key: "hipEaveHeightMm", label: "Félkonty ereszmagassága", unit: "mm", integer: true, shapes: ["halfHip"] },
@@ -47,7 +43,7 @@ export const roofShapeOf = (values: Record<string, unknown>): RoofGeometryType =
   return (ROOF_SHAPE_OPTIONS.some((option) => option.value === shape) ? shape : "gable") as RoofGeometryType;
 };
 
-const roofGeometryInputFor = (values: Record<string, unknown>): RoofGeometryInput => roofGeometryInputFromFields(roofShapeOf(values), values);
+const roofGeometryInputFor = (values: Record<string, unknown>, contract: "legacy-wall" | "outer-footprint" = "legacy-wall"): RoofGeometryInput => roofGeometryInputFromFields(roofShapeOf(values), values, contract);
 
 const RIDGE_JOINT_OPTIONS = [{ value: "opposed", label: "Szembefutó szarufák" }, { value: "board", label: "Gerincdeszkára fut" }, { value: "purlin", label: "Gerincszelemenre fekszik" }] as const;
 /** Shapes whose eave rafters can end on a ridge running along the eave; shed, pyramid and mansard eave planes never do. */
@@ -60,7 +56,7 @@ const jointsOn = { key: "birdsmouth", values: ["true"] } as const;
  */
 const birdsmouthFields: readonly Field[] = [
   { key: "birdsmouth", label: "Szarufacsatlakozások számítása (Karmi, szelemenek, gerinc)", unit: "", kind: "checkbox", advanced: true },
-  { key: "seatCutHeightMm", label: HAP_INPUT_LABEL, help: HAP_HELP, figure: "hap", unit: "mm", advanced: true, visibleWhen: jointsOn },
+  { key: "seatCutHeightMm", label: HAP_INPUT_LABEL, help: HAP_HELP, unit: "mm", advanced: true, visibleWhen: jointsOn },
   { key: "plateWidthMm", label: "Talpszelemen szélessége · ellenőrzéshez", unit: "mm", advanced: true, positive: true, placeholder: "nincs megadva", visibleWhen: jointsOn },
   { key: "purlinFaceMm", label: "Derékszelemen ereszoldali síkja · vízszintesen a talpszelemen külső síkjától", help: PURLIN_FACE_HELP, unit: "mm", advanced: true, placeholder: "nincs derékszelemen", visibleWhen: jointsOn },
   { key: "purlinTopMm", label: "Derékszelemen felső síkja · a talpszelemen felső síkja felett", help: PURLIN_TOP_HELP, figure: "purlin", unit: "mm", advanced: true, placeholder: "nincs derékszelemen", visibleWhen: jointsOn },
@@ -72,9 +68,9 @@ const birdsmouthFields: readonly Field[] = [
 
 const ROOF_ADVANCED_HELP = "A homlokzati kiülés üresen hagyva 0 mm-nek számít, és az eredmény ezt jelzi; a 0 beírása kifejezetten megadott érték. Szarufacsatlakozások: a szelemen- és gerincadatok a fő tetőoldal saját függőleges keresztmetszetében értendők, ugyanúgy, mint a „Szarufa kiszabása” kalkulátorban (vízszintes hely a talpszelemen külső síkjától, magasság a talpszelemen felső síkjától). Eltérő keresztmetszetű tetősíkra (pl. L/T szárny, félkonty) nem alkalmazzuk; ott a csatlakozás „nem támogatott”.";
 
-export function takeoffLines(input: Record<string, unknown>, context: RoofMaterialTakeoffInputs | undefined): ResultLine[] {
+export function takeoffLines(input: Record<string, unknown>, context: RoofMaterialTakeoffInputs | undefined, contract: "legacy-wall" | "outer-footprint" = "legacy-wall"): ResultLine[] {
   if (!context) return [];
-  const geometry = calculateExistingRoofGeometry(roofGeometryInputFor(input));
+  const geometry = calculateExistingRoofGeometry(roofGeometryInputFor(input, contract));
   const takeoff = calculateRoofMaterialTakeoff(geometry, context);
   const timber = takeoff.timber.status === "available" ? takeoff.timber : null;
   return [
@@ -87,7 +83,7 @@ export const definitions: Record<string, CalculatorDefinition> = {
 "roof.rafter-cut": {
     reference: reference("roof.rafter-cut"), draw: "rafter", note: "Egyetlen szarufa kiszabása. A hosszak a szarufa felső éle mentén értendők; a HAP a szarufa felső élének magassága a talpszelemen felett, a külső függővágási síkban. A fél fesztáv a talpszelemen külső síkjától (a Karmi függővágásától) a gerinctengelyig, a gerincemelkedés a talpszelemen felső síkjától a felső élig mérendő.",
     advancedHelp: "Csomópontok: a szarufa magasságával a Karmi bevágása, a szelemenek helyével és magasságával a felfekvések számíthatók. A magasságokat a talpszelemen felső síkjától, a vízszintes helyeket a talpszelemen külső síkjától mérd. A bevágás megengedhetőségét a rendszer nem ellenőrzi.",
-    fields: [{ key: "horizontalHalfSpanMm", label: "Fél fesztáv", unit: "mm" }, { key: "riseMm", label: "Gerincemelkedés", unit: "mm" }, { key: "eaveProjectionMm", label: "Vízszintes ereszkiülés", unit: "mm", initial: "0" }, { key: "seatCutHeightMm", label: HAP_INPUT_LABEL, help: HAP_HELP, figure: "hap", unit: "mm", initial: "0" },
+    fields: [{ key: "horizontalHalfSpanMm", label: "Fél fesztáv", unit: "mm" }, { key: "riseMm", label: "Gerincemelkedés", unit: "mm" }, { key: "eaveProjectionMm", label: "Vízszintes ereszkiülés", unit: "mm", initial: "0" }, { key: "seatCutHeightMm", label: HAP_INPUT_LABEL, help: HAP_HELP, unit: "mm", initial: "0" },
       { key: "rafterDepthMm", label: "Szarufa magassága (keresztmetszet)", unit: "mm", advanced: true, positive: true, placeholder: "nincs megadva" },
       { key: "ridgeJoint", label: "Gerinckapcsolat", unit: "", initial: "opposed", kind: "select", advanced: true, options: RIDGE_JOINT_OPTIONS },
       { key: "ridgeBoardThicknessMm", label: "Gerincdeszka vastagsága", unit: "mm", advanced: true, positive: true, visibleWhen: { key: "ridgeJoint", values: ["board"] } },
@@ -107,13 +103,13 @@ export const definitions: Record<string, CalculatorDefinition> = {
     reference: reference("roof.material-takeoff"), draw: "roof", note: "Válaszd ki a tetőformát, add meg a méreteket, majd jelöld, mely anyagokat számolja. Az anyagot kiválaszthatod terméklistából vagy kézzel is megadhatod.",
     advancedHelp: ROOF_ADVANCED_HELP,
     fields: [...roofShapeFields, ...birdsmouthFields],
-    calculate: (input, context) => takeoffLines(input, context),
+    calculate: (input, context, contract) => takeoffLines(input, context, contract),
   },
 "roof.timber-cutlist": {
     reference: reference("roof.timber-cutlist"), draw: "roof", note: "Szarufa- és léckiosztás elemenkénti vágáslistával. A hosszak névleges geometriai hosszak, vágási ráhagyás nélkül.",
     advancedHelp: ROOF_ADVANCED_HELP,
     fields: [...roofShapeFields, ...birdsmouthFields],
-    calculate: (input, context) => takeoffLines(input, context && { ...context, requested: { timber: true, underlay: false, covering: false } }),
+    calculate: (input, context, contract) => takeoffLines(input, context && { ...context, requested: { timber: true, underlay: false, covering: false } }, contract),
   },
 "roof.truss-members": {
     reference: reference("roof.truss-members"), draw: "truss", note: "Az egyszerű háromszög burkológeometriája és csomóponti osztása. A belső rácsozatot és a teherbírást nem tervezi.",

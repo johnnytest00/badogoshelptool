@@ -54,6 +54,12 @@ export type MaterialProfile = Readonly<{
   id: string;
   group: MaterialGroup;
   label: string;
+  /** Explicit Anyagkezelő choice for new calculations; ambiguity never falls back to catalog order. */
+  defaultGroup?: MaterialGroup;
+  /** Reconstructed from an immutable saved revision, never a live catalog candidate for new work. */
+  historical?: boolean;
+  /** Why a saved profile is historical: the live row disappeared or its values may have changed. */
+  historicalState?: "unavailable" | "changed";
   /** Catalog provenance as recorded in the Anyagkezelő (weaker of product and variant); `demo` is shown with a conspicuous DEMO marker. */
   verification: MaterialProvenance;
   sourceReference: string;
@@ -64,6 +70,21 @@ export type MaterialProfile = Readonly<{
 
 export type SpecState = Readonly<{ mode: SpecMode; profileId: string | null; entered: Readonly<Record<string, SpecValue>> }>;
 export const initialSpecState = (hasProfiles: boolean): SpecState => ({ mode: hasProfiles ? "product" : "manual", profileId: null, entered: {} });
+
+const PRODUCT_PREFILL_KEYS: Readonly<Record<MaterialGroup, readonly string[]>> = {
+  covering: ["nominalWidthMm", "effectiveCoveringWidthMm", "physicalLengthMm", "usableCoveringLengthMm"],
+  underlay: ["rollWidthMm", "rollLengthMm"],
+  rafter: ["sectionWidthMm", "sectionHeightMm"],
+  batten: ["sectionWidthMm", "sectionHeightMm"],
+};
+
+/** New-work prefill: only one explicit, complete, verified catalog default is safe to select automatically. */
+export function initialSpecStateForGroup(group: MaterialGroup, profiles: readonly MaterialProfile[]): SpecState {
+  const groupProfiles = profiles.filter((profile) => profile.group === group);
+  if (!groupProfiles.length) return initialSpecState(false);
+  const defaults = groupProfiles.filter((profile) => profile.catalog && profile.defaultGroup === group && profile.verification === "verified" && PRODUCT_PREFILL_KEYS[group].every((key) => present(profile.values[key])));
+  return { mode: "product", profileId: defaults.length === 1 ? defaults[0].id : null, entered: {} };
+}
 
 export const MANUAL_REFERENCE = "Felhasználó által megadott kézi adat (nem gyártói)";
 
@@ -207,6 +228,25 @@ export type RoofMaterialSpecSnapshot = Readonly<{
   groups: Readonly<Partial<Record<MaterialGroup, ResolvedSpec>>>;
   gableOverhangs: Readonly<{ front: OverhangInput; rear: OverhangInput }> | null;
 }>;
+
+type HistoricalSpecGroup = Readonly<{
+  group: MaterialGroup;
+  profile: Readonly<{ id: string; label: string; verification: MaterialProvenance; sourceReference: string; catalog: CatalogIdentity | null }> | null;
+  values: Readonly<Record<string, SpecValue>>;
+  productValues: Readonly<Record<string, SpecValue>>;
+}>;
+
+/** Rehydrates the exact catalog values used by a saved revision when its live product is gone or changed. */
+export function historicalProfilesFromSnapshot(groups: Readonly<Partial<Record<MaterialGroup, HistoricalSpecGroup>>>): MaterialProfile[] {
+  return Object.values(groups).flatMap((spec) => {
+    if (!spec?.profile?.catalog) return [];
+    const values = Object.keys(spec.productValues).length > 0 ? spec.productValues : spec.values;
+    return [{
+      id: spec.profile.id, group: spec.group, label: spec.profile.label, verification: spec.profile.verification,
+      sourceReference: spec.profile.sourceReference, catalog: spec.profile.catalog, values, historical: true,
+    } satisfies MaterialProfile];
+  });
+}
 
 export const createSpecSnapshot = (specs: readonly ResolvedSpec[], gableOverhangs: RoofMaterialSpecSnapshot["gableOverhangs"] = null): RoofMaterialSpecSnapshot =>
   ({ schemaVersion: 1, persisted: false, groups: Object.fromEntries(specs.map((spec) => [spec.group, spec])), gableOverhangs });

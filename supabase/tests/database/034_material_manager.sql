@@ -40,6 +40,22 @@ select is((select category::text from public.material_products where id=current_
 select is((select purchasing_unit::text from public.material_variants where id=current_setting('test.manager_variant_id')::uuid), 'strand', 'new ordinary purchasing unit is stored without conversion');
 select is((select amount::text from public.material_prices where variant_id=current_setting('test.manager_variant_id')::uuid), '0.00', 'explicit zero is stored as a price and distinct from no price');
 select is((select purchasing_unit::text from public.material_prices where variant_id=current_setting('test.manager_variant_id')::uuid), 'strand', 'catalog price is tied to the exact variant unit');
+set local role postgres;
+update public.material_manager_product_create_operations set request_payload=request_payload - 'priceSupplier'
+where request_id='00000000-0000-4000-8000-000000979222';
+set local role authenticated;
+select is((select product_id::text from public.create_material_manager_product(
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000979222', current_setting('test.material_category_id')::uuid,
+  'Csatorna 333 mm antracit', 'strand', '0.00', 'net', '2026-10-17'
+)), current_setting('test.manager_product_id'), 'pre-migration idempotency payloads still return their original product');
+select set_config('test.manager_supplier_variant_id', result.variant_id::text, true)
+from public.create_material_manager_product(
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000979227', current_setting('test.material_category_id')::uuid,
+  'DEMO supplier-linked product', 'strand', '3200.00', 'net', '2026-10-17', 'Silver tüzép'
+) result;
+select is((select count(*)::int from public.material_products where id=(select product_id from public.material_variants where id=current_setting('test.manager_supplier_variant_id')::uuid)), 1, 'supplier offer creation keeps one product record');
+select is((select count(*)::int from public.material_price_options where variant_id=current_setting('test.manager_supplier_variant_id')::uuid and label='Silver tüzép' and status='active'), 1, 'initial supplier is stored as one active named offer');
+select is((select source_name from public.material_prices where variant_id=current_setting('test.manager_supplier_variant_id')::uuid), 'Silver tüzép', 'supplier label is snapshotted on its initial price');
 select is((select product_id::text from public.create_material_manager_product(
   '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000979222', current_setting('test.material_category_id')::uuid,
   'Csatorna 333 mm antracit', 'strand', '0.00', 'net', '2026-10-17'
@@ -59,7 +75,8 @@ from public.save_workflow_material_list_revision(
   '00000000-0000-4000-8000-000000000010', null, null, 'DEMO F9.22 anyaglista',
   jsonb_build_array(
     jsonb_build_object('id','00000000-0000-4000-8000-000000979223','kind','catalog','description','Csatorna 333 mm antracit','materialCategory','other','categoryId',current_setting('test.material_category_id'),'quantity','2.5','unit','strand','variantId',current_setting('test.manager_variant_id'),'priceId',null,'manualPriceAmount','','manualPriceKind',null,'sourceRefs',jsonb_build_array()),
-    jsonb_build_object('id','00000000-0000-4000-8000-000000979224','kind','manual','description','DEMO kézi szegély','materialCategory','other','categoryId',null,'quantity','1.25','unit','linear_meter','variantId',null,'priceId',null,'manualPriceAmount','0','manualPriceKind','gross','sourceRefs',jsonb_build_array())
+    jsonb_build_object('id','00000000-0000-4000-8000-000000979224','kind','manual','description','DEMO kézi szegély','materialCategory','other','categoryId',null,'quantity','1.25','unit','linear_meter','variantId',null,'priceId',null,'manualPriceAmount','0','manualPriceKind','gross','sourceRefs',jsonb_build_array()),
+    jsonb_build_object('id','00000000-0000-4000-8000-000000979226','kind','catalog','description','DEMO supplier rafter','materialCategory','other','categoryId',current_setting('test.material_category_id'),'quantity','2','unit','strand','variantId',current_setting('test.manager_supplier_variant_id'),'priceId',(select id::text from public.material_prices where variant_id=current_setting('test.manager_supplier_variant_id')::uuid),'manualPriceAmount','','manualPriceKind',null,'sourceRefs',jsonb_build_array())
   ), 0, '00000000-0000-4000-8000-000000979225'
 ) result;
 select is((select items_snapshot #>> '{0,categoryName}' from public.material_preparation_revisions where id=current_setting('test.material_revision_id')::uuid), 'DEMO csatorna anyag', 'catalog row snapshots the submitted category name');
@@ -67,12 +84,15 @@ select is((select items_snapshot #>> '{0,materialSnapshot,categoryId}' from publ
 select is((select items_snapshot #>> '{1,priceSnapshot,amount}' from public.material_preparation_revisions where id=current_setting('test.material_revision_id')::uuid), '0.00', 'manual explicit zero price is stored with exact decimal precision');
 select is((select items_snapshot #>> '{1,priceSnapshot,priceKind}' from public.material_preparation_revisions where id=current_setting('test.material_revision_id')::uuid), 'gross', 'manual price basis is explicit in the immutable snapshot');
 select is((select items_snapshot #>> '{1,priceSnapshot,purchasingUnit}' from public.material_preparation_revisions where id=current_setting('test.material_revision_id')::uuid), 'linear_meter', 'manual price snapshot retains its matching unit');
+select is((select items_snapshot #>> '{2,priceId}' from public.material_preparation_revisions where id=current_setting('test.material_revision_id')::uuid), (select id::text from public.material_prices where variant_id=current_setting('test.manager_supplier_variant_id')::uuid), 'supplier choice retains the exact selected price id in the material list');
+select is((select items_snapshot #>> '{2,priceSnapshot,sourceName}' from public.material_preparation_revisions where id=current_setting('test.material_revision_id')::uuid), 'Silver tüzép', 'material list snapshot retains the selected supplier label');
 update public.material_categories set name='DEMO átnevezett kategória', is_active=false where id=current_setting('test.material_category_id')::uuid;
 select is((select list_id::text from public.save_workflow_material_list_revision(
   '00000000-0000-4000-8000-000000000010', null, null, 'DEMO F9.22 anyaglista',
   jsonb_build_array(
     jsonb_build_object('id','00000000-0000-4000-8000-000000979223','kind','catalog','description','Csatorna 333 mm antracit','materialCategory','other','categoryId',current_setting('test.material_category_id'),'quantity','2.5','unit','strand','variantId',current_setting('test.manager_variant_id'),'priceId',null,'manualPriceAmount','','manualPriceKind',null,'sourceRefs',jsonb_build_array()),
-    jsonb_build_object('id','00000000-0000-4000-8000-000000979224','kind','manual','description','DEMO kézi szegély','materialCategory','other','categoryId',null,'quantity','1.25','unit','linear_meter','variantId',null,'priceId',null,'manualPriceAmount','0','manualPriceKind','gross','sourceRefs',jsonb_build_array())
+    jsonb_build_object('id','00000000-0000-4000-8000-000000979224','kind','manual','description','DEMO kézi szegély','materialCategory','other','categoryId',null,'quantity','1.25','unit','linear_meter','variantId',null,'priceId',null,'manualPriceAmount','0','manualPriceKind','gross','sourceRefs',jsonb_build_array()),
+    jsonb_build_object('id','00000000-0000-4000-8000-000000979226','kind','catalog','description','DEMO supplier rafter','materialCategory','other','categoryId',current_setting('test.material_category_id'),'quantity','2','unit','strand','variantId',current_setting('test.manager_supplier_variant_id'),'priceId',(select id::text from public.material_prices where variant_id=current_setting('test.manager_supplier_variant_id')::uuid),'manualPriceAmount','','manualPriceKind',null,'sourceRefs',jsonb_build_array())
   ), 0, '00000000-0000-4000-8000-000000979225'
 )), current_setting('test.material_list_id'), 'lost-response retry returns its saved list after category deactivation');
 select is((select items_snapshot #>> '{0,categoryName}' from public.material_preparation_revisions where id=current_setting('test.material_revision_id')::uuid), 'DEMO csatorna anyag', 'category rename does not rewrite a historical material-list snapshot');

@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { emptyQuotationDocumentDraft, validateQuotationDocumentReadiness } from "./document-readiness";
+import { defaultQuotationValidityDate, emptyQuotationDocumentDraft, validateQuotationDocumentReadiness } from "./document-readiness";
 
 const issuer = { businessName: "DEMO Műhely", businessAddress: "DEMO cím", contactEmail: null, contactPhone: null, taxIdentifier: null };
 const complete = { ...emptyQuotationDocumentDraft(), recipientName: "DEMO címzett", recipientAddress: "DEMO cím" };
 const financial = { hasCurrentRevision: true, hasCompleteLines: true, monetaryValuesConsistent: true, currency: "HUF", priceBasis: "net" as const, taxTreatment: "unresolved" as const };
 
 describe("standalone quotation document readiness", () => {
+  it.each([
+    [new Date(2026, 10, 5, 12), "2026-12-05"],
+    [new Date(2026, 11, 15, 12), "2027-01-14"],
+    [new Date("2026-11-05T23:30:00.000Z"), "2026-12-06"],
+  ])("defaults validity to 30 calendar days after the start date", (today, expected) => {
+    expect(defaultQuotationValidityDate(today)).toBe(expected);
+  });
+
   it("accepts complete draft metadata but never says it can be issued", () => {
     const result = validateQuotationDocumentReadiness(issuer, complete, "2026-10-14", financial);
     expect(result.status).toBe("valid_draft");

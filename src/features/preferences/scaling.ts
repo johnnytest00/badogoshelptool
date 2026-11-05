@@ -6,10 +6,11 @@ export const scalingDefaults = {
   ui: 115,
   drawing: 100,
   spacing: 100,
+  mobileStickyEnabled: true,
 } as const;
 
-export type ScalingKey = keyof typeof scalingDefaults;
-export type ScalingPreferences = Record<ScalingKey, number>;
+export type ScalingKey = Exclude<keyof typeof scalingDefaults, "mobileStickyEnabled">;
+export type ScalingPreferences = Record<ScalingKey, number> & { mobileStickyEnabled: boolean };
 
 export const scalingRanges: Record<ScalingKey, { min: number; max: number; step: number }> = {
   text: { min: 80, max: 200, step: 10 },
@@ -33,13 +34,14 @@ export function parseScalingPreferences(raw: string | null): ScalingPreferences 
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return { ...scalingDefaults };
-    const candidate = parsed as Partial<Record<ScalingKey, unknown>> & { version?: unknown };
+    const candidate = parsed as Partial<Record<ScalingKey, unknown>> & { version?: unknown; mobileStickyEnabled?: unknown };
     if (candidate.version !== scalingVersion) return { ...scalingDefaults };
     return {
       text: clampScalingValue("text", candidate.text),
       ui: clampScalingValue("ui", candidate.ui),
       drawing: clampScalingValue("drawing", candidate.drawing),
       spacing: clampScalingValue("spacing", candidate.spacing),
+      mobileStickyEnabled: typeof candidate.mobileStickyEnabled === "boolean" ? candidate.mobileStickyEnabled : true,
     };
   } catch {
     return { ...scalingDefaults };

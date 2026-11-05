@@ -6,6 +6,7 @@ export type CatalogVariantInput = Readonly<{ id: string; name: string; sku: stri
 export type CatalogProductInput = Readonly<{ id: string; name: string; manufacturerName: string | null; category: string; categoryId: string; categoryName: string; categoryActive: boolean; status: string; provenance: MaterialProvenance; sourceName: string | null; variants: readonly CatalogVariantInput[] }>;
 
 const GROUPS: readonly MaterialGroup[] = ["covering", "underlay", "rafter", "batten"];
+const materialGroup = (value: string | undefined): MaterialGroup | undefined => GROUPS.find((group) => group === value);
 /** Technical category (legacy enum) → groups whose general dimensions (width/length columns) may be read. Every product stays selectable in every group. */
 const DIMENSION_CATEGORIES: Readonly<Record<MaterialGroup, readonly string[]>> = { covering: ["roof_covering", "sheet_metal"], underlay: [], rafter: [], batten: [] };
 const FITTING_CATEGORIES: Readonly<Record<MaterialGroup, readonly string[]>> = { covering: ["roof_covering", "sheet_metal"], underlay: ["insulation"], rafter: ["timber"], batten: ["timber"] };
@@ -34,6 +35,7 @@ export function catalogProfilesFromProducts(products: readonly CatalogProductInp
       const variantSource = variant.sourceName ?? product.sourceName;
       return {
         id: variant.id, group, label: source, verification: weakest(product.provenance, variant.provenance),
+        defaultGroup: materialGroup(variant.technicalSpecs.roof_calculator_default_group),
         sourceReference: `Anyagkezelő: ${source}${variantSource ? ` (forrás: ${variantSource})` : ""}`,
         catalog: { productId: product.id, variantId: variant.id, productName: product.name, variantName: variant.name, manufacturerName: product.manufacturerName, sku: variant.sku, purchasingUnit: variant.purchasingUnit, categoryId: product.categoryId, categoryName: product.categoryName, categoryMatch: FITTING_CATEGORIES[group].includes(product.category) },
         values: valuesFor(group, product.category, variant),

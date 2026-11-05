@@ -1,5 +1,7 @@
+// @vitest-environment jsdom
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { WorkflowMaterialListSurveyContext } from "./workflow-material-list-editor";
 import type { MaterialPreparationList } from "./material-preparation-data";
@@ -20,7 +22,7 @@ vi.mock("@/components/feedback/app-interaction-provider", () => ({
   useUnsavedChangeGuard: vi.fn(),
 }));
 
-import { calculateMaterialLineTotal, WorkflowMaterialListEditor } from "./workflow-material-list-editor";
+import { calculateMaterialLineTotal, listProductOptions, WorkflowMaterialListEditor } from "./workflow-material-list-editor";
 
 const surveySource: WorkflowMaterialListSurveyContext = {
   surveyId: "00000000-0000-4000-8000-000000000001",
@@ -45,6 +47,88 @@ describe("material line totals", () => {
     expect(calculateMaterialLineTotal("1.1234567", 120.4)).toBeNull();
     expect(calculateMaterialLineTotal("2", -1)).toBeNull();
     expect(calculateMaterialLineTotal("2", 0)).toBe(0);
+  });
+});
+
+describe("supplier-aware material options", () => {
+  it("shows distinct supplier offers for one variant without duplicating its product identity", () => {
+    const product = {
+      id: "product", organizationId: "org", manufacturerId: null, manufacturerName: "Gyártó", category: "timber" as const, categoryId: "category", categoryName: "Faanyag", categoryActive: true,
+      name: "Szarufa", description: null, productCode: null, status: "active" as const, provenance: "user_provided" as const, sourceName: null, sourceUrl: null, sourceDate: null, sourceNotes: null, createdAt: "", updatedAt: "",
+      variants: [{
+        id: "variant", productId: "product", name: "75×200×5000 mm", sku: null, purchasingUnit: "strand" as const, nominalWidthMm: 75, effectiveWidthMm: null, thicknessMm: null, lengthMm: 5000, packagingQuantity: null, technicalSpecs: {}, provenance: "user_provided" as const, sourceName: null, sourceUrl: null, sourceDate: null, sourceNotes: null,
+        prices: ["price-a", "price-b"].map((id, index) => ({ id, optionId: `option-${index}`, amount: 3500 + index, currency: "HUF", purchasingUnit: "strand" as const, priceKind: "net" as const, priceSource: null, effectiveDate: "2026-11-04", recordedAt: "2026-11-04T00:00:00Z", provenance: "user_provided" as const, sourceName: index ? "Kocsis Tüzép" : "Silver tüzép", sourceUrl: null, sourceDate: null, sourceNotes: null })),
+        priceOptions: ["Silver tüzép", "Kocsis Tüzép"].map((label, index) => ({ id: `option-${index}`, label, status: "active" as const, prices: [], current: { id: `price-${index ? "b" : "a"}`, optionId: `option-${index}`, amount: 3500 + index, currency: "HUF", purchasingUnit: "strand" as const, priceKind: "net" as const, priceSource: null, effectiveDate: "2026-11-04", recordedAt: "2026-11-04T00:00:00Z", provenance: "user_provided" as const, sourceName: label, sourceUrl: null, sourceDate: null, sourceNotes: null } })), latestPrice: null,
+      }],
+    };
+    const offers = listProductOptions([product], "category", false);
+    expect(offers).toHaveLength(2);
+    expect(new Set(offers.map((offer) => offer.id)).size).toBe(2);
+    expect(offers.map(({ name }) => name)).toEqual(["Szarufa · 75×200×5000 mm", "Szarufa · 75×200×5000 mm"]);
+    expect(offers.map(({ detail }) => detail)).toEqual(["Silver tüzép · szál", "Kocsis Tüzép · szál"]);
+  });
+});
+
+describe("material list editor layout", () => {
+  it("moves the editable manual price basis to the subtotal and defaults unspecified prices to gross", () => {
+    const list = {
+      id: "00000000-0000-4000-8000-000000000025", projectId: null, executionPlanId: null,
+      name: "DEMO lista", version: 1, updatedAt: "2026-11-05T00:00:00Z", currentRevisionId: "revision",
+      currentRevision: { id: "revision", revisionNumber: 1, state: "preliminary", sourceTakeoffs: [], createdAt: "", staleTakeoffIds: [], items: [
+        { id: "net-item", kind: "manual", description: "Nettó tétel", quantity: "2", unit: "piece", materialCategory: "timber", manualPriceAmount: "150", manualPriceKind: "net" },
+        { id: "default-item", kind: "manual", description: "Alapértelmezett tétel", quantity: "2", unit: "piece", materialCategory: "timber", manualPriceAmount: "100" },
+      ] },
+      history: [],
+    } as unknown as MaterialPreparationList;
+    const html = renderToStaticMarkup(createElement(WorkflowMaterialListEditor, {
+      organizationId: "00000000-0000-4000-8000-000000000009", products: [], plans: [], categories: [], list,
+    }));
+    expect(html).toMatch(/Részösszeg[\s\S]*aria-label="Nettó tétel részösszegének ár típusa"[\s\S]*<option value="net" selected="">Nettó<\/option>/);
+    expect(html).toMatch(/Részösszeg[\s\S]*aria-label="Alapértelmezett tétel részösszegének ár típusa"[\s\S]*<option value="gross" selected="">Bruttó<\/option>/);
+    expect(html).not.toContain("árának alapja");
+  });
+
+  it("saves the chosen net or gross basis with the editable item", () => {
+    const list = {
+      id: "00000000-0000-4000-8000-000000000025", projectId: null, executionPlanId: null,
+      name: "DEMO lista", version: 1, updatedAt: "2026-11-05T00:00:00Z", currentRevisionId: "revision",
+      currentRevision: { id: "revision", revisionNumber: 1, state: "preliminary", sourceTakeoffs: [], createdAt: "", staleTakeoffIds: [], items: [
+        { id: "item", kind: "manual", description: "Szarufa", quantity: "2", unit: "piece", materialCategory: "timber", manualPriceAmount: "150" },
+      ] },
+      history: [],
+    } as unknown as MaterialPreparationList;
+    const { container, getByLabelText } = render(createElement(WorkflowMaterialListEditor, {
+      organizationId: "00000000-0000-4000-8000-000000000009", products: [], plans: [], categories: [], list,
+    }));
+    const kind = getByLabelText("Szarufa részösszegének ár típusa") as HTMLSelectElement;
+    expect(kind.value).toBe("gross");
+    fireEvent.change(kind, { target: { value: "net" } });
+    const items = JSON.parse(container.querySelector<HTMLInputElement>('input[name="items"]')!.value) as Array<{ manualPriceKind?: string }>;
+    expect(items[0]?.manualPriceKind).toBe("net");
+  });
+
+  it("keeps the editor name, item rows, and add form inside one work surface", () => {
+    const list = {
+      id: "00000000-0000-4000-8000-000000000025", projectId: null, executionPlanId: null,
+      name: "DEMO lista", version: 1, updatedAt: "2026-11-05T00:00:00Z", currentRevisionId: "revision",
+      currentRevision: { id: "revision", revisionNumber: 1, state: "preliminary", sourceTakeoffs: [], createdAt: "", staleTakeoffIds: [], items: [{ id: "item", kind: "manual", description: "Szarufa", quantity: "2", unit: "piece", materialCategory: "timber" }] },
+      history: [],
+    } as unknown as MaterialPreparationList;
+    const html = renderToStaticMarkup(createElement(WorkflowMaterialListEditor, {
+      organizationId: "00000000-0000-4000-8000-000000000009", products: [], plans: [], categories: [], list,
+    }));
+    expect(html).toContain('<section class="workflow-material-work-surface">');
+    expect(html).toMatch(/<h1[^>]*>Anyaglista<\/h1>/);
+    expect(html).toContain('value="DEMO lista"');
+    expect(html).toMatch(/class="workflow-material-work-surface">[\s\S]*class="workflow-material-meta"[\s\S]*class="workflow-material-add-panel"[\s\S]*class="workflow-material-lines"/);
+    expect(html.indexOf('class="workflow-material-add-panel"')).toBeGreaterThan(html.indexOf('class="workflow-material-meta"'));
+    expect(html.indexOf('class="workflow-material-add-panel"')).toBeLessThan(html.indexOf('class="workflow-material-lines"'));
+    expect(html).toContain('aria-label="Szarufa megnevezése"');
+    expect(html).toContain('aria-label="Szarufa mennyisége"');
+    expect(html).toContain('aria-label="Szarufa eltávolítása"');
+    expect(html).not.toContain('class="glass-bubble workflow-material-meta"');
+    expect(html).not.toContain('class="glass-bubble workflow-material-lines"');
+    expect(html).not.toContain('class="glass-bubble workflow-material-add-panel"');
   });
 });
 
@@ -132,17 +216,43 @@ describe("survey material list editor", () => {
     } as unknown as MaterialPreparationList;
     const html = renderToStaticMarkup(createElement(WorkflowMaterialListEditor, {
       organizationId: "00000000-0000-4000-8000-000000000009", products: [], plans: [], categories: [], list,
-      quotations: [{ quotationId: "00000000-0000-4000-8000-000000000018", name: "DEMO ajánlat", status: "draft", sourceListVersion: 2, currentListVersion: 2, createdAt: "" }],
       planLinks: [{ linkId: "00000000-0000-4000-8000-000000000019", planId: "00000000-0000-4000-8000-000000000020", planTitle: "DEMO munkanapló", origin: "link" }],
     }));
     // M5: the retired survey page is no longer linked; the exact source identity stays visible.
     expect(html).not.toContain("/felmeresek/");
     expect(html).toContain(`Felmérés: ${surveySource.surveyId}`);
-    expect(html).toContain("/ajanlatok/00000000-0000-4000-8000-000000000018");
-    expect(html).toContain("Újabb piszkozat ugyanebből");
-    expect(html).not.toContain("Árajánlat-piszkozat készítése");
+    expect(html).not.toContain("/ajanlatok/00000000-0000-4000-8000-000000000018");
+    expect(html).not.toContain("Újabb piszkozat ugyanebből");
+    expect(html).toContain("Árajánlat létrehozása");
+    expect(html).not.toContain("Önálló lista · a munkanapló-kapcsolat opcionális");
+    expect(html).not.toContain("Nincs munkanaplóhoz kapcsolva");
+    expect(html).not.toContain("<strong>Munkanapló</strong>");
+    expect(html).toMatch(/class="secondary-button plan-link-open is-compact"[^>]*><svg[^>]*aria-hidden="true"/);
+    expect(html).toContain('<span class="survey-optional-badge">Opcionális</span>');
+    expect(html).not.toContain("Anyagkimutatás");
+    expect(html).not.toContain("Új tétel</p>");
+    expect(html).toMatch(/class="secondary-button workflow-material-quotation-button"[^>]*><svg[^>]*aria-hidden="true"/);
     expect(html).toContain("/kivitelezes/00000000-0000-4000-8000-000000000020");
     expect(html).toContain("Leválasztás");
     expect(html).toContain("Munkanaplóhoz csatolás");
+  });
+
+  it("keeps quote drafts and work log controls below the material list instead of above it", () => {
+    const list = {
+      id: "00000000-0000-4000-8000-000000000025", projectId: null, executionPlanId: null,
+      name: "DEMO lista", version: 1, updatedAt: "2026-11-05T00:00:00Z", currentRevisionId: "revision",
+      currentRevision: { id: "revision", revisionNumber: 1, state: "preliminary", sourceTakeoffs: [], createdAt: "", staleTakeoffIds: [], items: [{ id: "item", kind: "manual", description: "Szarufa", quantity: "2", unit: "piece", materialCategory: "timber" }] },
+      history: [],
+    } as unknown as MaterialPreparationList;
+    const html = renderToStaticMarkup(createElement(WorkflowMaterialListEditor, {
+      organizationId: "00000000-0000-4000-8000-000000000009", products: [], plans: [], categories: [], list,
+      planLinks: [],
+    }));
+    const listSummary = html.indexOf('aria-label="Anyaglista árösszesítés"');
+    expect(listSummary).toBeGreaterThan(-1);
+    expect(html.indexOf('aria-label="Munkanapló kapcsolat"')).toBeGreaterThan(listSummary);
+    expect(html.indexOf("Árajánlat létrehozása")).toBeGreaterThan(listSummary);
+    expect(html).not.toContain("Újabb piszkozat ugyanebből");
+    expect(html).not.toContain("Ajánlat-piszkozat ebből a listaváltozatból");
   });
 });

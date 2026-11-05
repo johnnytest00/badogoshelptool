@@ -11,5 +11,5 @@ export async function AppNavigation() {
   const auth = await getAuthContext();
   if (!auth) return null;
   const organizationId = auth.organizations.length === 1 ? auth.organizations[0].id : null;
-  return <Suspense fallback={null}><AppNavigationLinks organizationId={organizationId} /></Suspense>;
+  return <Suspense fallback={null}><AppNavigationLinks displayName={auth.displayName} email={auth.email} organizations={auth.organizations} organizationId={organizationId} /></Suspense>;
 }

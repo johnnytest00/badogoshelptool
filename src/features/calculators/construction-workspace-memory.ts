@@ -21,3 +21,9 @@ export const workspaceKey = (userId: string, organizationId: string, calculation
 export const rememberedWorkspace = (key: string) => workspaces.get(key);
 export const rememberWorkspace = (key: string, workspace: ConstructionWorkspace) => { workspaces.set(key, workspace); };
 export const forgetWorkspace = (key: string) => { workspaces.delete(key); };
+
+export function discardLengthDraftsForFields(drafts: Record<string, Record<string, LengthFieldState>>, calculatorId: string, fieldKeys: readonly string[]) {
+  const next = { ...drafts[calculatorId] };
+  for (const key of fieldKeys) delete next[key];
+  return { ...drafts, [calculatorId]: next };
+}

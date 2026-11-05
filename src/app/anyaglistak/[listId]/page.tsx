@@ -5,7 +5,6 @@ import { getProjectOrganization } from "@/features/projects/organization";
 import { getMaterialCategories, getMaterialProductPage, getMaterialProductsForVariantIds } from "@/features/materials/material-data";
 import { getExecutionPlanOptionsForOrganization } from "@/features/execution/execution-data";
 import { getWorkflowMaterialLists } from "@/features/material-takeoffs/material-preparation-data";
-import { getQuotationsForMaterialLists } from "@/features/material-takeoffs/material-list-links";
 import { getPlanLinksForDocument } from "@/features/execution/execution-document-links";
 import { getListTakeoffSource } from "@/features/material-takeoffs/takeoff-list-link";
 import { WorkflowMaterialListEditor } from "@/features/material-takeoffs/workflow-material-list-editor";
@@ -24,8 +23,7 @@ export default async function MaterialListPage({ params, searchParams }: Readonl
   const savedVariantIds = (list.currentRevision?.items ?? []).flatMap((item) => typeof item.variantId === "string" ? [item.variantId] : []);
   const savedProducts = await getMaterialProductsForVariantIds(organizationId, savedVariantIds);
   const products = [...new Map([...productPage.products, ...savedProducts].map((product) => [product.id, product])).values()];
-  const quotations = (await getQuotationsForMaterialLists(organizationId, [list.id])).get(list.id) ?? [];
   const planLinks = await getPlanLinksForDocument(organizationId, "material_list", list.id, list.executionPlanId);
   const takeoffSource = await getListTakeoffSource(organizationId, list.id);
-  return <WorkflowMaterialListEditor key={`${list.id}:${list.currentRevisionId ?? "new"}`} organizationId={organizationId} products={products} plans={plans} categories={categories} list={list} quotations={quotations} planLinks={planLinks} takeoffSource={takeoffSource} />;
+  return <WorkflowMaterialListEditor key={`${list.id}:${list.currentRevisionId ?? "new"}`} organizationId={organizationId} products={products} plans={plans} categories={categories} list={list} planLinks={planLinks} takeoffSource={takeoffSource} />;
 }

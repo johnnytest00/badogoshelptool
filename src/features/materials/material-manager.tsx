@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, Check, Pencil, Plus, Search } from "lucide-react";
+import { Archive, Check, ChevronDown, Pencil, Plus, Search } from "lucide-react";
 import { GuardedLink as Link } from "@/components/navigation/guarded-link";
 import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { GlassSectionHeader } from "@/components/ui/glass-section-header";
@@ -39,13 +39,15 @@ export function MaterialManager({
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const productDialogRef = useRef<HTMLDialogElement>(null);
+  const categoryFilterDialogRef = useRef<HTMLDialogElement>(null);
   const [dialog, setDialog] = useState<CategoryDialog>(null);
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[] | null>(null);
+  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [pageData, setPageData] = useState(initialPage);
   const [page, setPage] = useState(1);
@@ -59,14 +61,14 @@ export function MaterialManager({
     setLoading(true); setLoadError("");
     const timer = window.setTimeout(async () => {
       try {
-        const result = await searchMaterialProductsAction(organizationId, { search: productSearch, categoryId: selectedCategoryId ?? undefined, includeArchived: showArchived, page });
+        const result = await searchMaterialProductsAction(organizationId, { search: productSearch, categoryIds: selectedCategoryIds ?? undefined, includeArchived: showArchived, page });
         if (!cancelled) setPageData(result);
       } catch {
         if (!cancelled) setLoadError("A terméklista betöltése nem sikerült.");
       } finally { if (!cancelled) setLoading(false); }
     }, productSearch ? 250 : 0);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [organizationId, productSearch, selectedCategoryId, showArchived, page, initialPage]);
+  }, [organizationId, productSearch, selectedCategoryIds, showArchived, page, initialPage]);
 
   useEffect(() => {
     const dialogElement = dialogRef.current;
@@ -88,9 +90,32 @@ export function MaterialManager({
     if (!productDialogOpen && dialogElement.open) dialogElement.close();
   }, [productDialogOpen]);
 
+  useEffect(() => {
+    const dialogElement = categoryFilterDialogRef.current;
+    if (!dialogElement) return;
+    if (categoryFilterOpen && !dialogElement.open) dialogElement.showModal();
+    if (!categoryFilterOpen && dialogElement.open) dialogElement.close();
+  }, [categoryFilterOpen]);
+
   const activeCategories = useMemo(() => categories.filter((category) => category.isActive), [categories]);
   const visibleCategories = useMemo(() => categories.filter((category) => category.name.toLocaleLowerCase("hu-HU").includes(categorySearch.trim().toLocaleLowerCase("hu-HU"))), [categories, categorySearch]);
   const visibleProducts = pageData.products;
+  const allCategoriesSelected = selectedCategoryIds === null;
+  const selectedCategoryCount = selectedCategoryIds?.length ?? activeCategories.length;
+
+  function setAllCategoriesSelected(checked: boolean) {
+    setSelectedCategoryIds(checked ? null : []);
+    setPage(1);
+  }
+
+  function setCategorySelected(categoryId: string, checked: boolean) {
+    const selected = new Set(selectedCategoryIds ?? activeCategories.map((category) => category.id));
+    if (checked) selected.add(categoryId);
+    else selected.delete(categoryId);
+    const next = [...selected];
+    setSelectedCategoryIds(next.length === activeCategories.length ? null : next);
+    setPage(1);
+  }
 
   function saveCategory(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -135,14 +160,10 @@ export function MaterialManager({
   return <div className="dashboard-shell"><div className="dashboard-container materials-workspace material-manager-workspace">
     <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
     <GlassPageHeader title="Anyagkezelő" context="Kategóriák, termékek, egységek és árak" actions={<>
+      <button className="material-manager-category-trigger" type="button" aria-haspopup="dialog" aria-expanded={categoryFilterOpen} onClick={() => setCategoryFilterOpen(true)}>{allCategoriesSelected ? "Minden kategória" : selectedCategoryCount === 0 ? "Nincs kategória" : `${selectedCategoryCount} kategória`}<ChevronDown aria-hidden="true" /></button>
       <button className="secondary-button" type="button" onClick={() => { setFeedback(""); setDialog({ mode: "create" }); }}><Plus className="size-4" /> Új kategória</button>
       <button className="primary-button" type="button" onClick={() => setProductDialogOpen(true)}><Plus className="size-4" /> Új termék</button>
     </>} />
-
-    <nav className="material-manager-categories" aria-label="Termékkategóriák">
-      <button className={selectedCategoryId === null ? "is-selected" : ""} type="button" aria-pressed={selectedCategoryId === null} onClick={() => { setSelectedCategoryId(null); setPage(1); }}>Minden kategória</button>
-      {activeCategories.map((category) => <button className={selectedCategoryId === category.id ? "is-selected" : ""} key={category.id} type="button" aria-pressed={selectedCategoryId === category.id} onClick={() => { setSelectedCategoryId(category.id); setPage(1); }}>{category.name}</button>)}
-    </nav>
 
     <section className="material-manager-catalog" aria-labelledby="material-manager-products-title">
       <GlassSectionHeader id="material-manager-products-title" title="Termékek" actions={<span>{pageData.total} találat</span>} />
@@ -174,7 +195,7 @@ export function MaterialManager({
           {!product.categoryActive && <p className="material-manager-inactive-note">A kategória inaktív; a termék és előzmények megmaradtak.</p>}
           <ProductStatusForm organizationId={organizationId} product={product} />
         </article>)}</div>
-      </> : !loading && <div className="empty-state"><span className="empty-state-icon"><Search className="size-5" /></span><div><h3>{pageData.total === 0 && !productSearch && !selectedCategoryId ? "Még nincs termék a katalógusban" : "Nincs találat"}</h3><p>{pageData.total === 0 && !productSearch && !selectedCategoryId ? "Hozd létre az első terméket, és add meg az egységét." : "Módosítsd a keresést vagy válassz másik kategóriát."}</p></div>{pageData.total === 0 && !productSearch && !selectedCategoryId && <button className="primary-button" type="button" onClick={() => setProductDialogOpen(true)}><Plus className="size-4" /> Új termék</button>}</div>}
+      </> : !loading && <div className="empty-state"><span className="empty-state-icon"><Search className="size-5" /></span><div><h3>{pageData.total === 0 && !productSearch && allCategoriesSelected ? "Még nincs termék a katalógusban" : "Nincs találat"}</h3><p>{pageData.total === 0 && !productSearch && allCategoriesSelected ? "Hozd létre az első terméket, és add meg az egységét." : "Módosítsd a keresést vagy válassz másik kategóriát."}</p></div>{pageData.total === 0 && !productSearch && allCategoriesSelected && <button className="primary-button" type="button" onClick={() => setProductDialogOpen(true)}><Plus className="size-4" /> Új termék</button>}</div>}
       {pageData.total > pageData.pageSize && <nav aria-label="Termékoldalak" className="material-manager-pagination"><button type="button" className="secondary-button" disabled={loading || page <= 1} onClick={() => setPage(page - 1)}>Előző</button><span>{page}. oldal / {Math.ceil(pageData.total / pageData.pageSize)}</span><button type="button" className="secondary-button" disabled={loading || !pageData.hasNext} onClick={() => setPage(page + 1)}>Következő</button></nav>}
     </section>
 
@@ -188,6 +209,16 @@ export function MaterialManager({
       {visibleCategories.length === 0 && <p className="missing-data">Nincs ilyen kategória.</p>}
       <p className="missing-data">A kategória inaktiválása nem törli a termékeket vagy a korábbi listák és ajánlatok adatait.</p>
     </details>
+    <dialog ref={categoryFilterDialogRef} className="material-manager-dialog material-manager-category-filter-dialog" aria-labelledby="material-manager-category-filter-title" onCancel={() => setCategoryFilterOpen(false)} onClose={() => setCategoryFilterOpen(false)}>
+      <div className="material-manager-dialog-form">
+        <div className="material-manager-dialog-heading"><h2 id="material-manager-category-filter-title">Szűrés kategória szerint</h2><button className="material-manager-dialog-close" type="button" onClick={() => setCategoryFilterOpen(false)} aria-label="Bezárás">×</button></div>
+        <div className="material-manager-filter-options">
+          <label><input type="checkbox" checked={allCategoriesSelected} onChange={(event) => setAllCategoriesSelected(event.target.checked)} /><span>Mind</span></label>
+          {activeCategories.map((category) => <label key={category.id}><input type="checkbox" checked={selectedCategoryIds === null || selectedCategoryIds.includes(category.id)} onChange={(event) => setCategorySelected(category.id, event.target.checked)} /><span>{category.name}</span></label>)}
+        </div>
+        <div className="material-manager-dialog-actions"><button className="primary-button" type="button" onClick={() => setCategoryFilterOpen(false)}>Kész</button></div>
+      </div>
+    </dialog>
     {feedback && <p className="form-message" role="status">{feedback}</p>}
 
     <details className="material-manager-category-settings material-manager-manufacturers">
@@ -197,7 +228,7 @@ export function MaterialManager({
 
     <dialog ref={dialogRef} className="material-manager-dialog" aria-labelledby="material-manager-dialog-title" onCancel={(event) => { event.preventDefault(); setDialog(null); }} onClose={() => setDialog(null)}>
       <form className="material-manager-dialog-form" onSubmit={saveCategory}>
-        <div className="material-manager-dialog-heading"><div><p className="section-eyebrow">Kategóriák</p><h2 id="material-manager-dialog-title">{editCategory ? "Kategória átnevezése" : "Új kategória"}</h2></div><button className="material-manager-dialog-close" type="button" onClick={() => setDialog(null)} aria-label="Bezárás">×</button></div>
+        <div className="material-manager-dialog-heading"><h2 id="material-manager-dialog-title">{editCategory ? "Kategória átnevezése" : "Új kategória"}</h2><button className="material-manager-dialog-close" type="button" onClick={() => setDialog(null)} aria-label="Bezárás">×</button></div>
         <input type="hidden" name="organizationId" value={organizationId} />
         {editCategory && <input type="hidden" name="categoryId" value={editCategory.id} />}
         <label className="material-field"><span>Kategória neve <strong>Kötelező</strong></span><input name="name" defaultValue={editCategory?.name ?? ""} autoFocus required maxLength={100} /></label>
@@ -206,7 +237,7 @@ export function MaterialManager({
       </form>
     </dialog>
     <dialog ref={productDialogRef} className="material-manager-dialog material-manager-product-dialog" aria-labelledby="material-manager-product-dialog-title" onCancel={(event) => { event.preventDefault(); setProductDialogOpen(false); }} onClose={() => setProductDialogOpen(false)}>
-      <div className="material-manager-dialog-form"><div className="material-manager-dialog-heading"><div><p className="section-eyebrow">Anyagkezelő</p><h2 id="material-manager-product-dialog-title">Új termék</h2></div><button className="material-manager-dialog-close" type="button" onClick={() => setProductDialogOpen(false)} aria-label="Bezárás">×</button></div>
+      <div className="material-manager-dialog-form"><div className="material-manager-dialog-heading"><h2 id="material-manager-product-dialog-title">Új termék</h2><button className="material-manager-dialog-close" type="button" onClick={() => setProductDialogOpen(false)} aria-label="Bezárás">×</button></div>
         <MaterialManagerProductForm organizationId={organizationId} categories={activeCategories} onCreated={() => { setProductDialogOpen(false); router.refresh(); }} />
       </div>
     </dialog>

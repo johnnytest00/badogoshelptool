@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { DEMO_MATERIAL_PROFILES, type MaterialProfile } from "@/domain/calculations/roof-material-spec";
+import { DEMO_MATERIAL_PROFILES, historicalProfilesFromSnapshot, type MaterialProfile } from "@/domain/calculations/roof-material-spec";
 import { getAuthContext } from "@/features/auth/auth.server";
 import { loadConstructionCalculatorDefinition } from "@/features/calculators/construction-calculator-loading";
 import {
@@ -10,7 +10,7 @@ import {
   isSaveableConstructionCalculator, materialStateFromSnapshot, usesMaterialInputs,
 } from "@/features/calculators/construction-computation";
 import { getCalculatorMaterialProfiles } from "@/features/materials/material-data";
-import { listRafterCutTransferSources, listRoofShapeTransferSources, type RafterCutTransferSourcesResult, type RoofShapeTransferSourcesResult } from "./construction-data";
+import { getConstructionCalculation, listRafterCutTransferSources, listRoofShapeTransferSources, type RafterCutTransferSourcesResult, type RoofShapeTransferSourcesResult } from "./construction-data";
 import { persistStandaloneConstructionCalculation } from "@/infrastructure/supabase/construction-calculation-writer";
 
 const saveSchema = z.object({
@@ -28,13 +28,14 @@ export async function listRafterCutTransferSourcesAction(organizationId: string)
 }
 
 /**
- * M10.2: saved roof.material-takeoff/roof.timber-cutlist calculations offered for "Adatok átvétele" in the other
- * of those two, or in roof.rafter-cut. `excludeCalculatorId` is the target calculator itself (so it never offers
- * itself as its own source); omit it when the target is roof.rafter-cut, which isn't one of the two source types.
+ * M10.2: saved roof.material-takeoff/roof.timber-cutlist calculations offered for "Adatok átvétele" in either of
+ * those two, or in roof.rafter-cut. P3.3c/D1: `excludeCalculationId` is the calculation being edited, so the same
+ * calculator type stays a valid source; a malformed id is ignored rather than failing the whole list.
  */
-export async function listRoofShapeTransferSourcesAction(organizationId: string, excludeCalculatorId?: "roof.material-takeoff" | "roof.timber-cutlist"): Promise<RoofShapeTransferSourcesResult> {
+export async function listRoofShapeTransferSourcesAction(organizationId: string, excludeCalculationId?: string): Promise<RoofShapeTransferSourcesResult> {
   if (!z.string().uuid().safeParse(organizationId).success) return { ok: false };
-  return listRoofShapeTransferSources(organizationId, excludeCalculatorId);
+  const exclude = excludeCalculationId && z.string().uuid().safeParse(excludeCalculationId).success ? excludeCalculationId : undefined;
+  return listRoofShapeTransferSources(organizationId, exclude);
 }
 
 export type ConstructionSaveResult = { ok: true; calculationId: string; revisionId: string; revisionNumber: number } | { ok: false; error: string; conflict?: boolean };
@@ -51,9 +52,15 @@ export async function saveConstructionCalculationAction(raw: unknown): Promise<C
 
   const definition = await loadConstructionCalculatorDefinition(calculatorId);
   if (!definition) return { ok: false, error: "Ez a kalkulátor még nem menthető." };
+  if (!request.input.geometryContractVersion) return { ok: false, error: "A mérési szerződés hiányzik; töltsd be újra a kalkulációt." };
   const knownKeys = new Set(definition.fields.map((field) => field.key));
   if (Object.keys(request.input.fields).some((key) => !knownKeys.has(key))) return { ok: false, error: "A kalkuláció ismeretlen mezőt tartalmaz." };
   if (usesMaterialInputs(calculatorId) !== (request.input.material !== null)) return { ok: false, error: "A kalkuláció anyagadatai hiányosak vagy feleslegesek." };
+  const existing = request.expectedRevisionNumber > 0 ? await getConstructionCalculation(request.organizationId, request.calculationId).catch(() => null) : null;
+  if (request.expectedRevisionNumber > 0) {
+    const baseline = existing?.revisions.find((revision) => revision.revisionNumber === request.expectedRevisionNumber);
+    if (!baseline || (baseline.input.geometryContractVersion ?? "legacy-wall") !== request.input.geometryContractVersion) return { ok: false, error: "A mérési szerződés eltér az eredeti revíziótól; a szerződés nem cserélhető mentés közben." };
+  }
   // M10.2: roof.rafter-cut added as a transfer TARGET (reverse of the M10.1 direction); the exact source/target
   // pair is re-checked, authoritatively, by the save RPC itself (construction_field_transfer_pairs migration).
   if (request.sourceCalculationRevisionId && calculatorId !== "roof.material-takeoff" && calculatorId !== "roof.timber-cutlist" && calculatorId !== "roof.rafter-cut") return { ok: false, error: "Ehhez a kalkulátorhoz nem vehető át adat." };
@@ -62,11 +69,15 @@ export async function saveConstructionCalculationAction(raw: unknown): Promise<C
   let profiles: readonly MaterialProfile[] = DEMO_MATERIAL_PROFILES;
   if (material) {
     const catalog = await getCalculatorMaterialProfiles(request.organizationId).catch(() => null);
-    const needsCatalog = Object.values(material.specs).some((spec) => spec.mode === "product" && spec.profileId !== null && !DEMO_MATERIAL_PROFILES.some((profile) => profile.id === spec.profileId));
+    const revision = existing?.revisions.find((item) => item.revisionNumber === request.expectedRevisionNumber);
+    const historical = revision?.output.specifications?.groups ? historicalProfilesFromSnapshot(revision.output.specifications.groups) : [];
+    const historicalIds = new Set(historical.map((profile) => profile.id));
+    const needsCatalog = Object.values(material.specs).some((spec) => spec.mode === "product" && spec.profileId !== null
+      && !DEMO_MATERIAL_PROFILES.some((profile) => profile.id === spec.profileId) && !historicalIds.has(spec.profileId));
     if (!catalog && needsCatalog) return { ok: false, error: "Az Anyagkezelő termékei most nem tölthetők be, ezért a kiválasztott termékkel nem menthető. Próbáld újra később." };
-    profiles = [...(catalog ?? []), ...DEMO_MATERIAL_PROFILES];
+    profiles = [...historical, ...(catalog ?? []).filter((profile) => !historicalIds.has(profile.id)), ...DEMO_MATERIAL_PROFILES];
   }
-  const computation = computeConstruction(definition, request.input.fields, material, profiles);
+  const computation = computeConstruction(definition, { ...request.input.fields, __geometryContractVersion: request.input.geometryContractVersion }, material, profiles, request.input.geometryContractVersion);
   if (!isSaveableComputation(computation)) return { ok: false, error: computation.error ?? (computation.completeness.status === "invalid" ? computation.completeness.reasons[0] : undefined) ?? "Csak teljes, kiszámítható eredmény menthető." };
 
   try {

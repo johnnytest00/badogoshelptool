@@ -17,6 +17,7 @@ export type MaterialListQuotationResult =
 const input = z.object({
   organizationId: z.string().uuid(),
   listId: z.string().uuid(),
+  sourceRevisionId: z.string().uuid(),
   operationId: z.string().uuid(),
   /** Explicitly request another draft even though one already exists for this exact list revision. */
   allowAdditional: z.boolean().default(false),
@@ -30,14 +31,14 @@ const input = z.object({
 export async function createQuotationDraftFromMaterialListAction(raw: z.input<typeof input>): Promise<MaterialListQuotationResult> {
   const parsed = input.safeParse(raw);
   if (!parsed.success) return { ok: false, error: "Az anyaglista vagy a mentési azonosító érvénytelen." };
-  const { organizationId, listId, operationId, allowAdditional } = parsed.data;
+  const { organizationId, listId, sourceRevisionId, operationId, allowAdditional } = parsed.data;
   const auth = await getAuthContext();
   if (!auth) return { ok: false, error: "Jelentkezz be az ajánlat létrehozásához." };
   if (!auth.organizations.some((organization) => organization.id === organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
   const [lists, products] = await Promise.all([getWorkflowMaterialLists(organizationId, listId), getMaterialProductsForOrganization(organizationId)]);
   const list = lists[0];
-  const revision = list?.currentRevision;
-  if (!list || !revision || !list.currentRevisionId) return { ok: false, error: "Az anyaglista nem található, vagy nem érhető el." };
+  const revision = list?.history.find((item) => item.id === sourceRevisionId);
+  if (!list || !revision) return { ok: false, error: "A kiválasztott anyaglista-revízió nem található, vagy nem érhető el." };
   if (!revision.items.length) return { ok: false, error: "Az anyaglistában még nincs tétel, ezért nem készíthető belőle ajánlat." };
 
   if (!allowAdditional) {
@@ -54,7 +55,7 @@ export async function createQuotationDraftFromMaterialListAction(raw: z.input<ty
   form.set("clientId", "");
   form.set("lines", JSON.stringify(lines));
   form.set("materialListId", list.id);
-  form.set("materialRevisionId", list.currentRevisionId);
+  form.set("materialRevisionId", revision.id);
   form.set("document", JSON.stringify(emptyQuotationDocumentDraft()));
   const saved = await saveStandaloneQuotationDraftAction(form);
   if (!saved.ok) return { ok: false, error: saved.error };

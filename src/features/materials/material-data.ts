@@ -66,9 +66,10 @@ export async function getMaterialCategories(organizationId: string, includeInact
 
 export async function getMaterialProductsForOrganization(organizationId: string, rawFilters: unknown = {}) {
   const filters = materialFilterSchema.parse(rawFilters); const supabase = await createClient();
+  if (filters.categoryIds?.length === 0) return [];
   const products = await readAllPages((from, to) => {
     let query = supabase.from("material_products").select(productColumns, { count: "exact" }).eq("organization_id", organizationId).order("updated_at", { ascending: false }).order("id", { ascending: false });
-    if (filters.search) query = query.or(`name.ilike.%${filters.search}%,product_code.ilike.%${filters.search}%`); if (filters.category) query = query.eq("category", filters.category); if (filters.categoryId) query = query.eq("category_id", filters.categoryId); if (filters.manufacturerId) query = query.eq("manufacturer_id", filters.manufacturerId); if (!filters.includeArchived) query = query.eq("status", "active");
+    if (filters.search) query = query.or(`name.ilike.%${filters.search}%,product_code.ilike.%${filters.search}%`); if (filters.category) query = query.eq("category", filters.category); if (filters.categoryId) query = query.eq("category_id", filters.categoryId); if (filters.categoryIds) query = query.in("category_id", filters.categoryIds); if (filters.manufacturerId) query = query.eq("manufacturer_id", filters.manufacturerId); if (!filters.includeArchived) query = query.eq("status", "active");
     return query.range(from, to);
   }, "Az anyagkatalógus betöltése nem sikerült.");
   const related = await loadRelated(supabase, organizationId, products);
@@ -79,11 +80,13 @@ export async function getMaterialProductPage(organizationId: string, rawFilters:
   const parsed = materialFilterSchema.parse(rawFilters);
   const rawPage = typeof rawFilters === "object" && rawFilters !== null && "page" in rawFilters ? Number(rawFilters.page) : 1;
   const page = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  if (parsed.categoryIds?.length === 0) return { products: [], total: 0, page, pageSize: 50, hasNext: false };
   const supabase = await createClient();
   let query = supabase.from("material_products").select(productColumns, { count: "exact" }).eq("organization_id", organizationId).order("updated_at", { ascending: false }).order("id", { ascending: false });
   if (parsed.search) query = query.or(`name.ilike.%${parsed.search}%,product_code.ilike.%${parsed.search}%`);
   if (parsed.category) query = query.eq("category", parsed.category);
   if (parsed.categoryId) query = query.eq("category_id", parsed.categoryId);
+  if (parsed.categoryIds) query = query.in("category_id", parsed.categoryIds);
   if (parsed.manufacturerId) query = query.eq("manufacturer_id", parsed.manufacturerId);
   if (!parsed.includeArchived) query = query.eq("status", "active");
   const { data, count, error } = await query.range((page - 1) * 50, page * 50 - 1);

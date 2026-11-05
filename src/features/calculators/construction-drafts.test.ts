@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyFieldChange, initializeCalculatorDraft, updateCalculatorDraft, replaceCalculatorDraft } from "./construction-drafts";
+import { applyFieldChange, calculatorFieldKey, initializeCalculatorDraft, updateCalculatorDraft, replaceCalculatorDraft } from "./construction-drafts";
 
 describe("calculator drafts", () => {
   it("keeps unfinished A, B and C inputs across switches and same-calculator selection", () => {
@@ -25,6 +25,14 @@ describe("calculator drafts", () => {
     drafts = replaceCalculatorDraft(drafts, "roof.rafter-cut", { riseMm: "2500" });
     expect(drafts["roof.rafter-cut"]?.riseMm).toBe("2500");
     expect(drafts["roof.truss"]?.spanMm).toBe("5000");
+  });
+
+  it("keeps the loaded geometry contract through field edits and isolates it per calculator", () => {
+    const loaded = replaceCalculatorDraft({}, "roof.material-takeoff", { lengthMm: "12000", __geometryContractVersion: "legacy-wall" });
+    const changed = applyFieldChange(loaded, "roof.material-takeoff", "lengthMm", "13000", null).drafts;
+    const another = replaceCalculatorDraft(changed, "roof.timber-cutlist", { lengthMm: "9000", __geometryContractVersion: "outer-footprint" });
+    expect(another["roof.material-takeoff"]?.__geometryContractVersion).toBe("legacy-wall");
+    expect(another["roof.timber-cutlist"]?.__geometryContractVersion).toBe("outer-footprint");
   });
 });
 
@@ -92,5 +100,25 @@ describe("applyFieldChange — the owner's atomic roofShape transition", () => {
     const result = applyFieldChange(draftsWith({}), "roof.material-takeoff", "roofShape", "hip", null);
     expect(result.drafts["roof.material-takeoff"].roofShape).toBe("hip");
     expect(result.nextApplied).toBeNull();
+  });
+});
+
+describe("calculatorFieldKey (M12 audit T1)", () => {
+  it("stays stable while a value is typed key by key, so the input keeps focus", () => {
+    let drafts = initializeCalculatorDraft({}, "roof.material-takeoff", { pitchDegrees: "" });
+    const keys = new Set<string>();
+    for (const value of ["3", "35", "35,", "35,5"]) {
+      drafts = applyFieldChange(drafts, "roof.material-takeoff", "pitchDegrees", value, null).drafts;
+      keys.add(calculatorFieldKey("roof.material-takeoff", 0, "pitchDegrees"));
+    }
+    expect(drafts["roof.material-takeoff"].pitchDegrees).toBe("35,5");
+    expect(keys.size).toBe(1);
+  });
+
+  it("changes when the draft is replaced from outside or the calculator changes", () => {
+    const key = calculatorFieldKey("roof.material-takeoff", 0, "lengthMm");
+    expect(calculatorFieldKey("roof.material-takeoff", 1, "lengthMm")).not.toBe(key);
+    expect(calculatorFieldKey("roof.timber-cutlist", 0, "lengthMm")).not.toBe(key);
+    expect(calculatorFieldKey("roof.material-takeoff", 0, "widthMm")).not.toBe(key);
   });
 });

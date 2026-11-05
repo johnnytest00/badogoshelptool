@@ -40,14 +40,14 @@ function OptionRow({ organizationId, variant, option, reference }: Readonly<{ or
 }
 
 /** Named supplier price lines of one variant: edit in place (a new immutable price is stored), rename, archive. Nothing here picks a price for a document. */
-export function PriceOptionsPanel({ organizationId, variant }: Readonly<{ organizationId: string; variant: MaterialVariantRecord }>) {
+export function PriceOptionsPanel({ organizationId, variant, showHeading = true }: Readonly<{ organizationId: string; variant: MaterialVariantRecord; showHeading?: boolean }>) {
   const options = variant.priceOptions;
   const active = options.filter((option) => option.status === "active");
   const reference = active.flatMap((option) => option.current ? [option.current] : []).reduce<PriceOption["current"]>((low, price) => !low || price.amount < low.amount ? price : low, null);
   return <div className="price-options">
-    <div className="material-section-title"><h3>Beszállítói árak</h3><span>{active.length} aktív</span></div>
+    {showHeading && <div className="material-section-title"><h3>Beszállítói árak</h3><span>{active.length} aktív</span></div>}
     {options.length ? <ul className="price-option-list">{options.map((option) => <OptionRow key={option.id ?? "base"} organizationId={organizationId} variant={variant} option={option} reference={reference} />)}</ul>
-      : <p className="missing-data">Még nincs ár. Ez nem nulla ár.</p>}
+      : null}
     <ActionForm action={createMaterialPriceOptionAction} className="price-option-new" submitLabel="Hozzáadás" pendingLabel="Mentés…">
       <input type="hidden" name="organizationId" value={organizationId} /><input type="hidden" name="variantId" value={variant.id} /><input type="hidden" name="effectiveDate" value={currentHungarianDate()} />
       <label className="material-field"><span>Új beszállító / forrás</span><input name="label" maxLength={60} required placeholder="Például: Lindab" /></label>

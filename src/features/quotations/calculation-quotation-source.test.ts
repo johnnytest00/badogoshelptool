@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEMO_MATERIAL_PROFILES, initialSpecState } from "@/domain/calculations/roof-material-spec";
 import { computeConstruction, constructionOutputSnapshot } from "@/features/calculators/construction-computation";
 import { definitions } from "@/features/calculators/roof-calculator-definitions";
-import { calculationQuoteCandidates, quotationQuantity } from "./calculation-quotation-source";
+import { calculationQuoteCandidates, calculationQuotePreviewIsValid, calculationQuotePreviewLines, quotationQuantity } from "./calculation-quotation-source";
 
 const timberOutput = constructionOutputSnapshot("roof.timber-cutlist", computeConstruction(definitions["roof.timber-cutlist"],
   { roofShape: "gable", lengthMm: "10000", widthMm: "8000", pitchDegrees: "35", eaveOverhangMm: "0" },
@@ -44,5 +44,17 @@ describe("calculationQuoteCandidates", () => {
   it("rounds the editable line quantity to six decimals", () => {
     expect(quotationQuantity(126.9612434)).toBe("126.961243");
     expect(quotationQuantity(26)).toBe("26");
+  });
+});
+
+describe("calculation quote import preview", () => {
+  it("requires a named, positive, unit-bearing quantity and preserves its immutable source key without adding a price", () => {
+    const item = { sourceKey: "cut/rafters/0", description: "Szarufa", quantity: "36", unit: "db" };
+    expect(calculationQuotePreviewIsValid([item])).toBe(true);
+    expect(calculationQuotePreviewIsValid([{ ...item, quantity: "0" }])).toBe(false);
+    expect(calculationQuotePreviewIsValid([{ ...item, description: " " }])).toBe(false);
+    expect(calculationQuotePreviewLines([item])[0]).toMatchObject({
+      description: "Szarufa", quantity: "36", unit: "db", calculationSourceKey: "cut/rafters/0", unitPrice: "", priceProvenance: "missing",
+    });
   });
 });

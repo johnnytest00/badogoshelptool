@@ -1,7 +1,7 @@
 # F9.28 — implementációs kézátadás
 
 **Dátum:** 2026-10-17
-**Forrás:** [funkciok.md](funkciok.md), az architekturális összefoglaló újraolvasva.
+**Forrás:** [funkciok.md](docs/archive/reference/funkciok-2026-10-17.md), az architekturális összefoglaló újraolvasva.
 
 ## Hatókör és verified flow
 

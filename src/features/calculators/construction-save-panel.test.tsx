@@ -26,6 +26,9 @@ describe("ConstructionSavePanel", () => {
     expect(render(fresh, false)).toMatch(/<button[^>]*disabled=""[^>]*>.*Kalkuláció mentése/);
     expect(render(fresh, false)).toContain("Hiányos kalkuláció");
     expect(render(fresh, false)).toContain("Mentéshez teljes, kiszámítható eredmény szükséges.");
+    const blocked = render(fresh, false, output, { blockedReason: "Nem megerősített alapérték: Tetőforma." });
+    expect(blocked).toContain("Nem megerősített alapérték: Tetőforma.");
+    expect(blocked).not.toContain("Hiányos kalkuláció");
   });
 
   it("shows a clean saved revision and offers no redundant save", () => {
@@ -33,6 +36,27 @@ describe("ConstructionSavePanel", () => {
     expect(html).toContain("Mentve · V2");
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>.*Új revízió mentése · V3/);
     expect(html).toContain("Revíziók · 2");
+  });
+
+  it("P3.3e: names the two persistences only while a drawing session is open, and never claims the revision keeps the drawing", () => {
+    const fresh: ConstructionSaveSession = { ...savedSession, revisionNumber: 0, baselineInput: null, savedName: null, viewedRevisionNumber: null, revisions: [] };
+    // Nyitott rajzi munkamenet nélkül a mentési blokk pontosan a mai marad.
+    expect(render(savedSession)).not.toContain("nem része");
+    const exportable = render(savedSession, true, output, { drawingSession: { exportable: true } });
+    expect(exportable).toContain("A V2 a kalkuláció mentett revíziója");
+    expect(exportable).toContain("nem része");
+    expect(exportable).toContain("Munkaállapot mentése");
+    // A kalkulátor, amelyiknek nincs munkaállapot-exportja, nem ígérhet külön fájlba mentést.
+    const sessionOnly = render(savedSession, true, output, { drawingSession: { exportable: false } });
+    expect(sessionOnly).toContain("csak ebben a böngészőmunkamenetben él");
+    expect(sessionOnly).not.toContain("Munkaállapot mentése");
+    // Mentés előtt nincs V-szám, amire hivatkozhatna.
+    const beforeSave = render(fresh, true, output, { drawingSession: { exportable: true } });
+    expect(beforeSave).toContain("A mentés a kalkuláció revízióját hozza létre");
+    expect(beforeSave).not.toContain("A V0");
+    // A meglévő státusz és a mentési kapu változatlan.
+    expect(exportable).toContain("Mentve · V2");
+    expect(render(fresh, false, output, { drawingSession: { exportable: true } })).toContain("Hiányos kalkuláció");
   });
 
   it("exposes an explicit older-page control without changing the current revision", () => {

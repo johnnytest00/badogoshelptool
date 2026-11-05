@@ -9,7 +9,6 @@ import { materialPurchasingUnitLabels } from "@/domain/materials/contracts";
 import { createIdempotencyKey, generateSecureUuid } from "@/lib/secure-uuid";
 import { ensureSurveyRoofGeometryAction } from "@/features/field-surveys/survey-geometry-source-actions";
 import { saveWorkflowMaterialListAction } from "@/features/material-takeoffs/workflow-material-list-actions";
-import { MaterialListQuotationButton } from "@/features/quotations/material-list-quotation-button";
 import { defaultSurveyMaterialListName, type SurveyMaterialSource } from "@/features/material-takeoffs/survey-material-source";
 import type { SurveyLinkedMaterialList } from "@/features/material-takeoffs/material-list-links";
 
@@ -118,7 +117,6 @@ export const SurveyMaterialListPanel = forwardRef<HTMLElement, Readonly<{
       <strong>Anyaglista létrehozva · {created.name}</strong>
       <p>{created.itemCount} tétel, a felmérés V{source.surveyVersion} változatához kapcsolva. Az árakat és katalógustermékeket az anyaglistában adhatod meg.</p>
       <div className="survey-material-panel-actions"><Link className="secondary-button" href={`/anyaglistak/${created.listId}?organization=${organizationId}`}>Anyaglista megnyitása</Link></div>
-      <MaterialListQuotationButton organizationId={organizationId} listId={created.listId} listVersion={created.version} itemCount={created.itemCount} quotations={[]} />
     </div>}
 
     {showCreate && <>

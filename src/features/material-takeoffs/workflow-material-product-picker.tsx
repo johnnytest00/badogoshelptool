@@ -177,11 +177,11 @@ export function WorkflowMaterialProductPicker({ options, value, disabled, onSele
       type="button"
       aria-haspopup="dialog"
       aria-expanded={isOpen}
-      aria-label={selectedOption ? `${label}: ${selectedOption.name}. Másik termék kiválasztása` : label}
+      aria-label={selectedOption ? `${label}: ${selectedOption.name}${selectedOption.detail ? `. ${selectedOption.detail}` : ""}. Másik termék kiválasztása` : label}
       disabled={disabled}
       onClick={() => { setQuery(""); setActiveId(null); setSkipInitialFocus(isCoarsePointer()); setIsOpen(true); }}
     >
-      <span>{selectedOption?.name ?? (disabled ? (copy.disabledText ?? "Előbb válassz kategóriát") : "Válassz terméket…")}</span>
+      <span>{selectedOption?.name ?? (disabled ? (copy.disabledText ?? "Előbb válassz kategóriát") : "Válassz terméket…")}{selectedOption?.detail && <small>{selectedOption.detail}</small>}</span>
       <span aria-hidden="true" className="workflow-material-product-chevron">⌄</span>
     </button>
     <dialog

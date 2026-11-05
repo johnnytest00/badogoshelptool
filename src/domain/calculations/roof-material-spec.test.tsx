@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/features/calculations/construction-actions", () => ({ saveConstructionCalculationAction: vi.fn() }));
 import { ConstructionCalculatorSuite, limitationGroups } from "@/features/calculators/construction-suite";
+import { MaterialSpecEditor } from "@/features/calculators/material-spec-editor";
 import { takeoffLines } from "@/features/calculators/roof-calculator-definitions";
 import { loadConstructionCalculatorDefinition } from "@/features/calculators/construction-calculator-loading";
 import { createCalculationSnapshot, replayRoofCalculation } from "./roof-calculation-snapshot";
@@ -12,7 +13,7 @@ import { calculateRoofMaterialTakeoff, roofTakeoffCriticalWarnings } from "./roo
 import { calculateRoofUnderlayLayout } from "./roof-underlay";
 import { roofTimberInputFromParameters } from "./roof-timber-layout";
 import {
-  DEMO_MATERIAL_PROFILES, MANUAL_REFERENCE, coveringParametersFromSpec, createSpecSnapshot, initialSpecState, overhangFromField, resolveMaterialSpec,
+  DEMO_MATERIAL_PROFILES, MANUAL_REFERENCE, coveringParametersFromSpec, createSpecSnapshot, historicalProfilesFromSnapshot, initialSpecState, initialSpecStateForGroup, overhangFromField, resolveMaterialSpec,
   restoreProductValues, setSpecEntry, switchSpecMode, timberParametersFromSpecs, underlayParametersFromSpec, type SpecState,
 } from "./roof-material-spec";
 
@@ -27,6 +28,41 @@ const takeoffOf = (geometry: ReturnType<typeof gable>, state: SpecState) => {
 };
 
 describe("product and manual material specification", () => {
+  it("prefills only one complete verified catalog default and never guesses on ambiguity", () => {
+    const verified = { id: "verified-cover", group: "covering", label: "Ellenőrzött fedés", verification: "verified", sourceReference: "Gyártói adatlap", defaultGroup: "covering", catalog: { productId: "p1", variantId: "v1", productName: "Fedés", variantName: "A", manufacturerName: "Gyártó", sku: null, purchasingUnit: "piece", categoryId: "c1", categoryName: "Tetőfedés", categoryMatch: true }, values: { nominalWidthMm: 1_100, effectiveCoveringWidthMm: 1_000, physicalLengthMm: 4_000, usableCoveringLengthMm: 3_900 } } as const;
+    expect(initialSpecStateForGroup("covering", [verified])).toEqual({ mode: "product", profileId: "verified-cover", entered: {} });
+    expect(initialSpecStateForGroup("covering", [verified, { ...verified, id: "other", catalog: { ...verified.catalog, variantId: "v2" } }])).toEqual({ mode: "product", profileId: null, entered: {} });
+    expect(initialSpecStateForGroup("covering", [{ ...verified, id: "incomplete", values: { nominalWidthMm: 1_100 } }, { ...verified, id: "unverified", verification: "user_provided" }])).toEqual({ mode: "product", profileId: null, entered: {} });
+    expect(initialSpecStateForGroup("covering", [])).toEqual({ mode: "manual", profileId: null, entered: {} });
+  });
+
+  it("shows the selected default as an editable Anyagkezelő prefill without price", () => {
+    const profile = { id: "verified-rafter", group: "rafter", label: "Gyártó · Szarufa 75×200", verification: "verified", sourceReference: "Anyagkezelő: Gyártó · Szarufa 75×200", defaultGroup: "rafter", catalog: { productId: "p1", variantId: "v1", productName: "Szarufa", variantName: "75×200", manufacturerName: "Gyártó", sku: null, purchasingUnit: "linear_meter", categoryId: "c1", categoryName: "Faanyag", categoryMatch: true }, values: { sectionWidthMm: 75, sectionHeightMm: 200 } } as const;
+    const html = renderToStaticMarkup(<MaterialSpecEditor group="rafter" title="Szarufa" profiles={[profile]} state={initialSpecStateForGroup("rafter", [profile])} onChange={() => undefined} />);
+    expect(html).toContain("Automatikusan előtöltve");
+    expect(html).toContain("Gyártó · Szarufa 75×200");
+    expect(html).toContain('value="7,5"');
+    expect(html).toContain('value="20"');
+    expect(html).not.toContain("Érték felülírása");
+    expect(html).not.toContain("Keresztmetszet szélessége: 75 mm");
+    expect(html.toLocaleLowerCase("hu-HU")).not.toContain("ár:");
+  });
+
+  it("rebuilds an unavailable catalog profile from the saved material snapshot", () => {
+    const profiles = historicalProfilesFromSnapshot({
+      rafter: {
+        group: "rafter",
+        profile: { id: "archived-v1", label: "Gyártó · Szarufa 80×200", verification: "verified", sourceReference: "Anyagkezelő: Gyártó · Szarufa 80×200", catalog: { productId: "p1", variantId: "archived-v1", productName: "Szarufa", variantName: "80×200", manufacturerName: "Gyártó", sku: null, purchasingUnit: "linear_meter", categoryId: "c1", categoryName: "Faanyag", categoryMatch: true } },
+        values: { sectionWidthMm: 80, sectionHeightMm: 220 },
+        productValues: { sectionWidthMm: 80, sectionHeightMm: 200 },
+      },
+    });
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0]).toMatchObject({ id: "archived-v1", group: "rafter", historical: true, values: { sectionWidthMm: 80, sectionHeightMm: 200 } });
+    const html = renderToStaticMarkup(<MaterialSpecEditor group="rafter" title="Szarufa" profiles={[{ ...profiles[0], historicalState: "unavailable" }]} state={{ mode: "product", profileId: "archived-v1", entered: {} }} onChange={() => undefined} />);
+    expect(html).toContain("az eredeti termék már nem érhető el");
+  });
+
   it("fills known fields from the selected product and records their source", () => {
     const spec = covering(productState("demo-covering-sheet"));
     expect(spec.values).toMatchObject({ nominalWidthMm: 1_100, effectiveCoveringWidthMm: 1_000, physicalLengthMm: 4_000, usableCoveringLengthMm: 3_900 });

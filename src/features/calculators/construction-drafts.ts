@@ -19,6 +19,14 @@ export function mergeCalculatorDraft(drafts: CalculatorDrafts, id: string, field
   return { ...drafts, [id]: { ...drafts[id], ...fields } };
 }
 
+/**
+ * React key of a rendered calculator field. It must not contain the field value: a value in the key remounts the
+ * input on every keystroke and drops focus (M12 audit T1). A replaced draft (epoch) or another calculator remounts it.
+ */
+export function calculatorFieldKey(calculatorId: string, draftEpoch: number, fieldKey: string): string {
+  return `${calculatorId}:${draftEpoch}:${fieldKey}`;
+}
+
 export type FieldChangeResult<TApplied extends AppliedTransfer> = Readonly<{ drafts: CalculatorDrafts; nextApplied: TApplied | null }>;
 
 /**

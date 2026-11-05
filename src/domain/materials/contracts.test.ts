@@ -24,7 +24,9 @@ describe("material contracts", () => {
     const base = { requestId: "00000000-0000-4000-8000-000000000001", categoryId: "00000000-0000-4000-8000-000000000002", name: "Csatorna 333 mm antracit", purchasingUnit: "linear_meter" };
     expect(materialManagerProductInputSchema.safeParse(base).success).toBe(true);
     expect(materialManagerProductInputSchema.safeParse({ ...base, priceEffectiveDate: "2026-10-17" }).success).toBe(true);
-    expect(materialManagerProductInputSchema.safeParse({ ...base, priceAmount: "0", priceKind: "net", priceEffectiveDate: "2026-10-17" }).success).toBe(true);
+    expect(materialManagerProductInputSchema.safeParse({ ...base, priceAmount: "0", priceKind: "net" }).success).toBe(true);
+    expect(materialManagerProductInputSchema.safeParse({ ...base, priceAmount: "15", priceKind: "gross", priceSupplier: "Silver tüzép" }).success).toBe(true);
+    expect(materialManagerProductInputSchema.safeParse({ ...base, priceSupplier: "Silver tüzép" }).success).toBe(false);
     expect(materialManagerProductInputSchema.safeParse({ ...base, priceAmount: "0" }).success).toBe(false);
   });
 });

@@ -12,8 +12,8 @@ const pick = (id: string): SpecState => ({ mode: "product", profileId: id, enter
 
 describe("catalog variant → roof MaterialProfile", () => {
   it("keeps identity, takes only present values and the weaker provenance", () => {
-    const [profile] = catalogProfilesFromProducts([product()]);
-    expect(profile).toMatchObject({ id: "v1", group: "covering", verification: "user_provided", catalog: { productId: "p1", variantId: "v1", sku: "SKU-1" }, values: { nominalWidthMm: 1_100, effectiveCoveringWidthMm: 1_000, physicalLengthMm: 4_000, usableCoveringLengthMm: 3_900 } });
+    const [profile] = catalogProfilesFromProducts([product({ variants: [variant({ technicalSpecs: { usable_covering_length_mm: "3900", roof_calculator_default_group: "covering" } })] })]);
+    expect(profile).toMatchObject({ id: "v1", group: "covering", verification: "user_provided", defaultGroup: "covering", catalog: { productId: "p1", variantId: "v1", sku: "SKU-1" }, values: { nominalWidthMm: 1_100, effectiveCoveringWidthMm: 1_000, physicalLengthMm: 4_000, usableCoveringLengthMm: 3_900 } });
   });
   it("maps underlay and timber keys, skips invalid text, never invents missing values", () => {
     const underlay = catalogProfilesFromProducts([product({ category: "insulation", variants: [variant({ technicalSpecs: { roll_width_mm: "1500", roll_length_mm: "abc", side_overlap_mm: "0", installation_direction: "x" } })] })]).find((item) => item.group === "underlay")!;
@@ -69,7 +69,8 @@ describe("Anyagkezelő roof technical_specs validation", () => {
   const base = { productId: "00000000-0000-4000-8000-000000000001", name: "x", purchasingUnit: "piece", nominalWidthMm: null, effectiveWidthMm: null, thicknessMm: null, lengthMm: null, packagingQuantity: null, dataProvenance: "user_provided" };
   it("accepts valid, rejects invalid values, keeps legacy keys working", () => {
     const ok = (technicalSpecs: Record<string, string>) => materialVariantInputSchema.safeParse({ ...base, technicalSpecs }).success;
-    expect(ok({ roll_width_mm: "1500", side_overlap_mm: "0", installation_direction: "eave-to-ridge", minimum_sheet_length_mm: "abc" })).toBe(true);
+    expect(ok({ roof_calculator_default_group: "underlay", roll_width_mm: "1500", side_overlap_mm: "0", installation_direction: "eave-to-ridge", minimum_sheet_length_mm: "abc" })).toBe(true);
+    expect(ok({ roof_calculator_default_group: "random" })).toBe(false);
     expect(ok({ roll_width_mm: "0" })).toBe(false);
     expect(ok({ section_width_mm: "-5" })).toBe(false);
     expect(ok({ installation_direction: "sideways" })).toBe(false);

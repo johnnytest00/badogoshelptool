@@ -40,24 +40,24 @@ export const materialManagerProductInputSchema = z.object({
   purchasingUnit: z.enum(materialPurchasingUnits),
   priceAmount: z.string().trim().max(15).optional().default(""),
   priceKind: z.enum(materialPriceKinds).optional(),
-  priceEffectiveDate: z.string().trim().optional().default(""),
+  priceSupplier: z.string().trim().max(60).optional().default(""),
+  priceEffectiveDate: z.string().trim().optional().default("").refine((value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)), "Érvénytelen árérvényességi dátum."),
 }).superRefine((input, context) => {
   const raw = input.priceAmount.replace(",", ".");
   if (!raw) {
     if (input.priceKind) context.addIssue({ code: "custom", path: ["priceAmount"], message: "Ártípust csak megadott árhoz válassz." });
+    if (input.priceSupplier) context.addIssue({ code: "custom", path: ["priceSupplier"], message: "Beszerzési helyet csak megadott árhoz adj meg." });
     return;
   }
   if (!/^\d{1,12}(?:\.\d{1,2})?$/.test(raw)) {
     context.addIssue({ code: "custom", path: ["priceAmount"], message: "Adj meg nem negatív, legfeljebb két tizedesjegyű HUF árat." });
   }
   if (!input.priceKind) context.addIssue({ code: "custom", path: ["priceKind"], message: "Válaszd ki, hogy az ár nettó vagy bruttó." });
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.priceEffectiveDate) || Number.isNaN(Date.parse(input.priceEffectiveDate))) {
-    context.addIssue({ code: "custom", path: ["priceEffectiveDate"], message: "Adj meg érvényes dátumot az árhoz." });
-  }
 });
 
 /** Technical-spec keys read by the roof calculators (covering width/length also use the relational variant columns). Additive JSONB keys, no migration. */
 export const roofTechnicalSpecFields = [
+  { key: "roof_calculator_default_group", label: "Automatikus előkitöltés a tetőkalkulátorban", unit: "", options: [{ value: "covering", label: "Fedőanyag" }, { value: "underlay", label: "Alátétfólia" }, { value: "rafter", label: "Szarufa" }, { value: "batten", label: "Tetőléc" }] },
   { key: "usable_covering_length_mm", label: "Használható fedési hossz", unit: "mm", positive: true },
   { key: "roll_width_mm", label: "Alátétfólia tekercs szélessége", unit: "mm", positive: true },
   { key: "roll_length_mm", label: "Alátétfólia tekercs hossza", unit: "mm", positive: true },
@@ -105,7 +105,7 @@ export const materialPriceOptionUpdateSchema = z.object({ optionId: uuid, label:
 const priceAmount = z.number().finite().nonnegative().refine((value) => Number(value.toFixed(2)) === value, "Legfeljebb két tizedes szükséges.");
 export const materialPriceInputSchema = z.object({ variantId: uuid, optionId: uuid.nullable().default(null), amount: priceAmount, purchasingUnit: z.enum(materialPurchasingUnits), priceKind: z.enum(materialPriceKinds), priceSource: optionalText(200), effectiveDate: z.string().trim().refine((value) => !Number.isNaN(Date.parse(value)), "Érvényes dátum szükséges."), dataProvenance: z.enum(materialProvenances), sourceName: optionalText(200), sourceUrl: optionalUrl, sourceDate: z.string().trim().refine((value) => !value || !Number.isNaN(Date.parse(value)), "Érvényes dátum szükséges.").optional().default(""), sourceNotes: optionalText(5000) });
 
-export const materialFilterSchema = z.object({ search: z.string().trim().max(100).default(""), category: z.enum(materialCategories).optional(), categoryId: uuid.optional(), manufacturerId: uuid.optional(), includeArchived: z.boolean().default(false) });
+export const materialFilterSchema = z.object({ search: z.string().trim().max(100).default(""), category: z.enum(materialCategories).optional(), categoryId: uuid.optional(), categoryIds: z.array(uuid).optional(), manufacturerId: uuid.optional(), includeArchived: z.boolean().default(false) });
 
 export function parseOptionalNumber(value: FormDataEntryValue | null): number | null {
   const raw = String(value ?? "").trim().replace(",", ".");

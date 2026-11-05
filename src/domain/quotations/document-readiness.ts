@@ -42,6 +42,13 @@ const isDateOnly = (value: string) => {
   return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
 };
 
+export function defaultQuotationValidityDate(today = new Date()): string {
+  const budapestDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Budapest" }).format(today);
+  const date = new Date(`${budapestDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + 30);
+  return date.toISOString().slice(0, 10);
+}
+
 export function validateQuotationDocumentReadiness(
   issuer: IssuerDocumentProfile,
   document: QuotationDocumentDraft,

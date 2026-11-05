@@ -110,6 +110,8 @@ type Props = Readonly<{
   input: ConstructionInputSnapshot;
   liveOutput: ConstructionOutputSnapshot;
   saveable: boolean;
+  /** Shown instead of the generic incomplete-calculation note when saving is blocked for another reason. */
+  blockedReason?: string;
   onSessionChange: (next: ConstructionSaveSession) => void;
   onLoadRevision: (revision: SavedConstructionRevision) => void;
   onPendingChange?: (pending: boolean) => void;
@@ -122,10 +124,16 @@ type Props = Readonly<{
   sourceCalculationRevisionId?: string | null;
   /** A forrás elfogyasztása után (sikeres mentés), hogy egy következő, immár saját szerkesztés ne örökölje tovább. */
   onSourceConsumed?: () => void;
+  /**
+   * P3.3e (P3.1 F.4): csak akkor adja meg a hívó, ha ténylegesen van nyitott rajzi munkamenet. Ilyenkor a panel
+   * egy sorban megnevezi a két külön perzisztenciát, mert a `Mentve · V{n}` önmagában tartós forrásrajz-mentést
+   * sugallhat. `exportable` azt mondja meg, van-e ehhez a kalkulátorhoz „Munkaállapot mentése" kiírás.
+   */
+  drawingSession?: Readonly<{ exportable: boolean }>;
 }>;
 
 /** Save, reopen and revision controls; an unsaved result is always labelled as a local preview. */
-export function ConstructionSavePanel({ organizationId, calculatorId, definition, session, input, liveOutput, saveable, onSessionChange, onLoadRevision, onPendingChange, onDiscard, planLinks = null, planLinksUnavailable = false, sourceCalculationRevisionId = null, onSourceConsumed }: Props) {
+export function ConstructionSavePanel({ organizationId, calculatorId, definition, session, input, liveOutput, saveable, blockedReason, onSessionChange, onLoadRevision, onPendingChange, onDiscard, planLinks = null, planLinksUnavailable = false, sourceCalculationRevisionId = null, onSourceConsumed, drawingSession }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [revisionPending, startRevisionTransition] = useTransition();
@@ -190,11 +198,19 @@ export function ConstructionSavePanel({ organizationId, calculatorId, definition
       : comparison.incompatible ? `Nem kompatibilis mentett revízió · V${session.revisionNumber}`
         : dirty ? `Mentetlen módosítás · utolsó mentés V${session.revisionNumber}`
           : !latestComplete ? `Mentett V${session.revisionNumber} · hiányos` : `Mentve · V${session.revisionNumber}`;
-  return <section className="construction-save-panel" aria-label="Kalkuláció mentése">
+  // P3.3d: ugrási cél a rajzpanel lépéssávjának „Mentés" lépéséhez; a panel viselkedése változatlan.
+  return <section id="construction-save-panel" className="construction-save-panel" aria-label="Kalkuláció mentése">
     <label className="construction-suite-field"><span>Kalkuláció neve</span><input value={session.name} maxLength={200} disabled={busy} onChange={(event) => onSessionChange({ ...session, name: event.target.value })} aria-invalid={!nameValid || undefined} /></label>
     <p className={`construction-save-status${saved && latestComplete && !dirty && !viewedIsOlder ? " is-saved" : ""}`} role="status">{status}</p>
+    {drawingSession && <p className="construction-suite-limit">
+      {saved ? `A V${session.revisionNumber} a kalkuláció mentett revíziója` : "A mentés a kalkuláció revízióját hozza létre"}: a mezőket és az anyagadatokat rögzíti.
+      {" "}A megnyitott tervrajz, a tetőszakaszok és a léptékhitelesítés <strong>nem része</strong> —{" "}
+      {drawingSession.exportable
+        ? "a rajzi munkamenetet a rajzpanel „Munkaállapot mentése” gombjával mentsd külön fájlba."
+        : "a rajzi munkamenet csak ebben a böngészőmunkamenetben él, külön nem menthető."}
+    </p>}
     {comparison.incompatible && <p className="form-message is-error" role="alert">A mentett revízió mezői nem vetíthetők biztonságosan a jelenlegi kalkulátorba. A mentett adat változatlan; ebből a nézetből új revízió nem menthető.</p>}
-    {!saveable && <p className="construction-suite-limit"><strong>Hiányos kalkuláció.</strong> Mentéshez teljes, kiszámítható eredmény szükséges.</p>}
+    {!saveable && <p className="construction-suite-limit">{blockedReason ?? <><strong>Hiányos kalkuláció.</strong> Mentéshez teljes, kiszámítható eredmény szükséges.</>}</p>}
     <button type="button" className="primary-button" disabled={!saveable || !nameValid || busy || comparison.incompatible || (saved && !dirty)} onClick={save}>
       <Save aria-hidden="true" className="size-4" />{pending ? "Mentés…" : saved ? `Új revízió mentése · V${session.revisionNumber + 1}` : "Kalkuláció mentése"}
     </button>

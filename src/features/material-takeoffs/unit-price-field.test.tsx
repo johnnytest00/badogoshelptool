@@ -1,4 +1,6 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server";
+import { fireEvent, render as renderView } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { PriceLine } from "@/domain/pricing";
 import { UnitPriceField } from "./unit-price-field";
@@ -15,16 +17,25 @@ describe("UnitPriceField", () => {
     expect(html).toContain("Katalógus · Lindab");
     expect(html).toContain("Kézi ár");
   });
-  it("marks a manual override on a catalog line and offers the net/gross basis", () => {
+  it("marks a manual override on a catalog line without showing a basis switch", () => {
     const html = render({ origin: "override", priceId: null });
     expect(html).toContain("Kézi felülírás");
-    expect(html).toContain("árának alapja");
+    expect(html).not.toContain("árának alapja");
   });
   it("renders a missing price without a basis selector and a plain manual line without the supplier list", () => {
     expect(render({ origin: "missing", amount: "", kind: null, priceId: null })).toContain("Ár hiányzik");
     const manual = render({ origin: "manual", hasCatalog: false, priceId: null, choices: [], selected: null });
     expect(manual).not.toContain("beszállítói árai");
-    expect(manual).toContain("Kézi ár");
+    expect(manual).not.toContain("Kézi ár");
+    expect(manual).not.toContain("unit-price-meta");
+    expect(manual).toContain('class="glass-field-group unit-price-control"');
+    expect(render()).toContain('class="glass-field-group unit-price-control has-catalog"');
+  });
+  it("defaults a new manual unit price to gross", () => {
+    const onManual = vi.fn();
+    const { getByLabelText } = renderView(<UnitPriceField label="T18" unit="square_meter" amount="" kind={null} origin="manual" priceId={null} choices={[]} selected={null} hasCatalog={false} onSelect={vi.fn()} onManual={onManual} />);
+    fireEvent.change(getByLabelText("T18 egységára"), { target: { value: "3500" } });
+    expect(onManual).toHaveBeenCalledWith("3500", "gross");
   });
   it("flags an invalid amount", () => expect(render({ amount: "12,345" })).toContain('aria-invalid="true"'));
 });

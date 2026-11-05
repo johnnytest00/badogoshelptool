@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Readable } from "node:stream";
 
 const state = vi.hoisted(() => ({
   failWorkspace: false,
@@ -14,7 +15,7 @@ vi.mock("@/features/execution/execution-data", () => ({ getExecutionPlanningWork
   if (state.failWorkspace) throw new Error("A munkanaplók részletei nem tölthetők be.");
   return { plans: [{ id: "22222222-2222-4222-8222-222222222222", projectId: state.planProjectId, title: "DEMO napló", description: null, tasks: [], photos: [], sourceQuotationName: null, sourceQuotationStatus: null, sourceRevisionId: null, sourceRevisionNumber: null, sourceSubtotal: null }], timelineByPlan: new Map([["22222222-2222-4222-8222-222222222222", Array.from({ length: 101 }, (_, index) => ({ id: `j${index}`, type: "journal", date: "2026-10-02", recordedAt: "2026-10-02T10:00:00Z" }))]]) };
 } }));
-vi.mock("@/features/execution/execution-report-pdf", () => ({ renderExecutionReportPdf: async (report: typeof state.report) => { state.report = report; return Buffer.from("%PDF-1.4\nDEMO"); }, safeExecutionReportFilename: () => "report.pdf" }));
+vi.mock("@/features/execution/execution-report-pdf", () => ({ renderExecutionReportPdfStream: async (report: typeof state.report) => { state.report = report; return Readable.from([Buffer.from("%PDF-1.4\nDEMO")]); }, safeExecutionReportFilename: () => "report.pdf" }));
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: async () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { name: "DEMO műhely" }, error: null }) }) }) }) }) }));
 
 import { GET } from "./route";
@@ -30,6 +31,8 @@ describe("execution report route completeness", () => {
   it("passes the selected plan's complete timeline to the PDF renderer", async () => {
     const response = await GET(request(), { params: Promise.resolve({ projectId }) });
     expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("application/pdf");
+    expect(new TextDecoder().decode(await response.arrayBuffer())).toContain("%PDF-1.4");
     expect(state.requestedPlanId).toBe(planId);
     expect(state.report?.plan.timeline.map((item) => item.id)).toEqual(Array.from({ length: 101 }, (_, index) => `j${index}`));
   });

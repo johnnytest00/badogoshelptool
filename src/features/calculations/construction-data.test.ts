@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
-import { getConstructionCalculation, getConstructionRevision, getConstructionRevisionPage, isCompleteConstructionRevision, listRoofShapeTransferSources } from "./construction-data";
+import { getConstructionCalculation, getConstructionRevision, getConstructionRevisionPage, isCompleteConstructionRevision, listRafterCutTransferSources, listRoofShapeTransferSources } from "./construction-data";
 
 vi.mock("@/infrastructure/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/features/auth/auth.server", () => ({ getAuthContext: vi.fn() }));
@@ -13,10 +13,11 @@ function client() {
       const filters: Array<[string, unknown]> = [];
       const orders: Array<[string, boolean]> = [];
       let maxRows: number | null = null;
-      const matches = (row: Record<string, unknown>) => filters.every(([column, value]) => typeof value === "object" && value !== null && "lt" in value ? Number(row[column]) < Number(value.lt) : typeof value === "object" && value !== null && "in" in value ? (value.in as unknown[]).includes(row[column]) : column === "calculator_type" && typeof value === "string" && value.endsWith("%") ? String(row[column]).startsWith(value.slice(0, -1)) : row[column] === value);
+      const matches = (row: Record<string, unknown>) => filters.every(([column, value]) => typeof value === "object" && value !== null && "lt" in value ? Number(row[column]) < Number(value.lt) : typeof value === "object" && value !== null && "neq" in value ? row[column] !== value.neq : typeof value === "object" && value !== null && "in" in value ? (value.in as unknown[]).includes(row[column]) : column === "calculator_type" && typeof value === "string" && value.endsWith("%") ? String(row[column]).startsWith(value.slice(0, -1)) : row[column] === value);
       const query = {
         select: () => query,
         eq: (column: string, value: unknown) => { filters.push([column, value]); return query; },
+        neq: (column: string, value: unknown) => { filters.push([column, { neq: value }]); return query; },
         like: (column: string, value: string) => { filters.push([column, value]); return query; },
         in: (column: string, values: unknown[]) => { filters.push([column, { in: values }]); return query; },
         lt: (column: string, value: unknown) => { filters.push([column, { lt: value }]); return query; },
@@ -104,40 +105,146 @@ describe("construction revision history pagination", () => {
   });
 });
 
-describe("listRoofShapeTransferSources (M10.2)", () => {
+describe("listRoofShapeTransferSources (M10.2, P3.3c)", () => {
+  const MATERIAL = {
+    requested: { timber: true, underlay: false, covering: true },
+    layout: { rafterMaxSpacingMm: 900 },
+    specs: {
+      covering: { mode: "manual", profileId: null, entered: { nominalWidthMm: 1250 } },
+      underlay: { mode: "manual", profileId: null, entered: {} },
+      rafter: { mode: "manual", profileId: null, entered: { sectionWidthMm: 100, sectionHeightMm: 150 } },
+      batten: { mode: "manual", profileId: null, entered: {} },
+    },
+  };
   beforeEach(() => {
     vi.mocked(getAuthContext).mockResolvedValue({ userId: "user", organizations: [{ id: "org" }] } as never);
   });
 
-  it("offers the other roof-shape calculator's saved revisions, copying the full known field snapshot verbatim", async () => {
+  it("offers a saved roof-shape revision with its field snapshot, its material block and the revision's own date", async () => {
     rows = {
-      calculations: [{ id: "calc-cutlist", organization_id: "org", ownership_scope: "standalone", calculator_type: "construction.roof.timber-cutlist", display_name: "DEMO vágáslista", current_revision_id: "r1", created_by: "user", updated_at: "2026-10-27T10:00:00Z" }],
-      calculation_revisions: [{ id: "r1", organization_id: "org", revision_number: 1, input_snapshot: { schemaVersion: "construction-suite.input.v1", calculatorId: "roof.timber-cutlist", fields: { roofShape: "hip", widthMm: "8000", lengthMm: "10000", pitchDegrees: "30", seatCutHeightMm: "100" }, material: null } }],
+      calculations: [{ id: "calc-cutlist", organization_id: "org", ownership_scope: "standalone", calculator_type: "construction.roof.timber-cutlist", display_name: "DEMO vágáslista", current_revision_id: "r1", created_by: "user", updated_at: "2026-10-30T18:00:00Z" }],
+      calculation_revisions: [{ id: "r1", organization_id: "org", revision_number: 1, created_at: "2026-10-27T09:30:00Z", input_snapshot: { schemaVersion: "construction-suite.input.v1", calculatorId: "roof.timber-cutlist", fields: { roofShape: "hip", widthMm: "8000", lengthMm: "10000", pitchDegrees: "30", seatCutHeightMm: "100" }, material: MATERIAL } }],
     };
     vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
-    const result = await listRoofShapeTransferSources("org", "roof.material-takeoff");
+    const result = await listRoofShapeTransferSources("org");
     expect(result.ok).toBe(true);
     expect(result.ok && result.sources).toEqual([{
       calculationId: "calc-cutlist", displayName: "DEMO vágáslista", revisionId: "r1", revisionNumber: 1,
-      sourceCalculatorId: "roof.timber-cutlist", roofShape: "hip",
+      sourceCalculatorId: "roof.timber-cutlist", geometryContractVersion: "legacy-wall", roofShape: "hip",
       fields: { roofShape: "hip", widthMm: "8000", lengthMm: "10000", pitchDegrees: "30", seatCutHeightMm: "100" },
       geometry: { widthMm: "8000", pitchDegrees: "30", eaveOverhangMm: undefined, seatCutHeightMm: "100" },
+      material: MATERIAL,
+      revisionCreatedAt: "2026-10-27T09:30:00Z",
     }]);
+    // A felhasznált revízió dátuma nem a kalkuláció utolsó módosítási dátuma.
+    expect(result.ok && result.sources[0].revisionCreatedAt).not.toBe("2026-10-30T18:00:00Z");
   });
 
-  it("excludes the target calculator itself from its own transfer sources", async () => {
+  it("preserves an explicit V2 contract on a roof-shape transfer source", async () => {
     rows = {
-      calculations: [{ id: "calc-self", organization_id: "org", ownership_scope: "standalone", calculator_type: "construction.roof.material-takeoff", display_name: "DEMO önmaga", current_revision_id: "r1", created_by: "user", updated_at: "2026-10-27T10:00:00Z" }],
-      calculation_revisions: [{ id: "r1", organization_id: "org", revision_number: 1, input_snapshot: { schemaVersion: "construction-suite.input.v1", calculatorId: "roof.material-takeoff", fields: { roofShape: "gable" }, material: null } }],
+      calculations: [{ id: "calc-v2", organization_id: "org", ownership_scope: "standalone", calculator_type: "construction.roof.material-takeoff", display_name: "DEMO V2", current_revision_id: "rv2", created_by: "user", updated_at: "2026-10-30T18:00:00Z" }],
+      calculation_revisions: [{ id: "rv2", organization_id: "org", revision_number: 1, created_at: "2026-10-27T09:30:00Z", input_snapshot: { schemaVersion: "construction-suite.input.v1", calculatorId: "roof.material-takeoff", geometryContractVersion: "outer-footprint", fields: { roofShape: "gable", lengthMm: "12000", widthMm: "6000" }, material: MATERIAL } }],
     };
     vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
-    const result = await listRoofShapeTransferSources("org", "roof.material-takeoff");
-    expect(result).toEqual({ ok: true, sources: [] });
+    const result = await listRoofShapeTransferSources("org");
+    expect(result.ok && result.sources[0].geometryContractVersion).toBe("outer-footprint");
+  });
+
+  it("P3.3c/D1: offers the same calculator type too, excluding only the calculation being edited", async () => {
+    rows = {
+      calculations: [
+        { id: "calc-open", organization_id: "org", ownership_scope: "standalone", calculator_type: "construction.roof.material-takeoff", display_name: "DEMO most szerkesztett", current_revision_id: "r1", created_by: "user", updated_at: "2026-10-28T10:00:00Z" },
+        { id: "calc-earlier", organization_id: "org", ownership_scope: "standalone", calculator_type: "construction.roof.material-takeoff", display_name: "DEMO korábbi ház", current_revision_id: "r2", created_by: "user", updated_at: "2026-10-27T10:00:00Z" },
+      ],
+      calculation_revisions: [
+        { id: "r1", organization_id: "org", revision_number: 1, created_at: "2026-10-28T10:00:00Z", input_snapshot: { schemaVersion: "construction-suite.input.v1", calculatorId: "roof.material-takeoff", fields: { roofShape: "gable" }, material: MATERIAL } },
+        { id: "r2", organization_id: "org", revision_number: 3, created_at: "2026-10-27T10:00:00Z", input_snapshot: { schemaVersion: "construction-suite.input.v1", calculatorId: "roof.material-takeoff", fields: { roofShape: "gable" }, material: MATERIAL } },
+      ],
+    };
+    vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
+    const result = await listRoofShapeTransferSources("org", "calc-open");
+    expect(result.ok && result.sources.map((source) => source.calculationId)).toEqual(["calc-earlier"]);
+    expect(result.ok && result.sources[0].revisionNumber).toBe(3);
+  });
+
+  /**
+   * B5: a sor, amit a hamis kliens itt visszaad, PONTOSAN az, amit az RLS is visszaadna — a
+   * `calculations_linked_member_read` policy (20261025110000) egy munkanaplóhoz linkelt construction
+   * kalkulációt minden szervezeti tagnak olvashatóvá tesz, a létrehozótól függetlenül (bizonyítva:
+   * `supabase/tests/database/066_transfer_source_creator_scope.sql`). Ezt a listát tehát KIZÁRÓLAG az
+   * alkalmazásszintű `created_by` szűrő tartja a saját munkákra. A szűrő törlése ezt a tesztet buktatja.
+   */
+  it("B5: nem ajánlja fel a kolléga kalkulációját, amelyet az RLS a munkanapló-link miatt olvashatóvá tesz", async () => {
+    rows = {
+      calculations: [{ id: "calc-other-user", organization_id: "org", ownership_scope: "standalone", calculator_type: "construction.roof.material-takeoff", display_name: "DEMO kollégáé", current_revision_id: "r1", created_by: "other-user", updated_at: "2026-10-27T10:00:00Z" }],
+      calculation_revisions: [{ id: "r1", organization_id: "org", revision_number: 1, created_at: "2026-10-27T10:00:00Z", input_snapshot: { schemaVersion: "construction-suite.input.v1", calculatorId: "roof.material-takeoff", fields: { roofShape: "gable" }, material: MATERIAL } }],
+    };
+    vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
+    expect(await listRoofShapeTransferSources("org")).toEqual({ ok: true, sources: [] });
+  });
+
+  it("does not offer a project-scoped calculation as a standalone transfer source", async () => {
+    rows = {
+      calculations: [{ id: "calc-project", organization_id: "org", ownership_scope: "project", calculator_type: "construction.roof.material-takeoff", display_name: "DEMO projekt", current_revision_id: "r1", created_by: "user", updated_at: "2026-10-27T10:00:00Z" }],
+      calculation_revisions: [{ id: "r1", organization_id: "org", revision_number: 1, created_at: "2026-10-27T10:00:00Z", input_snapshot: { schemaVersion: "construction-suite.input.v1", calculatorId: "roof.material-takeoff", fields: { roofShape: "gable" }, material: MATERIAL } }],
+    };
+    vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
+    expect(await listRoofShapeTransferSources("org")).toEqual({ ok: true, sources: [] });
   });
 
   it("denies access outside the caller's organizations", async () => {
     rows = { calculations: [], calculation_revisions: [] };
     vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
-    expect(await listRoofShapeTransferSources("other-org", "roof.material-takeoff")).toEqual({ ok: false });
+    expect(await listRoofShapeTransferSources("other-org")).toEqual({ ok: false });
+  });
+});
+
+/**
+ * B5: a `listRafterCutTransferSources` ugyanazt az alkalmazásszintű `created_by` szűrőt viseli, mint a
+ * roof-shape lista, de eddig egyetlen teszt sem őrizte. Ugyanaz a kockázat: a munkanaplóhoz linkelt
+ * construction kalkulációt az RLS minden szervezeti tagnak megmutatja.
+ */
+describe("listRafterCutTransferSources — létrehozóra szűkített forráslista (B5)", () => {
+  const rafterSnapshot = {
+    schemaVersion: "construction-suite.input.v1", calculatorId: "roof.rafter-cut",
+    fields: { horizontalHalfSpanMm: "3000", riseMm: "2000", seatCutHeightMm: "60", ridgeJoint: "opposed" }, material: null,
+  };
+  const calculation = (over: Record<string, unknown> = {}) => ({
+    id: "calc-rafter", organization_id: "org", ownership_scope: "standalone", calculator_type: "construction.roof.rafter-cut",
+    display_name: "DEMO szarufa", current_revision_id: "r1", created_by: "user", updated_at: "2026-10-27T10:00:00Z", ...over,
+  });
+  const revision = { id: "r1", organization_id: "org", revision_number: 1, created_at: "2026-10-27T10:00:00Z", input_snapshot: rafterSnapshot };
+
+  beforeEach(() => {
+    vi.mocked(getAuthContext).mockResolvedValue({ userId: "user", organizations: [{ id: "org" }] } as never);
+  });
+  const run = async (calculations: Record<string, unknown>[]) => {
+    rows = { calculations, calculation_revisions: [revision] };
+    vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
+    return listRafterCutTransferSources("org");
+  };
+
+  it("felajánlja a saját, mentett szarufa-kiszabást", async () => {
+    const result = await run([calculation()]);
+    expect(result.ok && result.sources.map((source) => source.calculationId)).toEqual(["calc-rafter"]);
+    expect(result.ok && result.sources[0].geometry).toEqual({ horizontalHalfSpanMm: "3000", riseMm: "2000", seatCutHeightMm: "60" });
+  });
+
+  it("B5: nem ajánlja fel a kolléga kalkulációját, amelyet az RLS a munkanapló-link miatt olvashatóvá tesz", async () => {
+    expect(await run([calculation({ created_by: "other-user" })])).toEqual({ ok: true, sources: [] });
+  });
+
+  it("nem ajánl projekthez kötött kalkulációt önálló forrásként", async () => {
+    expect(await run([calculation({ ownership_scope: "project" })])).toEqual({ ok: true, sources: [] });
+  });
+
+  it("nem ajánl másik szervezethez tartozó kalkulációt", async () => {
+    expect(await run([calculation({ organization_id: "other-org" })])).toEqual({ ok: true, sources: [] });
+  });
+
+  it("a hívó szervezetein kívül megtagadja a hozzáférést", async () => {
+    rows = { calculations: [calculation()], calculation_revisions: [revision] };
+    vi.mocked(createClient).mockResolvedValue(client() as unknown as Awaited<ReturnType<typeof createClient>>);
+    expect(await listRafterCutTransferSources("other-org")).toEqual({ ok: false });
   });
 });

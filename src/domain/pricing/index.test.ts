@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { buildPriceOptions, defaultPrice, priceChoiceLabel, priceDifference, pricedLineAmount, selectablePrices, validatePriceUnit, type PriceLine } from ".";
+import { buildPriceOptions, defaultPrice, materialOfferSelectionId, parseMaterialOfferSelectionId, priceChoiceLabel, priceDifference, pricedLineAmount, selectablePrices, validatePriceUnit, type PriceLine } from ".";
 
 const price = (id: string, optionId: string | null, amount: number, date = "2026-01-01", sourceName: string | null = null): PriceLine =>
   ({ id, optionId, amount, currency: "HUF", purchasingUnit: "square_meter", priceKind: "net", effectiveDate: date, recordedAt: `${date}T00:00:00Z`, provenance: "demo", sourceName });
 const options = [{ id: "o1", label: "Lindab", status: "active" as const }, { id: "o2", label: "Helyi tüzép", status: "active" as const }, { id: "o3", label: "Régi", status: "archived" as const }];
 
 describe("price options", () => {
+  it("keeps a supplier offer selection unique while retaining its variant identity", () => {
+    const first = materialOfferSelectionId("variant", "price-a");
+    const second = materialOfferSelectionId("variant", "price-b");
+    expect(first).not.toBe(second);
+    expect(parseMaterialOfferSelectionId(first)).toEqual({ variantId: "variant", priceId: "price-a" });
+    expect(parseMaterialOfferSelectionId("variant")).toEqual({ variantId: "variant", priceId: null });
+  });
+
   const prices = [price("a", "o1", 3000, "2026-01-01", "Lindab"), price("b", "o1", 3200, "2026-02-01", "Lindab"), price("c", "o2", 2950, "2026-01-05", "Helyi tüzép"), price("d", "o3", 1, "2026-01-01", "Régi"), price("e", null, 9999)];
   const built = buildPriceOptions(prices, options);
   it("keeps per-option history and picks the newest as current", () => {

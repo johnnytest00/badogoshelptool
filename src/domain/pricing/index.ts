@@ -12,6 +12,16 @@ export type PriceOptionRow = Readonly<{ id: string; label: string; status: "acti
 /** One supplier line: `prices` is its immutable history, newest first; `current` is the newest one. optionId null = unnamed legacy line. */
 export type PriceOption = Readonly<{ id: string | null; label: string; status: "active" | "archived"; prices: readonly PriceLine[]; current: PriceLine | null }>;
 
+export function materialOfferSelectionId(variantId: string, priceId: string | null) {
+  return priceId ? `${variantId}:${priceId}` : variantId;
+}
+
+export function parseMaterialOfferSelectionId(value: string): Readonly<{ variantId: string; priceId: string | null }> {
+  const separator = value.indexOf(":");
+  return separator < 0 ? { variantId: value, priceId: null } : { variantId: value.slice(0, separator), priceId: value.slice(separator + 1) || null };
+}
+
+
 const newestFirst = (a: PriceLine, b: PriceLine) => b.effectiveDate.localeCompare(a.effectiveDate) || b.recordedAt.localeCompare(a.recordedAt) || b.id.localeCompare(a.id);
 
 export function buildPriceOptions(prices: readonly PriceLine[], options: readonly PriceOptionRow[]): PriceOption[] {

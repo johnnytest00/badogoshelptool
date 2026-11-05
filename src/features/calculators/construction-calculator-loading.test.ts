@@ -5,7 +5,7 @@ import { initialConstructionCalculatorId, loadConstructionCalculatorDefinition }
 describe("construction calculator loading", () => {
   it("resolves the requested verified calculator and falls back to the suite default", () => {
     expect(initialConstructionCalculatorId("concrete.pile")).toBe("concrete.pile");
-    expect(initialConstructionCalculatorId("unknown.calculator")).toBe("roof.rafter-cut");
+    expect(initialConstructionCalculatorId("unknown.calculator")).toBe("roof.material-takeoff");
     expect(initialConstructionCalculatorId("roof.rafter-cut")).toBe("roof.rafter-cut");
   });
 

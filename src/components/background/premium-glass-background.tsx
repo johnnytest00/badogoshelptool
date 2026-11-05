@@ -23,9 +23,7 @@ export function PremiumGlassBackground() {
     const host = hostRef.current;
     if (!host) return;
 
-    const setEnabled = (enabled: boolean) => {
-      host.dataset.animationEnabled = String(enabled);
-    };
+    const setEnabled = (enabled: boolean) => { host.dataset.animationEnabled = String(enabled); };
     const onPreferenceChange = (event: Event) => {
       const detail = event instanceof CustomEvent ? event.detail as { enabled?: unknown } : null;
       setEnabled(typeof detail?.enabled === "boolean" ? detail.enabled : readSavedMotionPreference());
@@ -33,11 +31,8 @@ export function PremiumGlassBackground() {
     const onStorageChange = (event: StorageEvent) => {
       if (event.key === null || event.key === backgroundAnimationStorageKey) setEnabled(readSavedMotionPreference());
     };
-    const onVisibilityChange = () => {
-      host.dataset.pageVisible = String(document.visibilityState !== "hidden");
-    };
+    const onVisibilityChange = () => { host.dataset.pageVisible = String(document.visibilityState !== "hidden"); };
 
-    // The server markup is artwork-only (motion off); restore before enabling CSS animations.
     setEnabled(readSavedMotionPreference());
     onVisibilityChange();
     window.addEventListener(backgroundAnimationChangeEvent, onPreferenceChange);
@@ -52,13 +47,8 @@ export function PremiumGlassBackground() {
   }, []);
 
   return (
-    <div
-      ref={hostRef}
-      className="premium-glass-background"
-      aria-hidden="true"
-      data-animation-enabled="false"
-      data-page-visible="true"
-    >
+    <div ref={hostRef} className="premium-glass-background" aria-hidden="true"
+      data-animation-enabled="false" data-page-visible="true">
       <div className="premium-glass-background__ambient" />
       <div className="premium-glass-background__dot-grid" />
     </div>

@@ -61,6 +61,10 @@ Az overview legfeljebb 100 sort mutat standalone és projekt scope-onként, és 
 
 Frontend acceptance állapot: az automatizált UI-state/domain tesztek és statikus ellenőrzések eredményeit a `docs/TEST_MATRIX.md` rögzíti. A hitelesített böngészős end-to-end mentés/reload/V1–V2 workflow külön browser ellenőrzéséig **UNVERIFIED**.
 
+P1.4.1 UI-frissítés (2026-11-05): a szerkesztő névmezője az első mező; a dokumentumműveletek utána, tömör sávban jelennek meg. A felmérésalapú munkadíj csak meglévő, ellenőrzött anyaglista-felmérésből nyitható meg, és továbbra is explicit tételhozzáadást kér. A forrásrevíziók összecsukható „Felhasznált források” csoportban maradnak; a mentés és a munkanapló-link az oldal alján közös sorban jelenik meg. A pénzügyi, immutable-revízió, forrás- és RLS-szerződések nem változtak. A célzott UI-teszt 3/3, a teljes Vitest 1 632/1 632 PASS; a böngészős viewport-ellenőrzés továbbra is **UNVERIFIED** (részletek: `docs/PROGRESS.md`).
+
+P1.4.2 UI-frissítés (2026-11-05): a PDF-előnézet a fejléc művelete, a régebbi revíziók pedig a mentési állapot mellett, növekvő verziórendben láthatók. A szerkeszthető ajánlat hiányzó érvényességi dátuma a budapesti mai naptól számított 30 nap; mentett vagy történeti dátumot ez nem ír át. A belső hivatkozás és feltételek UI-mezői elrejtve maradtak, snapshot értékeiket a kliens megőrzi. Nincs DB-változás. QA és böngészős állapot: `docs/PROGRESS.md`.
+
 1b checks: a három Vitest fájl 10/10; `npm run typecheck`, `npm run lint`, `npm run build` és `git diff --check` PASS. A local DB-be írt, egyértelmű DEMO felhasználók, katalógusok és teszt-ajánlat/revízió adatok megmaradnak. Hosted DB/migráció, reset és commit nem történt.
 
 A manuális munkadíj/egyéb tétel adatmodellje már létezik, a takeoff nem kötelező. Katalógusanyaghoz továbbra is műhelyen belüli variáns és opcionálisan rögzített ár-pillanatkép szükséges. A hiányos draft új validációs állapotot és tesztelt PDF/finalizálási tiltást igényel. Pénzskála, HUF, nettó/bruttó egységesség, történeti árak és immutable revíziók változatlanul megőrzendők; ÁFA-kulcs nem következtethető.

@@ -66,4 +66,9 @@ describe("LengthField markup", () => {
     expect(incomplete).toContain('value=","');
     expect(incomplete).toContain('aria-label="Fél fesztáv, cm"');
   });
+
+  it("shows an approved external value instead of an obsolete draft", () => {
+    const html = renderToStaticMarkup(<LengthField label="Fél fesztáv" value="8200" draftState={{ text: "300", unit: "cm" }} onChange={() => undefined} />);
+    expect(html).toContain('value="820"');
+  });
 });

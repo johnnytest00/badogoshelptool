@@ -51,7 +51,7 @@ function photoForm(bytes: Uint8Array, name = "DEMO-foto.jpg") {
   form.set("file", new File([fileBytes], name, { type: "image/jpeg" }));
   return form;
 }
-function rawPhotoMultipart(bytes: Uint8Array, extraBytes?: Uint8Array) {
+function rawPhotoMultipart(bytes: Uint8Array, extraBytes?: Uint8Array, targetBytes?: number) {
   const boundary = "photo-boundary";
   const encoder = new TextEncoder();
   const prefix = encoder.encode([
@@ -62,7 +62,10 @@ function rawPhotoMultipart(bytes: Uint8Array, extraBytes?: Uint8Array) {
   ].join(""));
   const extraHeader = extraBytes ? encoder.encode(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="extra"; filename="extra.bin"\r\nContent-Type: application/octet-stream\r\n\r\n`) : new Uint8Array();
   const suffix = encoder.encode(`\r\n--${boundary}--\r\n`);
-  const body = new Uint8Array(prefix.length + bytes.length + extraHeader.length + (extraBytes?.length ?? 0) + suffix.length);
+  const bodyLength = prefix.length + bytes.length + extraHeader.length + (extraBytes?.length ?? 0) + suffix.length;
+  const paddingLength = targetBytes === undefined ? 0 : targetBytes - bodyLength;
+  if (paddingLength < 0) throw new Error("targetBytes is smaller than multipart body");
+  const body = new Uint8Array(bodyLength + paddingLength);
   body.set(prefix); body.set(bytes, prefix.length);
   let offset = prefix.length + bytes.length;
   body.set(extraHeader, offset); offset += extraHeader.length;
@@ -114,30 +117,43 @@ describe("field survey revision photos", () => {
     expect(state.upload).not.toHaveBeenCalled();
   });
 
-  it("keeps the 10 MiB per-photo limit and rejects oversized files before reservation", async () => {
-    const response = await POST(rawPhotoMultipart(new Uint8Array(10 * 1024 * 1024 + 1)), { params: Promise.resolve({ surveyId }) });
+  it("rejects a photo one byte over the 3 MiB per-photo limit before reservation", async () => {
+    const response = await POST(rawPhotoMultipart(new Uint8Array(3 * 1024 * 1024 + 1)), { params: Promise.resolve({ surveyId }) });
     expect(response.status).toBe(413);
     expect(state.reserve).not.toHaveBeenCalled();
     expect(state.upload).not.toHaveBeenCalled();
     expect(state.attach).not.toHaveBeenCalled();
   });
 
-  it("bounds the aggregate of multiple multipart parts before any write", async () => {
-    const response = await POST(rawPhotoMultipart(new Uint8Array(10 * 1024 * 1024), new Uint8Array(2 * 1024 * 1024)), { params: Promise.resolve({ surveyId }) });
+  it("rejects a multipart request one byte above the 4 MiB aggregate limit", async () => {
+    const response = await POST(rawPhotoMultipart(new Uint8Array(3 * 1024 * 1024), new Uint8Array(), 4 * 1024 * 1024 + 1), { params: Promise.resolve({ surveyId }) });
     expect(response.status).toBe(413);
     expect(state.reserve).not.toHaveBeenCalled();
     expect(state.upload).not.toHaveBeenCalled();
     expect(state.attach).not.toHaveBeenCalled();
   });
 
-  it("accepts a valid photo at the 10 MiB per-photo limit", async () => {
+  it("accepts a valid photo exactly at the 3 MiB per-photo limit", async () => {
     const jpeg = await sharp({ create: { width: 3, height: 3, channels: 3, background: "red" } }).jpeg().toBuffer();
-    const bytes = new Uint8Array(10 * 1024 * 1024);
+    const bytes = new Uint8Array(3 * 1024 * 1024);
     bytes.set(jpeg);
     state.reserve.mockResolvedValue({ reused: false, version: 2 });
     state.upload.mockResolvedValue({ error: null });
     state.attach.mockResolvedValue({ version: 3 });
     const response = await POST(rawPhotoMultipart(bytes), { params: Promise.resolve({ surveyId }) });
+    expect(response.status).toBe(200);
+    expect(state.reserve).toHaveBeenCalledTimes(1);
+    expect(state.upload).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts a multipart request exactly at the 4 MiB aggregate limit", async () => {
+    const jpeg = await sharp({ create: { width: 3, height: 3, channels: 3, background: "red" } }).jpeg().toBuffer();
+    const bytes = new Uint8Array(3 * 1024 * 1024);
+    bytes.set(jpeg);
+    state.reserve.mockResolvedValue({ reused: false, version: 2 });
+    state.upload.mockResolvedValue({ error: null });
+    state.attach.mockResolvedValue({ version: 3 });
+    const response = await POST(rawPhotoMultipart(bytes, new Uint8Array(), 4 * 1024 * 1024), { params: Promise.resolve({ surveyId }) });
     expect(response.status).toBe(200);
     expect(state.reserve).toHaveBeenCalledTimes(1);
     expect(state.upload).toHaveBeenCalledTimes(1);

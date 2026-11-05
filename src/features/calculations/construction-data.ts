@@ -133,6 +133,7 @@ export async function listRafterCutTransferSources(organizationId: string): Prom
 
 export type RoofShapeTransferSource = Readonly<{
   calculationId: string; displayName: string; revisionId: string; revisionNumber: number;
+  geometryContractVersion: "legacy-wall" | "outer-footprint";
   sourceCalculatorId: "roof.material-takeoff" | "roof.timber-cutlist";
   roofShape: string;
   /** M10.2: the saved calculator's entire known field snapshot — safe to copy as-is between roof.material-takeoff and
@@ -141,32 +142,43 @@ export type RoofShapeTransferSource = Readonly<{
   fields: Readonly<Record<string, string>>;
   /** M10.2: only the fields the gable→rafter-cut geometry conversion needs, not the full snapshot. */
   geometry: Readonly<{ widthMm?: string; pitchDegrees?: string; eaveOverhangMm?: string; seatCutHeightMm?: string }>;
+  /** P3.3c: the saved material state of this very revision, for the separately confirmed material transfer. */
+  material: ConstructionInputSnapshot["material"];
+  /** P3.3c: the used revision's own creation date — NOT the calculation's last-modified date. */
+  revisionCreatedAt: string;
 }>;
 export type RoofShapeTransferSourcesResult = Readonly<{ ok: true; sources: readonly RoofShapeTransferSource[] }> | Readonly<{ ok: false }>;
 const ROOF_SHAPE_CALCULATOR_IDS = ["roof.material-takeoff", "roof.timber-cutlist"] as const;
 const isRoofShapeCalculatorId = (id: string): id is (typeof ROOF_SHAPE_CALCULATOR_IDS)[number] => (ROOF_SHAPE_CALCULATOR_IDS as readonly string[]).includes(id);
 
 /**
- * M10.2: creator-scoped (RLS) saved roof.material-takeoff/roof.timber-cutlist calculations offered for "Adatok
- * átvétele" into the other of those two (full field reuse, any roof shape — the two share one field schema) or
- * into roof.rafter-cut (joint-field reverse mapping, plus gable-only geometry). `excludeCalculatorId` leaves out
- * the target calculator itself so a calculator is never offered as its own transfer source.
+ * M10.2: creator-scoped saved roof.material-takeoff/roof.timber-cutlist calculations offered for "Adatok átvétele"
+ * into either of those two (full field reuse, any roof shape — the two share one field schema) or into
+ * roof.rafter-cut (joint-field reverse mapping, plus gable-only geometry).
+ *
+ * P3.3c/D1: the same calculator type is a valid source too ("same material, new house"), so only the calculation
+ * being edited is excluded — `excludeCalculationId`, not the calculator type.
+ *
+ * The explicit `created_by` filter is load-bearing and must stay: RLS alone does not keep the list creator-scoped,
+ * because `calculations_linked_member_read` / `calculation_revisions_linked_member_read` (20261025110000) make a
+ * construction calculation linked to an execution plan readable by every org member.
  */
-export async function listRoofShapeTransferSources(organizationId: string, excludeCalculatorId?: "roof.material-takeoff" | "roof.timber-cutlist"): Promise<RoofShapeTransferSourcesResult> {
+export async function listRoofShapeTransferSources(organizationId: string, excludeCalculationId?: string): Promise<RoofShapeTransferSourcesResult> {
   const auth = await getAuthContext();
   if (!auth?.organizations.some((organization) => organization.id === organizationId)) return { ok: false };
-  const sourceCalculatorIds = ROOF_SHAPE_CALCULATOR_IDS.filter((id) => id !== excludeCalculatorId);
   const supabase = await createClient();
-  const { data: calculations, error } = await supabase.from("calculations")
+  const calculationQuery = supabase.from("calculations")
     .select("id, display_name, calculator_type, current_revision_id")
     .eq("organization_id", organizationId).eq("ownership_scope", "standalone")
-    .in("calculator_type", sourceCalculatorIds.map((id) => `construction.${id}`))
-    .eq("created_by", auth.userId).order("updated_at", { ascending: false }).limit(20);
+    .in("calculator_type", ROOF_SHAPE_CALCULATOR_IDS.map((id) => `construction.${id}`))
+    .eq("created_by", auth.userId);
+  const { data: calculations, error } = await (excludeCalculationId ? calculationQuery.neq("id", excludeCalculationId) : calculationQuery)
+    .order("updated_at", { ascending: false }).limit(20);
   if (error) return { ok: false };
   if (!calculations?.length) return { ok: true, sources: [] };
   const revisionIds = calculations.flatMap((calculation) => calculation.current_revision_id ? [calculation.current_revision_id] : []);
   if (!revisionIds.length) return { ok: true, sources: [] };
-  const { data: revisions, error: revisionError } = await supabase.from("calculation_revisions").select("id, revision_number, input_snapshot")
+  const { data: revisions, error: revisionError } = await supabase.from("calculation_revisions").select("id, revision_number, created_at, input_snapshot")
     .eq("organization_id", organizationId).in("id", revisionIds);
   if (revisionError) return { ok: false };
   const revisionById = new Map((revisions ?? []).map((row) => [row.id, row]));
@@ -178,7 +190,7 @@ export async function listRoofShapeTransferSources(organizationId: string, exclu
     const fields = input.data.fields;
     const geometry = { widthMm: fields.widthMm, pitchDegrees: fields.pitchDegrees, eaveOverhangMm: fields.eaveOverhangMm, seatCutHeightMm: fields.seatCutHeightMm };
     return Object.keys(fields).length > 0
-      ? [{ calculationId: calculation.id, displayName: calculation.display_name, revisionId: revision.id, revisionNumber: revision.revision_number, sourceCalculatorId, roofShape: fields.roofShape ?? "gable", fields, geometry }]
+      ? [{ calculationId: calculation.id, displayName: calculation.display_name, revisionId: revision.id, revisionNumber: revision.revision_number, sourceCalculatorId, geometryContractVersion: input.data.geometryContractVersion ?? "legacy-wall", roofShape: fields.roofShape ?? "gable", fields, geometry, material: input.data.material, revisionCreatedAt: revision.created_at }]
       : [];
   });
   return { ok: true, sources };

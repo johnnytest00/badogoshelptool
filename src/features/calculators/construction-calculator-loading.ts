@@ -2,7 +2,7 @@ import { constructionCalculatorCatalog } from "@/domain/calculations/constructio
 
 import type { CalculatorDefinition } from "./construction-calculator-types";
 
-const defaultCalculatorId = "roof.rafter-cut";
+const defaultCalculatorId = "roof.material-takeoff";
 
 export function initialConstructionCalculatorId(id: string): string {
   return constructionCalculatorCatalog.some((item) => item.id === id && item.status === "verified") ? id : defaultCalculatorId;

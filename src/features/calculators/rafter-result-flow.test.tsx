@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { calculateRafterJoints, HAP_HELP, HAP_INPUT_LABEL } from "@/domain/calculations/construction/rafter-joints";
 import { definitions } from "./roof-calculator-definitions";
-import { HapMeasuringHelp } from "./hap-figure";
 import { RafterCutFlow, RafterJointsInvitation, RoofDrawingViews } from "./rafter-result-flow";
 import { RafterJointsPanel, formatJointValue } from "./rafter-joints-panel";
 import { RafterJointDrawing } from "./rafter-joint-drawing";
@@ -11,17 +10,13 @@ const order = (html: string, markers: readonly string[]) => markers.map((marker)
 const joints = calculateRafterJoints({ horizontalHalfSpanMm: 4000, riseMm: 3100, eaveProjectionMm: 400, seatCutHeightMm: 100, rafterDepthMm: 200, ridgeJoint: "purlin", purlinFaceMm: 2000, purlinTopMm: 1400, ridgePurlinWidthMm: 160, ridgePurlinTopMm: 2850 });
 
 describe("M9.6 rafter result presentation", () => {
-  it("keeps the HAP definition at the field and the sketch in a closed, labelled disclosure in all three calculators", () => {
+  it("keeps the HAP definition and calculation without a separate measuring-help panel", () => {
     for (const id of ["roof.rafter-cut", "roof.material-takeoff", "roof.timber-cutlist"]) {
-      expect(definitions[id]!.fields.find((field) => field.key === "seatCutHeightMm")).toMatchObject({ label: HAP_INPUT_LABEL, help: HAP_HELP, figure: "hap" });
+      expect(definitions[id]!.fields.find((field) => field.key === "seatCutHeightMm")).toMatchObject({ label: HAP_INPUT_LABEL, help: HAP_HELP });
+      expect(definitions[id]!.fields.find((field) => field.key === "seatCutHeightMm")?.figure).toBeUndefined();
     }
-    const html = renderToStaticMarkup(<HapMeasuringHelp />);
-    expect(html).toMatch(/^<details class="glass-disclosure hap-help">/);
-    expect(html).toContain("<summary");
-    expect(html).toContain("HAP mérési segédlet");
-    // Opened, the sketch carries all four references and stays marked as not to scale; no repeat of the field help.
-    for (const part of [">HAP<", "szarufa felső éle", "talpszelemen felső síkja", "külső függővágási sík (x = 0)", "Vázlat, nem méretarányos."]) expect(html).toContain(part);
-    expect(html).not.toContain(HAP_HELP);
+    expect(joints.joints[0]).toMatchObject({ status: "computed" });
+    expect(joints.pitchDegrees).toBeCloseTo(36.8698976458, 9);
   });
 
   it("puts the rafter-cut drawing before the main lengths, the joint limits and the closed details", () => {

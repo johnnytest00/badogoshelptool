@@ -16,6 +16,10 @@ describe("QuotationSourceSelector", () => {
     expect(html).toContain('name="calculationSource"');
     expect(html).toContain('value="list-1|list-rev-2" selected=""');
     expect(html).toContain('value="calc-1|calc-rev-3" selected=""');
+    expect(html).toContain("Források kiválasztása");
+    expect(html).toContain("Árajánlati források");
     expect(html).toContain("Források betöltése");
+    expect(html).toContain('<dialog class="glass-confirmation-dialog quotation-source-dialog"');
+    expect(html).toContain('aria-labelledby="quotation-source-dialog-title"');
   });
 });

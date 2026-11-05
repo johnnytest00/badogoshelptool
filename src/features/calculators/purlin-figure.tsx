@@ -1,8 +1,8 @@
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 
 /**
- * Derékszelemen (purlin) reference sketch: the same origin as the HAP figure (talpszelemen outer plumb plane x = 0,
- * top plane y = 0, see CRR-01 / hap-figure.tsx), extended with the purlin's own horizontal and vertical measurement.
+ * Derékszelemen (purlin) reference sketch: the same origin as the HAP measurement contract (talpszelemen outer
+ * plumb plane x = 0, top plane y = 0, see CRR-01), extended with the purlin's own horizontal and vertical measurement.
  * Schematic only (fixed proportions), so it carries no measured value and does not duplicate the live, computed
  * RafterJointDrawing/RoofJointDrawing detail.
  */

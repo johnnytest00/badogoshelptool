@@ -1,0 +1,50 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 521 >>
+stream
+0.6 w
+100 700 m 300 700 l S
+100 696 m 100 704 l S
+300 696 m 300 704 l S
+100 600 m 220 600 l S
+100 596 m 100 604 l S
+220 596 m 220 604 l S
+100 500 m 180 500 l S
+100 496 m 100 504 l S
+180 496 m 180 504 l S
+100 400 m 125 400 l S
+100 396 m 100 404 l S
+125 396 m 125 404 l S
+BT /F1 12 Tf 60 790 Td (DEMO LEPTEKRAJZ) Tj ET
+BT /F1 10 Tf 60 772 Td (M=1:50 (szintetikus)) Tj ET
+BT /F1 8 Tf 188 706 Td (10,00 m) Tj ET
+BT /F1 8 Tf 148 606 Td (6,00 m) Tj ET
+BT /F1 8 Tf 128 506 Td (4,00 m) Tj ET
+BT /F1 8 Tf 100.5 406 Td (1250) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000813 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+910
+%%EOF

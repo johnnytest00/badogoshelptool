@@ -19,7 +19,7 @@ async function authorizeOrganization(organizationId: string) {
   return { auth, organization } as const;
 }
 
-export async function searchMaterialProductsAction(organizationId: string, filters: { search?: string; categoryId?: string; includeArchived?: boolean; page?: number }) {
+export async function searchMaterialProductsAction(organizationId: string, filters: { search?: string; categoryId?: string; categoryIds?: string[]; includeArchived?: boolean; page?: number }) {
   const access = await authorizeOrganization(organizationId);
   if ("error" in access) throw new Error(access.error);
   return getMaterialProductPage(organizationId, filters);
@@ -62,7 +62,7 @@ export async function createMaterialManagerProductAction(formData: FormData): Pr
   const parsed = materialManagerProductInputSchema.safeParse({
     requestId: text(formData, "requestId"), categoryId: text(formData, "categoryId"), name: text(formData, "name"),
     purchasingUnit: text(formData, "purchasingUnit"), priceAmount: text(formData, "priceAmount"),
-    priceKind: text(formData, "priceKind") || undefined, priceEffectiveDate: text(formData, "priceEffectiveDate"),
+    priceKind: text(formData, "priceKind") || undefined, priceSupplier: text(formData, "priceSupplier"), priceEffectiveDate: text(formData, "priceEffectiveDate"),
   });
   if (!parsed.success) return validationError(parsed.error);
   const rawPrice = parsed.data.priceAmount.replace(",", ".");
@@ -70,13 +70,13 @@ export async function createMaterialManagerProductAction(formData: FormData): Pr
   try { price = rawPrice ? scaledToDecimal(decimalToScaled(rawPrice, 2), 2) : null; }
   catch { return { ok: false, error: "Adj meg legfeljebb két tizedesjegyű HUF árat." }; }
   const priceKind = rawPrice ? parsed.data.priceKind ?? null : null;
-  const effectiveDate = rawPrice ? parsed.data.priceEffectiveDate : null;
+  const effectiveDate = rawPrice ? parsed.data.priceEffectiveDate || new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Budapest" }).format(new Date()) : null;
   const supabase = await createClient();
   const managerRpc = supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: Array<{ product_id: string; variant_id: string; reused: boolean }> | null; error: { code?: string; message?: string } | null }> };
   const { data, error } = await managerRpc.rpc("create_material_manager_product", {
     p_organization_id: organizationId, p_request_id: parsed.data.requestId, p_category_id: parsed.data.categoryId,
     p_name: parsed.data.name, p_purchasing_unit: parsed.data.purchasingUnit,
-    p_price_amount: price, p_price_kind: priceKind, p_price_effective_date: effectiveDate,
+    p_price_amount: price, p_price_kind: priceKind, p_price_effective_date: effectiveDate, p_price_supplier: parsed.data.priceSupplier || null,
   });
   if (error || !data?.[0]) {
     if (error?.code === "40001") return { ok: false, error: "A mentési kérés adatai megváltoztak. Ellenőrizd, majd próbáld újra." };
@@ -121,9 +121,10 @@ export async function updateMaterialProductAction(formData: FormData): Promise<M
   const parsed = materialProductInputSchema.safeParse(productPayload(formData)); if (!parsed.success) return validationError(parsed.error);
   const category = await getActiveCategory(organizationId, parsed.data.categoryId);
   const supabase = await createClient();
-  const { data: currentProduct } = await supabase.from("material_products").select("category_id").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+  const { data: currentProduct, error: currentProductError } = await supabase.from("material_products").select("category_id, data_provenance, source_name, source_url, source_date, source_notes").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+  if (currentProductError || !currentProduct) return { ok: false, error: "A termék nem található vagy nem módosítható." };
   if (!category || (!category.is_active && currentProduct?.category_id !== category.id)) return { ok: false, error: "Új vagy áthelyezett termékhez aktív kategóriát válassz." };
-  const { data, error } = await supabase.from("material_products").update({ manufacturer_id: parsed.data.manufacturerId, category_id: parsed.data.categoryId, category: category.legacy_category, name: parsed.data.name, description: parsed.data.description || null, product_code: parsed.data.productCode || null, data_provenance: parsed.data.dataProvenance, source_name: parsed.data.sourceName || null, source_url: parsed.data.sourceUrl || null, source_date: dateOrNull(parsed.data.sourceDate), source_notes: parsed.data.sourceNotes || null }).eq("id", id).eq("organization_id", organizationId).select("id").maybeSingle();
+  const { data, error } = await supabase.from("material_products").update({ manufacturer_id: parsed.data.manufacturerId, category_id: parsed.data.categoryId, category: category.legacy_category, name: parsed.data.name, description: parsed.data.description || null, product_code: parsed.data.productCode || null, data_provenance: currentProduct.data_provenance, source_name: currentProduct.source_name, source_url: currentProduct.source_url, source_date: currentProduct.source_date, source_notes: currentProduct.source_notes }).eq("id", id).eq("organization_id", organizationId).select("id").maybeSingle();
   if (error || !data) return { ok: false, error: "A termék nem található vagy nem módosítható." }; refreshCatalog(id); return { ok: true, productId: data.id };
 }
 
@@ -146,7 +147,10 @@ export async function createMaterialVariantAction(formData: FormData): Promise<M
 export async function updateMaterialVariantAction(formData: FormData): Promise<MaterialActionResult> {
   const id = text(formData, "variantId"); const organizationId = text(formData, "organizationId"); const access = await authorizeOrganization(organizationId); if ("error" in access) return { ok: false, error: access.error };
   const payload = variantPayload(formData); const parsed = materialVariantInputSchema.safeParse(payload); if (!parsed.success) return validationError(parsed.error);
-  const supabase = await createClient(); const { data, error } = await supabase.from("material_variants").update({ name: parsed.data.name, sku: parsed.data.sku || null, purchasing_unit: parsed.data.purchasingUnit, nominal_width_mm: parsed.data.nominalWidthMm, effective_width_mm: parsed.data.effectiveWidthMm, thickness_mm: parsed.data.thicknessMm, length_mm: parsed.data.lengthMm, packaging_quantity: parsed.data.packagingQuantity, technical_specs: parsed.data.technicalSpecs, data_provenance: parsed.data.dataProvenance, source_name: parsed.data.sourceName || null, source_url: parsed.data.sourceUrl || null, source_date: dateOrNull(parsed.data.sourceDate), source_notes: parsed.data.sourceNotes || null }).eq("id", id).eq("organization_id", organizationId).select("id, product_id").maybeSingle();
+  const supabase = await createClient();
+  const { data: currentVariant, error: currentVariantError } = await supabase.from("material_variants").select("nominal_width_mm, effective_width_mm, thickness_mm, length_mm, packaging_quantity, technical_specs, data_provenance, source_name, source_url, source_date, source_notes").eq("id", id).eq("organization_id", organizationId).maybeSingle();
+  if (currentVariantError || !currentVariant) return { ok: false, error: "A variáns nem található vagy nem módosítható." };
+  const { data, error } = await supabase.from("material_variants").update({ name: parsed.data.name, sku: parsed.data.sku || null, purchasing_unit: parsed.data.purchasingUnit, nominal_width_mm: currentVariant.nominal_width_mm, effective_width_mm: currentVariant.effective_width_mm, thickness_mm: currentVariant.thickness_mm, length_mm: currentVariant.length_mm, packaging_quantity: currentVariant.packaging_quantity, technical_specs: currentVariant.technical_specs, data_provenance: currentVariant.data_provenance, source_name: currentVariant.source_name, source_url: currentVariant.source_url, source_date: currentVariant.source_date, source_notes: currentVariant.source_notes }).eq("id", id).eq("organization_id", organizationId).select("id, product_id").maybeSingle();
   if (error?.code === "23514") return { ok: false, error: "Ehhez az egységhez már ár tartozik. Az előzmények megőrzéséhez hozz létre új variánst az új egységgel." };
   if (error || !data) return { ok: false, error: "A variáns nem található vagy nem módosítható." }; refreshCatalog(data.product_id); return { ok: true, variantId: data.id, productId: data.product_id };
 }

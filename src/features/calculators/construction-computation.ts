@@ -18,7 +18,7 @@ export const roofShapeOf = (values: Record<string, unknown>): RoofGeometryType =
   const shape = String(values.roofShape ?? "gable");
   return ((ROOF_SHAPES as readonly string[]).includes(shape) ? shape : "gable") as RoofGeometryType;
 };
-const roofGeometryInputFor = (values: Record<string, unknown>): RoofGeometryInput => roofGeometryInputFromFields(roofShapeOf(values), values);
+const roofGeometryInputFor = (values: Record<string, unknown>, contract: "legacy-wall" | "outer-footprint" = "legacy-wall"): RoofGeometryInput => roofGeometryInputFromFields(roofShapeOf(values), values, contract);
 
 export function inputRecord(fields: readonly Field[], values: Record<string, string>): Record<string, unknown> {
   return Object.fromEntries(fields.map((field) => {
@@ -35,6 +35,10 @@ export function roofGeometryTypeForDefinition(definition: CalculatorDefinition, 
 }
 export const isFieldVisible = (field: Field, values: Record<string, string>) => (!field.shapes || field.shapes.includes(roofShapeOf(values)))
   && (field.visibleWhen === undefined ? [] : "key" in field.visibleWhen ? [field.visibleWhen] : field.visibleWhen).every((condition) => condition.values.includes(values[condition.key] ?? ""));
+
+/** The central takeoff treats the historical 0 mm eave default as a value that must be explicitly confirmed. */
+export const isRequiredGeometryField = (field: Field) =>
+  field.key !== "eaveOverhangMm" && !field.advanced && field.kind !== "checkbox" && field.initial === undefined;
 
 /**
  * Field contract (CRR-07), shared by the preview and the server action: a value that was entered but is not valid is never
@@ -60,10 +64,10 @@ export function fieldContractIssues(fields: readonly Field[], values: Record<str
   });
 }
 
-function reusableRoofGeometry(definition: CalculatorDefinition, values: Record<string, string>): RoofGeometry | null {
+function reusableRoofGeometry(definition: CalculatorDefinition, values: Record<string, string>, contract: "legacy-wall" | "outer-footprint"): RoofGeometry | null {
   if (!usesRoofShape(definition)) return null;
   try {
-    return calculateExistingRoofGeometry(roofGeometryInputFor(values));
+    return calculateExistingRoofGeometry(roofGeometryInputFor(values, contract));
   } catch {
     return null;
   }
@@ -104,11 +108,11 @@ export type ConstructionComputation = Readonly<{
 }>;
 
 /** One calculation path for the browser preview and the server-side recomputation before saving. */
-export function computeConstruction(definition: CalculatorDefinition, values: Record<string, string>, material: RoofMaterialUiState | null, profiles: readonly MaterialProfile[]): ConstructionComputation {
+export function computeConstruction(definition: CalculatorDefinition, values: Record<string, string>, material: RoofMaterialUiState | null, profiles: readonly MaterialProfile[], contract: "legacy-wall" | "outer-footprint" = values.__geometryContractVersion === "outer-footprint" ? "outer-footprint" : "legacy-wall"): ConstructionComputation {
   const calculatorId = definition.reference.id;
   const raw = inputRecord(definition.fields, values);
   const fieldIssues = fieldContractIssues(definition.fields, values);
-  const requiredFields = definition.fields.filter((field) => !field.advanced && field.initial === undefined && field.kind !== "checkbox" && isFieldVisible(field, values));
+  const requiredFields = definition.fields.filter((field) => isRequiredGeometryField(field) && isFieldVisible(field, values));
   const inputsReady = requiredFields.every((field) => (values[field.key] ?? "").trim() !== "");
   const timberOnly = calculatorId === "roof.timber-cutlist";
   const timberRequested = Boolean(material && (timberOnly || material.requested.timber));
@@ -125,7 +129,7 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
     takeoffInputs = {
       timber: timberInput ?? undefined, underlay: underlayParametersFromSpec(specs.underlay), covering: coveringParametersFromSpec(specs.covering), requested,
       specSnapshot: createSpecSnapshot([...(requested.timber ? [specs.rafter, specs.batten] : []), ...(requested.underlay ? [specs.underlay] : []), ...(requested.covering ? [specs.covering] : [])]),
-      calculationSnapshot: createCalculationSnapshot({ calculatorId, roofShape: roofShapeOf(values), fields: raw, requested, timberLayout: layout, specs: [specs.rafter, specs.batten, specs.underlay, specs.covering] }),
+      calculationSnapshot: createCalculationSnapshot({ calculatorId, roofShape: roofShapeOf(values), fields: raw, requested, timberLayout: layout, specs: [specs.rafter, specs.batten, specs.underlay, specs.covering], geometryContractVersion: contract }),
     };
   }
   let rows: readonly ResultLine[] = [];
@@ -133,8 +137,8 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
   let geometry: RoofGeometry | null = null;
   if (inputsReady && fieldIssues.length === 0) {
     try {
-      geometry = roofGeometryTypeForDefinition(definition, values) ? reusableRoofGeometry(definition, values) : null;
-      rows = definition.calculate(raw, takeoffInputs);
+      geometry = roofGeometryTypeForDefinition(definition, values) ? reusableRoofGeometry(definition, values, contract) : null;
+      rows = definition.calculate(raw, takeoffInputs, contract);
     } catch (caught) {
       error = caught instanceof z.ZodError ? [...new Set(caught.issues.map((issue) => validationMessage(issue)))].join(" ") : "A megadott méretekkel a számítás nem végezhető el.";
       geometry = null;
@@ -165,7 +169,7 @@ export function computeConstruction(definition: CalculatorDefinition, values: Re
     : materialTakeoff?.status === "UNSUPPORTED"
       ? { status: "unsupported" as const, reasons }
       : !inputsReady || jointIssues("incomplete").length > 0 || (materialTakeoff !== null && (activeParts.length === 0 || materialTakeoff.status === "INCOMPLETE" || activeParts.some((part) => part.incompleteQuantities.length > 0)))
-        ? { status: "incomplete" as const, reasons: activeParts.length === 0 && materialTakeoff ? ["Válassz legalább egy számítandó anyagcsoportot.", ...reasons] : reasons }
+        ? { status: "incomplete" as const, reasons }
         : rows.length > 0 || geometry !== null
           ? { status: "complete" as const, reasons: [] }
           : { status: "invalid" as const, reasons: ["A megadott adatokból nem keletkezett eredmény."] };
@@ -184,6 +188,7 @@ const specStateSchema = z.object({ mode: z.enum(["product", "manual"]), profileI
 export const constructionInputSnapshotSchema = z.object({
   schemaVersion: z.literal(CONSTRUCTION_INPUT_SCHEMA),
   calculatorId: z.string().min(1).max(80),
+  geometryContractVersion: z.enum(["legacy-wall", "outer-footprint"]).optional(),
   fields: z.record(z.string().max(80), z.string().max(200)),
   material: z.object({
     requested: z.object({ timber: z.boolean(), underlay: z.boolean(), covering: z.boolean() }).strict(),
@@ -198,7 +203,7 @@ export function comparableConstructionInput(definition: CalculatorDefinition, sa
   if (saved.calculatorId !== definition.reference.id) return null;
   const fields = new Map(definition.fields.map((field) => [field.key, field]));
   if (Object.keys(saved.fields).some((key) => !fields.has(key))) return null;
-  if (definition.fields.some((field) => !field.advanced && field.initial === undefined && field.kind !== "checkbox" && saved.fields[field.key] === undefined)) return null;
+  if (definition.fields.some((field) => isRequiredGeometryField(field) && saved.fields[field.key] === undefined)) return null;
   return { ...saved, fields: Object.fromEntries(definition.fields.map((field) => [field.key, saved.fields[field.key] ?? field.initial ?? ""])) };
 }
 
@@ -218,7 +223,7 @@ export function constructionInputSnapshot(definition: CalculatorDefinition, valu
   const fields = Object.fromEntries(definition.fields.flatMap((field) => values[field.key] === undefined ? [] : [[field.key, values[field.key]]]));
   const specs = material && Object.fromEntries((["covering", "underlay", "rafter", "batten"] as const satisfies readonly MaterialGroup[]).map((group) => [group, material.specs[group]])) as Record<MaterialGroup, SpecState>;
   return {
-    schemaVersion: CONSTRUCTION_INPUT_SCHEMA, calculatorId: definition.reference.id, fields,
+    schemaVersion: CONSTRUCTION_INPUT_SCHEMA, calculatorId: definition.reference.id, geometryContractVersion: (values.__geometryContractVersion as "legacy-wall" | "outer-footprint" | undefined) ?? (definition.fields.some((field) => field.key === "roofShape") ? "outer-footprint" : "legacy-wall"), fields,
     material: usesMaterialInputs(definition.reference.id) && material && specs ? { requested: { ...material.requested }, layout: withoutEdgeStrips(material.layout), specs } : null,
   };
 }
@@ -261,7 +266,7 @@ export function isCompleteConstructionOutput(value: unknown): boolean {
 
 /** A saved input as the current editor builds it (M6: legacy edge-strip keys dropped), so an unchanged revision does not read as modified. */
 export const normalizedConstructionInput = (snapshot: ConstructionInputSnapshot): ConstructionInputSnapshot =>
-  snapshot.material ? { ...snapshot, material: { ...snapshot.material, layout: withoutEdgeStrips(snapshot.material.layout) } } : snapshot;
+  ({ ...snapshot, geometryContractVersion: snapshot.geometryContractVersion ?? "legacy-wall", ...(snapshot.material ? { material: { ...snapshot.material, layout: withoutEdgeStrips(snapshot.material.layout) } } : {}) });
 
 /** Rebuild editor state from a saved input snapshot. */
 export function materialStateFromSnapshot(snapshot: ConstructionInputSnapshot): RoofMaterialUiState | null {

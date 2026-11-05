@@ -1,11 +1,9 @@
 "use client";
 
 import { FeatureToggle } from "./feature-toggle";
-import { useState } from "react";
-import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { LengthField } from "@/components/ui/length-field";
 import { WorkflowMaterialProductPicker, type WorkflowMaterialProductOption } from "@/features/material-takeoffs/workflow-material-product-picker";
-import { MATERIAL_SPEC_FIELDS, initialSpecState, resolveMaterialSpec, restoreProductValues, setSpecEntry, switchSpecMode, type MaterialGroup, type MaterialProfile, type SpecFieldDef, type SpecState, type SpecValueSource } from "@/domain/calculations/roof-material-spec";
+import { MATERIAL_SPEC_FIELDS, initialSpecStateForGroup, resolveMaterialSpec, restoreProductValues, setSpecEntry, switchSpecMode, type MaterialGroup, type MaterialProfile, type SpecFieldDef, type SpecState, type SpecValueSource } from "@/domain/calculations/roof-material-spec";
 import { materialProvenanceLabels } from "@/domain/materials/contracts";
 import type { RoofTimberParameters } from "@/domain/calculations/roof-timber-layout";
 
@@ -18,7 +16,7 @@ export type RoofMaterialUiState = Readonly<{
 export const initialMaterialState = (profiles: readonly MaterialProfile[], timberRequested: boolean): RoofMaterialUiState => ({
   requested: { timber: timberRequested, underlay: false, covering: false },
   layout: {},
-  specs: Object.fromEntries((["covering", "underlay", "rafter", "batten"] as const).map((group) => [group, initialSpecState(profiles.some((profile) => profile.group === group))])) as Record<MaterialGroup, SpecState>,
+  specs: Object.fromEntries((["covering", "underlay", "rafter", "batten"] as const).map((group) => [group, initialSpecStateForGroup(group, profiles)])) as Record<MaterialGroup, SpecState>,
 });
 
 const PICKER_COPY = { searchLabel: "Keresés terméknév, variáns, SKU vagy gyártó szerint", dialogLabel: "Termék kiválasztása", listLabel: "Elérhető termékek", emptyText: "Nincs a keresésnek megfelelő termék." } as const;
@@ -32,11 +30,10 @@ type EditorProps = Readonly<{ group: MaterialGroup; title: string; profiles: rea
 export function MaterialSpecEditor({ group, title, profiles, catalogError = false, state, onChange, jointNote }: EditorProps) {
   const options = profiles.filter((profile) => profile.group === group);
   const spec = resolveMaterialSpec(group, state, profiles);
+  const autoPrefilled = options.some((profile) => profile.id === state.profileId && profile.defaultGroup === group && profile.verification === "verified");
+  const historicalProfile = options.find((profile) => profile.id === state.profileId && profile.historical);
   const productMode = state.mode === "product";
-  const [categoryId, setCategoryId] = useState("");
-  const categories = [...new Map(options.flatMap((profile) => profile.catalog ? [[profile.catalog.categoryId, profile.catalog.categoryName] as const] : [])).entries()];
   const pickerOptions: WorkflowMaterialProductOption[] = options
-    .filter((profile) => profile.id === state.profileId || (categoryId === "" ? true : profile.catalog?.categoryId === categoryId))
     .map((profile) => profile.catalog
       ? { id: profile.id, name: profile.label, group: "Anyagkezelő termékei", detail: `${profile.catalog.categoryName} · ${materialProvenanceLabels[profile.verification]}${profile.catalog.sku ? ` · ${profile.catalog.sku}` : ""}`, searchText: [profile.catalog.manufacturerName, profile.catalog.productName, profile.catalog.variantName, profile.catalog.sku, profile.catalog.categoryName].filter(Boolean).join(" ") }
       : { id: profile.id, name: profile.label, group: "DEMO minták (nem gyártói)", detail: "DEMO · nem gyártói adat", searchText: "demo minta" })
@@ -58,48 +55,31 @@ export function MaterialSpecEditor({ group, title, profiles, catalogError = fals
         onChange(setSpecEntry(state, field.key, parsed));
       }} />;
     return <label className="construction-suite-field material-spec-field" key={field.key}>
-      <span>{field.label}{field.unit && !isLength && <small>{field.unit}</small>}{source && <em className="material-spec-badge" data-source={source}>{source === "product" && spec.profile?.verification === "demo" ? "DEMO termék" : BADGE[source]}</em>}{source === "override" && <button type="button" className="material-spec-restore" onClick={() => onChange(restoreProductValues(state, spec, field.key))}>Visszaállít</button>}</span>
+      <span>{field.label}{field.unit && !isLength && <small>{field.unit}</small>}{source && source !== "product" && <em className="material-spec-badge" data-source={source}>{BADGE[source]}</em>}{source === "override" && <button type="button" className="material-spec-restore" onClick={() => onChange(restoreProductValues(state, spec, field.key))}>Visszaállít</button>}</span>
       {control}
       {spec.issues[field.key] && <small className="material-spec-hint is-error" role="alert">{spec.issues[field.key]}</small>}
       {missingInProduct && <small className="material-spec-hint">A termékadat ezt nem tartalmazza · add meg kézzel.</small>}
     </label>;
   };
-  const hasAttention = Object.keys(spec.issues).length > 0 || spec.missingKeys.length > 0;
-  const showCompact = productMode && spec.profile !== null && !hasAttention;
-  const compactSummary = !showCompact ? null : MATERIAL_SPEC_FIELDS[group]
-    .map((field) => {
-      const value = spec.values[field.key];
-      if (value === undefined || value === "") return null;
-      const text = field.kind === "select" ? field.options?.find((option) => option.value === value)?.label ?? String(value) : field.kind === "text" ? String(value) : `${value}${field.unit ? ` ${field.unit}` : ""}`;
-      return `${field.label}: ${text}`;
-    })
-    .filter((item): item is string => item !== null)
-    .join(" · ");
   const fieldsGrid = <div className="construction-suite-form-grid">{MATERIAL_SPEC_FIELDS[group].map(renderField)}</div>;
   const restoreAll = spec.overriddenKeys.length > 0 && <button type="button" className="material-spec-restore is-block" onClick={() => onChange(restoreProductValues(state, spec))}>Termékadatok visszaállítása</button>;
   return <fieldset className="material-spec" data-group={group}>
     <legend>{title}</legend>
     {jointNote && <p className="material-spec-note">{jointNote}</p>}
-    <div className="material-spec-modes" role="group" aria-label={`${title} · megadás módja`}>
-      <button type="button" aria-pressed={productMode} disabled={options.length === 0} title={options.length === 0 ? "Nincs elérhető termék – használd a kézi megadást." : undefined} onClick={() => setMode("product")}>Termék</button>
-      <button type="button" aria-pressed={!productMode} onClick={() => setMode("manual")}>Kézi megadás</button>
-    </div>
-    {productMode && <div className="construction-suite-field material-spec-picker-field" role="group" aria-label={`${title} · termék`}><span>Termék</span>
-      {categories.length > 1 && <select aria-label={`${title} · kategória`} value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">Összes kategória</option>{categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>}
+    <div className="material-spec-source">
+    {productMode ? <><div className="construction-suite-field material-spec-picker-field" role="group" aria-label={`${title} · termék`}><span>Kiválasztott anyag</span>
       <WorkflowMaterialProductPicker options={pickerOptions} value={state.profileId ?? ""} disabled={false} idPrefix={`roof-material-${group}`} label={`${title} · termék`} copy={PICKER_COPY} onSelect={(id) => onChange({ ...state, profileId: id })} />
-    </div>}
+    </div><button type="button" className="text-button material-spec-mode-switch" onClick={() => setMode("manual")}>Kézi megadás</button></> : <><strong>Kézi megadás</strong><button type="button" className="text-button material-spec-mode-switch" disabled={options.length === 0} title={options.length === 0 ? "Nincs elérhető termék." : undefined} onClick={() => setMode("product")}>Termék választása</button></>}
+    </div>
     {productMode && state.profileId !== null && !spec.profile && <p className="material-spec-hint is-error" role="alert">A kiválasztott termék már nem elérhető · válassz másikat vagy add meg kézzel.</p>}
     {productMode && !options.some((profile) => profile.catalog) && <p className="material-spec-note">{catalogError ? "Az Anyagkezelő termékei nem töltődtek be." : "Az Anyagkezelőben nincs ehhez a csoporthoz tartozó aktív termék."}</p>}
     {!productMode && <p className="material-spec-note">Felhasználó által megadott adat – nem gyártói ellenőrzött érték.</p>}
     {spec.profile?.verification === "demo" && <p className="material-spec-note is-demo">DEMO adat – nem gyártói specifikáció.</p>}
-    {spec.profile?.catalog && !spec.profile.catalog.categoryMatch && <p className="material-spec-note" role="status">A termék kategóriája ({spec.profile.catalog.categoryName}) nem ehhez az anyagcsoporthoz tartozik · csak a kifejezetten ehhez megadott műszaki adatok kerültek át, az általános méreteket nem használjuk. Pótold kézzel, ami hiányzik.</p>}
-    {spec.profile?.catalog && spec.profile.verification !== "demo" && <p className="material-spec-note">Anyagkezelő adat · {materialProvenanceLabels[spec.profile.verification]}{spec.profile.catalog.sku ? ` · SKU: ${spec.profile.catalog.sku}` : ""}. A hiányzó értékeket kézzel pótolhatod; a katalógus nem módosul.</p>}
-    {showCompact
-      ? <>
-          {compactSummary && <p className="material-spec-note">{compactSummary}</p>}
-          <GlassDisclosure className="material-spec-edit" summary="Érték felülírása" defaultOpen={spec.overriddenKeys.length > 0}>{fieldsGrid}{restoreAll}</GlassDisclosure>
-        </>
-      : <>{fieldsGrid}{restoreAll}</>}
+    {historicalProfile?.historicalState === "unavailable" && <p className="material-spec-note" role="status">Mentett anyagadat – az eredeti termék már nem érhető el az aktuális katalógusban.</p>}
+    {historicalProfile?.historicalState === "changed" && <p className="material-spec-note" role="status">Mentett anyagadat – az aktuális katalógusértékek nem kerültek visszaolvasásra.</p>}
+    {spec.profile?.catalog && !spec.profile.catalog.categoryMatch && <p className="material-spec-note" role="status">Eltérő kategória: {spec.profile.catalog.categoryName}. Csak a kifejezett kalkulátoradatokat töltöttük át; a hiányzó mezőket add meg.</p>}
+    {spec.profile?.catalog && spec.profile.verification !== "demo" && <p className="material-spec-note">{autoPrefilled ? "Automatikusan előtöltve az Anyagkezelőből" : "Anyagkezelő"} · {materialProvenanceLabels[spec.profile.verification]}{spec.profile.catalog.sku ? ` · SKU: ${spec.profile.catalog.sku}` : ""}</p>}
+    {fieldsGrid}{restoreAll}
   </fieldset>;
 }
 
@@ -133,7 +113,7 @@ export function RoofMaterialInputs({ timberOnly, profiles, catalogError, state, 
   const setSpec = (group: MaterialGroup) => (next: SpecState) => onChange({ ...state, specs: { ...state.specs, [group]: next } });
   const toggles = [["timber", "Faanyag — szarufa és léc", "Mennyiség és vágáslista"], ["underlay", "Alátétfólia", "Felület és tekercsek"], ["covering", "Fedőanyag", "Fedőtábla mennyisége"]] as const;
   return <div className="material-inputs">
-    {!timberOnly && <fieldset className="material-spec-picker is-tiles"><legend>Anyagszükséglet · mennyiségszámítás</legend>
+    {!timberOnly && <fieldset className="material-spec-picker is-tiles" aria-label="Mit szeretnél még kiszámolni?"><legend>Mit szeretnél még kiszámolni?</legend><p className="material-spec-note">A geometriai eredmény már elkészült; csak a kért anyagcsoportokat jelöld.</p>
       {toggles.map(([key, label, hint]) => <FeatureToggle key={key} title={label} hint={hint} checked={requested[key]} onChange={(checked) => onChange({ ...state, requested: { ...state.requested, [key]: checked } })} />)}
     </fieldset>}
     {requested.timber && <>

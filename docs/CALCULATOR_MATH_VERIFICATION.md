@@ -290,4 +290,4 @@ A mezőkötelezettséget a képlet függése határozza meg. Egyenes lépcsőné
 
 A rajzlefedettségi teszt az összes 17 staircase-azonosító és a 10 beton/segédrajz összes nézetét rendereli. Megerősíti, hogy a fő SVG-ben nincs látható text node, a legenda jelen van, a számolt értékek nem NaN/Infinity értékek, a mesh két kirajzolt rúdiránya eltérő vonalmintával azonosítható, a C6 tervlegenda pedig a számított épületkontúrt mutatja. A HTML/SSR-teszt nem bizonyít manuális screen-reader minőséget, fizikai mobilviselkedést vagy teljes böngészős viewport-mátrixot.
 
-A végső teljes Vitest-futás és a célzott 9 fájlos / 145 tesztes konstrukciós regresszió státuszát a [TEST_MATRIX F9.38.1](TEST_MATRIX.md#f9381--bemenetek-es-muszaki-rajzok) rögzíti. A műszaki eredmény továbbra sem statikai, gyártmányi, normatív vagy vasalási jóváhagyás.
+A végső teljes Vitest-futás és a célzott 9 fájlos / 145 tesztes konstrukciós regresszió státuszát a [TEST_MATRIX F9.38.1](TEST_MATRIX.md#f9381--bemenetek-és-műszaki-rajzok) rögzíti. A műszaki eredmény továbbra sem statikai, gyártmányi, normatív vagy vasalási jóváhagyás.

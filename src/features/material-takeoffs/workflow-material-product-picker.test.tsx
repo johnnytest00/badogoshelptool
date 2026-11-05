@@ -43,7 +43,17 @@ describe("workflow material product picker", () => {
       onSelect: () => undefined,
     }));
 
-    expect(html).toContain('aria-label="Katalógustermék: Csatorna 333 mm. Másik termék kiválasztása"');
+    expect(html).toContain('aria-label="Katalógustermék: Csatorna 333 mm. m · 3 500 Ft/m. Másik termék kiválasztása"');
+  });
+
+  it("keeps the chosen supplier visible in the picker trigger", () => {
+    const html = renderToStaticMarkup(createElement(WorkflowMaterialProductPicker, {
+      options: [{ id: "variant:price", name: "Szarufa", detail: "Silver tüzép · szál", searchText: "Silver tüzép" }],
+      value: "variant:price", disabled: false, onSelect: () => undefined,
+    }));
+
+    expect(html).toContain("Silver tüzép · szál");
+    expect(html).toContain("Szarufa. Silver tüzép · szál. Másik termék kiválasztása");
   });
 
   it("does not mark the dialog or search field for automatic focus", () => {

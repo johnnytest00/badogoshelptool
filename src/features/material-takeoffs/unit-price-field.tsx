@@ -13,13 +13,13 @@ export function UnitPriceField({ label, unit, amount, kind, origin, priceId, cho
   choices: readonly PriceLine[]; selected: PriceLine | null; hasCatalog: boolean; onSelect: (priceId: string | null) => void; onManual: (amount: string, kind: MaterialPriceKind) => void;
 }>) {
   const ok = valid(amount);
-  const fallbackKind: MaterialPriceKind = kind ?? selected?.priceKind ?? "net";
+  const fallbackKind: MaterialPriceKind = kind ?? selected?.priceKind ?? "gross";
   const status = origin === "catalog" ? `Katalógus · ${selected ? supplierLabel(selected) ?? BASE_PRICE_LABEL : "mentett ár"}`
-    : origin === "override" ? "Kézi felülírás" : origin === "manual" ? "Kézi ár" : origin === "snapshot" ? "Mentett ár (pillanatkép)" : "Ár hiányzik";
+    : origin === "override" ? "Kézi felülírás" : origin === "snapshot" ? "Mentett ár (pillanatkép)" : "Ár hiányzik";
   const selectValue = origin === "override" ? MANUAL : priceId ?? "";
   return <div className={`unit-price-field is-${origin}`}>
     <span className="unit-price-label">Egységár</span>
-    <div className="glass-field-group unit-price-control">
+    <div className={`glass-field-group unit-price-control${hasCatalog ? " has-catalog" : ""}`}>
       <input aria-label={`${label} egységára`} inputMode="decimal" value={amount} placeholder="Nincs megadva" aria-invalid={!ok}
         onChange={(event) => onManual(event.target.value, fallbackKind)} />
       <span className="unit-price-unit">Ft/{materialPurchasingUnitLabels[unit]}</span>
@@ -30,13 +30,10 @@ export function UnitPriceField({ label, unit, amount, kind, origin, priceId, cho
         <option value={MANUAL}>Kézi ár</option>
       </select>}
     </div>
-    <div className="unit-price-meta">
+    {origin !== "manual" && <div className="unit-price-meta">
       <span className="unit-price-origin">{status}</span>
-      {(origin === "manual" || origin === "override") && <select aria-label={`${label} árának alapja`} value={kind ?? ""} onChange={(event) => onManual(amount, event.target.value === "gross" ? "gross" : "net")}>
-        <option value="" disabled>Alap…</option><option value="net">{materialPriceKindLabels.net}</option><option value="gross">{materialPriceKindLabels.gross}</option>
-      </select>}
-      {origin !== "manual" && origin !== "override" && kind && <span className="unit-price-basis">{materialPriceKindLabels[kind]}</span>}
-    </div>
+      {kind && <span className="unit-price-basis">{materialPriceKindLabels[kind]}</span>}
+    </div>}
     {!ok && <small className="unit-price-error" role="alert">Legfeljebb két tizedesjegyű HUF ár.</small>}
   </div>;
 }

@@ -5,7 +5,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    // .agent/.agents/.claude hold third-party assistant skills and tooling, not application code.
-    ignores: [".next/**", "next-env.d.ts", "node_modules/**", "out/**", "coverage/**", ".agent/**", ".agents/**", ".claude/**"],
+    // Vendor assets and agent tooling are not application source.
+    ignores: [".next/**", "next-env.d.ts", "node_modules/**", "out/**", "coverage/**", "public/ocr/**", ".agent/**", ".agents/**", ".claude/**"],
   },
 );
