@@ -7,6 +7,11 @@ export type DashboardFunction = {
   tone: "orange" | "blue" | "violet" | "green" | "amber";
 };
 
+export const navigationIcons = {
+  menu: "/images/navigation/sidebar/menu.png",
+  settings: "/images/navigation/sidebar/beallitasok.png",
+} as const;
+
 export const dashboardFunctions: readonly DashboardFunction[] = [
   // Calculator-first: dimensions are entered in the calculators; the separate survey workflow is retired (M5).
   { id: "calculators", label: "Kalkulátorok", description: "Tető-, lépcső- és betonozási számítások", dashboardIcon: "/images/navigation/dashboard/kalkulatorok.png", sidebarIcon: "/images/navigation/sidebar/kalkulatorok.png", tone: "blue" },

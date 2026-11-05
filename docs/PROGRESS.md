@@ -1,5 +1,23 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## P1.4.3.6 — Mobil Menü és Beállítások navigáció (2026-11-05)
+
+**Státusz: PASS WITH LIMITATIONS.** A profil-trigger látható felirata és accessible neve most „Beállítások”; a korábbi „Szia!” nem jelenik meg a navigációban. Mobilon, a Beállítások gomb bal oldalán külön „Menü” trigger nyitja meg a teljes alkalmazásnavigációt. A menü Escape-re bezár, külső kattintásra visszahúzódik, és bezárás után visszaadja a fókuszt a triggernek. A beállítási panelből kikerült a redundáns belső glass-keret; a profil-popover marad az egyetlen közös felület.
+
+- A UI/UX Pro Max ikonkonzisztencia-, 44 px-es érintési cél-, fókusz-, billentyűzetes navigáció-, mobil-first és reduced-transparency elveit alkalmaztam. A `UI_SURFACE_GUIDELINES.md` közös Liquid Glass anyagát, átlátszó page-rootját, visszafogott belső vezérlőit, theme-aware hover/focus állapotait és forced-colors támogatását megtartottam.
+- Két új, a meglévő sárga-narancs, világos-szürke 3D ikonnyelvhez illesztett PNG került az ikonlistába (`navigationIcons`): Menü és Beállítások. A navigációs route-ok, szervezeti query paraméterek és üzleti logika változatlan.
+- **Ellenőrzés:** AccountHub, mobil navigáció, dashboard settings és preference tesztek 11/11 PASS; érintett ESLint, typecheck, production build, docs-check és `git diff --check` PASS.
+- **Korlát:** ebben a körben nem volt elérhető Browser/CUA, ezért a 375×812 / 812×375 / desktop light-dark renderelt mátrixot nem tudtam friss screenshotokkal igazolni.
+
+## P1.4.3.5 — Anyagkezelő termékadatlap egységvezérlő (2026-11-05)
+
+**Státusz: PASS WITH LIMITATIONS.** Az egységválasztó a Termékadatok szakasz fejlécének jobb felső műveleti zónájába került, így nem töri meg a termékűrlap függőleges ritmusát. A korábbi narancssárga, külön belső panel megszűnt; a vezérlő a megosztott üvegfelület könnyű, kompakt kontrolljaként jelenik meg. A „Felhasználó által megadott” provenance-jelvény eltűnt, mert nem segítette a termékadatlap elsődleges feladatát.
+
+- A UI/UX Pro Max látható űrlapcímkéit, következetes mezőritmusát, legalább 44 px-es interakciós céljait, billentyűzetes fókuszát és mobil-first tördelését alkalmaztam. A `UI_SURFACE_GUIDELINES.md` szerint a page root és a pontozott vászon változatlan, a termékadatok egy koherens munkafelületben maradnak, a vezérlők pedig nem kaptak új, redundáns glass-kártyát.
+- A beszállítói árak és variánsok külön funkcionális szakaszai, az archiválás, az egység-tiltás árhoz kötött feltétele és minden mentési/adatfolyam-logika változatlan maradt.
+- **Ellenőrzés:** anyagűrlap célzott Vitest 3/3 PASS (1 fájl további 2 tesztet skipel), typecheck, érintett ESLint, production build, dokumentációs ellenőrzés és `git diff --check` PASS.
+- **Korlát:** ebben a körben a Browser/CUA eszköz nem volt elérhető, ezért friss renderelt desktop/mobil és light/dark screenshot-QA nem készült; a CSS-t a meglévő responsive és accessibility cascade ellenőrzése után módosítottam.
+
 ## P1.4.3.4 — Anyag hozzáadása a tételek elé (2026-11-05)
 
 **Státusz: PASS WITH LIMITATIONS.** Az „Anyag hozzáadása” szakasz a lista neve után, a Tételek előtt jelenik meg. A JSX/DOM-sorrend is ezt követi, így a vizuális és billentyűzetes munkafolyamat egy irányba halad. A belső szakaszszélek és elválasztók egységesebbek lettek; nem került be új külső panel vagy design token.

@@ -50,7 +50,7 @@ export function DashboardSettings({ onOpenAccount }: Readonly<{ onOpenAccount: (
   const glass = useLiquidGlass();
   const [mobileNavigation, setMobileNavigation] = useMobileNavigationPreference();
   return <aside className="dashboard-settings-panel" id="dashboard-settings" role="dialog" aria-modal="false" aria-labelledby="dashboard-settings-title">
-    <div className="settings-panel-heading"><h2 id="dashboard-settings-title">MEGJELENÉS</h2><button className="settings-account-trigger" type="button" onClick={onOpenAccount}>Fiókbeállítások</button></div>
+    <div className="settings-panel-heading"><h2 id="dashboard-settings-title">BEÁLLÍTÁSOK</h2><button className="settings-account-trigger" type="button" onClick={onOpenAccount}>Fiókbeállítások</button></div>
     <section className="settings-theme-section" aria-labelledby="settings-theme-title"><h3 id="settings-theme-title">Téma</h3><select id="settings-theme-mode" className="settings-theme-select" aria-label="Megjelenítési téma" value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}><option value="system">Rendszer szerint</option><option value="light">Világos</option><option value="dark">Sötét</option></select>{mode === "system" && <p className="settings-theme-help">Az eszköz megjelenését követi.</p>}</section>
     <GlassDisclosure className="settings-disclosure" summary={<SettingSummary title="Méretezések" value={`Szöveg ${scaling.text}% · Felület ${scaling.ui}%`} />}>
       <ScalingControls idPrefix="settings-scale" keys={["text", "ui", "spacing", "drawing"]} />

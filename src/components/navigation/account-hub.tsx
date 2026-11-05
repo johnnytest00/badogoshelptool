@@ -2,16 +2,17 @@
 
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown, ChevronLeft, UserRound } from "lucide-react";
+import Image from "next/image";
+import { ChevronDown, ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { AccountManagementDialog } from "@/features/auth/account-management-dialog";
 import { LogoutButton } from "@/features/auth/auth-controls";
 import { DashboardSettings } from "@/features/dashboard/dashboard";
 import type { OrganizationAccess } from "@/features/auth/auth.server";
-import { greetingLabel, greetingName } from "@/components/navigation/account-name";
+import { navigationIcons } from "@/features/dashboard/dashboard.data";
 
-export function AccountHub({ displayName, email, organizations, organizationId }: Readonly<{ displayName: string | null; email: string | null; organizations: OrganizationAccess[]; organizationId: string | null }>) {
+export function AccountHub({ email, organizations, organizationId }: Readonly<{ displayName: string | null; email: string | null; organizations: OrganizationAccess[]; organizationId: string | null }>) {
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -20,7 +21,6 @@ export function AccountHub({ displayName, email, organizations, organizationId }
   const panel = useRef<HTMLDivElement>(null);
   const { mode, setMode } = useTheme();
   const searchParams = useSearchParams();
-  const firstName = greetingName(displayName);
   const selectedOrganization = searchParams.get("organization") ?? organizationId;
   const organization = organizations.find((item) => item.id === selectedOrganization);
 
@@ -57,9 +57,9 @@ export function AccountHub({ displayName, email, organizations, organizationId }
   }, [open]);
 
   return <>
-    <button ref={trigger} type="button" className="app-account-trigger" aria-label={`Profilmenü, Szia${firstName ? ` ${firstName}` : ""}`} aria-haspopup="dialog" aria-expanded={open} onClick={() => { setOpen((value) => !value); setSettingsOpen(false); }}>
-      <span className="app-account-avatar" aria-hidden="true">{firstName ? firstName.slice(0, 1).toLocaleUpperCase("hu-HU") : <UserRound />}</span>
-      <span className="app-account-greeting">{greetingLabel(displayName)}</span>
+    <button ref={trigger} type="button" className="app-account-trigger" aria-label="Beállítások megnyitása" aria-haspopup="dialog" aria-expanded={open} onClick={() => { setOpen((value) => !value); setSettingsOpen(false); }}>
+      <span className="app-account-avatar" aria-hidden="true"><Image src={navigationIcons.settings} alt="" width={22} height={22} /></span>
+      <span className="app-account-greeting">Beállítások</span>
       <ChevronDown aria-hidden="true" className="app-account-chevron" />
     </button>
     {open && typeof document !== "undefined" && createPortal(<div ref={panel} className="app-account-panel glass-navigation" role="dialog" aria-label={settingsOpen ? "Beállítások" : "Profilmenü"} style={{ left: position.left, bottom: position.bottom }}>

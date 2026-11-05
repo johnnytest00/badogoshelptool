@@ -1514,12 +1514,16 @@ body { position: relative; isolation: isolate; }
 .material-editor-card { border: 1px solid color-mix(in srgb, var(--glass-border) 82%, var(--border)); border-radius: var(--radius-card); background: var(--surface-glass); padding: 1rem 1.1rem; box-shadow: inset 0 1px 0 var(--glass-highlight); }
 .material-prices-in-product { display: grid; gap: .5rem; border-top: 1px solid var(--glass-border); padding-top: .8rem; }
 .material-prices-in-product h3 { margin: 0; color: var(--foreground); font-size: 1rem; }
-.material-unit-section { justify-self: start; border: 1px solid color-mix(in srgb, var(--brand) 38%, var(--glass-border)); border-left: 3px solid var(--brand); border-radius: var(--radius-surface); background: color-mix(in srgb, var(--brand-soft) 48%, var(--surface-glass)); padding: .55rem .7rem; }
-.material-unit-editors { display: flex; flex-wrap: wrap; gap: .4rem; }
-.material-unit-form { display: flex; align-items: center; gap: .35rem; }
-.material-unit-form .material-field { display: flex; align-items: center; gap: .35rem; font-size: calc(.72rem * var(--tp-text-scale)); }
-.material-unit-form .material-field select { width: auto; min-width: 6.5rem; min-height: 2rem; padding: .3rem .5rem; font-size: calc(.78rem * var(--tp-text-scale)); }
-.material-unit-form .secondary-button { min-height: 2rem; padding: .3rem .55rem; font-size: calc(.72rem * var(--tp-text-scale)); }
+.material-product-form > .primary-button { justify-self: end; min-width: 8rem; }
+.material-section-actions { display: flex; min-width: 0; align-items: center; justify-content: flex-end; margin-left: auto; }
+.material-unit-section { justify-self: end; }
+.material-unit-editors { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; }
+.material-unit-form { display: flex; align-items: center; gap: .45rem; min-height: 2.75rem; border: 1px solid var(--glass-border); border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface-strong) 72%, var(--surface-glass)); padding: .25rem .35rem .25rem .65rem; }
+.material-unit-form .material-field { display: flex; align-items: center; gap: .45rem; font-size: calc(.75rem * var(--tp-text-scale)); white-space: nowrap; }
+.material-unit-form .material-field select { width: auto; min-width: 6.5rem; min-height: 2.75rem; padding: .35rem .55rem; font-size: calc(.82rem * var(--tp-text-scale)); }
+.material-unit-form .material-field small { max-width: 15rem; white-space: normal; }
+.material-unit-form .secondary-button { min-height: 2.75rem; padding: .35rem .65rem; font-size: calc(.76rem * var(--tp-text-scale)); }
+@media (max-width: 560px) { .material-section-title { align-items: flex-start; }.material-section-actions { width: 100%; justify-content: flex-start; }.material-unit-section, .material-unit-editors, .material-unit-form { width: 100%; }.material-unit-editors { justify-content: flex-start; }.material-unit-form { justify-content: space-between; }.material-unit-form .material-field { min-width: 0; }.material-unit-form .material-field select { min-width: 0; flex: 1; }.material-product-form > .primary-button { width: 100%; } }
 .detail-surface.project-workflow-overview { border: 0; border-radius: 0; background: transparent; box-shadow: none; padding-inline: 0; }
 .project-workflow-grid { gap: 0; }
 .project-workflow-grid > .project-workflow-card { border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; padding-inline: .25rem; }
@@ -5336,8 +5340,17 @@ html:not([data-theme="dark"]) .glass-confirmation-dialog { background: color-mix
 .app-account-action, .app-account-logout .logout-button { width: 100%; min-height: 2.8rem; justify-content: flex-start; margin-top: .4rem; padding-inline: .7rem; font-size: calc(.82rem * var(--tp-text-scale)); }
 .app-account-panel .app-account-action { display: flex; align-items: center; justify-content: center; border: 1px solid var(--glass-border); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-glass) 88%, transparent); color: var(--foreground); box-shadow: inset 0 1px 0 var(--glass-highlight); -webkit-backdrop-filter: blur(.65rem) saturate(var(--glass-saturation)); backdrop-filter: blur(.65rem) saturate(var(--glass-saturation)); transition: border-color var(--motion-fluid) ease, background-color var(--motion-fluid) ease; }
 .app-account-panel .app-account-action:hover { border-color: color-mix(in srgb, var(--brand) 44%, var(--glass-border)); background: color-mix(in srgb, var(--brand) 9%, var(--surface-glass)); }
-.app-account-panel .dashboard-settings-panel { position: static; width: auto; max-height: none; overflow: visible; margin: .75rem 0 0; border: 1px solid var(--glass-border); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--surface-glass) 72%, var(--surface-strong)); padding: .8rem; box-shadow: inset 0 1px 0 var(--glass-highlight); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.app-account-panel .dashboard-settings-panel { position: static; width: auto; max-height: none; overflow: visible; margin: .75rem 0 0; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .app-account-panel .settings-panel-heading { align-items: center; }
+.mobile-nav-menu-wrap { display: none; position: relative; flex: 0 0 auto; }
+.mobile-nav-menu-trigger { display: flex; min-width: 3.4rem; min-height: 2.75rem; flex-direction: column; align-items: center; justify-content: center; gap: .12rem; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--muted); cursor: pointer; padding: .2rem .25rem; font: inherit; font-size: calc(.58rem * var(--tp-text-scale)); font-weight: 600; }
+.mobile-nav-menu-trigger img { width: 1.45rem; height: 1.45rem; object-fit: contain; }
+.mobile-nav-menu-trigger:hover, .mobile-nav-menu-trigger[aria-expanded="true"] { border-color: var(--glass-border); background: color-mix(in srgb, var(--brand) 9%, transparent); color: var(--brand-ink); }
+.mobile-nav-menu-trigger:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; }
+.mobile-nav-menu-panel { position: fixed; z-index: 100; right: max(.75rem, env(safe-area-inset-right)); bottom: calc(var(--app-nav-bar) + .5rem); left: max(.75rem, env(safe-area-inset-left)); display: grid; max-height: min(70dvh, calc(100dvh - 2rem)); gap: .25rem; overflow-y: auto; border: 1px solid var(--glass-border); border-radius: var(--radius-card); background: color-mix(in srgb, var(--surface-glass) 94%, var(--surface-strong)); padding: .55rem; box-shadow: var(--glass-elevation); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); }
+.mobile-nav-menu-item { display: flex; min-height: 2.75rem; align-items: center; gap: .65rem; border: 1px solid transparent; border-radius: var(--radius-control); color: var(--foreground); padding: .45rem .65rem; text-decoration: none; font-size: calc(.82rem * var(--tp-text-scale)); font-weight: 600; }
+.mobile-nav-menu-item:hover, .mobile-nav-menu-item:focus-visible, .mobile-nav-menu-item.is-active { border-color: color-mix(in srgb, var(--brand) 35%, var(--glass-border)); background: color-mix(in srgb, var(--brand) 9%, var(--surface-glass)); color: var(--brand-ink); outline: none; }
+.mobile-nav-menu-item .app-nav-icon { width: 1.35rem; height: 1.35rem; }
 @media (prefers-reduced-motion: reduce) { .app-account-panel, .app-account-trigger { animation: none; transition: none; } }
 
 /* Mobil és tablet: alsó sáv. Öt cél fér el; a többi link a Műhely kártyáin marad. */
@@ -5468,6 +5481,7 @@ html:not([data-theme="dark"]) .glass-confirmation-dialog { background: color-mix
     box-shadow: none;
   }
   .app-nav-item.is-active { background: var(--brand-soft); box-shadow: none; }
+  .mobile-nav-menu-panel { background: var(--surface-strong); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
 /*
@@ -5485,6 +5499,10 @@ html:not([data-theme="dark"]) .glass-confirmation-dialog { background: color-mix
   html:not([data-mobile-nav="visible"]) .app-nav-links { display: none; }
   html:not([data-mobile-nav="visible"]) .app-nav { justify-content: center; }
   .settings-mobile-navigation { display: block; }
+  .mobile-nav-menu-wrap { display: block; }
+}
+@media (forced-colors: active) {
+  .mobile-nav-menu-trigger, .mobile-nav-menu-panel { border: 1px solid CanvasText; background: Canvas; color: CanvasText; box-shadow: none; }
 }
 
 /* Home Screen standalone draws under the iOS status bar; keep page content in its safe area. */

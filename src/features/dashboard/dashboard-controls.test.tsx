@@ -53,7 +53,7 @@ describe("dashboard shared mobile header and full settings", () => {
     const html = renderToStaticMarkup(createElement(ScalingProvider, null, createElement(LiquidGlassProvider, null, createElement(DashboardSettings, { onOpenAccount: () => undefined }))));
     expect(html).toContain("Szöveg 100% · Felület 115%");
     expect(html).toContain("Átlátszóság 10% · automatikus szín");
-    expect(html).toContain("Bekapcsolva");
+    expect(html).toContain("Kikapcsolva");
     expect(html).not.toContain("Háttéranimáció");
   });
 

@@ -18,9 +18,9 @@ const props = { displayName: null, email: "bence@example.test", organizations: [
 describe("AccountHub", () => {
   it("shows a safe greeting and avatar, opens the menu, and restores focus on Escape", () => {
     const { container } = render(<AccountHub {...props} />);
-    const trigger = screen.getByRole("button", { name: "Profilmenü, Szia" });
-    expect(screen.getByText("Szia!")).toBeTruthy();
-    expect(container.querySelector(".app-account-avatar svg")).toBeTruthy();
+    const trigger = screen.getByRole("button", { name: "Beállítások megnyitása" });
+    expect(screen.getByText("Beállítások")).toBeTruthy();
+    expect(container.querySelector(".app-account-avatar img")).toBeTruthy();
     fireEvent.click(trigger);
     expect(screen.getByRole("dialog", { name: "Profilmenü" })).toBeTruthy();
     expect(screen.getByText("Műhely")).toBeTruthy();
@@ -34,7 +34,7 @@ describe("AccountHub", () => {
 
   it("uses the existing persisted theme control and opens the existing settings panel", () => {
     render(<AccountHub {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "Profilmenü, Szia" }));
+    fireEvent.click(screen.getByRole("button", { name: "Beállítások megnyitása" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Téma" }), { target: { value: "light" } });
     expect(setMode).toHaveBeenCalledWith("light");
     fireEvent.click(screen.getByRole("button", { name: "Beállítások" }));
