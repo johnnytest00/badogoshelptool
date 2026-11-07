@@ -5,13 +5,11 @@ import Image from "next/image";
 import { useState } from "react";
 import { ArrowRight, ClipboardList } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
-import { ScalingControls } from "@/features/preferences/scaling-controls";
 import { LogoutButton } from "@/features/auth/auth-controls";
 import { GlassDisclosure } from "@/components/ui/glass-disclosure";
 import { LiquidGlassControls } from "@/features/preferences/liquid-glass-controls";
 import { useScaling } from "@/features/preferences/scaling-provider";
 import { useLiquidGlass } from "@/features/preferences/liquid-glass-provider";
-import { MobileNavigationControl, useMobileNavigationPreference } from "@/features/preferences/mobile-navigation-controls";
 import { dashboardFunctionHref, dashboardFunctions, type DashboardFunction } from "@/features/dashboard/dashboard.data";
 import { getNextDashboardTab } from "@/features/dashboard/dashboard.utils";
 import type { DashboardTab } from "@/features/dashboard/dashboard.types";
@@ -48,19 +46,12 @@ export function DashboardSettings({ onOpenAccount }: Readonly<{ onOpenAccount: (
   const { mode, setMode } = useTheme();
   const scaling = useScaling();
   const glass = useLiquidGlass();
-  const [mobileNavigation, setMobileNavigation] = useMobileNavigationPreference();
   return <aside className="dashboard-settings-panel" id="dashboard-settings" role="dialog" aria-modal="false" aria-labelledby="dashboard-settings-title">
     <div className="settings-panel-heading"><h2 id="dashboard-settings-title">BEÁLLÍTÁSOK</h2><button className="settings-account-trigger" type="button" onClick={onOpenAccount}>Fiókbeállítások</button></div>
     <section className="settings-theme-section" aria-labelledby="settings-theme-title"><h3 id="settings-theme-title">Téma</h3><select id="settings-theme-mode" className="settings-theme-select" aria-label="Megjelenítési téma" value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}><option value="system">Rendszer szerint</option><option value="light">Világos</option><option value="dark">Sötét</option></select>{mode === "system" && <p className="settings-theme-help">Az eszköz megjelenését követi.</p>}</section>
-    <GlassDisclosure className="settings-disclosure" summary={<SettingSummary title="Méretezések" value={`Szöveg ${scaling.text}% · Felület ${scaling.ui}%`} />}>
-      <ScalingControls idPrefix="settings-scale" keys={["text", "ui", "spacing", "drawing"]} />
-    </GlassDisclosure>
     <label className="settings-mobile-sticky-control"><span>Tapadós méretező megjelenítése mobilon</span><input type="checkbox" checked={scaling.mobileStickyEnabled} onChange={(event) => scaling.setMobileStickyEnabled(event.target.checked)} /></label>
     <GlassDisclosure className="settings-disclosure" summary={<SettingSummary title="Liquid Glass" value={`Átlátszóság ${glass.opacity}% · ${glass.tintMode === "custom" ? "egyéni szín" : "automatikus szín"}`} />}>
       <LiquidGlassControls />
-    </GlassDisclosure>
-    <GlassDisclosure className="settings-disclosure settings-mobile-navigation" summary={<SettingSummary title="Alsó navigáció megjelenítése" value={mobileNavigation ? "Bekapcsolva" : "Kikapcsolva"} />}>
-      <MobileNavigationControl enabled={mobileNavigation} onChange={setMobileNavigation} />
     </GlassDisclosure>
     <LogoutButton className="settings-logout-form" />
   </aside>;

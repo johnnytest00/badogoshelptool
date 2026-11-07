@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { QuotationSaveBar, quotationSaveState } from "./quotation-save-bar";
 import { useRouter } from "next/navigation";
 import { lineTotal, scaledToDecimal } from "@/domain/quotations/money";
@@ -104,7 +105,7 @@ export function QuotationEditor({ userId, organizationId, projectId, clients, va
       {line.variantId && <label>Rögzített ár<select value={line.priceId} onChange={(event) => { const price = variants.find((variant) => variant.id === line.variantId)?.prices.find((item) => item.id === event.target.value); update(index, { priceId: event.target.value, unitPrice: price ? String(price.amount) : line.unitPrice, priceClass: price?.priceKind ?? line.priceClass, priceProvenance: price ? "catalog_snapshot" : line.unitPrice.trim() ? "user_entered" : "missing" }); }}><option value="">Kézi ár</option>{variants.find((variant) => variant.id === line.variantId)?.prices.map((price) => <option key={price.id} value={price.id}>{price.amount.toLocaleString("hu-HU")} HUF · {price.effectiveDate}</option>)}</select></label>}
       {line.type === "MATERIAL" && takeoffItems.length > 0 && <label>Jóváhagyott kimutatási forrás<select value={line.takeoffItemId} onChange={(event) => { const item = takeoffItems.find((candidate) => candidate.id === event.target.value); update(index, { takeoffItemId: event.target.value, takeoffSourceItemIds: [], quantity: item?.quantity ?? line.quantity, unit: item?.unit ?? line.unit }); }}><option value="">Nincs import</option>{takeoffItems.map((item) => <option key={item.id} value={item.id}>{item.quantity} {item.unit}</option>)}</select></label>}
       <output className={`quotation-line-total${line.unitPrice.trim() ? "" : " is-missing"}`}>{line.unitPrice.trim() ? (() => { try { return `${scaledToDecimal(lineTotal(line.quantity || "0", line.unitPrice).minor, 2)} HUF`; } catch { return "—"; } })() : "Hiányzó egységár"}</output>
-      <button className="text-button" type="button" onClick={() => { const next = lines.filter((_, itemIndex) => itemIndex !== index); setLines(next); syncDirty(name, clientId, next); }}>Törlés</button></div>
+      <button className="icon-button quotation-line-remove" type="button" aria-label={`${line.description || "Tétel"} törlése`} title="Tétel törlése" onClick={() => { const next = lines.filter((_, itemIndex) => itemIndex !== index); setLines(next); syncDirty(name, clientId, next); }}><Trash2 aria-hidden="true" size={17} /></button></div>
       {line.takeoffSourceItemIds.length > 0 && <details><summary>Forráskimutatások ({line.takeoffSourceItemIds.length} tétel)</summary><p>A sor jóváhagyott, változatlan kimutatási tételekből készült. Az egységár csak egyező rögzített ár esetén jelenik meg.</p></details>}</div>)}</div>
     <div className="quotation-summary"><div><span>Összesítés</span><strong>{!lines.length ? "Nincs összesítés · még nincsenek tételek" : allPricesEntered ? `${scaledToDecimal(totals, 2)} HUF` : `Hiányzó ár · még ${lines.filter((line) => !line.unitPrice.trim()).length} tételhez`}</strong></div><small>Az összegek forintban szerepelnek; a rendszer nem számít ÁFÁ-t és nem vált pénznemet.</small></div></fieldset>
     {result.error && <p className="form-message is-error" role="alert">{result.error}</p>}

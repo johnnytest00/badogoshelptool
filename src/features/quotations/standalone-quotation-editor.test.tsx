@@ -52,6 +52,11 @@ describe("standalone quotation editor layout", () => {
     expect(html).toContain('aria-label="Ajánlati tételek hozzáadása"');
     expect(html).toContain("quotation-add-button is-primary");
     expect(html).toContain("lucide-plus");
+    expect(html).toContain('aria-label="PDF nyomtatása"');
+    expect(html).toContain("Teljes végösszeg");
+    expect(html).not.toContain("quotation-total-basis");
+    expect(html).not.toContain("Jelenlegi piszkozat becslése");
+    expect(html).not.toContain("A szerver mentéskor újraszámítja");
     expect(html).not.toContain("v2 · 0,00 Ft");
   });
 
@@ -81,7 +86,10 @@ describe("standalone quotation editor layout", () => {
       variantId: "", categoryId: "", priceId: "", takeoffItemId: "", sourceMaterialItemId: "", priceProvenance: "missing", notes: "",
     }] as unknown as Parameters<typeof StandaloneQuotationEditor>[0]["initialLines"] });
     expect(html).toContain('value="120"');
-    expect(html).toContain("1 tétel egységára hiányzik");
+    expect(html).toContain("Hiányzó egységár");
+    expect(html).toContain('aria-label="DEMO tetőfedő anyag törlése"');
+    expect(html).toContain("lucide-trash2");
+    expect(html).not.toContain("Kézi tételnél az egység szerkeszthető.");
   });
 
   it("keeps only the requested optional document fields visible", () => {
@@ -97,7 +105,8 @@ describe("standalone quotation editor layout", () => {
     expect(html).toContain("Felhasznált források");
     expect(html).toContain("Anyaglista-forrás · DEMO anyaglista · V2 · 0 tétel");
     expect(html).not.toContain("<strong>Munkanapló</strong>");
-    expect(html.indexOf("Munkanaplóhoz csatolás")).toBeLessThan(html.indexOf("Piszkozat mentése"));
+    expect(html.indexOf("Munkanaplóhoz csatolás")).toBeLessThan(html.indexOf(">Mentés</button>"));
+    expect(html).not.toContain('class="survey-optional-badge">Opcionális</span>');
     expect(html).not.toMatch(/class="quotation-savebar[^"]*sticky/);
   });
 });

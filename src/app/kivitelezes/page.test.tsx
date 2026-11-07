@@ -18,10 +18,12 @@ describe("ExecutionIndexPage empty and populated states", () => {
     vi.mocked(getProjectOrganization).mockResolvedValue({ auth: { userId: "user", email: null, displayName: null, organizations: [organization] }, organization, needsSelection: false });
   });
 
-  it("describes standalone or saved-calculation entry without promising survey creation", async () => {
+  it("presents the existing execution workspace as projects without promising survey creation", async () => {
     vi.mocked(getExecutionOverviewForOrganization).mockResolvedValue([]);
     const html = renderToStaticMarkup(await ExecutionIndexPage({ searchParams: Promise.resolve(emptySearch) }));
-    expect(html).toContain("Munkanaplót önállóan vagy mentett kalkulációból indíthatsz.");
+    expect(html).toContain("Projektek");
+    expect(html).toContain("Még nincs projekt");
+    expect(html).toContain("Új projekt");
     expect(html).not.toContain("felmérésből");
     expect(html).toContain('href="/kivitelezes/uj?organization=org"');
   });
@@ -30,7 +32,8 @@ describe("ExecutionIndexPage empty and populated states", () => {
     vi.mocked(getExecutionOverviewForOrganization).mockResolvedValue([plan]);
     const html = renderToStaticMarkup(await ExecutionIndexPage({ searchParams: Promise.resolve(emptySearch) }));
     expect(html).toContain("DEMO munkanapló");
+    expect(html).toContain("Nincs nyitott feladat");
     expect(html).toContain('href="/kivitelezes/plan?organization=org"');
-    expect(html).not.toContain("Még nincs munkanapló");
+    expect(html).not.toContain("Még nincs projekt");
   });
 });

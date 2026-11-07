@@ -13,7 +13,7 @@ import { createExecutionPlanAndLinkDocumentAction, linkExecutionPlanDocumentActi
 const kindLabel: Record<DocumentKind, string> = { material_list: "az anyaglista", quotation: "az ajánlat", calculation: "a kalkuláció" };
 
 /** Optional, reversible association of one material list or quotation with work logs. Never creates a project. */
-export function ExecutionPlanLinkControl({ organizationId, kind, documentId, links, plans, readOnly = false, compactHandoff = false, linkBlockedReason }: Readonly<{
+export function ExecutionPlanLinkControl({ organizationId, kind, documentId, links, plans, readOnly = false, compactHandoff = false, showOptionalBadge = true, linkBlockedReason }: Readonly<{
   organizationId: string;
   kind: DocumentKind;
   documentId: string;
@@ -21,6 +21,7 @@ export function ExecutionPlanLinkControl({ organizationId, kind, documentId, lin
   plans: readonly ExecutionPlanOption[];
   readOnly?: boolean;
   compactHandoff?: boolean;
+  showOptionalBadge?: boolean;
   /** Shown instead of the add form, e.g. while a calculation has unsaved changes. */
   linkBlockedReason?: string;
 }>) {
@@ -85,7 +86,7 @@ export function ExecutionPlanLinkControl({ organizationId, kind, documentId, lin
     {!readOnly && linkBlockedReason && <p className="plan-link-note">{linkBlockedReason}</p>}
     {!readOnly && !linkBlockedReason && <>
       <button type="button" className={`secondary-button plan-link-open${compactHandoff ? " is-compact" : ""}`} onClick={() => { setError(""); setOpen(true); }}>{compactHandoff && <ClipboardList aria-hidden="true" size={17} />} Munkanaplóhoz csatolás</button>
-      {compactHandoff && <span className="survey-optional-badge">Opcionális</span>}
+      {compactHandoff && showOptionalBadge && <span className="survey-optional-badge">Opcionális</span>}
       <dialog ref={dialogRef} className="glass-confirmation-dialog plan-link-dialog" aria-labelledby={`${idPrefix}-title`} onCancel={(event) => { event.preventDefault(); if (!pending) setOpen(false); }} onClick={(event) => { if (event.target === event.currentTarget && !pending) setOpen(false); }}>
       <div className="association-dialog-content">
       <div className="section-heading"><div><p className="section-eyebrow">Opcionális kapcsolat</p><h2 id={`${idPrefix}-title`}>Munkanaplóhoz csatolás</h2></div><button type="button" className="secondary-button" disabled={pending} onClick={() => setOpen(false)}>Bezárás</button></div>

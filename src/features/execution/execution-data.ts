@@ -1,4 +1,4 @@
-import { executionPhotoCategorySchema, type ExecutionPhotoCategory } from "@/domain/execution/contracts";
+import { executionPhotoCategorySchema, type ExecutionPhotoCategory, type ExecutionProjectStatus } from "@/domain/execution/contracts";
 import { surveySectionsSchema, type SurveySection } from "@/domain/field-surveys/workspace";
 import { createClient } from "@/infrastructure/supabase/server";
 import type { Database } from "@/infrastructure/supabase/database";
@@ -6,7 +6,7 @@ import { summarizeExecutionIndexTasks } from "./execution-overview-index";
 
 type Tables = Database["public"]["Tables"];
 type OverviewPlanRow = Pick<Tables["execution_plans"]["Row"], "id" | "project_id" | "title" | "updated_at">;
-type PlanRow = Pick<Tables["execution_plans"]["Row"], "id" | "project_id" | "title" | "description" | "version" | "created_at" | "updated_at" | "source_quotation_id" | "source_revision_id">;
+type PlanRow = Pick<Tables["execution_plans"]["Row"], "id" | "project_id" | "title" | "description" | "status" | "client_name" | "location" | "planned_start_date" | "planned_end_date" | "version" | "created_at" | "updated_at" | "source_quotation_id" | "source_revision_id">;
 type TaskRow = Pick<Tables["execution_tasks"]["Row"], "id" | "plan_id" | "title" | "description" | "status" | "priority" | "due_date" | "sort_order" | "version">;
 type JournalRow = Pick<Tables["execution_journal_entries"]["Row"], "id" | "plan_id" | "task_id" | "work_date" | "category" | "content" | "problems" | "next_steps" | "created_by" | "created_at">;
 type EventRow = Pick<Tables["execution_task_events"]["Row"], "id" | "plan_id" | "task_id" | "from_status" | "to_status" | "changed_by" | "changed_at">;
@@ -15,7 +15,7 @@ type QuotationRow = Pick<Tables["quotations"]["Row"], "id" | "name" | "finalized
 
 export type ExecutionTaskRecord = { id: string; title: string; description: string | null; status: "todo" | "in_progress" | "done"; priority: "low" | "normal" | "high"; dueDate: string | null; sortOrder: number; version: number };
 export type ExecutionPhotoRecord = { id: string; taskId: string | null; taskTitle: string | null; journalEntryId: string | null; journalDate: string | null; journalContent: string | null; objectKey: string; displayFilename: string; mimeType: string; fileSize: number; caption: string | null; category: ExecutionPhotoCategory; uploadedAt: string; uploaderName: string | null; signedUrl: string | null };
-export type ExecutionPlanRecord = { id: string; projectId: string | null; title: string; description: string | null; version: number; createdAt: string; updatedAt: string; sourceQuotationId: string | null; sourceRevisionId: string | null; sourceRevisionNumber: number | null; sourceQuotationName: string | null; sourceQuotationStatus: string | null; sourceSubtotal: number | null; tasks: ExecutionTaskRecord[]; photos: ExecutionPhotoRecord[] };
+export type ExecutionPlanRecord = { id: string; projectId: string | null; title: string; description: string | null; status: ExecutionProjectStatus | null; clientName: string | null; location: string | null; plannedStartDate: string | null; plannedEndDate: string | null; version: number; createdAt: string; updatedAt: string; sourceQuotationId: string | null; sourceRevisionId: string | null; sourceRevisionNumber: number | null; sourceQuotationName: string | null; sourceQuotationStatus: string | null; sourceSubtotal: number | null; tasks: ExecutionTaskRecord[]; photos: ExecutionPhotoRecord[] };
 export type ExecutionPlanOption = { id: string; title: string; projectId: string | null; updatedAt: string };
 export type ExecutionLinkedSurveyPhoto = { id: string; displayFilename: string; description: string | null; signedUrl: string | null };
 export type ExecutionLinkedSurvey =
@@ -191,7 +191,7 @@ export async function getExecutionPlanLinkedSurveys(organizationId: string, plan
 export async function getExecutionPlanningWorkspace(organizationId: string, projectId: string | null, requestedPlanId?: string) {
   const supabase = await createClient();
   const plans = await readAllRows<PlanRow>((from, to) => {
-    let query = supabase.from("execution_plans").select("id, title, description, project_id, version, created_at, updated_at, source_quotation_id, source_revision_id", { count: "exact" }).eq("organization_id", organizationId).order("updated_at", { ascending: false }).order("id", { ascending: true });
+    let query = supabase.from("execution_plans").select("id, title, description, status, client_name, location, planned_start_date, planned_end_date, project_id, version, created_at, updated_at, source_quotation_id, source_revision_id", { count: "exact" }).eq("organization_id", organizationId).order("updated_at", { ascending: false }).order("id", { ascending: true });
     if (requestedPlanId) query = query.eq("id", requestedPlanId);
     else if (projectId) query = query.eq("project_id", projectId);
     else query = query.is("project_id", null);
@@ -255,7 +255,7 @@ export async function getExecutionPlanningWorkspace(organizationId: string, proj
     const sourceRevision = plan.source_revision_id === null ? undefined : revisionMap.get(plan.source_revision_id);
     const sourceQuote = plan.source_quotation_id === null ? undefined : quoteMap.get(plan.source_quotation_id);
     return {
-      id: plan.id, projectId: plan.project_id, title: plan.title, description: plan.description, version: plan.version, createdAt: plan.created_at, updatedAt: plan.updated_at,
+      id: plan.id, projectId: plan.project_id, title: plan.title, description: plan.description, status: plan.status, clientName: plan.client_name, location: plan.location, plannedStartDate: plan.planned_start_date, plannedEndDate: plan.planned_end_date, version: plan.version, createdAt: plan.created_at, updatedAt: plan.updated_at,
       sourceQuotationId: plan.source_quotation_id, sourceRevisionId: plan.source_revision_id, sourceRevisionNumber: sourceRevision?.revision_number == null ? null : Number(sourceRevision.revision_number), sourceQuotationName: sourceQuote?.name ?? null, sourceQuotationStatus: sourceQuote?.status ?? null, sourceSubtotal: sourceRevision?.subtotal ?? null,
       tasks: (tasksByPlan.get(plan.id) ?? []).map((task): ExecutionTaskRecord => ({ id: task.id, title: task.title, description: task.description, status: task.status, priority: task.priority, dueDate: task.due_date, sortOrder: task.sort_order, version: task.version })),
       photos: (photosByPlan.get(plan.id) ?? []).map((photo): ExecutionPhotoRecord => {

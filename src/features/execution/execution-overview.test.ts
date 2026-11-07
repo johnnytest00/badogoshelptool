@@ -4,6 +4,7 @@ import type { ExecutionPlanRecord, ExecutionTimelineItem } from "./execution-dat
 
 const plan: ExecutionPlanRecord = {
   id: "plan-1", projectId: null, title: "DEMO terv", description: null, version: 1, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z",
+  status: "active", clientName: null, location: null, plannedStartDate: null, plannedEndDate: null,
   sourceQuotationId: null, sourceRevisionId: null, sourceRevisionNumber: null, sourceQuotationName: null, sourceQuotationStatus: null, sourceSubtotal: null, tasks: [
     { id: "task-1", title: "Nyitott", description: null, status: "todo", priority: "normal", dueDate: "2026-10-01", sortOrder: 1, version: 1 },
     { id: "task-2", title: "Kész", description: null, status: "done", priority: "normal", dueDate: null, sortOrder: 2, version: 1 },
@@ -26,6 +27,7 @@ describe("buildExecutionOverview", () => {
     expect(result.completedTasks).toBe(1);
     expect(result.progress).toBe(33);
     expect(result.attentionItems.map((item) => item.kind)).toEqual(["overdue_task", "open_task", "blocker"]);
+    expect(result.nextTask?.id).toBe("task-1");
     expect(result.recentActivity.map((item) => item.id)).toEqual(["new", "problem", "old"]);
   });
 
@@ -34,5 +36,6 @@ describe("buildExecutionOverview", () => {
     expect(result.progress).toBeNull();
     expect(result.totalTasks).toBe(0);
     expect(result.attentionItems).toEqual([]);
+    expect(result.nextTask).toBeNull();
   });
 });

@@ -18,6 +18,6 @@ export function QuotationSaveBar({ state, labels, disabled, onSave, previousRevi
   return <div className={`quotation-savebar is-${state}`}>
     <div className="quotation-savebar-meta"><p className="quotation-savebar-status" role="status" aria-live="polite"><Icon aria-hidden="true" className={`size-4${state === "saving" ? " animate-spin" : ""}`} /><span>{labels[state]}</span></p>{previousRevisions}</div>
     {beforeSave}
-    <button className="primary-button quotation-savebar-save" type="button" disabled={disabled} onClick={onSave}>{state === "saving" ? "Mentés…" : "Piszkozat mentése"}</button>
+    <button className="primary-button quotation-savebar-save" type="button" disabled={disabled} onClick={onSave}>{state === "saving" ? "Mentés…" : "Mentés"}</button>
   </div>;
 }

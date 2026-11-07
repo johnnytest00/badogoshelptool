@@ -701,26 +701,6 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.materi
     setDirtyDrafts((current) => ({ ...current, [selectedId]: false }));
     setSessions((current) => ({ ...current, [sessionKey]: { ...session, viewedRevisionNumber: revision.revisionNumber } }));
   };
-  const startNewCalculation = async () => {
-    if (savePending) return;
-    if ((anyDraftDirty || activeDirty || drawingDoc.file !== null || drawingDoc.sections.length > 0) && !await requestConfirmation({ title: "Új kalkuláció", message: "Az új kalkuláció indítása elveti a munkamenet összes mentetlen kalkulátoradatát, a megnyitott tervrajzot és valamennyi tetőszakasz geometriáját. Ezek az adatok nincsenek tartósan mentve.", cancelLabel: "Maradok", actions: [{ label: "Új kalkuláció indítása", tone: "danger", run: () => undefined }] })) return;
-    suppressedMemoryKey.current = saved ? memoryKey : null;
-    discardMemory();
-    if (userId && organizationId) forgetWorkspace(workspaceKey(userId, organizationId, null));
-    setDrafts(definitionLoaded ? { [selectedId]: withGeometryContract(fieldValuesFrom(definition, {}, isRoofShapeWorkflow)) } : {});
-    setLengthDrafts({});
-    setDraftEpoch((epoch) => epoch + 1);
-    setMaterialByCalculator({});
-    setDirtyDrafts({});
-    setSessions({});
-    setInputModeByCalculator({});
-    setTransferSourceByCalculator({});
-    setTransferAppliedByCalculator({});
-    setDrawingTakeoffScopes({});
-    releaseDrawing();
-    pendingSavedInput.current = null;
-    if (saved && organizationId) router.replace(`/kalkulatorok?organization=${encodeURIComponent(organizationId)}&calculator=${encodeURIComponent(selectedId)}`, { scroll: false });
-  };
   const independentContent = canSave && organizationId
     ? <>
       {canTransferFields && <ConstructionFieldTransferControl organizationId={organizationId} targetCalculatorId={selectedId} fields={definition.fields} currentFields={drafts[selectedId] ?? {}} roofShape={roofShapeOf(values)}
@@ -798,7 +778,6 @@ export function ConstructionCalculatorSuite({ initialCalculatorId = "roof.materi
   const roofPrimary = constructionCalculatorCatalog.find((item) => item.id === PRIMARY_ROOF_CALCULATOR_ID && item.status === "verified");
 
   return <section className="construction-suite" aria-label="Önálló építési kalkulátorok">
-    <button type="button" className="secondary-button" disabled={savePending} onClick={() => void startNewCalculation()}>Új kalkuláció</button>
     <div className="construction-suite-category-tabs" role="tablist" aria-label="Kalkulátorkategória">
       {categoryOrder.map((item) => <button key={item.id} type="button" role="tab" disabled={savePending} aria-selected={category === item.id} className={category === item.id ? "is-active" : ""} onClick={() => { setCategory(item.id); setSearch(""); const first = item.id === "roof" ? roofPrimary : constructionCalculatorCatalog.find((reference) => (reference.category === item.id || (item.id === "concrete" && reference.category === "auxiliary")) && reference.status === "verified"); if (first) selectCalculator(first); }}>{item.label}</button>)}
     </div>

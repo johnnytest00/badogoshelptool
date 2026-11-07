@@ -74,6 +74,7 @@ function makeClient() {
 
 const plan = (id: string, project_id: string | null = "project") => ({
   id, project_id, title: `Plan ${id}`, description: null, version: 1, created_at: "2026-10-01T10:00:00Z",
+  status: "active", client_name: "DEMO ügyfél", location: "Budapest", planned_start_date: "2026-10-10", planned_end_date: "2026-10-20",
   updated_at: "2026-10-02T10:00:00Z", source_quotation_id: null, source_revision_id: null, organization_id: "org",
 });
 
@@ -193,6 +194,7 @@ describe("execution data characterization", () => {
     expect(workspace.plans).toEqual([
       {
         id: "p1", projectId: "project", title: "Plan p1", description: null, version: 1, createdAt: "2026-10-01T10:00:00Z", updatedAt: "2026-10-02T10:00:00Z",
+        status: "active", clientName: "DEMO ügyfél", location: "Budapest", plannedStartDate: "2026-10-10", plannedEndDate: "2026-10-20",
         sourceQuotationId: "q1", sourceRevisionId: "r1", sourceRevisionNumber: 3, sourceQuotationName: "Accepted quotation", sourceQuotationStatus: "accepted", sourceSubtotal: 12345,
         tasks: [
           { id: "t1", title: "Task 1", description: null, status: "todo", priority: "normal", dueDate: null, sortOrder: 1, version: 2 },
@@ -205,6 +207,7 @@ describe("execution data characterization", () => {
       },
       {
         id: "p2", projectId: "project", title: "Plan p2", description: null, version: 1, createdAt: "2026-10-01T10:00:00Z", updatedAt: "2026-10-02T10:00:00Z",
+        status: "active", clientName: "DEMO ügyfél", location: "Budapest", plannedStartDate: "2026-10-10", plannedEndDate: "2026-10-20",
         sourceQuotationId: null, sourceRevisionId: null, sourceRevisionNumber: null, sourceQuotationName: null, sourceQuotationStatus: null, sourceSubtotal: null,
         tasks: [{ id: "t3", title: "Task 3", description: null, status: "in_progress", priority: "low", dueDate: null, sortOrder: 1, version: 1 }],
         photos: [{ id: "ph3", taskId: "deleted-task", taskTitle: null, journalEntryId: "deleted-entry", journalDate: null, journalContent: null, objectKey: "three.jpg", displayFilename: "three.jpg", mimeType: "image/jpeg", fileSize: 14, caption: null, category: "during", uploadedAt: "2026-10-03T12:00:00Z", uploaderName: "Uploader", signedUrl: "signed:three.jpg" }],

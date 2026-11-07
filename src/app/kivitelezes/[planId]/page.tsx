@@ -13,7 +13,6 @@ import { loadOptionalExecutionSection } from "@/features/execution/execution-wor
 import { getWorkflowMaterialLists } from "@/features/material-takeoffs/material-preparation-data";
 import { getProjectForOrganization } from "@/features/projects/project-data";
 import { getProjectOrganization } from "@/features/projects/organization";
-import { GlassPageHeader } from "@/components/ui/glass-page-header";
 import { BackNavigation } from "@/components/navigation/back-navigation";
 
 export default async function ExecutionPlanPage({ params, searchParams }: Readonly<{ params: Promise<{ planId: string }>; searchParams: Promise<{ organization?: string }> }>) {
@@ -38,19 +37,23 @@ export default async function ExecutionPlanPage({ params, searchParams }: Readon
   ]);
   const plan = workspace.plans[0];
   if (!plan) return <NotFound organizationId={organizationId} />;
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container">
-    <BackNavigation href={`/kivitelezes?organization=${organizationId}`} label="Vissza a munkanaplókhoz" />
-    <GlassPageHeader title={plan.title} context="Munkanapló" />
-    <ExecutionPlanning organizationId={organizationId} projectId={planOption.projectId} projectName={project?.name ?? ""} clientName={project?.clientName ?? null} location={project?.location ?? null} plans={workspace.plans} acceptedQuotations={workspace.acceptedQuotations} timelineByPlan={workspace.timelineByPlan} initialPlanId={plan.id} showHeading={false} showDescription={false} showPlanTabs={false} />
-    <ExecutionPlanMaterialLists organizationId={organizationId} planId={plan.id} result={materialLists} />
-    <ExecutionPlanDocumentLinks organizationId={organizationId} planId={plan.id} documents={linkedDocuments}
-      materialListCandidates={materialLists.status === "loaded" ? { status: "loaded", data: materialLists.data.filter((list) => list.executionPlanId !== plan.id).map((list) => ({ kind: "material_list" as const, documentId: list.id, name: list.name, detail: `Anyaglista · V${list.version}` })) } : materialLists}
-      quotationCandidates={quotationCandidates} />
-    <ExecutionPlanCalculations organizationId={organizationId} planId={plan.id} result={linkedCalculations} />
-    <ExecutionLinkedSurveys organizationId={organizationId} result={linkedSurveys} />
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container execution-workspace-container">
+    <BackNavigation href={`/kivitelezes?organization=${organizationId}`} label="Vissza a projektekhez" />
+    <section className="execution-workspace-shell" aria-labelledby="execution-workspace-title">
+      <div className="execution-workspace-body">
+        <ExecutionPlanning organizationId={organizationId} projectId={planOption.projectId} projectName={project?.name ?? ""} clientName={project?.clientName ?? null} location={project?.location ?? null} plans={workspace.plans} acceptedQuotations={workspace.acceptedQuotations} timelineByPlan={workspace.timelineByPlan} initialPlanId={plan.id} showHeading={false} showDescription={false} showPlanTabs={false} projectManagement={plan.projectId === null} workspaceTitle={plan.title} supportingContent={<>
+          {(materialLists.status !== "loaded" || materialLists.data.some((list) => list.executionPlanId === plan.id)) && <ExecutionPlanMaterialLists organizationId={organizationId} planId={plan.id} result={materialLists} />}
+          <ExecutionPlanDocumentLinks organizationId={organizationId} planId={plan.id} documents={linkedDocuments}
+            materialListCandidates={materialLists.status === "loaded" ? { status: "loaded", data: materialLists.data.filter((list) => list.executionPlanId !== plan.id).map((list) => ({ kind: "material_list" as const, documentId: list.id, name: list.name, detail: `Anyaglista · V${list.version}` })) } : materialLists}
+            quotationCandidates={quotationCandidates} />
+          {(linkedCalculations.status !== "loaded" || linkedCalculations.data.length > 0) && <ExecutionPlanCalculations organizationId={organizationId} planId={plan.id} result={linkedCalculations} />}
+          <ExecutionLinkedSurveys organizationId={organizationId} result={linkedSurveys} />
+        </>} />
+      </div>
+    </section>
   </div></main>;
 }
 
 function NotFound({ organizationId }: Readonly<{ organizationId: string }>) {
-  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><section className="empty-state"><div><h1>A munkanapló nem található</h1><p>Nincs hozzáférhető munkanapló ezzel az azonosítóval.</p><Link className="primary-button" href={`/kivitelezes?organization=${organizationId}`}>Vissza a munkanaplókhoz</Link></div></section></div></main>;
+  return <main id="main-content" tabIndex={-1} className="dashboard-shell"><div className="dashboard-container"><section className="empty-state"><div><h1>A projekt nem található</h1><p>Nincs hozzáférhető projekt ezzel az azonosítóval.</p><Link className="primary-button" href={`/kivitelezes?organization=${organizationId}`}>Vissza a projektekhez</Link></div></section></div></main>;
 }

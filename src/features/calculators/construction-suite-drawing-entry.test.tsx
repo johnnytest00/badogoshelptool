@@ -481,21 +481,9 @@ describe("T10 — A → B → A kalkulátorváltás nyitott rajzzal", () => {
 });
 
 describe("T10 — adatvesztési megerősítések és erőforrás-felszabadítás", () => {
-  it("az „Új kalkuláció” megnevezi a rajz elvesztését, és elfogadás után elengedi a dokumentumot", async () => {
+  it("nem jelenít meg külön Új kalkuláció gombot a kalkulátor munkaterületén", async () => {
     await renderSuite();
-    await act(async () => { startFromDrawing(); });
-    await loadImage();
-    const live = objectUrls.created.at(-1)!;
-    confirmation.calls = [];
-
-    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Új kalkuláció" })); });
-
-    const asked = confirmation.calls.find((call) => call.title === "Új kalkuláció");
-    expect(asked?.message).toMatch(/tervrajzot/u);
-    expect(asked?.message).toMatch(/tetőszakasz/u);
-    await waitFor(() => expect(fileName()).toBeNull());
-    // S5: az elengedett dokumentum Object URL-je felszabadul.
-    await waitFor(() => expect(objectUrls.revoked).toContain(live));
+    expect(screen.queryByRole("button", { name: "Új kalkuláció" })).toBeNull();
   });
 
   it("dokumentumbezáráskor felszabadítja az Object URL-t", async () => {
@@ -526,18 +514,6 @@ describe("T10 — adatvesztési megerősítések és erőforrás-felszabadítás
     expect(objectUrls.revoked).not.toContain(next);
   });
 
-  it("elutasított megerősítés után a rajz érintetlen marad", async () => {
-    await renderSuite();
-    await act(async () => { startFromDrawing(); });
-    await loadImage();
-    const live = objectUrls.created.at(-1)!;
-    confirmation.accepted = false;
-
-    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Új kalkuláció" })); });
-
-    expect(fileName()).toBe("DEMO.png");
-    expect(objectUrls.revoked).not.toContain(live);
-  });
 });
 
 describe("T10.1 — SHA-256- és oldalszámhoz kötött kalibráció a kalkulátorváltáson át", () => {

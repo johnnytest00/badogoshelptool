@@ -159,7 +159,7 @@ export function MaterialManager({
 
   return <div className="dashboard-shell"><div className="dashboard-container materials-workspace material-manager-workspace">
     <BackNavigation href={`/?organization=${organizationId}`} label="Vissza a műhelyhez" />
-    <GlassPageHeader title="Anyagkezelő" context="Kategóriák, termékek, egységek és árak" actions={<>
+    <GlassPageHeader title="Anyagkezelő" actions={<>
       <button className="material-manager-category-trigger" type="button" aria-haspopup="dialog" aria-expanded={categoryFilterOpen} onClick={() => setCategoryFilterOpen(true)}>{allCategoriesSelected ? "Minden kategória" : selectedCategoryCount === 0 ? "Nincs kategória" : `${selectedCategoryCount} kategória`}<ChevronDown aria-hidden="true" /></button>
       <button className="secondary-button" type="button" onClick={() => { setFeedback(""); setDialog({ mode: "create" }); }}><Plus className="size-4" /> Új kategória</button>
       <button className="primary-button" type="button" onClick={() => setProductDialogOpen(true)}><Plus className="size-4" /> Új termék</button>

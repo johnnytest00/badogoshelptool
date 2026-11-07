@@ -48,6 +48,7 @@ describe("execution optional material/document sections", () => {
       materialListCandidates={loaded([])} quotationCandidates={{ status: "access_denied" }} />);
 
     expect(html).toContain("DEMO lista");
+    expect(html).toContain('class="execution-disclosure-count">1 kapcsolt</strong>');
     expect(html).toContain("Ajánlatjelöltek: nincs hozzáférés");
     expect(html).not.toContain("nem található látható utólagos anyaglista- vagy ajánlatkapcsolat");
   });
@@ -58,6 +59,32 @@ describe("execution optional material/document sections", () => {
 
     expect(html).toContain("nem található látható utólagos anyaglista- vagy ajánlatkapcsolat");
     expect(html).not.toContain("nem tölthetők be");
+  });
+
+  it("uses the shared searchable picker for material lists and quotations", () => {
+    const html = renderToStaticMarkup(<ExecutionPlanDocumentLinks organizationId="org" planId="plan"
+      documents={{ status: "loaded", materialLists: loaded([]), quotations: loaded([]) }}
+      materialListCandidates={loaded([{ kind: "material_list", documentId: "list", name: "Tető anyaglista", detail: "12 tétel · V2" }])}
+      quotationCandidates={loaded([{ kind: "quotation", documentId: "quote", name: "Tető ajánlat", detail: "Elfogadott · V1" }])} />);
+
+    expect(html).toContain('aria-label="Kapcsolandó anyaglista vagy ajánlat"');
+    expect(html).toContain('aria-haspopup="dialog"');
+    expect(html).toContain('role="combobox"');
+    expect(html).toContain('role="listbox"');
+    expect(html).toContain("Tető anyaglista");
+    expect(html).toContain("Tető ajánlat");
+    expect(html).not.toContain("execution-document-candidates");
+  });
+
+  it("keeps a loaded document type selectable if the other candidate list is unavailable", () => {
+    const html = renderToStaticMarkup(<ExecutionPlanDocumentLinks organizationId="org" planId="plan"
+      documents={{ status: "loaded", materialLists: loaded([]), quotations: loaded([]) }}
+      materialListCandidates={loaded([{ kind: "material_list", documentId: "list", name: "Tető anyaglista", detail: "Anyaglista · V2" }])}
+      quotationCandidates={{ status: "unavailable" }} />);
+
+    expect(html).toContain("Tető anyaglista");
+    expect(html).toContain('aria-label="Kapcsolandó anyaglista vagy ajánlat"');
+    expect(html).not.toContain('aria-label="Kapcsolandó anyaglista vagy ajánlat" disabled=""');
   });
 
   it("preserves linked quotations when linked material-list lookup fails", () => {

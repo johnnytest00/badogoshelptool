@@ -7,7 +7,7 @@ export function GlassSectionHeader({
   actions,
   className = "",
 }: Readonly<{
-  title: string;
+  title: ReactNode;
   id?: string;
   actions?: ReactNode;
   className?: string;

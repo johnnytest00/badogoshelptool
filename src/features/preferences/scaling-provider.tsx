@@ -25,9 +25,9 @@ const ScalingContext = createContext<ScalingContextValue | null>(null);
 function applyScalingVariables(preferences: ScalingPreferences) {
   const root = document.documentElement;
   root.style.setProperty("--tp-text-scale", `${preferences.text / 100}`);
-  root.style.setProperty("--tp-ui-scale", `${preferences.ui / 100}`);
-  root.style.setProperty("--tp-drawing-scale", `${preferences.drawing / 100}`);
-  root.style.setProperty("--tp-spacing-scale", `${preferences.spacing / 100}`);
+  root.style.setProperty("--tp-ui-scale", "1.15");
+  root.style.setProperty("--tp-drawing-scale", "1");
+  root.style.setProperty("--tp-spacing-scale", "1");
 }
 
 export function ScalingProvider({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -37,6 +37,7 @@ export function ScalingProvider({ children }: Readonly<{ children: React.ReactNo
     const restored = parseScalingPreferences(window.localStorage.getItem(scalingStorageKey));
     setPreferences(restored);
     applyScalingVariables(restored);
+    persistScalingPreferences(window.localStorage, restored);
   }, []);
 
   const setScale = useCallback((key: ScalingKey, value: number) => {

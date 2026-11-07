@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getAuthContext } from "@/features/auth/auth.server";
-import { executionJournalCategorySchema, executionPhotoCategorySchema, executionPlanSchema, executionTaskSchema } from "@/domain/execution/contracts";
+import { executionJournalCategorySchema, executionPhotoCategorySchema, executionPlanSchema, executionProjectDetailsSchema, executionTaskSchema } from "@/domain/execution/contracts";
 import { userFacingActionError } from "@/lib/user-facing-action-error";
 import { normalizeSurveyPhoto } from "@/infrastructure/images/normalize-survey-photo";
 import { isCompleteConstructionRevision } from "@/features/calculations/construction-data";
@@ -55,14 +55,38 @@ export async function saveExecutionTaskAction(data: FormData) {
   revalidatePath(`/kivitelezes/${planId}`); if (projectId) revalidatePath(`/projektek/${projectId}`); return { ok: true, taskId: result[0].task_id };
 }
 
+export async function updateExecutionProjectAction(data: FormData) {
+  const organizationId = text(data, "organizationId"), planId = text(data, "planId");
+  if (!await access(organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
+  if (!z.string().uuid().safeParse(planId).success) return { ok: false, error: "Érvénytelen projektazonosító." };
+  const parsed = executionProjectDetailsSchema.safeParse({
+    title: text(data, "title"), description: text(data, "description"), status: text(data, "status"),
+    clientName: text(data, "clientName"), location: text(data, "location"),
+    plannedStartDate: text(data, "plannedStartDate"), plannedEndDate: text(data, "plannedEndDate"), version: text(data, "version"),
+  });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ellenőrizd a projekt adatait." };
+  const db = await createClient() as unknown as Rpc;
+  const { data: result, error } = await db.rpc("update_execution_project", {
+    p_organization_id: organizationId, p_plan_id: planId, p_title: parsed.data.title,
+    p_description: parsed.data.description || null, p_status: parsed.data.status,
+    p_client_name: parsed.data.clientName || null, p_location: parsed.data.location || null,
+    p_planned_start_date: parsed.data.plannedStartDate || null, p_planned_end_date: parsed.data.plannedEndDate || null,
+    p_expected_version: parsed.data.version,
+  });
+  if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A projektadatok mentése nem sikerült.") };
+  revalidatePath("/kivitelezes"); revalidatePath(`/kivitelezes/${planId}`);
+  return { ok: true, planId, version: result[0].plan_version as number };
+}
+
 export async function createExecutionJournalEntryAction(data: FormData) {
   const organizationId = text(data, "organizationId"), projectId = text(data, "projectId"), planId = text(data, "planId");
   if (!await access(organizationId)) return { ok: false, error: "Nincs jogosultságod ehhez a műhelyhez." };
   const category = executionJournalCategorySchema.safeParse(text(data, "category") || "general");
   const workDate = text(data, "workDate");
-  if (!category.success || !/^\d{4}-\d{2}-\d{2}$/.test(workDate) || !text(data, "content")) return { ok: false, error: "Add meg a munkavégzés dátumát és a bejegyzés tartalmát." };
+  const content = text(data, "content"), hasPhoto = data.getAll("photos").some((value) => value instanceof File && value.size > 0);
+  if (!category.success || !/^\d{4}-\d{2}-\d{2}$/.test(workDate) || (!content && !hasPhoto)) return { ok: false, error: "Adj meg szöveget vagy válassz legalább egy fényképet." };
   const db = await createClient() as unknown as Rpc;
-  const { data: result, error } = await db.rpc("create_execution_journal_entry", { p_organization_id: organizationId, p_plan_id: planId, p_task_id: text(data, "taskId") || null, p_work_date: workDate, p_category: category.data, p_content: text(data, "content"), p_problems: text(data, "problems") || null, p_next_steps: text(data, "nextSteps") || null, p_request_key: text(data, "requestKey") || crypto.randomUUID() });
+  const { data: result, error } = await db.rpc("create_execution_journal_entry", { p_organization_id: organizationId, p_plan_id: planId, p_task_id: text(data, "taskId") || null, p_work_date: workDate, p_category: category.data, p_content: content, p_problems: text(data, "problems") || null, p_next_steps: text(data, "nextSteps") || null, p_request_key: text(data, "requestKey") || crypto.randomUUID() });
   if (error || !result?.[0]) return { ok: false, error: errorMessage(error, "A napi bejegyzés mentése nem sikerült.") };
   revalidatePath(`/kivitelezes/${planId}`); if (projectId) revalidatePath(`/projektek/${projectId}`); return { ok: true, entryId: result[0].entry_id };
 }

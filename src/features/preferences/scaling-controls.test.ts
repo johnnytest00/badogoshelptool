@@ -6,10 +6,12 @@ import { ScalingControls } from "./scaling-controls";
 import { parseScalingPreferences, persistScalingPreferences, resetScalingPreferences, scalingDefaults, scalingStorageKey, serializeScalingPreferences, updateScaling } from "./scaling";
 
 describe("F9.7.4 display preferences", () => {
-  it("uses the larger UI default and permits a practical smaller interface scale", () => {
-    expect(scalingDefaults.ui).toBe(115);
-    expect(updateScaling(scalingDefaults, "ui", 80).ui).toBe(80);
-    expect(parseScalingPreferences(serializeScalingPreferences({ ...scalingDefaults, ui: 120 })).ui).toBe(120);
+  it("keeps text size as the only adjustable display scale", () => {
+    expect(scalingDefaults.text).toBe(100);
+    expect(updateScaling(scalingDefaults, "text", 150).text).toBe(150);
+    expect(Object.hasOwn(scalingDefaults, "ui")).toBe(false);
+    expect(Object.hasOwn(scalingDefaults, "drawing")).toBe(false);
+    expect(Object.hasOwn(scalingDefaults, "spacing")).toBe(false);
   });
 
   it("keeps the mobile sticky control enabled for existing settings and persists its preference", () => {
@@ -19,41 +21,30 @@ describe("F9.7.4 display preferences", () => {
     expect(parseScalingPreferences(serializeScalingPreferences(next)).mobileStickyEnabled).toBe(false);
   });
 
-  it("adjusts sliders independently and persists the fourth spacing preference", () => {
+  it("persists the text size without storing removed scale options", () => {
     const next = updateScaling(scalingDefaults, "text", 150);
-    const adjusted = updateScaling(next, "spacing", 125);
-    expect(adjusted).toEqual({ ...scalingDefaults, text: 150, spacing: 125 });
-    expect(parseScalingPreferences(serializeScalingPreferences(adjusted))).toEqual(adjusted);
+    expect(next).toEqual({ ...scalingDefaults, text: 150 });
+    expect(parseScalingPreferences(serializeScalingPreferences(next))).toEqual(next);
     expect(parseScalingPreferences(null)).toEqual(scalingDefaults);
   });
 
   it("persists preferences and stores defaults when reset is requested", () => {
     const stored = new Map<string, string>();
     const storage = { setItem: (key: string, value: string) => stored.set(key, value) };
-    persistScalingPreferences(storage, { ...scalingDefaults, text: 160, ui: 120, drawing: 140, spacing: 130 });
-    expect(JSON.parse(stored.get(scalingStorageKey)!)).toMatchObject({ text: 160, ui: 120, drawing: 140, spacing: 130 });
+    persistScalingPreferences(storage, { ...scalingDefaults, text: 160 });
+    expect(JSON.parse(stored.get(scalingStorageKey)!)).toMatchObject({ text: 160 });
+    expect(Object.hasOwn(JSON.parse(stored.get(scalingStorageKey)!), "ui")).toBe(false);
     expect(resetScalingPreferences(storage)).toEqual(scalingDefaults);
     expect(parseScalingPreferences(stored.get(scalingStorageKey)!)).toEqual(scalingDefaults);
   });
 
-  it("renders four labelled keyboard-operable range controls and reset action", () => {
+  it("renders one labelled keyboard-operable text range and reset action", () => {
     const html = renderToStaticMarkup(createElement(ScalingProvider, null, createElement(ScalingControls, { compact: true })));
-    expect((html.match(/type="range"/g) ?? []).length).toBe(4);
+    expect((html.match(/type="range"/g) ?? []).length).toBe(1);
     expect(html).toContain("Szövegméret");
-    expect(html).toContain("Gombok és vezérlők mérete");
-    expect(html).toContain("Felület térközei");
-    expect(html).toContain("Műszaki rajz megjelenítése");
-    expect(html).toContain("Alapértelmezett beállítások");
-  });
-
-  it("can render only the two independent quick controls without a reset action", () => {
-    const html = renderToStaticMarkup(createElement(ScalingProvider, null, createElement(ScalingControls, { compact: true, keys: ["text", "ui"], labels: { text: "Szövegméret", ui: "Felületméret" }, showReset: false, idPrefix: "quick-scale" })));
-    expect((html.match(/type="range"/g) ?? []).length).toBe(2);
-    expect(html).toContain("Szövegméret");
-    expect(html).toContain("Felületméret");
+    expect(html).not.toContain("Felületméret");
     expect(html).not.toContain("Műszaki rajz");
-    expect(html).not.toContain("Alapértelmezett beállítások");
-    expect(html).toContain('id="quick-scale-text"');
-    expect(html).toContain('id="quick-scale-ui"');
+    expect(html).not.toContain("Felület térközei");
+    expect(html).toContain("Alapértelmezett beállítások");
   });
 });

@@ -2,9 +2,9 @@
 
 Ez az index a [projektismereti könyvtár](../LIBRARY.md) 31 stabil funkcióazonosítóját köti a repóban deklarált Supabase-sémához és adatbázistesztekhez. Ez **szintaktikai repóleltár, nem bizonyíték a hosted adatbázis állapotára**: az alkalmazott migrációkat és az éles/staging jogosultságokat külön környezetben kell igazolni.
 
-<!-- schema-counts: tables=55 functions=130 policies=152 triggers=80 types=16 migrations=128 tests=69 -->
+<!-- schema-counts: tables=56 functions=132 policies=153 triggers=81 types=17 migrations=129 tests=70 -->
 
-**2026-11-05-i repóleltár:** 55 tábla, 130 `public`/`private` függvény, 152 policy, 80 trigger, 16 típus, 128 migráció és 69 pgTAP/fixture fájl. A névazonos újradefiniálások egyszer számítanak.
+**2026-11-06-i repóleltár:** 56 tábla, 132 `public`/`private` függvény, 153 policy, 81 trigger, 17 típus, 129 migráció és 70 pgTAP/fixture fájl. A névazonos újradefiniálások egyszer számítanak.
 
 ## Funkciókapcsolati mátrix
 
@@ -35,7 +35,7 @@ Ez az index a [projektismereti könyvtár](../LIBRARY.md) 31 stabil funkcióazon
 | <a id="material-lists"></a><!-- feature: MATERIAL-LISTS --> `MATERIAL-LISTS` | Preparation list/revision és survey/takeoff source táblák. | `material_*preparation/list*`; `027–028`, `032`, `036–037`, `046`. |
 | <a id="projects"></a><!-- feature: PROJECTS --> `PROJECTS` | `clients`, `projects`, `roof_models/revisions`, organization scope. | `project_management`, roof-model writer guard; foundation és geometry tesztek. |
 | <a id="quotations"></a><!-- feature: QUOTATIONS --> `QUOTATIONS` | Quotations/revisions/events, document sequence, source linkek és financial snapshot. | `quotation*`, material/calculation/labor source; `002–004`, `018–019`, `033`, `042`, `058`, `063`. |
-| <a id="execution"></a><!-- feature: EXECUTION --> `EXECUTION` | Plans, tasks, events, journal, document/calculation/survey linkek. | `execution_*`; `005–006`, `031`, `040`, `057`. |
+| <a id="execution"></a><!-- feature: EXECUTION --> `EXECUTION` | Plans, önálló projekt-meta és státusztörténet, tasks, events, journal, document/calculation/survey linkek. | `execution_*`; `005–006`, `031`, `040`, `057`, `067`. |
 | <a id="photo-pipeline"></a><!-- feature: PHOTO-PIPELINE --> `PHOTO-PIPELINE` | Survey/execution photo metaadat, storage policy és kategória. | `*_photos*`, storage compatibility; `007–008`, `024–025`. |
 | <a id="api-documents"></a><!-- feature: API-DOCUMENTS --> `API-DOCUMENTS` | PDF/CSV payload forrása immutable revízió és szervezeti scope. | Quotation document foundation és execution document links; `019`, `040`. |
 | <a id="db-security"></a><!-- feature: DB-SECURITY --> `DB-SECURITY` | RLS, grants, actor/membership guardok, immutability triggerek, idempotencia és concurrency. | Minden migráció; különösen foundation, QA08, source guards és pooler timeout; `001`, `060–064`. |
@@ -51,7 +51,7 @@ Ez az index a [projektismereti könyvtár](../LIBRARY.md) 31 stabil funkcióazon
 | Felmérés | `field_surveys`, `field_survey_revisions`, photos/followups/source/link táblák | új létrehozás tiltott; korábbi provenance és kapcsolatok immutable | `023–031`, `043–044`, `050–055`, `059` |
 | Anyag | catalog táblák, `material_takeoffs/items`, preparation list/revision/source táblák | organization scope, unit/type guard, approved/source/price immutability | `010–015`, `027–028`, `032–039`, `045–049` |
 | Ajánlat | `quotations`, `quotation_revisions`, status events, document sequence, material/calculation source linkek | owner/org RLS, finalization guard, immutable source és pénzügyi snapshot | `002–004`, `018–019`, `033`, `042`, `058`, `063` |
-| Kivitelezés és fotó | execution plan/task/event/journal/photo/document-link táblák | scoped read/write, source-attestation, photo link/category/storage policy | `005–008`, `031`, `040`, `057` |
+| Kivitelezés és fotó | execution plan/project-status/task/event/journal/photo/document-link táblák | scoped read/write, standalone/legacy határ, optimistic version, append-only status event, source-attestation, photo link/category/storage policy | `005–008`, `031`, `040`, `057`, `067` |
 
 ## Író RPC-k és határfeltételek
 

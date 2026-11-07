@@ -22,7 +22,7 @@ describe("dashboard shared mobile header and full settings", () => {
     for (const oldIntro of ["TETŐPRÓ · MŰHELY", "Miben segíthetünk ma?", "Gyorsindító", "Munkafolyamatok egy helyen", "Válassz egy területet a következő lépéshez"]) {
       expect(html).not.toContain(oldIntro);
     }
-    const labels = ["Kalkulátorok", "Munkanaplók", "Árajánlatok", "Anyaglisták", "Anyagkezelő"];
+    const labels = ["Kalkulátorok", "Projektek", "Árajánlatok", "Anyaglisták", "Anyagkezelő"];
     expect(labels.every((label) => html.includes(label))).toBe(true);
     expect(labels.map((label) => html.indexOf(label))).toEqual([...labels.map((label) => html.indexOf(label))].sort((a, b) => a - b));
     expect(html).toContain("Aktuális munkák");
@@ -37,12 +37,12 @@ describe("dashboard shared mobile header and full settings", () => {
   it("keeps account management in full settings and places one secure logout form there", () => {
     const html = renderToStaticMarkup(createElement(ScalingProvider, null, createElement(LiquidGlassProvider, null, createElement(DashboardSettings, { onOpenAccount: () => undefined }))));
     expect(html).toContain("Fiókbeállítások");
-    expect(html).toContain("Méretezések");
+    expect(html).not.toContain("Méretezések");
     expect(html).toContain("Liquid Glass");
     expect(html).toContain('id="liquid-glass-opacity"');
     expect(html).toContain('value="10"');
     expect(html).toContain('name="liquid-glass-tint"');
-    expect(html.match(/<details/g)).toHaveLength(3);
+    expect(html.match(/<details/g)).toHaveLength(1);
     expect(html).not.toContain("Háttéranimáció");
     expect(html).toContain('class="settings-logout-form"');
     expect(html).toContain("Kilépés");
@@ -51,18 +51,9 @@ describe("dashboard shared mobile header and full settings", () => {
 
   it("shows the current value beside each closed settings group", () => {
     const html = renderToStaticMarkup(createElement(ScalingProvider, null, createElement(LiquidGlassProvider, null, createElement(DashboardSettings, { onOpenAccount: () => undefined }))));
-    expect(html).toContain("Szöveg 100% · Felület 115%");
     expect(html).toContain("Átlátszóság 10% · automatikus szín");
-    expect(html).toContain("Kikapcsolva");
+    expect(html).not.toContain("Alsó navigáció megjelenítése");
     expect(html).not.toContain("Háttéranimáció");
-  });
-
-  it("offers the mobile navigation preference in the existing settings panel", () => {
-    const html = renderToStaticMarkup(createElement(ScalingProvider, null, createElement(LiquidGlassProvider, null, createElement(DashboardSettings, { onOpenAccount: () => undefined }))));
-    expect(html).toContain("Alsó navigáció megjelenítése");
-    expect(html).toContain("A gyors menülinkek megjelenítése; a profilmenü mobilon mindig elérhető.");
-    expect(html).toContain('class="glass-disclosure settings-disclosure settings-mobile-navigation"');
-    expect(html).toMatch(/<strong>Alsó navigáció megjelenítése<\/strong>[\s\S]*?<input type="checkbox"\/>/);
   });
 
   it("offers the mobile sticky scaling preference in the existing settings panel", () => {

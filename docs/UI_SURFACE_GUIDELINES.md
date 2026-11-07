@@ -51,3 +51,27 @@ Before editing another page:
 - [ ] The editor page root stays transparent; the shared dotted canvas remains visible between its purpose-built surfaces.
 - [ ] Small screens, focus visibility, reduced transparency, and forced colors remain supported.
 - [x] No data, workflow, or business logic changes.
+
+## Detail and workspace surface rules
+
+Use these rules for project detail pages, work logs, dashboards, and other information-dense workspaces. They refine the shared Liquid Glass direction; they do not replace it with a generic design system.
+
+- Build the page on a predictable 8 px spacing rhythm; use 4 px increments only for optical alignment, icon gaps, and compact metadata.
+- Align related content to shared keylines: page header, action row, main surfaces, section labels, and supporting disclosures should start and end on a deliberate grid.
+- Use content-driven height. Do not give an empty card the height of its populated reference state; populated rows may grow the surface naturally while the content remains top-aligned.
+- Keep one visually dominant primary action per task area. Secondary actions must be distinguishable by treatment, not by competing accent colors or identical filled buttons.
+- Keep controls close to the content they modify. Do not separate a label, value, status, or row action with excessive whitespace.
+- Use progressive disclosure for optional detail, but keep the trigger, focus state, expanded content, and collapse behavior clear and consistent.
+- Treat icon-only controls as compact visuals with full accessible names and touch targets of at least 44 CSS px; keep adjacent targets separated by at least 8 px.
+- Preserve visible keyboard focus. A focus ring must remain discernible against both the component and the dotted canvas; do not rely on glow alone.
+- Verify text and state contrast against the actual theme surface. Functional states must not be communicated by color alone.
+- Keep mobile hierarchy intentional: preserve the order of the user's work, avoid horizontal overflow, and let controls wrap or scroll as a group without clipping labels.
+- Do not add placeholder records, photos, counts, or addresses to make a reference screenshot look populated. Empty, loading, error, and populated states are separate compositions.
+- Before delivery, inspect the full cascade for desktop, mobile, hover, focus, reduced-transparency, forced-colors, and reduced-motion overrides.
+
+### Reference basis
+
+- [Apple Human Interface Guidelines — Layout](https://developer.apple.com/design/human-interface-guidelines/layout): hierarchy, alignment, grouping, guides, progressive disclosure, and consistent spacing.
+- [Material Design — Understanding layout](https://m2.material.io/design/layout/understanding-layout.html): predictable responsive regions and an 8 dp spacing rhythm.
+- [Android accessibility — Touch target size](https://support.google.com/accessibility/android/answer/7101858): 48 dp touch targets and 8 dp separation as a practical mobile baseline.
+- [WCAG 2.2](https://www.w3.org/TR/WCAG22/): contrast, target size, focus visibility, and focus-not-obscured requirements.

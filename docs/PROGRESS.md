@@ -1,5 +1,181 @@
 # Fejlesztési előrehaladás és bizonyítékok
 
+## Frontend-változtatási előfeltétel
+
+Minden frontend/UI módosítás előtt kötelező elolvasni a projekt aktuális `docs/UI_SURFACE_GUIDELINES.md` dokumentumát, és a döntéseket annak shared-surface, spacing, accessibility, responsive és reduced-transparency elveihez kell igazítani.
+
+## Projekt részletező oldal — referencia szerinti hierarchiafinomítás (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS; vizuális elfogadás a felhasználónál.** A `/kivitelezes/[planId]` oldal részletező vászna 86rem-es, központosított maximális szélességet és referencia-közelibb belső skálát kapott: nagyobb projektfejléc, levegősebb fő munkakártyák, egységesebb CTA-magasság és kiegyenlített kétoszlopos rács. Az üres fő kártyák nagy fix magassága megszűnt; a feltöltött állapot tartalommal természetesen nő. A fejléc a meglévő, egyértelműen felismerhető szabad szöveges helyszínt kompakt meta-blokkban, szükség esetén két sorban mutatja, a teljes adat továbbra is a Projekt adatai disclosure-ben érhető el. A ceruza közvetlenül a „Projekt részletei” mellett marad, a további műveletek menüje enyhén lekerekített téglalapként, az összesítő kártyától elkülönítve jelenik meg. A négy gyorsművelet különálló gomb, az „Új feladat” maradt az elsődleges CTA. A Feladatok és Naplóbejegyzések fejléc valódi Lucide ikonokat használ; a naplószám csak tényleges bejegyzéseknél, az alsó disclosure-számok csak betöltött rekordokból jelennek meg. A feladat részletezője vizuálisan csak `…`, de név szerint akadálymentes marad. A projekt státusza állapotfüggő színű, a domain-nevek változatlanok.
+
+- **Megőrzött szabályok:** a projekt-, feladat-, napló-, fotó- és dokumentumadatok meglévő betöltését, mentését, szervezeti jogosultságát és verziózását nem módosítottam. Kitalált kép vagy statikus mock adat nem került a felületre. A „Dokumentum feltöltése” gyorsművelet a meglévő dokumentációs felületre visz; új dokumentum Storage-szerződést nem találtam, ezért nem építettem külön, félkész feltöltési folyamatot.
+- **Renderelt QA:** a korábbi 1440×900 és 375×812 renderelt ellenőrzést megőriztem; a mostani változás célzott markup- és CSS-finomhúzás, adatbázis-írás nélkül.
+- **Technikai ellenőrzés:** célzott Vitest 20/20 PASS; érintett ESLint PASS; `npm run build` PASS; `npm run typecheck` PASS. A teljes `npm run lint` a változástól független `scripts/check-docs.mjs` 12× `no-undef` baseline-hibája miatt nem zöld.
+- **Korlát:** a DEMO-rekordon nincs projektfotó, naplófotó, naplóbejegyzés vagy kapcsolt dokumentumszám, ezért ezeket nem pótoltam hamis adattal. A dokumentumfeltöltés gyorsművelete továbbra is a meglévő dokumentációs felületre visz; új Storage-szerződést nem vezettem be.
+
+## P1.5.5 — Projektmunkatér vizuális finomhangolása (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS; vizuális elfogadás a felhasználónál.** A fejléc összesítője közelebb került a projektnévhez, három olvasható szakaszt és csak létező feladatnál progress bar-t mutat. A hosszú projektcím rugalmasabb fejlécoszlopot kap. A feladatsor bal oldali körös teljesítésváltója, státusza és nyíllel jelölt Részletek művelete közös, kompakt sorban van; a nyitott szerkesztő a sorhoz kapcsolódik. A napló üres állapota és az alsó három, ikonokkal jelölt disclosure a meglévő Liquid Glass felületeken marad. Mobilon a fő panelcímek önálló sort kapnak.
+
+- **Megőrzött szerződés:** feladat-, projekt-, napló- és fotómentés, verziózás, jogosultság, adatmodell és régi rekordok nem változtak. Nincs kitalált borítókép, fotó, dátum vagy dokumentumszám.
+- **Renderelt QA:** valódi egyfeladatos/üres naplójú oldal 1440×900 világos és sötét nézetben, 375×812 mobilon; ideiglenes, nem mentő fixture-rel öt vegyes státuszú feladat és három hosszabb bejegyzés 1440×900 sötét és 812×375 világos nézetben, üres projekt 375×812 sötét nézetben. A nézetekben nem volt vízszintes túlcsordulás; a feladatrészletező nyitását ellenőriztem. A fixture route-ot töröltem, adatbázis-írás nem történt.
+- **Technikai ellenőrzés:** célzott Vitest 20/20 PASS; `src/features/execution` regresszió PASS; érintett ESLint, TypeScript typecheck, production build, docs-check és `git diff --check` PASS. Teljes Vitest: 1656 PASS, 19 SKIP, 1 FAIL; az egyetlen hiba a korábbról ismert, ettől az oldaltól független `premium-glass-background.test.tsx` elavult pontrács-szövegelvárása.
+- **Korlát:** a referencia fotós projektfejléce és galériája valós képadat híján nem másolható; a végső vizuális elfogadás a felhasználóé. Reduced-transparency és forced-colors módot nem rendereltem külön; a meglévő felülírásokat megőriztem.
+
+## P1.5.4 — Projektmunkatér helyreállítása (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A `/kivitelezes/[planId]` oldal valódi feladatsora egyetlen, bal oldali kör alakú teljesítésváltót kapott; a cím, státusz és részletek közös sávban maradnak. A kész és nyitott feladatok együtt, sorrendben látszanak. A fejléc külön rendezi az állapotot, a teljesülést és a következő teendőt. A napló ugyanazon az üvegfelületen mutatja az üres állapotot és az időrendi bejegyzéseket; az alsó három disclosure egyenletes rácsba került, a fotóakció a Dokumentáció alá.
+
+- **Gyökérok:** a feladatsor DOM-ja a fő tartalmat és a részleteket külön sorba bontotta, a kész feladatokat pedig külön összecsukott listába rejtette. A P1.5.2–1.5.3 CSS-rétegek egymásra írták a fejléc- és task-szabályokat; egy korábbi 66rem-es belső max-width a teljes oldalt szükségtelenül szűkítette.
+- **Szerződés:** a kör az eredeti verziózott mentési actiont hívja. Teendő/Folyamatban → Kész és Kész → Teendő működik; nincs második közvetlen állapotgomb. A mezővalidáció, hibaüzenet és pending/disabled viselkedés megmaradt. Adatmodell, migráció, szervezeti hozzáférés és meglévő adatok nem változtak.
+- **UI/UX:** kompakt, elválasztott rekordlista; 44px-es billentyűzetes és képernyőolvasóval címkézett jelölő; a státuszt nem csak a szín jelöli; üres és kitöltött activity feed; Liquid Glass csak a munkafelületeken; mobilon külön, függőleges információs ritmus; az áttetszőségcsökkentés és forced-colors szabályai megmaradtak.
+- **Renderelt QA:** a valódi, egyfeladatos/üres naplójú projekt 1440×900 világos és sötét témában, 375×812 mobilon ellenőrizve. Ideiglenes, nem mentő QA fixture-rel ellenőriztem az üres projektet, az 5 vegyes státuszú feladatot és a 2 bejegyzéses naplót; 1440×900 világos/sötét és 812×375 sötét nézetben. Egyik vizsgált méreten sem volt vízszintes túlcsordulás; a körök kattintási területe legalább 44px. A composer megnyitása/megszakítása, a feladatrészlet és Dokumentáció disclosure működött. Az ideiglenes route a QA után törölve; adatbázis-írás nem történt.
+- **Vizuális gate-ek:** 1 Toggle — PASS; 2 Feladatsor — PASS; 3 Fejléc — PASS; 4 Napló — PASS; 5 Összhang — PASS. A vizuális gate-eredmény külön értendő a teljes tesztfuttatás korlátozásától.
+- **Ellenőrzés:** execution-planning + execution-overview 14/14 PASS; érintett ESLint PASS; TypeScript typecheck PASS; production build PASS; docs-check PASS; `git diff --check` PASS. Teljes Vitest: 1656 PASS, 19 SKIP, 1 FAIL. Az egyetlen hiba a jelenlegi munkafában lévő, ettől az oldaltól független `premium-glass-background.test.tsx`: elavult pontrács-leírást vár a Liquid Glass beállítások szövegében.
+- **Korlát:** a DEMO-projektben nincs borítókép, illetve naplófotó, ezért ezeket nem találtam ki; a naplófotó-galériát nem rendereltem. Reduced-transparency és forced-colors böngészőmódot ebben a körben nem ellenőriztem.
+
+## P1.5.3 — Projektmunkatér vizuális finomítása (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A `/kivitelezes/[planId]` felület a képi célhoz igazodó, kerekebb és mélyebb Liquid Glass munkapaneleket kapott. A feladatok soros elrendezésűek, a meglévő leírás megjelenik, a napló üres állapota tömörebb, a kitöltött idővonalat valódi dátummal és tartalommal formázza a route-specifikus stílus. A fotóakció a projektinformációk fejlécéhez került. A zárt alsó panelek három oszlopban maradnak; megnyitáskor teljes szélességre váltanak, hogy a formok ne szoruljanak keskeny oszlopba.
+
+- Meglévő Liquid Glass, felület-, radius-, kontraszt-, brand-, blur-, focus- és spacing-tokeneket használtam. Az új szabályok `.execution-workspace-shell` alá vannak korlátozva; a csökkentett áttetszőség és forced-colors felülírás megmarad.
+- A UI/UX Pro Max ellenőrzött útmutatásából az üres állapotot rövid, cselekvést segítő szöveggel kezeltem; a Liquid Glass irányból a visszafogott, témafüggő felületet, kontrasztos szöveget és látható fókuszt vettem át. A feladatsorok szöveghierarchiája egységes, a mobil sorrend változatlan.
+- **Ellenőrzés:** execution-planning és execution-overview célzott Vitest 12/12 PASS; érintett ESLint PASS; typecheck PASS; production build PASS; docs-check PASS; `git diff --check` PASS.
+- **Renderelt QA:** desktop 1440×900 világos és sötét témában; mobil 375×812 és 812×375 világos témában. A 375 px-es nézetben nem volt vízszintes túlcsordulás. A desktopon mindhárom alsó disclosure nyitva 1056 px szélességet kapott, mobilon 348.75 px-et. A feladat részletei és mindkét composer megnyitása/megszakítása, valamint a fotóakció dokumentációhoz kapcsolása működött. A célzott teszt-fixturek külön fednek le 5 vegyes státuszú feladatot és kitöltött naplóállapotot.
+- **Korlát:** a futó demo rekord üres naplójú és egy feladatos, ezért a sok bejegyzéses állapotot vizuálisan nem adatbázis-rekordon ellenőriztem; a tesztfixture kód-renderelést fed le. Mentés nem történt. Reduced-transparency és forced-colors módot nem rendereltem böngészőben; teljes Vitest-regressziót nem futtattam.
+
+## P1.5.2 — Projektmunkatér referencia szerinti fejlécfinomítása (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A `/kivitelezes/[planId]` fejlécében a projektcím és a meglévő feladat-, státusz- és következő teendő-összefoglaló közös felső sorba került. 900 px alatt egymás alá rendeződik. A meglévő adatútvonal és a többi kivitelezési útvonal változatlan maradt.
+
+- A `GlassPageHeader` és az `ExecutionOverview` a projektmunkatérben egy közös, hozzáférhető fejlécsávban jelenik meg. A stílusok a projektoldalra vannak korlátozva, a szűk képernyőn egyoszloposak, és megtartják a reduced-transparency/forced-colors felülírásokat.
+- **Ellenőrzés:** célzott Vitest 10/10 PASS; érintett ESLint PASS; typecheck PASS; production build PASS; docs-check PASS; `git diff --check` PASS.
+- **Renderelt QA:** 1440×900, 375×812 és 812×375 méret, világos téma; 1440×900 sötét téma. Túlcsordulás egyik méreten sem volt. Feladat- és naplóűrlap megnyitása/megszakítása, feladatrészletek, projekt-disclosure-k és fényképfelület ellenőrizve.
+- **Korlát:** a feladat vagy projekt státuszának mentését nem indítottam el, így a helyi DEMO-adat változatlan maradt. Reduced-transparency és forced-colors böngészőrender nem készült; a célzott CSS-szabályok jelen vannak.
+
+## P1.5.1 — Projektek napi munkaterületének újrarendezése (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A `/kivitelezes/[planId]` oldal már nem egyetlen külső glass keretbe fogja a teljes munkát. A fejléc és a valós feladatösszegzés kompakt maradt; az asztali nézet a Feladatok és Naplóbejegyzések területét külön, azonos súlyú munkafelületként mutatja, mobilon pedig egymás alá rendezi őket. Az „Új feladat” és „Új bejegyzés” a saját szakaszába került. A dokumentáció, projektadatok, kapcsolatok és további projektforrások közös, alárendelt disclosure-rácsot használnak; az összes létező tartalom és művelet megmaradt.
+
+- A feladatok verziózott mentése, státuszai, részletszerkesztése és visszaállítása, a naplóűrlap, fotófeltöltés és kapcsolati műveletek változatlan action- és adatútvonalon futnak. Sémát, domainmodellt, jogosultságot vagy adatot nem módosítottam.
+- A UI/UX Pro Max hierarchia-, reszponzív-, touch- és üresállapot-elvei mellett az Atlassian szkennelhető, következő lépést jelző üresállapot-ajánlását és a Carbon rövid, strukturált, bővíthető listákról szóló irányát használtam; a meglévő TetőPro Liquid Glass és közös `GlassDisclosure` maradt érvényben. Matt Pocock telepített `implement` skillje az egyébként releváns megvalósítási útmutató, de commitot ír elő, amit a projekt szabályai tiltanak, ezért nem aktiváltam.
+- **Ellenőrzés:** célzott execution-planning Vitest 9/9 PASS; érintett ESLint PASS; TypeScript typecheck PASS; production build PASS; docs-check PASS; `git diff --check` PASS.
+- **Renderelt QA:** tényleges helyi projektoldal, 1440×900 desktop, 375×812 mobil, 812×375 fekvő nézet; világos és sötét téma. A három alap-disclosure egy időben nyitva azonos, 346 px-es szélességet tartott a vizsgált desktop nézetben. A feladat- és naplócomposer megnyitása, fókusza és megszakítása működött; 375 px-en nem volt vízszintes túlcsordulás. A megtekintett lokális DEMO-rekordok mentésére nem került sor.
+- **Korlát:** a 0/1/5 feladatos, hosszú című, vegyes státuszú fixture-állapotot teszt-renderelés fedte le; nem írtam tesztadatot az adatbázisba. A reduced-transparency és forced-colors módot külön böngészőben nem tudtam renderelt módban ellenőrizni; a megfelelő közös témaszabályok megmaradtak. A teljes Vitest-regresszió nem futott.
+
+## P1.5 — Projektek munkaterület: disclosure- és naplófelület egységesítése (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A `/kivitelezes/[planId]` munkaterület dokumentáció-, projektadat- és kapcsolt dokumentum-disclosure-i ugyanazt a meglévő `GlassDisclosure` DOM- és felületi mintát használják. A Feladatok kompakt, elválasztott soros listát kapott, a gyors „Kész” művelet, az állapotválasztó és a részletek szerkesztése megmaradt. A Naplóbejegyzések közös szakaszfejléccel, szándékos üres állapottal és időrendi activity-feed ritmussal jelenik meg.
+
+- Az adatmodell, mentési actionök, státuszok, kapcsolatok, fotófeltöltés és szervezeti hozzáférési határok nem változtak.
+- A UI/UX Pro Max shared-surface-, information hierarchy-, compact data list-, empty-state-, touch-target-, focus-visible- és responsive elveit alkalmaztam; a `UI_SURFACE_GUIDELINES.md` szerint nem került új accordion-keretrendszer vagy redundáns belső glass-kártyahalmaz a felületbe.
+- **Ellenőrzés:** célzott execution-planning Vitest 8/8 PASS; teljes `src/features/execution` Vitest-csomag PASS; érintett ESLint, TypeScript typecheck, production build, `node scripts/check-docs.mjs` és `git diff --check` PASS.
+- **Renderelt QA:** Brave/CUA alatt a valódi lokális oldalon desktop sötét témában betöltés, üres naplóállapot, disclosure-k nyitott/zárt állapota, kapcsolt dokumentumok tartalma és az „Új feladat” fókuszált composer ellenőrizve. Mobil viewport-emuláció és light theme ebben a körben nem volt elérhető.
+
+## P0–P3 — Projektek munkaterület és biztonságos projektmag (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A `/kivitelezes/[planId]` egységes Projektek munkaterülete megszünteti az állandó feladatszerkesztőt: egyetlen „+ Új feladat” művelet nyitja a kompozert, a mentett feladatok természetes sorok, a gyors „Kész” és a rugalmas állapotválasztás megmaradt. A kompakt fejléc a feladatösszesítést, az önálló projektállapotot és a meglévő adatokból számított következő teendőt mutatja; a feladatkészültséget nem nevezi teljes projektkészültségnek.
+
+- Az önálló projekthez opcionális ügyfél, helyszín, tervezett kezdés/befejezés és ötlépcsős egyszerű állapot került. A mentés szervezeti ellenőrzéssel, optimistic versionnel és append-only státusztörténettel működik.
+- A régi `projects` és `execution_plans` entitások nem lettek összevonva. A legacy projekthez kötött munkanapló nem kap önálló projekt-életciklust, és az új RPC-vel nem írható át.
+- A Liquid Glass felület a közös panelt tartja meg; a távtartó vonalak és az állandó belső szerkesztőkeretek helyett ritmus, diszkrét felület és 44 px-es mobil vezérlők adják a hierarchiát.
+- **Ellenőrzés:** execution/domain/dashboard célzott Vitest 48/48 PASS; teljes execution csomag 80/80 PASS; execution DB-regresszió 134/134 PASS; TypeScript typecheck, production build, érintett ESLint, docs-check, DB lint és `git diff --check` PASS. A helyi DB lint csak már meglévő, más függvényekhez tartozó warningokat jelzett. A teljes Vitest 1648 PASS / 19 SKIP mellett 4 hibát adott: két terhelésfüggő 5 s timeout külön futtatva PASS, egy korábbi Liquid Glass súgószöveg-elvárás továbbra is FAIL, a Projektek címkéhez tartozó dashboard-elvárás ebben a körben frissült. A teljes ESLint a `scripts/check-docs.mjs` 12 meglévő `no-undef` hibája miatt nem zöld; az érintett TypeScript-fájlok külön lintje zöld. Hosted migráció nem történt.
+
+## P1.4.3.17 — Árajánlatlista közös fejlécfelülete és üres állapota (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** Az Árajánlatok oldalon a fejléc és az önálló ajánlatlista most egy közös Liquid Glass munkafelületet alkot. Az „Önálló ajánlatok” külön cím és elválasztó kikerült; üres állapotban csak a „Nincs még ajánlat létrehozva” szöveg, az egységes ajánlatikon és az „+ Új árajánlat” művelet marad.
+
+- Az ajánlatkártyák és az üres állapot a navigációban használt `arajanlatok.png` ikont használják, így az oldal és az oldalsáv vizuálisan összetartozik.
+- A UI/UX Pro Max shared-surface-, information hierarchy-, empty-state-, icon consistency- és responsive elveit alkalmaztam; a `UI_SURFACE_GUIDELINES.md` szerint nem került újabb belső glass-panel a közös munkafelületbe, a forced-colors fallback megmaradt.
+- **Ellenőrzés:** Árajánlatlista Vitest 1/1 PASS; érintett ESLint, typecheck, production build, docs-check és `git diff --check` PASS.
+- **Korlát:** Browser/CUA screenshot-QA ebben a finomításban nem készült.
+
+## P1.4.3.16 — Ajánlati tétel törlés és szerkesztési ritmus (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** Az ajánlati tételsorokban a törlés a „Szerkesztés” mellé került, kis ikon-only kuka gombként, megtartott accessible névvel és fókuszállapottal. A kibővített szerkesztőből a redundáns törlés-művelet kikerült. A kijelölt egységmagyarázó segédszöveg eltűnt, így nem növeli a sor magasságát.
+
+- A meglévő `lucide-react` `Trash2` ikont használtam, ezért nem került be új képasset vagy ikonrendszer; a releváns ajánlati törlési felületek egységes ikonmintát kaptak.
+- A UI/UX Pro Max icon consistency-, action proximity-, touch-target-, focus-visible- és information-density elveit alkalmaztam; a `UI_SURFACE_GUIDELINES.md` közös felület- és visszafogott belső vezérlőelvei megmaradtak.
+- **Ellenőrzés:** ajánlatszerkesztő Vitest 6/6 PASS, érintett ESLint, typecheck és `git diff --check` PASS.
+- **Korlát:** mobil screenshot-QA ebben a finomításban nem készült.
+
+## P1.4.3.15 — Árajánlat összesítő vízszintes igazítása (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A „Teljes végösszeg” címke és az érték most egy közös, balról induló vízszintes sorban jelenik meg. A nettó/bruttó utótag kikerült az összesítőből, mert az ajánlat tételei jelenleg eltérő árbesorolást is tartalmazhatnak.
+
+- A UI/UX Pro Max alignment-, information hierarchy-, responsive és readable-density elveit alkalmaztam; a `UI_SURFACE_GUIDELINES.md` közös felület- és spacing-szabályai változatlanok maradtak.
+- **Ellenőrzés:** az érintett ajánlatszerkesztő teszt frissítve; a korábbi célzott Vitest, ESLint, typecheck, build, docs-check és `git diff --check` eredmények megmaradtak.
+- **Korlát:** mobil screenshot-QA ebben a kis finomításban nem készült.
+
+## P1.4.3.14 — Árajánlat PDF-nyomtatás és összesítő egyszerűsítése (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** Az Árajánlat fejlécében a PDF-előnézet mellé 44 px-es, fókuszolható nyomtatóikon-gomb került; mentetlen módosításnál ugyanazt a mentett-revíziós figyelmeztetést használja, majd az előnézetből indítja a böngésző nyomtatását. Az alsó műveletsorban eltűnt az „Opcionális” jelvény, a fő művelet felirata „Mentés” lett.
+
+- Az összesítő most „Teljes végösszeg” címet és az összeg után „nettó” vagy „bruttó” jelölést mutat; a korábbi szerveres magyarázó szöveg kikerült, a hiányzó/vegyes ár állapotát továbbra is a tétel- és mentési állapotok jelzik.
+- A UI/UX Pro Max action hierarchy-, icon consistency-, focus-visible-, touch-target-, responsive és state-feedback elveit alkalmaztam. A `UI_SURFACE_GUIDELINES.md` shared-surface, visszafogott Liquid Glass, spacing és accessibility elvei szerint a fejléc nem kapott új külső keretet; a nyomtató a meglévő másodlagos gombnyelvet örökli.
+- **Ellenőrzés:** célzott ajánlatszerkesztő/execution Vitest 81/81 PASS; érintett ESLint, TypeScript typecheck, production build, docs-check és `git diff --check` PASS. A működő Codex Browserben a renderelt ajánlati oldalon a PDF-előnézet, a „PDF nyomtatása”, a „Teljes végösszeg … Ft nettó”, a „Munkanaplóhoz csatolás” és a „Mentés” együttesen ellenőrizhető volt.
+- **Korlát:** mobil light-dark screenshot-QA ebben a körben nem készült; a böngésző PDF-viewerének `window.print()` támogatása környezetfüggő, ezért a nyomtatási műveletet a megnyitott PDF ablak fókuszálásával és natív print hívással kezeljük.
+
+## P1.4.3.13 — Egyetlen Szövegméret csúszka (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A méretezési rendszerből teljesen kikerült a UI-, térköz- és rajzméret opció. A profil/Beállítások felületen és a gyors méretezőben most csak egy „Szövegméret” csúszka maradt, generikus „Méretezés” cím nélkül.
+
+- A scaling preference schema, parser, persistence és provider most csak a `text` skálát kezeli; a korábbi opciók verzióváltással migrálódnak és nem kerülnek vissza a localStorage-ba. A nem szöveges CSS skálák fix, korábbi alapértéken maradnak a vizuális regresszió elkerülésére.
+- A UI/UX Pro Max single-purpose control-, progressive disclosure-, label visibility-, keyboard/focus- és mobile-first elveit alkalmaztam; a `UI_SURFACE_GUIDELINES.md` kötelező előzetes olvasása most dokumentált munkafolyamat-előfeltétel.
+- **Ellenőrzés:** scaling, AccountHub és Dashboard settings célzott tesztek, érintett ESLint, typecheck, production build, docs-check és `git diff --check` PASS.
+- **Korlát:** Browser/CUA renderelt screenshot-QA ebben a körben nem volt elérhető.
+
+## P1.4.3.12 — Méretezések kiemelése a Beállítások menübe (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A Méretezések vezérlők kikerültek a külön belső Beállítások-disclosure-ból, és közvetlenül a profil/Beállítások felületen jelennek meg a „Beállítások” művelet fölött. Mobilon ugyanez a blokk a teljes Beállítások-felület tetején érhető el.
+
+- A UI/UX Pro Max information hierarchy-, progressive disclosure-, touch-target- és mobile-first elveit alkalmaztam; a `UI_SURFACE_GUIDELINES.md` szerint nem maradt redundáns, egymásba ágyazott settings-surface.
+- A scaling state és a mentés változatlan; csak a vezérlők prezentációs helye változott.
+- **Ellenőrzés:** érintett AccountHub és Dashboard settings tesztek, ESLint, typecheck, production build, docs-check és `git diff --check` PASS.
+- **Korlát:** Browser/CUA renderelt screenshot-QA ebben a körben nem volt elérhető.
+
+## P1.4.3.11 — Navigációs fejlécek egyszerűsítése (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A Kalkulátorok munkaterületéről kikerült az „Új kalkuláció” gomb, mert a fejlécben redundáns, magas kockázatú globális reset-műveletként jelent meg. A Munkanaplók, Anyaglisták és Anyagkezelő oldalak közös fejlécéből eltűntek a cím alatti apró context-sorok; az elsődleges címek és az oldalhoz tartozó műveletek megmaradtak.
+
+- A UI/UX Pro Max vizuális hierarchia-, information density- és primary-action elveit alkalmaztam; a `UI_SURFACE_GUIDELINES.md` közös, kompakt page-header felületét megtartottam, új keret vagy token nélkül.
+- A kalkulátor reset-logikájának elérhetetlen, már nem használt UI-ágát eltávolítottam; a mentés, betöltés, tervrajz- és adatvesztés-védelmi folyamatok változatlanok.
+- **Ellenőrzés:** érintett Vitest 36/36 PASS, ESLint, typecheck, production build, docs-check és `git diff --check` PASS.
+- **Korlát:** Browser/CUA renderelt screenshot-QA ebben a körben nem volt elérhető.
+
+## P1.4.3.10 — Mobil beállítási felület és ikon cache-biztosítás (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A Beállítások ikon új, cache-biztos asset URL-t kapott, így a megadott gear ténylegesen lecseréli a korábbi böngészőben tárolt képet. Mobilon a korábbi lebegő profilmenü helyett közvetlen, teljes felületű Beállítások nézet nyílik meg; a Méretezések blokk a nézet első vezérlője lett.
+
+- A UI/UX Pro Max mobile-first, information hierarchy, touch-target, focus-visible és state-feedback elveit alkalmaztam; a `UI_SURFACE_GUIDELINES.md` szerint nincs új egymásba ágyazott glass-kártya, csak a mobil teljes felület kapott egységes felületkezelést.
+- A desktop AccountHub profilmenüje és a meglévő beállítási adatfolyam változatlan; mobilon csak a prezentációs útvonal vált közvetlen settings-surface-re.
+- **Korlát:** Browser/CUA renderelt screenshot-QA ebben a körben nem volt elérhető.
+
+## P1.4.3.9 — Beállítások ikon és mobil trigger finomítása (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A Beállítások navigáció most a megadott, TetőPro ikonnyelvéhez illeszkedő gear assetet használja. Hover és nyitott állapotban ugyanazt a visszafogott sárgás Liquid Glass háttérlogikát kapja, mint az aktív oldalsáv-elem; mobilon csak az ikon marad látható, a gomb accessible neve változatlan.
+
+- A UI/UX Pro Max ikonkonzisztencia-, state-feedback-, touch-target-, fókusz- és mobile-first elveit alkalmaztam; a `UI_SURFACE_GUIDELINES.md` shared-surface és theme-aware állapotkezelése megmaradt.
+- Az AccountHub adat- és panel-logikája változatlan; csak az asset és a navigációs trigger prezentációja módosult.
+- **Korlát:** Browser/CUA renderelt screenshot-QA ebben a körben nem volt elérhető.
+
+## P1.4.3.8 — Beállítások navigációs ikon egységesítése (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A Beállítások triggerből kikerült a jobb oldali lenyíló ikon és a külön Liquid Glass app-buborék. A legutóbbi fogaskerék asset most közvetlenül, a többi navigációs ikonhoz igazodó képként jelenik meg.
+
+- A UI/UX Pro Max ikonkonzisztencia-, vizuális hierarchia-, fókusz- és mobil-first elveit alkalmaztam; a `UI_SURFACE_GUIDELINES.md` közös navigációs nyelvét megtartottam, új keret vagy token nélkül.
+- Az AccountHub komponens, a kapcsolódó CSS és a regressziós teszt frissült; a profilpanel és a beállítási logika változatlan.
+- **Korlát:** Browser/CUA renderelt screenshot-QA ebben a körben nem volt elérhető.
+
+## P1.4.3.7 — Beállítások ikon és disclosure-ritmus finomítása (2026-11-06)
+
+**Státusz: PASS WITH LIMITATIONS.** A Beállítások ikonból eltűnt a fehér háttérkocka: önálló, nagyobb, áttetsző gear ikon került a lekerekített Liquid Glass app-buborékba. A beállítási disclosure-elemek külső, redundáns kerete és az ebből adódó spacer-vonal megszűnt; a kattintható összefoglaló saját fókusz- és állapotkerete megmaradt.
+
+- A UI/UX Pro Max vizuális hierarchia-, ikonkonzisztencia-, 44 px-es érintési cél-, focus-visible-, reduced-transparency- és forced-colors elveit alkalmaztam. A `UI_SURFACE_GUIDELINES.md` szerint a panel egyetlen közös Liquid Glass felület maradt, a belső beállítások nem kaptak újabb egymásba ágyazott keretet.
+- A generált gear asset a meglévő TetőPro világosszürke–sárga 3D ikonnyelvhez igazodik; a fogaskerék buboréka nem kör alakú, hanem a rendszer lekerekített control-radiusát használja.
+- **Ellenőrzés:** AccountHub, mobil navigáció és dashboard settings célzott tesztek 9/9 PASS; érintett ESLint, typecheck, production build, docs-check és `git diff --check` PASS.
+- **Korlát:** Browser/CUA renderelt screenshot-QA ebben a körben nem volt elérhető, ezért a friss mobil light/dark vizuális mátrix nincs újraigazolva.
+
 ## P1.4.3.6 — Mobil Menü és Beállítások navigáció (2026-11-05)
 
 **Státusz: PASS WITH LIMITATIONS.** A profil-trigger látható felirata és accessible neve most „Beállítások”; a korábbi „Szia!” nem jelenik meg a navigációban. Mobilon, a Beállítások gomb bal oldalán külön „Menü” trigger nyitja meg a teljes alkalmazásnavigációt. A menü Escape-re bezár, külső kattintásra visszahúzódik, és bezárás után visszaadja a fókuszt a triggernek. A beállítási panelből kikerült a redundáns belső glass-keret; a profil-popover marad az egyetlen közös felület.

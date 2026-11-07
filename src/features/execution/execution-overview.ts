@@ -17,6 +17,7 @@ export type ExecutionOverviewModel = {
   recentActivity: ExecutionTimelineItem[];
   recentPhotos: ExecutionPlanRecord["photos"];
   attentionItems: ExecutionAttentionItem[];
+  nextTask: ExecutionTaskRecord | null;
 };
 
 function isOpen(task: ExecutionTaskRecord) {
@@ -25,6 +26,13 @@ function isOpen(task: ExecutionTaskRecord) {
 
 export function buildExecutionOverview(plan: ExecutionPlanRecord, timeline: ExecutionTimelineItem[], today: string): ExecutionOverviewModel {
   const completedTasks = plan.tasks.filter((task) => task.status === "done").length;
+  const nextTask = [...plan.tasks.filter(isOpen)].sort((first, second) => {
+    const firstOverdue = Boolean(first.dueDate && first.dueDate < today);
+    const secondOverdue = Boolean(second.dueDate && second.dueDate < today);
+    if (firstOverdue !== secondOverdue) return firstOverdue ? -1 : 1;
+    if (first.status !== second.status) return first.status === "in_progress" ? -1 : second.status === "in_progress" ? 1 : 0;
+    return (first.dueDate ?? "9999-12-31").localeCompare(second.dueDate ?? "9999-12-31") || first.sortOrder - second.sortOrder || first.id.localeCompare(second.id);
+  })[0] ?? null;
   const attentionItems: ExecutionAttentionItem[] = plan.tasks
     .filter(isOpen)
     .map((task) => ({
@@ -45,5 +53,6 @@ export function buildExecutionOverview(plan: ExecutionPlanRecord, timeline: Exec
     recentActivity: [...timeline].sort((first, second) => `${second.date}|${second.recordedAt}|${second.id}`.localeCompare(`${first.date}|${first.recordedAt}|${first.id}`)).slice(0, 6),
     recentPhotos: plan.photos.slice(0, 6),
     attentionItems: attentionItems.slice(0, 8),
+    nextTask,
   };
 }

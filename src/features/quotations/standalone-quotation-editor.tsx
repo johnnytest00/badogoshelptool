@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Calculator, Plus, Trash2 } from "lucide-react";
+import { Calculator, Plus, Printer, Trash2 } from "lucide-react";
 import { QuotationSaveBar, quotationSaveState } from "./quotation-save-bar";
 import { decimalToScaled, lineTotal, scaledToDecimal } from "@/domain/quotations/money";
 import { validateStandaloneLines } from "@/domain/quotations/standalone";
@@ -190,8 +190,6 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
   }, BigInt(0)), [lines]);
   const currentPriceClasses = new Set(lines.map((line) => line.priceClass));
   const mixedPriceClasses = currentPriceClasses.size > 1;
-  const missingPriceCount = lines.filter((line) => !line.unitPrice.trim()).length;
-  const currentPriceBasisLabel = mixedPriceClasses ? "vegyes árbesorolás" : missingPriceCount ? `részleges ${[...currentPriceClasses][0] === "gross" ? "bruttó" : "nettó"} HUF` : [...currentPriceClasses][0] === "gross" ? "bruttó HUF" : "nettó HUF";
   const readinessDocument = document;
   const savedIssuerForReadiness: IssuerDocumentProfile | null = savedDocument.issuer ? {
     businessName: textValue(savedDocument.issuer.businessName) || null,
@@ -376,12 +374,19 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
       setServerReadiness(checked.data);
     });
   };
+  const printPdf = () => {
+    if (!pdfUrl || typeof window === "undefined") return;
+    const printWindow = window.open(pdfUrl, "_blank");
+    if (!printWindow) return;
+    printWindow.addEventListener("load", () => { printWindow.focus(); printWindow.print(); }, { once: true });
+  };
 
   return <section className="quotation-editor standalone-quotation-editor">
     {showBackNavigation && <BackNavigation href={`/ajanlatok?organization=${organizationId}`} label="Vissza az ajánlatokhoz" />}
     {(quotationId || historical || pdfUrl) && <div className="section-heading standalone-quotation-header glass-bubble"><div className="standalone-quotation-title"><h2>Árajánlat</h2></div><div className="standalone-header-actions">{historical && <Link className="secondary-button" href={latestUrl}>Legfrissebb revízió · v{version}</Link>}{pdfUrl && <div className="standalone-pdf-actions">
       {dirty || issuerDirty ? <button className="secondary-button" type="button" disabled={pending} onClick={() => setPdfPromptOpen(true)}>PDF-előnézet</button>
         : <a className="secondary-button" href={pdfUrl} target="_blank" rel="noreferrer">PDF-előnézet</a>}
+      <button className="secondary-button standalone-pdf-print" type="button" aria-label="PDF nyomtatása" title="PDF nyomtatása" disabled={pending} onClick={dirty || issuerDirty ? () => setPdfPromptOpen(true) : printPdf}><Printer aria-hidden="true" size={18} /></button>
       {pdfPromptOpen && <section className="form-message" aria-labelledby="standalone-pdf-unsaved-title">
         <strong id="standalone-pdf-unsaved-title">Mentetlen módosítások</strong>
         <p>Az előnézet a mentett v{revisions.find((revision) => revision.id === pdfRevisionId)?.revisionNumber ?? currentRevision?.revision_number ?? version} revízióból készül. A helyi módosításokat nem tartalmazza.</p>
@@ -389,6 +394,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
         <div className="quotation-add-actions">
           <button className="secondary-button" type="button" disabled={pending} onClick={() => { setPdfPromptOpen(false); save(true); }}>Mentés előbb</button>
           <a className="primary-button" href={pdfUrl} target="_blank" rel="noreferrer" onClick={() => setPdfPromptOpen(false)}>Utolsó mentett előnézet megnyitása</a>
+          <button className="secondary-button" type="button" onClick={() => { setPdfPromptOpen(false); printPdf(); }}>Utolsó mentett PDF nyomtatása</button>
           <button className="text-button" type="button" onClick={() => setPdfPromptOpen(false)}>Mégse</button>
         </div>
       </section>}
@@ -434,6 +440,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
               <label className="quotation-compact-field"><span>{linePriceLabel}</span><input aria-label={`${line.description || "Tétel"} ${linePriceLabel.toLowerCase()}`} className={line.unitPrice.trim() ? undefined : "is-missing"} inputMode="decimal" value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value, priceId: "", priceProvenance: event.target.value.trim() ? "user_entered" : "missing" })} /></label>
               <output className={`quotation-compact-total${line.unitPrice.trim() ? "" : " is-missing"}`}><span>{lineTotalLabel}</span><strong>{lineAmount}</strong></output>
               <button className="secondary-button quotation-edit-toggle" type="button" aria-expanded={Boolean(expandedLineIds[line.localId])} aria-controls={editId} onClick={() => setExpandedLineIds((current) => ({ ...current, [line.localId]: !current[line.localId] }))}>{expandedLineIds[line.localId] ? "Bezárás" : "Szerkesztés"}</button>
+              <button className="icon-button quotation-line-remove" type="button" aria-label={`${line.description || "Tétel"} törlése`} title="Tétel törlése" onClick={() => void removeLine(line)}><Trash2 aria-hidden="true" size={17} /></button>
             </div>
             {expandedLineIds[line.localId] && <div id={editId} className="quotation-line-edit">
               <div className="quotation-line-grid quotation-advanced-grid">
@@ -454,8 +461,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
                   }} onSelect={(variantId) => { if (variantId) void resolvePrice(index, variantId, "", true); }} /></div>
                 </>}
                 <label htmlFor={`${line.localId}-description`}>Megnevezés<input id={`${line.localId}-description`} maxLength={240} value={line.description} onChange={(event) => update(index, { description: event.target.value })} /></label>
-                <label htmlFor={`${line.localId}-unit`}>Egység<input id={`${line.localId}-unit`} maxLength={40} value={line.variantId ? unitLabel : line.unit} readOnly={Boolean(line.variantId)} aria-describedby={`${line.localId}-unit-help`} onChange={(event) => update(index, { unit: event.target.value, priceId: "", priceProvenance: line.priceId ? "catalog_snapshot" : line.priceProvenance })} /></label>
-                <small id={`${line.localId}-unit-help`}>{line.variantId ? "Az egységet a katalógusváltozat határozza meg." : "Kézi tételnél az egység szerkeszthető."}</small>
+                <label htmlFor={`${line.localId}-unit`}>Egység<input id={`${line.localId}-unit`} maxLength={40} value={line.variantId ? unitLabel : line.unit} readOnly={Boolean(line.variantId)} onChange={(event) => update(index, { unit: event.target.value, priceId: "", priceProvenance: line.priceId ? "catalog_snapshot" : line.priceProvenance })} /></label>
                 {line.type === "MATERIAL" && selected && <label htmlFor={`${line.localId}-price-source`}>Ajánlati árforrás<select id={`${line.localId}-price-source`} value={line.priceId} onChange={(event) => { void resolvePrice(index, line.variantId, event.target.value); }}><option value="">Kézi ajánlati ár</option>{priceChoices(selected.variant.priceOptions, selected.variant.purchasingUnit, line.priceId).map((price) => <option key={price.id} value={price.id} disabled={price.priceKind !== "net"}>{priceChoiceLabel(price)}{price.priceKind !== "net" ? " (itt nem használható)" : ""}{price.id === line.priceId && !selectablePrices(selected.variant.priceOptions, selected.variant.purchasingUnit).some((c) => c.id === price.id) ? " · korábbi" : ""}</option>)}</select></label>}
                 <div className="quotation-price-provenance"><strong>{priceOrigin}</strong>{selected && <small>A katalógusváltozat eredete: {provenanceLabel(selected.variant.provenance)}.</small>}{knownPrices.length === 1 && !line.priceId && <small>Elérhető nettó katalógusár: {priceChoiceLabel(knownPrices[0]!)} · {knownPrices[0]!.effectiveDate}.</small>}{knownPrices.length > 1 && !line.priceId && <small>{knownPrices.length} beszállítói ár érhető el; válaszd ki az árforrást (nincs automatikus választás).</small>}</div>
                 <label className="quotation-notes-field" htmlFor={`${line.localId}-notes`}>Megjegyzés<textarea id={`${line.localId}-notes`} maxLength={500} rows={2} value={line.notes} onChange={(event) => update(index, { notes: event.target.value })} /></label>
@@ -463,7 +469,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
               {line.laborSource && <div className="quotation-source-line quotation-labor-source"><strong>Munkadíj-szabály forrása</strong>{line.laborSource.rateSnapshot ? <small>{line.laborSource.rateSnapshot.name} · {line.laborSource.rateSnapshot.rateAmount} Ft/{line.laborSource.sourceUnit} · {line.laborSource.rateSnapshot.priceClass === "net" ? "nettó" : "bruttó"} · forrás: {line.laborSource.sourceLabel}, {line.laborSource.sourceQuantity} {line.laborSource.sourceUnit} (felmérés V{line.laborSource.surveyVersion})</small> : <small>Mentés után jelenik meg a rögzített szabály- és forráspillanatkép.</small>}{line.laborSource.rateSnapshot && (!sameQuantity(line.quantity, quantityAtSix(line.laborSource.sourceQuantity ?? line.quantity)) || line.unitPrice !== line.laborSource.rateSnapshot.rateAmount) && <small className="quotation-labor-edited">A mennyiség vagy az ár a szabálytól kézzel eltér; a forrás megmarad.</small>}</div>}
               {line.sourceMaterialItemId && <div className="quotation-source-line"><strong>Változtathatatlan forrástétel</strong><code>{line.sourceMaterialItemId}</code>{materialSource && <small>{materialSource.listName} · V{materialSource.revisionNumber} · anyaglista-revízió {materialSource.materialRevisionId}</small>}</div>}
               {line.calculationSourceKey && (() => { const candidate = candidateByKey.get(line.calculationSourceKey); return <div className="quotation-source-line"><strong>Kalkulációs forrás{calculationSource ? ` · ${calculationSource.calculationName} V${calculationSource.revisionNumber}` : ""}</strong>{candidate ? <small>{candidate.label} · eredeti: {new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 6 }).format(candidate.quantity)} {candidate.unit}{line.unit !== candidate.unit ? ` · az egység eltér a forrástól (${candidate.unit}); ellenőrizd a mennyiséget` : quotationQuantity(candidate.quantity) !== line.quantity.replace(",", ".") ? " · a mennyiséget módosítottad; az eredeti érték forrásként megmarad" : ""}</small> : <small role="alert">A forrásmennyiség nem található a kalkulációs revízióban.</small>}</div>; })()}
-              <div className="standalone-line-actions"><button className="text-button" type="button" disabled={index === 0} aria-label={`${line.description || "Tétel"} mozgatása fel`} onClick={() => moveLine(index, -1)}>↑ Fel</button><button className="text-button" type="button" disabled={index === lines.length - 1} aria-label={`${line.description || "Tétel"} mozgatása le`} onClick={() => moveLine(index, 1)}>↓ Le</button><button className="text-button" type="button" aria-label={`${line.description || "Tétel"} törlése`} onClick={() => void removeLine(line)}>Tétel törlése</button></div>
+              <div className="standalone-line-actions"><button className="text-button" type="button" disabled={index === 0} aria-label={`${line.description || "Tétel"} mozgatása fel`} onClick={() => moveLine(index, -1)}>↑ Fel</button><button className="text-button" type="button" disabled={index === lines.length - 1} aria-label={`${line.description || "Tétel"} mozgatása le`} onClick={() => moveLine(index, 1)}>↓ Le</button></div>
             </div>}
           </article>;
         })}
@@ -496,7 +502,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
           {!historical && <button className="secondary-button" type="button" disabled={pending} onClick={checkReadiness}>{pending ? "Ellenőrzés folyamatban…" : "Dokumentumadatok szerveroldali ellenőrzése"}</button>}{serverReadiness && <small role="status">Az ellenőrzés hitelesített szerveroldali adatokkal lefutott.</small>}
         </div>
       </details>
-      <div className="quotation-summary"><div className="quotation-current-total"><span>{historical ? `Történeti revízió · ${savedAmountLabel}` : `Jelenlegi piszkozat becslése · ${currentPriceBasisLabel}`}</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : mixedPriceClasses ? "Árbesorolás ellenőrzése" : money(scaledToDecimal(localEstimate, 2))}</strong><small>{historical ? "Változtathatatlan ajánlati pillanatkép összege." : mixedPriceClasses ? "Nettó és bruttó tételek nem keverhetők; a mentés blokkolva marad." : missingPriceCount ? `${missingPriceCount} tétel egységára hiányzik; ez a részösszeg csak a megadott árakat tartalmazza, nem kész ajánlat.` : "A szerver mentéskor újraszámítja; nem végleges ajánlat."}</small></div>{!historical && dirty && savedSubtotal !== null && <div className="quotation-saved-total"><span>Legutóbb mentve · v{currentRevision?.revision_number ?? version} · {savedAmountLabel}</span><strong>{money(String(savedSubtotal))}</strong></div>}</div>
+      <div className="quotation-summary"><div className="quotation-current-total"><span>Teljes végösszeg</span><strong>{historical ? money(activeRevision?.subtotal ?? null) : mixedPriceClasses ? "Árbesorolás ellenőrzése" : money(scaledToDecimal(localEstimate, 2))}</strong></div>{!historical && dirty && savedSubtotal !== null && <div className="quotation-saved-total"><span>Legutóbb mentve · v{currentRevision?.revision_number ?? version} · {savedAmountLabel}</span><strong>{money(String(savedSubtotal))}</strong></div>}</div>
     </fieldset>
     {(materialSource || calculationSource) && <details className="quotation-sources" aria-labelledby="quotation-sources-title"><summary id="quotation-sources-title" className="quotation-sources-summary">Felhasznált források</summary><div className="quotation-sources-content">
     {materialSource && <details className="quotation-material-source quotation-source-disclosure" aria-label="Anyaglista-forrás">
@@ -527,7 +533,7 @@ export function StandaloneQuotationEditor({ userId, organizationId, quotationId,
     </dialog>
     {!historical && !result.ok && result.error && <div className="form-message is-error" role="alert">{result.error}{result.code === "CONFLICT" && quotationId && <button type="button" className="secondary-button" onClick={async () => { const accepted = await requestConfirmation({ title: "Helyi változat elvetése", message: "A legfrissebb revízió megnyitása elveti ezt a helyi módosításcsomagot.", cancelLabel: "Maradok", actions: [{ label: "Legfrissebb revízió megnyitása", tone: "danger", run: () => undefined }] }); if (accepted) { discardRecovery(); router.replace(latestUrl); } }}>Legfrissebb revízió megnyitása</button>}</div>}
     {!historical && <div className="quotation-bottom-actions">
-      <QuotationSaveBar state={quotationSaveState({ pending, error: !result.ok && Boolean(result.error), dirty, hasRevision: Boolean(currentRevisionId) || result.ok })} labels={{ saving: "Mentés folyamatban…", error: "A mentés nem sikerült", unsaved: "Nem mentett módosítások", saved: `Mentve · v${result.ok ? result.data.revision_number : currentRevision?.revision_number ?? version}`, new: "Még nincs mentve" }} disabled={pending || !recoveryReady} onSave={() => save()} previousRevisions={quotationId && revisions.some((revision) => revision.id !== currentRevisionId) && <nav className="quotation-savebar-revisions" aria-label="Korábbi ajánlati verziók">{[...revisions].filter((revision) => revision.id !== currentRevisionId).sort((left, right) => left.revisionNumber - right.revisionNumber).map((revision) => <Link key={revision.id} className="secondary-button" href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`}>v{revision.revisionNumber}</Link>)}</nav>} beforeSave={quotationId && <ExecutionPlanLinkControl organizationId={organizationId} kind="quotation" documentId={quotationId} links={planLinks} plans={plans} compactHandoff linkBlockedReason={dirty || issuerDirty ? "Mentetlen módosítás van. Mentsd el előbb, hogy a legfrissebb ajánlati változat kapcsolódjon." : pending ? "A mentés folyamatban van." : undefined} />} />
+      <QuotationSaveBar state={quotationSaveState({ pending, error: !result.ok && Boolean(result.error), dirty, hasRevision: Boolean(currentRevisionId) || result.ok })} labels={{ saving: "Mentés folyamatban…", error: "A mentés nem sikerült", unsaved: "Nem mentett módosítások", saved: `Mentve · v${result.ok ? result.data.revision_number : currentRevision?.revision_number ?? version}`, new: "Még nincs mentve" }} disabled={pending || !recoveryReady} onSave={() => save()} previousRevisions={quotationId && revisions.some((revision) => revision.id !== currentRevisionId) && <nav className="quotation-savebar-revisions" aria-label="Korábbi ajánlati verziók">{[...revisions].filter((revision) => revision.id !== currentRevisionId).sort((left, right) => left.revisionNumber - right.revisionNumber).map((revision) => <Link key={revision.id} className="secondary-button" href={`/ajanlatok/${quotationId}?organization=${organizationId}&revision=${revision.id}`}>v{revision.revisionNumber}</Link>)}</nav>} beforeSave={quotationId && <ExecutionPlanLinkControl organizationId={organizationId} kind="quotation" documentId={quotationId} links={planLinks} plans={plans} compactHandoff showOptionalBadge={false} linkBlockedReason={dirty || issuerDirty ? "Mentetlen módosítás van. Mentsd el előbb, hogy a legfrissebb ajánlati változat kapcsolódjon." : pending ? "A mentés folyamatban van." : undefined} />} />
     </div>}
   </section>;
 }

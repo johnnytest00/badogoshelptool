@@ -11,7 +11,6 @@ import { getThemeChromeColor, themeStorageKey } from "@/lib/theme";
 import { scalingStorageKey } from "@/features/preferences/scaling";
 import { LiquidGlassProvider } from "@/features/preferences/liquid-glass-provider";
 import { liquidGlassStorageKey } from "@/features/preferences/liquid-glass";
-import { mobileNavigationStorageKey } from "@/features/preferences/mobile-navigation";
 import "@fontsource/noto-sans/400.css";
 import "@fontsource/noto-sans/500.css";
 import "@fontsource/noto-sans/600.css";
@@ -21,8 +20,6 @@ import "./globals.css";
 const appearanceBootstrap = `(() => {
   try {
     const root = document.documentElement;
-    if (localStorage.getItem('${mobileNavigationStorageKey}') === 'true') root.dataset.mobileNav = 'visible';
-    else delete root.dataset.mobileNav;
     const storedTheme = localStorage.getItem('${themeStorageKey}');
     const mode = ['system', 'light', 'dark'].includes(storedTheme) ? storedTheme : 'system';
     const dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -35,9 +32,9 @@ const appearanceBootstrap = `(() => {
       return Math.min(max, Math.max(min, normalized));
     };
     root.style.setProperty('--tp-text-scale', String(scale(storedScale.text, 1, 0.8, 2)));
-    root.style.setProperty('--tp-ui-scale', String(scale(storedScale.ui, 1.15, 0.8, 1.5)));
-    root.style.setProperty('--tp-drawing-scale', String(scale(storedScale.drawing, 1, 0.5, 2.5)));
-    root.style.setProperty('--tp-spacing-scale', String(scale(storedScale.spacing, 1, 0.75, 1.5)));
+    root.style.setProperty('--tp-ui-scale', '1.15');
+    root.style.setProperty('--tp-drawing-scale', '1');
+    root.style.setProperty('--tp-spacing-scale', '1');
     const storedGlass = JSON.parse(localStorage.getItem('${liquidGlassStorageKey}') || '{}');
     const glassVersion = storedGlass.version;
     const supportedGlassVersion = glassVersion === 1 || glassVersion === 2;

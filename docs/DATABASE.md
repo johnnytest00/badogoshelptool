@@ -496,9 +496,17 @@ szerződést, számlát vagy gyártási rendelést nem hoz létre.
 Az `execution_plans` és `execution_tasks` az ajánlatoktól különálló, szervezeti és projekt-szinten izolált operatív nyilvántartás. Az ajánlati forrás opcionális; ha megadott, a migráció triggerrel ellenőrzi, hogy ugyanahhoz a projekthez tartozó, `accepted` állapotú ajánlat `finalized_revision_id` értéke legyen. A forrás-referencia később immutable.
 
 Mindkét táblán szervezeti RLS van. A létrehozás és feladatmentés RPC-n keresztül, szerveroldali tagság-ellenőrzéssel és feladat-verzióval történik. A `request_key` egyedi terven/feladatterven belül, így ismételt hálózati beküldés nem hoz létre duplikátumot. Több terv hivatkozhat ugyanarra az elfogadott ajánlatra.
+
+## F9.1.1 — Önálló projektmenedzsment-mag
+
+A `20261106042605_execution_project_management_core.sql` az önálló, `project_id is null` kivitelezési rekordokhoz külön, egyszerű projektállapotot (`planned`, `active`, `paused`, `completed`, `archived`), opcionális ügyfelet, helyszínt és tervezett dátumtartományt ad. Meglévő rekordhoz a migráció nem talál ki státuszt; új önálló projekt `planned` állapotból indul. A régi `projects` rekordhoz kapcsolt munkanaplók nem kapják meg ezt az életciklust, és az új író RPC sem módosíthatja őket.
+
+Az `update_execution_project` SECURITY INVOKER RPC szervezeti tagságot, tartományokat és expected versiont ellenőriz, majd egy tranzakcióban növeli a terv verzióját. A státuszváltás append-only `execution_plan_status_events` sorba kerül; az authenticated kliens ezt csak olvashatja, közvetlenül nem írhatja. Ez nem egyesíti a legacy `projects` és az operatív `execution_plans` entitást, és nem módosít revíziót, ajánlatot vagy kalkulációt.
 # F9.2 — Munkanapló és feladatesemények
 
 Az `execution_journal_entries` append-only munkanapló-bejegyzéseket tárolja. A `work_date` PostgreSQL `date`, ezért különválik a `created_at` rögzítési időpontjától; opcionális `task_id` csak ugyanahhoz a tervhez tartozhat. A `correction_of_entry_id` explicit, azonos terven belüli korrekciós hivatkozást biztosít, az eredeti bejegyzés módosítása nélkül.
+
+A `20261107010000_execution_photo_only_journal_entries.sql` migráció engedi az üres `content` értéket fotós bejegyzésekhez. Az alkalmazás mentési határa szöveget vagy legalább egy képet követel meg; a fotó az új bejegyzéshez kapcsolódik. A Dokumentáció a meglévő képekből állítja össze a PDF-et, feltöltést nem végez.
 
 Az `execution_task_events` eseményeit az `execution_tasks` státuszfrissítés utáni trigger írja. A trigger hibája a teljes státuszfrissítést visszagörgeti. Csak tényleges státuszváltozás rögzül; közvetlen authenticated INSERT/UPDATE/DELETE nincs engedélyezve. A napló és eseménytörténet szervezeti RLS-sel, terv/feladat composite FK-kkal, idővonal-indexekkel és 100-as lekérdezési limittel működik.
 
